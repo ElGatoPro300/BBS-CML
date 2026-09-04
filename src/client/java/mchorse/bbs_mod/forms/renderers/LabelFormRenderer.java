@@ -27,12 +27,15 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
@@ -40,9 +43,8 @@ import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 
@@ -162,9 +164,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             int glowArgb = toSafeTextArgb(glowColor);
             int glowY = (y2 + y1) / 2 - h / 2;
 
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-            // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+            RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
             for (String s : wrap)
             {
@@ -173,8 +175,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 glowY += lineHeight;
             }
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
         }
     }
 
@@ -230,8 +232,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (shadowPass)
         {
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
         }
 
         if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
@@ -242,15 +244,16 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
 
-        GlStateManager._disableCull();
+        RenderSystem.disableCull();
 
         if (context.isPicking())
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
                 /* startDrawing may re-enable culling; keep both sides of the label visible. */
-                GlStateManager._disableCull();
-                // this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                RenderSystem.disableCull();
+                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
             });
 
             light = 0;
@@ -259,9 +262,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                GlStateManager._disableCull();
-                GlStateManager._enableBlend();
-                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+                RenderSystem.disableCull();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
             });
         }
 
@@ -276,14 +279,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
          * flush so the last label keeps both faces when WorldRenderer draws later. */
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> GlStateManager._disableCull());
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
         this.flushLabelConsumers(consumers);
 
         CustomVertexConsumerProvider.clearRunnables();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        RenderSystem.defaultBlendFunc();
 
-        GlStateManager._enableDepthTest();
-        GlStateManager._enableCull();
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
 
         context.stack.pop();
     }
@@ -295,7 +298,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
      */
     private void flushLabelConsumers(CustomVertexConsumerProvider consumers)
     {
-        GlStateManager._disableCull();
+        RenderSystem.disableCull();
         consumers.draw();
     }
 
@@ -305,16 +308,17 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         {
             return (layer) ->
             {
-                GlStateManager._disableCull();
+                RenderSystem.disableCull();
                 this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
             };
         }
 
         return (layer) ->
         {
-            GlStateManager._disableCull();
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.disableCull();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
 
             if (this.isShadowPass(context))
             {
@@ -334,15 +338,15 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
      */
     private void beginLabelDecorationDepthPass(Consumer<RenderLayer> baseHijack)
     {
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(LABEL_DECORATION_POLYGON_FACTOR, LABEL_DECORATION_POLYGON_UNITS);
         CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
         {
             baseHijack.accept(layer);
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
             GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
             GL11.glPolygonOffset(LABEL_DECORATION_POLYGON_FACTOR, LABEL_DECORATION_POLYGON_UNITS);
         });
@@ -353,15 +357,15 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
      */
     private void beginLabelFillDepthPass(Consumer<RenderLayer> baseHijack)
     {
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
         {
             baseHijack.accept(layer);
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
             GL11.glPolygonOffset(0F, 0F);
             GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         });
@@ -539,7 +543,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
             float glowNz = glowZ >= 0F ? 1F : -1F;
 
-            GlStateManager._disableCull();
+            RenderSystem.disableCull();
 
             for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
@@ -560,10 +564,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelPaint(builder, glowMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, glowZ, quad.u3, quad.v3, overlay, glowLight, glowNz, glowColor);
                 }
 
-                builder.end().close();
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
-            GlStateManager._enableCull();
+            RenderSystem.enableCull();
         });
     }
 
@@ -730,8 +734,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 context.stack.pop();
             }
 
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
             this.flushLabelConsumers(consumers);
 
             List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
@@ -774,10 +778,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
         finally
         {
-            GlStateManager._depthMask(savedDepthMask);
+            RenderSystem.depthMask(savedDepthMask);
             this.restoreLabelPolygonOffset(savedPolygonOffsetFill);
         }
-
     }
 
     private void renderLimitedString(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light)
@@ -1032,8 +1035,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 context.stack.pop();
             }
 
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
             this.flushLabelConsumers(consumers);
 
             if (!shadowPass && !context.isPicking())
@@ -1067,7 +1070,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
         finally
         {
-            GlStateManager._depthMask(savedDepthMask);
+            RenderSystem.depthMask(savedDepthMask);
             this.restoreLabelPolygonOffset(savedPolygonOffsetFill);
         }
     }
@@ -1273,7 +1276,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             float tintZ = this.resolveOverlayFaceZ(tintMatrix);
             float tintNz = tintZ >= 0F ? 1F : -1F;
 
-            GlStateManager._disableCull();
+            RenderSystem.disableCull();
 
             for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
@@ -1295,10 +1298,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, tintZ, quad.u3, quad.v3, overlay, tintLight, tintNz);
                 }
 
-                builder.end().close();
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
-            GlStateManager._enableCull();
+            RenderSystem.enableCull();
         });
     }
 
@@ -1326,7 +1329,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             float paintZ = this.resolveOverlayFaceZ(paintMatrix);
             float paintNz = paintZ >= 0F ? 1F : -1F;
 
-            GlStateManager._disableCull();
+            RenderSystem.disableCull();
 
             for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
@@ -1347,10 +1350,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelPaint(builder, paintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, paintZ, quad.u3, quad.v3, overlay, paintLight, paintNz, resolvedPaint);
                 }
 
-                builder.end().close();
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
-            GlStateManager._enableCull();
+            RenderSystem.enableCull();
         });
     }
 
@@ -1363,9 +1366,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        // layer.startDrawing();
+        layer.startDrawing();
         this.lastBoundTextTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        // layer.endDrawing();
+        layer.endDrawing();
     }
 
     private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz)
@@ -1479,10 +1482,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.r, color.g, color.b, color.a
         );
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._enableDepthTest();
-        builder.end().close();
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
         context.stack.pop();
     }
 

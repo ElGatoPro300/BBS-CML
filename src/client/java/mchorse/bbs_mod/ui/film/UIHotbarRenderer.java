@@ -4,7 +4,6 @@ import mchorse.bbs_mod.camera.clips.misc.HotbarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
@@ -14,7 +13,6 @@ import net.minecraft.util.math.MathHelper;
 
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
@@ -125,35 +123,36 @@ public class UIHotbarRenderer
         stack.translate(-SCALE_PIVOT_X, -SCALE_PIVOT_Y, 0F);
 
         /* HUD layers must ignore world depth to avoid bottom clipping against terrain. */
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, alpha);
 
         boolean hasOffhandItem = hotbar.offhandItem != null && !hotbar.offhandItem.isEmpty();
 
         if (hotbar.showHotbar)
         {
-            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR, 0, 0, 182, 22);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR, 0, 0, 182, 22);
 
             if (hasOffhandItem)
             {
                 Identifier offhandTex = hotbar.rightOffhand ? HOTBAR_OFFHAND_RIGHT : HOTBAR_OFFHAND_LEFT;
                 int offhandBgX = hotbar.rightOffhand ? 182 : -29;
-                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, offhandTex, offhandBgX, -1, 29, 24);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, offhandTex, offhandBgX, -1, 29, 24);
             }
 
             int selectedSlot = MathHelper.clamp(hotbar.selectedSlot, 0, 8);
-            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR_SELECTION, selectedSlot * 20 - 1, -1, 24, 23);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR_SELECTION, selectedSlot * 20 - 1, -1, 24, 23);
 
             if (hotbar.showAttackCooldown && hotbar.attackCooldown > 0F)
             {
                 int selectedX = selectedSlot * 20 + 3;
                 int cooldownH = MathHelper.ceil(hotbar.attackCooldown * 18F);
-                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR_ATTACK_INDICATOR_BACKGROUND, selectedX, -19, 18, 18);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR_ATTACK_INDICATOR_BACKGROUND, selectedX, -19, 18, 18);
                 if (cooldownH > 0)
                 {
-                    batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR_ATTACK_INDICATOR_PROGRESS, selectedX, -19 + (18 - cooldownH), 18, cooldownH);
+                    batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR_ATTACK_INDICATOR_PROGRESS, selectedX, -19 + (18 - cooldownH), 18, cooldownH);
                 }
             }
         }
@@ -234,20 +233,20 @@ public class UIHotbarRenderer
         {
             float jumpProgress = MathHelper.clamp(hotbar.horseJump, 0F, 1F);
             int jumpPixels = MathHelper.ceil(jumpProgress * 182F);
-            batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, JUMP_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
+            batcher.getContext().drawTexture(RenderLayer::getGuiTextured, JUMP_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
             if (jumpPixels > 0)
             {
-                batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, JUMP_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, jumpPixels, 5, 182, 5);
+                batcher.getContext().drawTexture(RenderLayer::getGuiTextured, JUMP_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, jumpPixels, 5, 182, 5);
             }
         }
         else if (hotbar.showExperience)
         {
             float experience = MathHelper.clamp(hotbar.experience, 0F, 1F);
             int xpPixels = MathHelper.ceil(experience * 182F);
-            batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, EXPERIENCE_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
+            batcher.getContext().drawTexture(RenderLayer::getGuiTextured, EXPERIENCE_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
             if (xpPixels > 0)
             {
-                batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, EXPERIENCE_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, xpPixels, 5, 182, 5);
+                batcher.getContext().drawTexture(RenderLayer::getGuiTextured, EXPERIENCE_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, xpPixels, 5, 182, 5);
             }
 
             if (hotbar.experienceLevel > 0)
@@ -269,8 +268,12 @@ public class UIHotbarRenderer
         if (hotbar.showHotbar)
         {
             /* Item glint (enchants) requires depth test in GUI item renderer. */
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+
+            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
             for (int i = 0; i < 9; i++)
             {
@@ -298,11 +301,15 @@ public class UIHotbarRenderer
             }
         }
 
-        batcher.getContext().drawDeferredElements();
+        batcher.getContext().draw();
 
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._disableBlend();
+        DiffuseLighting.disableGuiDepthLighting();
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableBlend();
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         stack.pop();
         batcher.flush();
@@ -344,17 +351,17 @@ public class UIHotbarRenderer
                 iconY -= 2;
             }
 
-            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, empty, iconX, iconY, 9, 9);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, empty, iconX, iconY, 9, 9);
 
             float current = normalized - i;
 
             if (current >= 1F)
             {
-                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, full, iconX, iconY, 9, 9);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, full, iconX, iconY, 9, 9);
             }
             else if (current >= 0.5F)
             {
-                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, half, iconX, iconY, 9, 9);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, half, iconX, iconY, 9, 9);
             }
         }
     }
@@ -392,17 +399,17 @@ public class UIHotbarRenderer
                 iconY += lowHungerShakeRandom.nextInt(2);
             }
 
-            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, empty, iconX, iconY, 9, 9);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, empty, iconX, iconY, 9, 9);
 
             float current = normalized - i;
 
             if (current >= 1F)
             {
-                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, full, iconX, iconY, 9, 9);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, full, iconX, iconY, 9, 9);
             }
             else if (current >= 0.5F)
             {
-                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, half, iconX, iconY, 9, 9);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, half, iconX, iconY, 9, 9);
             }
         }
     }
@@ -432,7 +439,7 @@ public class UIHotbarRenderer
             int iconX = x - i * 8;
             Identifier icon = i < full ? AIR : AIR_BURSTING;
 
-            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, icon, iconX, y, 9, 9);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, icon, iconX, y, 9, 9);
         }
     }
 }

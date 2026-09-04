@@ -199,7 +199,7 @@ public class GameRendererMixin
      */
     @Inject(
         method = "renderWorld",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/GameRenderer;renderHand(FZLorg/joml/Matrix4f;)V"),
+        at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/render/GameRenderer;renderHand:Z"),
         order = 900
     )
     private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)
@@ -218,7 +218,7 @@ public class GameRendererMixin
         BBSRendering.onWorldRenderEnd();
     }
 
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/InGameHud;render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V", ordinal = 0), require = 0)
+    @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
     private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();

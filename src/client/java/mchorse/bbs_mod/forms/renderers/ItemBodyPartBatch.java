@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.render.ItemRenderHelper;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -21,14 +20,15 @@ import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.model.BakedModel;
+import net.minecraft.client.util.ModelIdentifier;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.registry.Registries;
 import net.minecraft.world.World;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
@@ -42,7 +42,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static Object cachedModel;
+    private static BakedModel cachedModel;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -58,7 +58,7 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static Object getCachedModel()
+    public static BakedModel getCachedModel()
     {
         return cachedModel;
     }
@@ -86,14 +86,14 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        Object bakedModel = itemStack.getItem();
+        BakedModel bakedModel = client.getBakedModelManager().getModel(new ModelIdentifier(Registries.ITEM.getId(itemStack.getItem()), "inventory"));
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
         boolean isDropped = context.type == FormRenderType.ITEM;
         boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
+        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
@@ -106,8 +106,8 @@ public final class ItemBodyPartBatch
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                GlStateManager._enableBlend();
-                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
             });
         }
 
@@ -164,7 +164,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    ItemRenderHelper.renderItem(itemStack, mode, context.stack, context.light, context.overlay, context.entity != null ? context.entity.getWorld() : client.world, context.entity instanceof LivingEntity le ? le : null);
+                    client.getItemRenderer().renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
 
                     if (context.isPicking())
                     {
@@ -195,7 +195,7 @@ public final class ItemBodyPartBatch
             {
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
-                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+                RenderSystem.defaultBlendFunc();
             }
 
             active = false;
@@ -203,7 +203,7 @@ public final class ItemBodyPartBatch
             cachedModel = null;
         }
 
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         return true;
     }

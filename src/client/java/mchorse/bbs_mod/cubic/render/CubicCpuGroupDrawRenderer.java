@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -16,18 +15,17 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
@@ -39,21 +37,21 @@ import com.mojang.blaze3d.vertex.VertexFormat;
  */
 public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
-    private final RenderPipeline pipeline;
+    private final ShaderProgram shader;
     private final Link defaultTexture;
     private final Matrix4f rootInverse;
     private int currentGroupLight;
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, RenderPipeline pipeline, Link defaultTexture)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
     {
-        this(light, overlay, stencilMap, shapeKeys, pipeline, defaultTexture, null);
+        this(light, overlay, stencilMap, shapeKeys, shader, defaultTexture, null);
     }
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, RenderPipeline pipeline, Link defaultTexture, Matrix4f rootInverse)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture, Matrix4f rootInverse)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
-        this.pipeline = pipeline;
+        this.shader = shader;
         this.defaultTexture = defaultTexture;
         this.rootInverse = rootInverse;
     }
@@ -68,7 +66,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         CubicGroupTextureBlend textureBlend = CubicGroupTextureBlend.resolve(group, this.defaultTexture);
 
-        if (textureBlend != null && textureBlend.isPartial() && !CubicGroupTextureBlend.supportsShader(this.pipeline))
+        if (textureBlend != null && textureBlend.isPartial() && !CubicGroupTextureBlend.supportsShader(this.shader))
         {
             float fromA = this.a * (1F - textureBlend.blend);
             float toA = this.a * textureBlend.blend;
@@ -81,7 +79,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         else
         {
-            CubicGroupTextureBlend.bindForDraw(this.pipeline, textureBlend, this.defaultTexture);
+            CubicGroupTextureBlend.bindForDraw(this.shader, textureBlend, this.defaultTexture);
 
             try
             {
@@ -100,6 +98,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
     {
         if (texture != null)
         {
+            ModelVAORenderer.clearTextureBlend();
             BBSModClient.getTextures().bindTexture(texture);
         }
 
@@ -179,15 +178,34 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
-        ModelVAORenderer.beginCpuGeometry(this.pipeline);
+        ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
 
-        BuiltBuffer built = groupBuilder.endNullable();
-
-        if (built != null)
+        try
         {
-            ModelVAORenderer.setupUniformsCpuPretransformed(this.pipeline, this.rootInverse);
-            BBSShaders.getModelLayer().draw(built);
+            RenderSystem.setShaderColor(r, g, b, a);
+            this.shader.bind();
+            if (this.shader.colorModulator != null)
+            {
+                this.shader.colorModulator.set(r, g, b, a);
+            }
+
+            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
+            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
+            this.shader.unbind();
+        }
+        catch (IllegalStateException e)
+        {
+            /* Empty or invalid buffer */
+        }
+        finally
+        {
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+            if (this.shader.colorModulator != null)
+            {
+                this.shader.colorModulator.set(1F, 1F, 1F, 1F);
+            }
         }
 
         this.setColor(this.r, this.g, this.b, savedA);

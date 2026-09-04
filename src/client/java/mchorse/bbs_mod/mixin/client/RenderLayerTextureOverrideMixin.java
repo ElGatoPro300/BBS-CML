@@ -2,36 +2,48 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.MobTextureOverride;
 
-import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-@Mixin(RenderLayers.class)
+@Mixin(RenderLayer.class)
 public class RenderLayerTextureOverrideMixin
 {
-    @ModifyVariable(method = "entityCutoutNoCull(Lnet/minecraft/util/Identifier;Z)Lnet/minecraft/client/render/RenderLayer;", at = @At("HEAD"), argsOnly = true, require = 0)
+    @ModifyVariable(method = "getEntityCutoutNoCull", at = @At("HEAD"), argsOnly = true, require = 0)
     private static Identifier bbs$overrideEntityCutoutNoCull(Identifier id)
     {
         return MobTextureOverride.getOverridden(id);
     }
 
-    @ModifyVariable(method = "entityCutout(Lnet/minecraft/util/Identifier;)Lnet/minecraft/client/render/RenderLayer;", at = @At("HEAD"), argsOnly = true, require = 0)
+    @ModifyVariable(method = "getEntityCutout", at = @At("HEAD"), argsOnly = true, require = 0)
     private static Identifier bbs$overrideEntityCutout(Identifier id)
     {
         return MobTextureOverride.getOverridden(id);
     }
 
-    @ModifyVariable(method = "entityTranslucent(Lnet/minecraft/util/Identifier;Z)Lnet/minecraft/client/render/RenderLayer;", at = @At("HEAD"), argsOnly = true, require = 0)
+    @ModifyVariable(method = "getEntityTranslucent", at = @At("HEAD"), argsOnly = true, require = 0)
     private static Identifier bbs$overrideEntityTranslucent(Identifier id)
     {
         return MobTextureOverride.getOverridden(id);
     }
 
-    @ModifyVariable(method = "itemEntityTranslucentCull", at = @At("HEAD"), argsOnly = true, require = 0)
+    @ModifyVariable(method = "getEntityTranslucentCull", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideEntityTranslucentCull(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getItemEntityTranslucentCull", at = @At("HEAD"), argsOnly = true, require = 0)
     private static Identifier bbs$overrideItemEntityTranslucentCull(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getOutline", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideOutline(Identifier id)
     {
         return MobTextureOverride.getOverridden(id);
     }
