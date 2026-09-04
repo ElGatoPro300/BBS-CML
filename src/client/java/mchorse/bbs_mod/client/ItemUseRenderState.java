@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
-import mchorse.bbs_mod.mixin.client.LivingEntityAccessor;
 import mchorse.bbs_mod.mixin.client.LivingEntityItemAccessor;
 
 import net.minecraft.client.MinecraftClient;
@@ -195,8 +194,8 @@ public final class ItemUseRenderState
 
         ((LivingEntityItemAccessor) living).setActiveItemStack(active);
         ((LivingEntityItemAccessor) living).setItemUseTimeLeft(itemUseTimeLeft);
-        ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, true);
-        ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
+        living.setLivingFlag(USING_ITEM_FLAG, true);
+        living.setLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
     }
 
     private static void clearUseFlags(LivingEntity living)

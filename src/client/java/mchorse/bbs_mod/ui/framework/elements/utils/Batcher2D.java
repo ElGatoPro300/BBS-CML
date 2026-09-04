@@ -22,6 +22,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.ScreenRect;
 import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.gui.render.state.TexturedQuadGuiElementRenderState;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.RenderLayer;
@@ -33,6 +34,7 @@ import net.minecraft.client.texture.TextureSetup;
 import net.minecraft.util.Identifier;
 
 import org.joml.Matrix3x2fStack;
+import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fc;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
@@ -514,6 +516,25 @@ public class Batcher2D
         this.context.drawTexture(RenderPipelines.GUI_TEXTURED, id,
             (int) x, (int) y, u1, v1, (int) w, (int) h,
             (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
+    }
+
+    public void texturedBox(GpuTextureView texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        if (texture == null || texture.isClosed() || textureW <= 0 || textureH <= 0 || w <= 0F || h <= 0F)
+        {
+            return;
+        }
+
+        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+        TexturedQuadGuiElementRenderState state = new TexturedQuadGuiElementRenderState(RenderPipelines.GUI_TEXTURED,
+            setup, new Matrix3x2f(this.context.getMatrices()), (int) x, (int) y, (int) (x + w), (int) (y + h),
+            u1 / textureW, u2 / textureW, v1 / textureH, v2 / textureH, color, this.context.scissorStack.peekLast());
+
+        if (state.bounds() != null)
+        {
+            this.context.state.addSimpleElement(state);
+        }
     }
 
     public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)

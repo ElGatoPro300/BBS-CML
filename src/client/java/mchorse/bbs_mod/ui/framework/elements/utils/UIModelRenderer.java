@@ -9,6 +9,7 @@ import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.IUITreeEventListener;
 import mchorse.bbs_mod.utils.Factor;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -32,6 +33,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.textures.GpuTextureView;
 
 import org.lwjgl.system.MemoryStack;
 
@@ -42,7 +44,7 @@ import java.nio.ByteBuffer;
  *
  * This base class can be used for full screen model viewer.
  */
-public abstract class UIModelRenderer extends UIElement
+public abstract class UIModelRenderer extends UIElement implements IUITreeEventListener
 {
     private static Vector3d vec = new Vector3d();
     private static Matrix3d mat = new Matrix3d();
@@ -72,7 +74,7 @@ public abstract class UIModelRenderer extends UIElement
     protected int viewportW;
     protected int viewportH;
 
-    private int previewGlId = -1;
+    private GpuTextureView previewTexture;
     private int previewVw;
     private int previewVh;
 
@@ -251,10 +253,10 @@ public abstract class UIModelRenderer extends UIElement
          * current DrawContext. This keeps the 3D pass out of the 2D Matrix3x2fStack. */
         this.renderModelToTexture(context);
 
-        if (this.previewGlId >= 0 && this.previewVw > 0 && this.previewVh > 0)
+        if (this.previewTexture != null && this.previewVw > 0 && this.previewVh > 0)
         {
             context.batcher.newRootLayer();
-            context.batcher.texturedBox(this.previewGlId, Colors.WHITE,
+            context.batcher.texturedBox(this.previewTexture, Colors.WHITE,
                 this.area.x, this.area.y, this.area.w, this.area.h,
                 0, this.previewVh, this.previewVw, 0, this.previewVw, this.previewVh);
             context.batcher.newRootLayer();
@@ -275,15 +277,15 @@ public abstract class UIModelRenderer extends UIElement
         int vw = this.viewportW;
         int vh = this.viewportH;
 
-        this.previewGlId = -1;
+        this.previewTexture = null;
 
         if (vw <= 0 || vh <= 0)
         {
             return;
         }
 
-        boolean previousActive = ModelPreviewRenderer.ACTIVE;
-        ModelPreviewRenderer.ACTIVE = true;
+        boolean previousWorldRender = BBSRendering.renderingWorld;
+        BBSRendering.renderingWorld = false;
 
         try
         {
@@ -296,15 +298,44 @@ public abstract class UIModelRenderer extends UIElement
             }
 
             this.renderUserModel(context);
-            this.previewGlId = this.preview.getColorGlId();
+            this.previewTexture = this.preview.getColorView();
             this.previewVw = vw;
             this.previewVh = vh;
         }
         finally
         {
             this.preview.end();
-            ModelPreviewRenderer.ACTIVE = previousActive;
-            ModelPreviewRenderer.TEXTURE = null;
+            BBSRendering.renderingWorld = previousWorldRender;
+        }
+    }
+
+    @Override
+    public void onAddedToTree(UIElement element)
+    {}
+
+    @Override
+    public void onRemovedFromTree(UIElement element)
+    {
+        this.releasePreview();
+    }
+
+    @Override
+    protected void onRemove(UIElement parent)
+    {
+        super.onRemove(parent);
+        this.releasePreview();
+    }
+
+    private void releasePreview()
+    {
+        this.previewTexture = null;
+        this.preview.close();
+
+        if (this.lightsBuffer != null)
+        {
+            this.lightsBuffer.close();
+            this.lightsBuffer = null;
+            this.lights = null;
         }
     }
 
@@ -335,7 +366,7 @@ public abstract class UIModelRenderer extends UIElement
 
             if (this.lightsBuffer == null)
             {
-                this.lightsBuffer = RenderSystem.getDevice().createBuffer(() -> "BBS editor preview lights UBO", 136, data);
+                this.lightsBuffer = RenderSystem.getDevice().createBuffer(() -> "BBS editor preview lights UBO", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, data);
                 this.lights = this.lightsBuffer.slice(0, DiffuseLighting.UBO_SIZE);
             }
             else
