@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 
 import net.minecraft.client.Keyboard;
-
 import net.minecraft.client.input.KeyInput;
 
 import org.spongepowered.asm.mixin.Mixin;

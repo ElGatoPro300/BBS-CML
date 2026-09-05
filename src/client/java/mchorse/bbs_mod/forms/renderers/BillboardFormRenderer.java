@@ -10,6 +10,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
@@ -843,7 +844,15 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                 }
 
-                BufferRenderer.drawWithGlobalProgram(builder.end());
+                if (deferContext != null && deferContext.isPicking())
+                {
+                    BufferRenderer.drawWithGlobalProgram(builder.end());
+                }
+                else
+                {
+                    BillboardRenderLayers.draw(builder.end(), texture, this.form.linear.get(), this.form.mipmap.get(),
+                        shadowPass || localPreview || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, true);
+                }
             }
             finally
             {
@@ -987,7 +996,15 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        if (singleSided || ModelVAORenderer.isPaintOverlayPass())
+        {
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+        }
+        else
+        {
+            BillboardRenderLayers.draw(builder.end(), texture, linear, mipmap,
+                GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK), dualSided);
+        }
         texture.setFilterMipmap(false, false);
     }
 
