@@ -1779,7 +1779,7 @@ public class ModelVAORenderer
     {
         /* Iris / resource-reload races can leave BBSShaders.getModel() null while
          * form-list UI cards still try to draw Extruded/Structure VAOs. */
-        if (shader == null || modelVAO == null)
+        if (shader == null || shader == ShaderProgram.INVALID || modelVAO == null)
         {
             return;
         }
@@ -1792,10 +1792,9 @@ public class ModelVAORenderer
             BBSModClient.getTextures().bindTexture(ModelVAORenderer.textureBlendTo, 3);
         }
 
-        setupUniforms(stack, shader);
+        BBSRendering.bindProgram(shader);
         setupUniforms(stack, shader);
 
-        BBSRendering.bindProgram(shader);
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
@@ -1819,6 +1818,8 @@ public class ModelVAORenderer
         {
             return;
         }
+
+        BBSRendering.bindProgram(shader);
 
         if (colorGradeOverlayPass && gradeSceneColor != null && gradeSceneColor.isValid())
         {
@@ -1848,6 +1849,7 @@ public class ModelVAORenderer
             return;
         }
 
+        BBSRendering.bindProgram(shader);
         setupUniforms(null, shader, true, rootInverse);
     }
 
@@ -1857,6 +1859,10 @@ public class ModelVAORenderer
         {
             return;
         }
+
+        BBSRendering.bindProgram(shader);
+
+        BBSUniform.setMatrix4f(shader, "ProjMat", BBSRendering.getProjectionMatrix());
 
         for (int i = 0; i < 12; i++)
         {

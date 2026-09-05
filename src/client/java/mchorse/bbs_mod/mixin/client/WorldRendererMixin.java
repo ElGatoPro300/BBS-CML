@@ -72,6 +72,7 @@ public class WorldRendererMixin
     public void onSetupFrustum(Matrix4f positionMatrix, Matrix4f projectionMatrix, Vec3d cameraPos, CallbackInfoReturnable<Frustum> info)
     {
         BBSRendering.camera.set(positionMatrix);
+        BBSRendering.projection.set(projectionMatrix);
     }
 
     @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")

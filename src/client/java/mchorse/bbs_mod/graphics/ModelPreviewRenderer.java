@@ -1,8 +1,11 @@
 package mchorse.bbs_mod.graphics;
 
+import mchorse.bbs_mod.client.BBSRendering;
+
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.render.fog.FogRenderer;
 
+import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
@@ -29,6 +32,7 @@ public class ModelPreviewRenderer implements AutoCloseable
     private GpuBufferSlice previousProjection;
     private GpuBufferSlice previousFog;
     private GpuBufferSlice previousLights;
+    private final Matrix4f previousBbsProjection = new Matrix4f();
     private ProjectionType previousProjectionType;
     private boolean active;
 
@@ -49,6 +53,9 @@ public class ModelPreviewRenderer implements AutoCloseable
         this.ensureTarget(width, height);
         this.updateProjection(projectionMatrix);
         this.ensureFog();
+
+        this.previousBbsProjection.set(BBSRendering.projection);
+        BBSRendering.projection.set(projectionMatrix);
 
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
             this.framebuffer.getColorAttachment(), 0, this.framebuffer.getDepthAttachment(), 1D);
@@ -155,6 +162,8 @@ public class ModelPreviewRenderer implements AutoCloseable
         this.previousFog = null;
         this.previousLights = null;
         this.active = false;
+
+        BBSRendering.projection.set(this.previousBbsProjection);
     }
 
     @Override

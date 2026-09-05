@@ -136,6 +136,7 @@ public class BBSRendering
     private static Method irlShadowBakeIsBaking;
 
     public static final Matrix4f camera = new Matrix4f();
+    public static final Matrix4f projection = new Matrix4f();
 
     /**
      * Iris world rendering multiplies the terrain {@code positionMatrix} into the
@@ -1749,7 +1750,8 @@ public class BBSRendering
         }
         catch (Exception e)
         {
-            /* Ignore precompile failure in early init or headless */
+            System.err.println("[BBSRendering] Failed to compile pipeline " + (pipeline != null ? pipeline.getLocation() : "null") + ": " + e.getMessage());
+            e.printStackTrace();
         }
 
         return null;
@@ -1807,7 +1809,7 @@ public class BBSRendering
 
     public static void bindProgram(ShaderProgram program)
     {
-        if (program != null)
+        if (program != null && program != ShaderProgram.INVALID && program.getGlRef() > 0)
         {
             GL20.glUseProgram(program.getGlRef());
         }
@@ -1841,11 +1843,21 @@ public class BBSRendering
 
     public static void setProjectionMatrix(Matrix4f matrix, ProjectionType type)
     {
+        if (matrix != null)
+        {
+            projection.set(matrix);
+        }
+
         if (RenderSystem.getDynamicUniforms() != null && matrix != null)
         {
             GpuBufferSlice slice = RenderSystem.getDynamicUniforms().write(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
             RenderSystem.setProjectionMatrix(slice, type);
         }
+    }
+
+    public static Matrix4f getProjectionMatrix()
+    {
+        return projection;
     }
 
     public static int getTextureGlId(Identifier id)

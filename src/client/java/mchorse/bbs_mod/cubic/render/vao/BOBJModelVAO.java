@@ -482,8 +482,8 @@ public class BOBJModelVAO
 
     protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
-        ModelVAORenderer.setupUniforms(stack, shader);
         BBSRendering.bindProgram(shader);
+        ModelVAORenderer.setupUniforms(stack, shader);
         GL30.glBindVertexArray(this.vao);
 
         GL30.glDisableVertexAttribArray(Attributes.COLOR);
@@ -507,9 +507,9 @@ public class BOBJModelVAO
             this.bindDrawTexture(defaultTexture);
         }
 
+        BBSRendering.bindProgram(shader);
         ModelVAORenderer.setupUniforms(stack, shader);
 
-        BBSRendering.bindProgram(shader);
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
 

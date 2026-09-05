@@ -154,7 +154,14 @@ public class BBSShaders
 
     public static ShaderProgram getModel()
     {
-        return BBSRendering.getProgram(modelPipeline);
+        ShaderProgram program = BBSRendering.getProgram(modelPipeline);
+
+        if (program == null || program == ShaderProgram.INVALID)
+        {
+            return BBSRendering.getEntityTranslucentProgram();
+        }
+
+        return program;
     }
 
     public static ShaderProgram getMultilinkProgram()
