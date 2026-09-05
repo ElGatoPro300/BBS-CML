@@ -317,10 +317,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             boolean positiveGlow = !picking && !shadowPass && glowIntensity > 0F;
             boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
 
-            boolean noshadingDefer = !context.modelRenderer
+            boolean localPreview = context.isLocalPreview();
+            boolean noshadingDefer = !localPreview
                 && !shadowPass
                 && BBSRendering.needsIrisNoshadingOpacityDeferral(mainTint3D.a, this.form.noshadingOpacity.get());
-            boolean softPostDeferred = !context.modelRenderer
+            boolean softPostDeferred = !localPreview
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(mainTint3D.a)
                 && !noshadingDefer;

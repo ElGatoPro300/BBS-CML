@@ -89,9 +89,17 @@ public class MorphRenderer
                 matrixStack.push();
                 matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
+                FormRenderingContext morphContext = new FormRenderingContext()
                     .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                if (!worldPass)
+                {
+                    morphContext.inUI();
+                }
+
+                FormUtilsClient.render(morph.getForm(), morphContext);
 
                 if (morph.entity.getFireTicks() > 0)
                 {

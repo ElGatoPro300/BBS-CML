@@ -271,11 +271,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
             }
 
-            boolean noshadingDefer = !context.modelRenderer
+            boolean localPreview = context.isLocalPreview();
+            boolean noshadingDefer = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
-            boolean softPostDeferred = !context.modelRenderer
+            boolean softPostDeferred = !localPreview
                 && !context.isPicking()
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)

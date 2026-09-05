@@ -138,6 +138,7 @@ Only if Step 1 leaves gaps:
 |-------|--------|
 | Soft limb behind soft limb (same actor) | **v1 done:** per-bone post-deferred submit + `distanceSq` — [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md) |
 | Model-block preview invisible with soft limbs | **Fixed:** preview draws live |
+| Soft Block / Item / Structure (chests, etc.) invisible in inventory GUI | **Fixed:** `FormRenderingContext.isLocalPreview()` skips post-deferred enqueue for `ITEM_INVENTORY` / UI / model-block preview (same contract as ModelForm soft limbs) |
 | Soft limb occludes actors/clouds/billboards behind | **Fixed:** opaque live + soft post-deferred |
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
 | Fully transparent limb (alpha 0) still occludes | **Fixed:** drawable bones at alpha ≤ 0.001 are hidden (no depth stamp) |
