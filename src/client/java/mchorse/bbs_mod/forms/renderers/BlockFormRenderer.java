@@ -534,6 +534,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         {
             this.blockMainPassGlowEmission = null;
             CustomVertexConsumerProvider.clearRunnables();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
             if (context.isPicking())
             {
