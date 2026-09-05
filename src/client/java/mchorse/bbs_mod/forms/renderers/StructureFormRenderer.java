@@ -948,73 +948,21 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return this.resolveStructureLeavesLayer(state, useEntityLayers);
         }
 
-        return useEntityLayers
-            ? RenderLayers.getEntityBlockLayer(state, false)
-            : RenderLayers.getBlockLayer(state);
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
     {
-        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-
-        if (irisWorld || useEntityLayers)
-        {
-            return RenderLayers.getEntityBlockLayer(state, false);
-        }
-
-        if (StructureData.isFancyGraphicsEnabled())
-        {
-            try
-            {
-                RenderLayers.setFancyGraphicsOrBetter(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            return RenderLayer.getCutoutMipped();
-        }
-
-        StructureData.syncFancyGraphicsFromOptions();
-
-        return RenderLayer.getSolid();
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
-        boolean fancy = StructureData.isFancyGraphicsEnabled();
-        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
-        RenderLayer layer;
-        VertexConsumer vc;
-
-        if (softOpacity)
-        {
-            layer = TexturedRenderLayers.getEntityTranslucentCull();
-        }
-        else if (irisWorld)
-        {
-            layer = RenderLayers.getEntityBlockLayer(state, false);
-        }
-        else if (fancy)
-        {
-            try
-            {
-                RenderLayers.setFancyGraphicsOrBetter(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            layer = RenderLayer.getCutoutMipped();
-        }
-        else
-        {
-            StructureData.syncFancyGraphicsFromOptions();
-            layer = RenderLayer.getSolid();
-        }
-
-        vc = consumers.getBuffer(layer);
+        RenderLayer layer = softOpacity
+            ? TexturedRenderLayers.getEntityTranslucentCull()
+            : RenderLayers.getEntityBlockLayer(state, false);
+        VertexConsumer vc = consumers.getBuffer(layer);
 
         if (recolor != null)
         {

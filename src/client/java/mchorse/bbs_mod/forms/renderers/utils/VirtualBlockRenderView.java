@@ -441,31 +441,7 @@ public class VirtualBlockRenderView implements BlockRenderView
     @Override
     public float getBrightness(Direction direction, boolean shaded)
     {
-        if (MinecraftClient.getInstance().world != null)
-        {
-            return MinecraftClient.getInstance().world.getBrightness(direction, shaded);
-        }
-
-        if (!shaded)
-        {
-            return 1.0F;
-        }
-
-        switch (direction)
-        {
-            case DOWN:
-                return 0.5F;
-            case UP:
-                return 1.0F;
-            case NORTH:
-            case SOUTH:
-                return 0.8F;
-            case WEST:
-            case EAST:
-                return 0.6F;
-            default:
-                return 1.0F;
-        }
+        return 1.0F;
     }
 
     @Override
