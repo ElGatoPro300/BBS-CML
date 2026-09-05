@@ -987,17 +987,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
         RenderLayer layer;
         VertexConsumer vc;
-        boolean cull;
 
         if (softOpacity)
         {
             layer = TexturedRenderLayers.getEntityTranslucentCull();
-            cull = !fancy;
         }
         else if (irisWorld)
         {
             layer = RenderLayers.getEntityBlockLayer(state, false);
-            cull = !fancy;
         }
         else if (fancy)
         {
@@ -1010,13 +1007,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
 
             layer = RenderLayer.getCutoutMipped();
-            cull = false;
         }
         else
         {
             StructureData.syncFancyGraphicsFromOptions();
             layer = RenderLayer.getSolid();
-            cull = true;
         }
 
         vc = consumers.getBuffer(layer);
@@ -1026,7 +1021,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             vc = recolor.apply(vc);
         }
 
-        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, cull, Random.create());
+        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, true, Random.create());
     }
 
     /**
