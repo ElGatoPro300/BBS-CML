@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.FluidForm;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -178,34 +179,23 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
     {
         Link t = this.form.texture.get();
         Texture texture = null;
-        
+
         if (t != null)
         {
             texture = BBSModClient.getTextures().getTexture(t);
         }
 
-        if (texture != null)
+        if (texture == null || !texture.isValid())
         {
-            BBSModClient.getTextures().bindTexture(texture);
+            texture = BBSModClient.getTextures().getTexture(WHITE_TEXTURE);
         }
-        else
-        {
-            BBSModClient.getTextures().bindTexture(WHITE_TEXTURE);
-        }
-
-        BBSRendering.bindProgram(shader);
-        BBSRendering.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        BBSRendering.enableBlend();
-        BBSRendering.defaultBlendFunc();
-        BBSRendering.disableCull();
-        BBSRendering.enableDepthTest();
 
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
         Color color = this.form.color.get();
         Color finalColor = color.copy();
-        
+
         /* Multiply by overlay color (usually WHITE unless hit) */
         finalColor.mul(overlayColor);
 
@@ -213,21 +203,18 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
         if (mode == FluidForm.FluidMode.FULL_OCEAN)
         {
-            renderOcean(builder, matrices, finalColor, overlay, light);
+            this.renderOcean(builder, matrices, finalColor, overlay, light);
         }
         else if (mode == FluidForm.FluidMode.PROCEDURAL)
         {
-            renderProceduralOcean(builder, matrices, finalColor, overlay, light);
+            this.renderProceduralOcean(builder, matrices, finalColor, overlay, light);
         }
         else
         {
-            renderDrop(builder, matrices, finalColor, overlay, light);
+            this.renderDrop(builder, matrices, finalColor, overlay, light);
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-        
-        BBSRendering.disableBlend();
-        BBSRendering.enableCull();
+        BillboardRenderLayers.draw(builder.end(), texture, false, false, finalColor.a >= 0.999F, false);
     }
 
     private void renderProceduralOcean(BufferBuilder builder, MatrixStack matrices, Color color, int overlay, int light)

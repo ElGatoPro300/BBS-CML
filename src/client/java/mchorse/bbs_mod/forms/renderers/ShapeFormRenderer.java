@@ -29,7 +29,8 @@ import mchorse.bbs_mod.utils.math.Noise;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
+import mchorse.bbs_mod.graphics.texture.Texture;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
@@ -293,7 +294,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
-                BufferRenderer.drawWithGlobalProgram(builder.end());
+                BillboardRenderLayers.draw(builder.end(), this.resolveTexture(texture), false, false, shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, false);
             }
             finally
             {
@@ -306,11 +307,6 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             if (positiveGlow)
             {
                 Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
-                Supplier<ShaderProgram> unshadedShader = BBSRendering::getPositionTexColorProgram;
-
-                BBSRendering.bindProgram(unshadedShader.get());
-                BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-                BBSRendering.depthMask(false);
 
                 this.unshadedVertices = true;
 
@@ -318,11 +314,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
-                BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+                BillboardRenderLayers.draw(glowBuilder.end(), this.resolveTexture(texture), false, false, false, false, true);
 
                 this.unshadedVertices = false;
-                BBSRendering.bindProgram(shader.get());
-                BBSRendering.depthMask(true);
             }
         }
 
@@ -360,6 +354,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
     private void drawDeferredShape(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color color, int overlay, int light, boolean lighting, boolean positiveGlow, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Supplier<ShaderProgram> shader, boolean unshaded)
     {
+        Texture texObj = this.resolveTexture(texture);
+
         if (texture != null)
         {
             BBSModClient.getTextures().bindTexture(texture);
@@ -391,24 +387,20 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         );
 
         this.buildShapeGeometry(builder, stack, type, color, overlay, light);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
 
         if (positiveGlow)
         {
             Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, color.a, glowIntensity);
-
-            BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
-            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-            BBSRendering.depthMask(false);
 
             this.unshadedVertices = true;
 
             BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
             this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
-            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+            BillboardRenderLayers.draw(glowBuilder.end(), texObj, false, false, false, false, true);
 
-            BBSRendering.depthMask(true);
+            this.unshadedVertices = false;
         }
 
         this.unshadedVertices = false;
@@ -1131,14 +1123,13 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             maskHalf,
             () ->
             {
+                Texture texObj = this.resolveTexture(texture);
                 Tessellator tessellator = Tessellator.getInstance();
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-                BBSRendering.disableCull();
                 this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-                BBSRendering.enableCull();
+                BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
             }
         );
 
@@ -1197,14 +1188,13 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             formTintColor,
             () ->
             {
+                Texture texObj = this.resolveTexture(texture);
                 Tessellator tessellator = Tessellator.getInstance();
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-                BBSRendering.disableCull();
                 this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-                BBSRendering.enableCull();
+                BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
             }
         );
 
@@ -1223,5 +1213,17 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         glowSettings.resolveColor(legacyGlow, glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
+    }
+
+    private Texture resolveTexture(Link texture)
+    {
+        Texture texObj = BBSModClient.getTextures().getTexture(texture != null ? texture : ParticleScheme.DEFAULT_TEXTURE);
+
+        if (texObj == null || !texObj.isValid())
+        {
+            texObj = BBSModClient.getTextures().getTexture(Link.bbs("textures/block/white.png"));
+        }
+
+        return texObj;
     }
 }

@@ -28,6 +28,21 @@ public final class BBSUniform
     {
     }
 
+    private static boolean ensureProgram(ShaderProgram program)
+    {
+        if (program == null || program.getGlRef() <= 0)
+        {
+            return false;
+        }
+
+        if (GL20.glGetInteger(GL20.GL_CURRENT_PROGRAM) != program.getGlRef())
+        {
+            GL20.glUseProgram(program.getGlRef());
+        }
+
+        return true;
+    }
+
     /* ---- location query ---- */
 
     /**
@@ -48,6 +63,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, int value)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
@@ -58,6 +78,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float value)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
@@ -68,6 +93,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float x, float y)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
@@ -78,6 +108,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float x, float y, float z)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
@@ -88,6 +123,11 @@ public final class BBSUniform
 
     public static void set(ShaderProgram program, String name, float x, float y, float z, float w)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
@@ -100,6 +140,11 @@ public final class BBSUniform
 
     public static void setMatrix4f(ShaderProgram program, String name, Matrix4f matrix)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
@@ -116,6 +161,11 @@ public final class BBSUniform
 
     public static void setMatrix3f(ShaderProgram program, String name, Matrix3f matrix)
     {
+        if (!ensureProgram(program))
+        {
+            return;
+        }
+
         int loc = getLocation(program, name);
 
         if (loc >= 0)
