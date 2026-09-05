@@ -19,8 +19,8 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
@@ -38,8 +38,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -143,7 +143,7 @@ public class ParticleEmitter
     public void setTarget(LivingEntity target)
     {
         this.target = target;
-        this.world = target == null ? null : target.getWorld();
+        this.world = target == null ? null : target.getEntityWorld();
     }
 
     public void setWorld(World world)
@@ -517,13 +517,12 @@ public class ParticleEmitter
                 render.renderUI(this.uiParticle, builder, matrix, transition);
             }
 
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-            RenderSystem.disableCull();
+            BBSRendering.disableCull();
             BufferRenderer.drawWithGlobalProgram(builder.end());
 
             this.renderGlowOverlay(stack, transition, true);
 
-            RenderSystem.enableCull();
+            BBSRendering.enableCull();
         }
     }
 
@@ -562,16 +561,15 @@ public class ParticleEmitter
                 }
             }
             
-            RenderSystem.setShader(program.get());
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.disableCull();
+            BBSRendering.enableBlend();
+            BBSRendering.defaultBlendFunc();
+            BBSRendering.disableCull();
             BufferRenderer.drawWithGlobalProgram(builder.end());
 
             this.renderGlowOverlay(stack, overlay, transition, false);
 
-            RenderSystem.enableCull();
-            RenderSystem.disableBlend();
+            BBSRendering.enableCull();
+            BBSRendering.disableBlend();
         }
 
         for (IComponentParticleRender component : renders)
@@ -608,8 +606,6 @@ public class ParticleEmitter
         FlatGlowOverlayPass.render(this.glowSettings, this.legacyGlow, this.glowAlpha, glowIntensity, (glowColor) ->
         {
             BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
 
             if (ui)
             {
@@ -656,8 +652,8 @@ public class ParticleEmitter
     {
         this.cYaw = 180 - camera.getYaw();
         this.cPitch = -camera.getPitch();
-        this.cX = camera.getPos().x;
-        this.cY = camera.getPos().y;
-        this.cZ = camera.getPos().z;
+        this.cX = camera.getCameraPos().x;
+        this.cY = camera.getCameraPos().y;
+        this.cZ = camera.getCameraPos().z;
     }
 }

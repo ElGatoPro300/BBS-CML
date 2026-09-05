@@ -3,8 +3,8 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.render.fog.FogRenderer;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.fog.FogRenderer;
 import net.minecraft.client.world.ClientWorld;
 
 import org.joml.Vector4f;

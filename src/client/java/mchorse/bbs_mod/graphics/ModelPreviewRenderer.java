@@ -3,6 +3,8 @@ package mchorse.bbs_mod.graphics;
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.render.fog.FogRenderer;
 
+import org.joml.Matrix4fc;
+
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
@@ -10,7 +12,6 @@ import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
 
-import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.ByteBuffer;

@@ -66,7 +66,10 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.CompiledShaderPipeline;
 import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.render.state.GuiRenderState;
@@ -87,6 +90,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -1670,4 +1675,146 @@ public class BBSRendering
     {
         return getColorConsumer(Color.white());
     }
+
+    public static void enableBlend()
+    {
+        GlStateManager._enableBlend();
+    }
+
+    public static void disableBlend()
+    {
+        GlStateManager._disableBlend();
+    }
+
+    public static void defaultBlendFunc()
+    {
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+    }
+
+    public static void blendFunc(int src, int dst)
+    {
+        GlStateManager._blendFuncSeparate(src, dst, GL11.GL_ONE, GL11.GL_ZERO);
+    }
+
+    public static void enableCull()
+    {
+        GlStateManager._enableCull();
+    }
+
+    public static void disableCull()
+    {
+        GlStateManager._disableCull();
+    }
+
+    public static void enableDepthTest()
+    {
+        GlStateManager._enableDepthTest();
+    }
+
+    public static void disableDepthTest()
+    {
+        GlStateManager._disableDepthTest();
+    }
+
+    public static void depthFunc(int func)
+    {
+        GlStateManager._depthFunc(func);
+    }
+
+    public static void depthMask(boolean mask)
+    {
+        GlStateManager._depthMask(mask);
+    }
+
+    public static ShaderProgram getProgram(RenderPipeline pipeline)
+    {
+        if (pipeline == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            CompiledRenderPipeline compiled = RenderSystem.getDevice().precompilePipeline(pipeline);
+            if (compiled instanceof CompiledShaderPipeline shaderPipeline)
+            {
+                return shaderPipeline.program();
+            }
+        }
+        catch (Exception e)
+        {
+            /* Ignore precompile failure in early init or headless */
+        }
+
+        return null;
+    }
+
+    public static ShaderProgram getEntityTranslucentProgram()
+    {
+        return getProgram(RenderPipelines.ENTITY_TRANSLUCENT);
+    }
+
+    public static ShaderProgram getPositionTexColorProgram()
+    {
+        return getProgram(RenderPipelines.GUI_TEXTURED);
+    }
+
+    public static ShaderProgram getGuiProgram()
+    {
+        return getProgram(RenderPipelines.GUI);
+    }
+
+    public static ShaderProgram getParticleProgram()
+    {
+        return getProgram(RenderPipelines.TRANSLUCENT_PARTICLE);
+    }
+
+    public static void setupEntityInUiLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.getDiffuseLighting() != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+        }
+    }
+
+    public static void setupLevelLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.getDiffuseLighting() != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        }
+    }
+
+    public static void colorMask(boolean red, boolean green, boolean blue, boolean alpha)
+    {
+        GlStateManager._colorMask(red, green, blue, alpha);
+    }
+
+    public static void setShaderColor(float r, float g, float b, float a)
+    {
+        /* In 1.21.11 color modulation is handled per-layer or via uniform buffers */
+    }
+
+    public static void bindProgram(ShaderProgram program)
+    {
+        if (program != null)
+        {
+            org.lwjgl.opengl.GL20.glUseProgram(program.getGlRef());
+        }
+    }
+
+    public static void unbindProgram()
+    {
+        org.lwjgl.opengl.GL20.glUseProgram(0);
+    }
+
+    public static int getBoundTexture()
+    {
+        return org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
+    }
 }
+

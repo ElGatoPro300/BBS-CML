@@ -20,9 +20,9 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
-
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Additive glow overlay for shape-key CPU meshes. Uses the same block/item overlay formula:

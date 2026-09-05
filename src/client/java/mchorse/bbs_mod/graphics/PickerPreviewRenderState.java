@@ -10,14 +10,15 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.texture.TextureSetup;
 import net.minecraft.util.Identifier;
 
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fc;
+
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
 
-import org.joml.Matrix3x2f;
-import org.joml.Matrix3x2fc;
 import org.jspecify.annotations.Nullable;
 
 public class PickerPreviewRenderState implements SimpleGuiElementRenderState

@@ -41,7 +41,6 @@ import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
@@ -53,8 +52,8 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -830,8 +829,6 @@ public class ModelInstance implements IModelInstance
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
 
-                RenderSystem.setShader(shader);
-
                 if (texture != null)
                 {
                     BBSModClient.getTextures().bindTexture(texture);
@@ -839,7 +836,7 @@ public class ModelInstance implements IModelInstance
 
                 if (disableCull)
                 {
-                    RenderSystem.disableCull();
+                    BBSRendering.disableCull();
                 }
 
                 Matrix4f rootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
@@ -861,7 +858,7 @@ public class ModelInstance implements IModelInstance
                 {
                     if (disableCull && this.culling)
                     {
-                        RenderSystem.enableCull();
+                        BBSRendering.enableCull();
                     }
                 }
             }
@@ -916,8 +913,6 @@ public class ModelInstance implements IModelInstance
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 
-        RenderSystem.setShader(shader);
-
         if (texture != null)
         {
             BBSModClient.getTextures().bindTexture(texture);
@@ -925,7 +920,7 @@ public class ModelInstance implements IModelInstance
 
         if (disableCull)
         {
-            RenderSystem.disableCull();
+            BBSRendering.disableCull();
         }
 
         CubicCpuGlowOverlayRenderer renderProcessor = new CubicCpuGlowOverlayRenderer(
@@ -962,7 +957,7 @@ public class ModelInstance implements IModelInstance
         {
             if (disableCull && this.culling)
             {
-                RenderSystem.enableCull();
+                BBSRendering.enableCull();
             }
         }
     }

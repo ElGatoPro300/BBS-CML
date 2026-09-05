@@ -335,8 +335,8 @@ public class BOBJModelVAO
 
         /* Keep depth on so nearer limbs (head in front of torso) stay pickable. Priority
          * bones only win z-ties / coplanar overlaps against parents drawn earlier. */
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthMask(true);
 
         for (String boneId : CubicRenderer.STENCIL_PICK_PRIORITY_BONES)
         {
@@ -483,8 +483,7 @@ public class BOBJModelVAO
     protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
-        RenderSystem.setShader(shader);
-        shader.bind();
+        BBSRendering.bindProgram(shader);
         GL30.glBindVertexArray(this.vao);
 
         GL30.glDisableVertexAttribArray(Attributes.COLOR);
@@ -510,12 +509,11 @@ public class BOBJModelVAO
 
         ModelVAORenderer.setupUniforms(stack, shader);
 
-        RenderSystem.setShader(shader);
-        shader.bind();
+        BBSRendering.bindProgram(shader);
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
 
-        int textureID = RenderSystem.getShaderTexture(0);
+        int textureID = BBSRendering.getBoundTexture();
         GlStateManager._activeTexture(GL30.GL_TEXTURE0);
         GlStateManager._bindTexture(textureID);
 
@@ -576,7 +574,7 @@ public class BOBJModelVAO
         if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.TANGENTS);
         if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.MID_TEXTURE_UV);
 
-        shader.unbind();
+        BBSRendering.unbindProgram();
 
         GL30.glBindVertexArray(currentVAO);
 
