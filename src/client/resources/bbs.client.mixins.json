@@ -30,6 +30,7 @@
         "KeyboardMixin",
         "ResourceReloadLoggerMixin",
         "RenderLayerMixin",
+        "GlStateManagerMixin",
         "RenderLayerTextureOverrideMixin",
         "ClientWorldPropertiesMixin",
         "sodium.ColorAttributeMixin",

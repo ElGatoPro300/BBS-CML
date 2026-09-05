@@ -19,6 +19,7 @@ import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.LabelTextTintQuadCapture;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.utils.FontUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
@@ -194,101 +195,109 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         context.stack.push();
 
-        if (this.form.billboard.get())
+        try
         {
-            Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
-            Vector3f scale = new Vector3f();
+            BBSRendering.forceDisableCull(true);
 
-            modelMatrix.getScale(scale);
-
-            modelMatrix.m00(1).m01(0).m02(0);
-            modelMatrix.m10(0).m11(1).m12(0);
-            modelMatrix.m20(0).m21(0).m22(1);
-
-            if (!context.modelRenderer && !context.isPicking())
+            if (this.form.billboard.get())
             {
-                modelMatrix.mul(context.camera.view);
+                Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
+                Vector3f scale = new Vector3f();
+
+                modelMatrix.getScale(scale);
+
+                modelMatrix.m00(1).m01(0).m02(0);
+                modelMatrix.m10(0).m11(1).m12(0);
+                modelMatrix.m20(0).m21(0).m22(1);
+
+                if (!context.modelRenderer && !context.isPicking())
+                {
+                    modelMatrix.mul(context.camera.view);
+                }
+
+                modelMatrix.scale(scale);
+
+                context.stack.peek().getNormalMatrix().identity();
+                context.stack.peek().getNormalMatrix().scale(
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
+                );
             }
 
-            modelMatrix.scale(scale);
+            TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+            float fontSize = this.form.fontSize.get();
+            float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
+            int light = context.light;
 
-            context.stack.peek().getNormalMatrix().identity();
-            context.stack.peek().getNormalMatrix().scale(
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
-            );
-        }
+            this.nametagAlpha = 1F;
 
-        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
-        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        float fontSize = this.form.fontSize.get();
-        float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
-        int light = context.light;
+            boolean shadowPass = this.isShadowPass(context);
 
-        this.nametagAlpha = 1F;
+            if (shadowPass)
+            {
+                BBSRendering.enableDepthTest();
+                BBSRendering.depthMask(true);
+            }
 
-        boolean shadowPass = this.isShadowPass(context);
+            if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
+            {
+                context.stack.translate(0F, -0.5F, 0F);
+                this.nametagAlpha = 0.125F;
+            }
 
-        if (shadowPass)
-        {
+            MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
+
+            BBSRendering.disableCull();
+
+            if (context.isPicking())
+            {
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    /* startDrawing may re-enable culling; keep both sides of the label visible. */
+                    BBSRendering.disableCull();
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    BBSRendering.bindProgram(BBSShaders.getPickerModelsProgram());
+                });
+
+                light = 0;
+            }
+            else
+            {
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    BBSRendering.disableCull();
+                    BBSRendering.enableBlend();
+                    BBSRendering.defaultBlendFunc();
+                });
+            }
+
+            if (this.form.max.get() <= 0)
+            {
+                this.renderString(context, consumers, renderer, light);
+            }
+            else
+            {
+                this.renderLimitedString(context, consumers, renderer, light);
+            }
+
+            /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
+             * flush so the last label keeps both faces when WorldRenderer draws later. */
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) -> BBSRendering.disableCull());
+            this.flushLabelConsumers(consumers);
+
+            CustomVertexConsumerProvider.clearRunnables();
+            BBSRendering.defaultBlendFunc();
+
             BBSRendering.enableDepthTest();
-            BBSRendering.depthMask(true);
         }
-
-        if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
+        finally
         {
-            context.stack.translate(0F, -0.5F, 0F);
-            this.nametagAlpha = 0.125F;
+            BBSRendering.forceDisableCull(false);
+            BBSRendering.enableCull();
+            context.stack.pop();
         }
-
-        MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
-
-        BBSRendering.disableCull();
-
-        if (context.isPicking())
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                /* startDrawing may re-enable culling; keep both sides of the label visible. */
-                BBSRendering.disableCull();
-                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                BBSRendering.bindProgram(BBSShaders.getPickerModelsProgram());
-            });
-
-            light = 0;
-        }
-        else
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                BBSRendering.disableCull();
-                BBSRendering.enableBlend();
-                BBSRendering.defaultBlendFunc();
-            });
-        }
-
-        if (this.form.max.get() <= 0)
-        {
-            this.renderString(context, consumers, renderer, light);
-        }
-        else
-        {
-            this.renderLimitedString(context, consumers, renderer, light);
-        }
-
-        /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
-         * flush so the last label keeps both faces when WorldRenderer draws later. */
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> BBSRendering.disableCull());
-        this.flushLabelConsumers(consumers);
-
-        CustomVertexConsumerProvider.clearRunnables();
-        BBSRendering.defaultBlendFunc();
-
-        BBSRendering.enableDepthTest();
-        BBSRendering.enableCull();
-
-        context.stack.pop();
     }
 
     /**
@@ -1485,8 +1494,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         BBSRendering.enableBlend();
         BBSRendering.enableDepthTest();
-        BBSRendering.bindProgram(BBSRendering.getGuiProgram());
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        Draw.flush(builder, Draw.getPositionColorLayer());
         context.stack.pop();
     }
 

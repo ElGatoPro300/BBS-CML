@@ -162,6 +162,7 @@ public class BBSRendering
     private static boolean iris;
     private static boolean sodium;
     private static boolean optifine;
+    private static boolean forceDisableCull;
 
     private static int width;
     private static int height;
@@ -1711,6 +1712,21 @@ public class BBSRendering
     public static void disableCull()
     {
         GlStateManager._disableCull();
+    }
+
+    public static void forceDisableCull(boolean force)
+    {
+        forceDisableCull = force;
+
+        if (force)
+        {
+            GlStateManager._disableCull();
+        }
+    }
+
+    public static boolean isCullForcedDisabled()
+    {
+        return forceDisableCull;
     }
 
     public static void enableDepthTest()
