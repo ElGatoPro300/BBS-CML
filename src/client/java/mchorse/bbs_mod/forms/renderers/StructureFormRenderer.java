@@ -746,7 +746,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void checkLightState()
     {
-        StructureLightSettings sl = this.form.structureLight.getRuntimeValue();
+        StructureLightSettings sl = this.form.structureLight.get();
         boolean currentEmitLight = (sl != null) ? sl.enabled : this.form.emitLight.get();
         int currentLightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
 
@@ -876,7 +876,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             this.data.setEntriesCache(cache);
         }
 
-        StructureLightSettings slRuntime = this.form.structureLight.getRuntimeValue();
+        StructureLightSettings slRuntime = this.form.structureLight.get();
         boolean lightsEnabled;
         int lightIntensity;
 
