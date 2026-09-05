@@ -1,8 +1,10 @@
 package mchorse.bbs_mod.forms.forms;
 
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.mc.ValueBlockState;
+import mchorse.bbs_mod.settings.values.misc.ValueStructureLightSettings;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -23,6 +25,9 @@ public class BlockForm extends Form
     public final ValueBoolean repeatCenterX = new ValueBoolean("repeat_center_x", false);
     public final ValueBoolean repeatCenterY = new ValueBoolean("repeat_center_y", false);
     public final ValueBoolean repeatCenterZ = new ValueBoolean("repeat_center_z", false);
+    public final ValueBoolean emitLight = new ValueBoolean("emit_light", false);
+    public final ValueInt lightIntensity = new ValueInt("light_intensity", 15);
+    public final ValueStructureLightSettings structureLight = new ValueStructureLightSettings("structure_light", new StructureLightSettings(false, 15));
 
     public static int repeatAxisStart(int count, boolean centered)
     {
@@ -47,6 +52,11 @@ public class BlockForm extends Form
         this.add(this.repeatCenterX);
         this.add(this.repeatCenterY);
         this.add(this.repeatCenterZ);
+        this.add(this.emitLight);
+        this.add(this.lightIntensity);
+        this.add(this.structureLight);
+        this.emitLight.invisible();
+        this.lightIntensity.invisible();
     }
 
     @Override

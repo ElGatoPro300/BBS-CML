@@ -4,6 +4,7 @@ import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIBlockStateEditor;
@@ -45,6 +46,8 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
     public UIElement glowSection;
     public UIBlockStateEditor stateEditor;
     public UIButton pickBiome;
+    public UIToggle toggleLight;
+    public UITrackpad lightIntensity;
     public UITrackpad breaking;
     public UITrackpad repeatX;
     public UITrackpad repeatY;
@@ -143,6 +146,10 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.stateEditor = new UIBlockStateEditor((blockState) -> this.form.blockState.set(blockState));
         this.pickBiome = new UIButton(UIKeys.FORMS_EDITORS_STRUCTURE_PICK_BIOME, (b) -> this.pickBiome());
+        this.toggleLight = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT, false, (t) -> this.toggleLight(t));
+        this.lightIntensity = new UITrackpad((v) -> this.setLightIntensity(v.intValue()))
+                .integer()
+                .limit(1D, 15D);
         this.breaking = new UITrackpad((v) -> this.form.breaking.set(v.intValue())).integer().limit(0, 10);
         this.breaking.tooltip(UIKeys.FORMS_EDITORS_BLOCK_BREAKING);
         this.repeatX = new UITrackpad((v) -> this.form.repeatX.set(v.intValue())).integer().limit(1, 64);
@@ -169,9 +176,50 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
             this.stateEditor
         );
         this.options.add(this.pickBiome);
+        this.options.add(this.toggleLight);
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT_INTENSITY_LABEL).marginTop(6), this.lightIntensity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT).marginTop(6), UI.row(this.repeatX, this.repeatY, this.repeatZ));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER).marginTop(6), UI.row(this.repeatCenterX, this.repeatCenterY, this.repeatCenterZ));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_BREAKING).marginTop(6), this.breaking);
+    }
+
+    private void toggleLight(UIToggle t)
+    {
+        StructureLightSettings settings = this.form.structureLight.get();
+        boolean enabled = t.getValue();
+
+        if (settings == null)
+        {
+            settings = new StructureLightSettings();
+        }
+        else
+        {
+            settings = settings.copy();
+        }
+
+        settings.enabled = enabled;
+
+        this.form.structureLight.set(settings);
+        this.form.emitLight.set(enabled);
+    }
+
+    private void setLightIntensity(int intensity)
+    {
+        StructureLightSettings settings = this.form.structureLight.get();
+
+        if (settings == null)
+        {
+            settings = new StructureLightSettings();
+        }
+        else
+        {
+            settings = settings.copy();
+        }
+
+        settings.intensity = intensity;
+
+        this.form.structureLight.set(settings);
+        this.form.lightIntensity.set(intensity);
     }
 
     private void pickBiome()
@@ -240,5 +288,12 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.repeatCenterX.setValue(form.repeatCenterX.get());
         this.repeatCenterY.setValue(form.repeatCenterY.get());
         this.repeatCenterZ.setValue(form.repeatCenterZ.get());
+
+        StructureLightSettings s = form.structureLight.get();
+        boolean enabled = (s != null) ? s.enabled : form.emitLight.get();
+        int intensity = (s != null) ? s.intensity : form.lightIntensity.get();
+
+        this.toggleLight.setValue(enabled);
+        this.lightIntensity.setValue((double) intensity);
     }
 }

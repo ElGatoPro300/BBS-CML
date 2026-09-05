@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
@@ -173,6 +174,20 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     {
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         int light = context.light;
+
+        StructureLightSettings sl = this.form.structureLight.get();
+        boolean lightsEnabled = (sl != null) ? sl.enabled : this.form.emitLight.get();
+        int lightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
+        BlockState currentBlockState = this.form.blockState.get();
+        int luminance = (lightsEnabled && currentBlockState != null) ? Math.min(currentBlockState.getLuminance(), lightIntensity) : 0;
+
+        if (luminance > 0 && !context.isPicking())
+        {
+            int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(light), luminance);
+            int skyLight = LightmapTextureManager.getSkyLightCoordinates(light);
+
+            light = LightmapTextureManager.pack(blockLight, skyLight);
+        }
 
         context.stack.push();
 
@@ -600,8 +615,22 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
      */
     private int resolveBlockLight(FormRenderingContext context, int localX, int localY, int localZ, int fallback)
     {
+        StructureLightSettings sl = this.form.structureLight.get();
+        boolean lightsEnabled = (sl != null) ? sl.enabled : this.form.emitLight.get();
+        int lightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
+        BlockState blockState = this.form.blockState.get();
+        int luminance = (lightsEnabled && blockState != null) ? Math.min(blockState.getLuminance(), lightIntensity) : 0;
+
         if (this.form.repeatX.get() == 1 && this.form.repeatY.get() == 1 && this.form.repeatZ.get() == 1)
         {
+            if (luminance > 0)
+            {
+                int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(fallback), luminance);
+                int skyLight = LightmapTextureManager.getSkyLightCoordinates(fallback);
+
+                fallback = LightmapTextureManager.pack(blockLight, skyLight);
+            }
+
             return fallback;
         }
 
@@ -619,6 +648,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (world == null)
         {
+            if (luminance > 0)
+            {
+                int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(fallback), luminance);
+                int skyLight = LightmapTextureManager.getSkyLightCoordinates(fallback);
+
+                fallback = LightmapTextureManager.pack(blockLight, skyLight);
+            }
+
             return fallback;
         }
 
@@ -626,10 +663,26 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (blockPos == null)
         {
+            if (luminance > 0)
+            {
+                int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(fallback), luminance);
+                int skyLight = LightmapTextureManager.getSkyLightCoordinates(fallback);
+
+                fallback = LightmapTextureManager.pack(blockLight, skyLight);
+            }
+
             return fallback;
         }
 
         int sampled = WorldRenderer.getLightmapCoordinates(world, blockPos);
+
+        if (luminance > 0)
+        {
+            int blockLight = Math.max(LightmapTextureManager.getBlockLightCoordinates(sampled), luminance);
+            int skyLight = LightmapTextureManager.getSkyLightCoordinates(sampled);
+
+            sampled = LightmapTextureManager.pack(blockLight, skyLight);
+        }
 
         return FormLightingRender.apply(sampled, this.form.lightingSettings, this.form.lighting.get());
     }
