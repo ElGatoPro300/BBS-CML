@@ -953,6 +953,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
     {
+        StructureData.syncFancyGraphicsFromOptions();
+        RenderLayer base = RenderLayers.getBlockLayer(state);
+
+        if (base == RenderLayer.getSolid())
+        {
+            return TexturedRenderLayers.getEntitySolid();
+        }
+
         return RenderLayers.getEntityBlockLayer(state, false);
     }
 
@@ -961,7 +969,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
         RenderLayer layer = softOpacity
             ? TexturedRenderLayers.getEntityTranslucentCull()
-            : RenderLayers.getEntityBlockLayer(state, false);
+            : this.resolveStructureLeavesLayer(state, false);
         VertexConsumer vc = consumers.getBuffer(layer);
 
         if (recolor != null)

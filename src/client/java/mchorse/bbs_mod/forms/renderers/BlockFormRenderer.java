@@ -14,6 +14,7 @@ import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.StructureData;
 import mchorse.bbs_mod.forms.renderers.utils.VirtualBlockRenderView;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -36,6 +37,7 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.OverlayVertexConsumer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
@@ -819,7 +821,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         MinecraftClient.getInstance().getBlockRenderManager().getModelRenderer().render(
             stack.peek(),
-            consumers.getBuffer(RenderLayers.getEntityBlockLayer(blockState, false)),
+            consumers.getBuffer(this.resolveBlockLayer(blockState)),
             blockState,
             bakedModel,
             r,
@@ -828,6 +830,19 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             light,
             overlay
         );
+    }
+
+    private RenderLayer resolveBlockLayer(BlockState state)
+    {
+        StructureData.syncFancyGraphicsFromOptions();
+        RenderLayer base = RenderLayers.getBlockLayer(state);
+
+        if (base == RenderLayer.getSolid())
+        {
+            return TexturedRenderLayers.getEntitySolid();
+        }
+
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private int resolveBlockTint(BlockState state, BlockPos worldPos)
