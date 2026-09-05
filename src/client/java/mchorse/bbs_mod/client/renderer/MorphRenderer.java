@@ -64,6 +64,14 @@ public class MorphRenderer
 
         if (morph != null && morph.getForm() != null)
         {
+            /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
+             * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
+             * so other spectators / F5 see the normal semi-transparent head. */
+            if (player.isSpectator())
+            {
+                return false;
+            }
+
             if (canRender(playerForm))
             {
                 RenderSystem.enableDepthTest();
