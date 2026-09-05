@@ -15,6 +15,7 @@ public class BlockForm extends Form
     public final ValueBlockState blockState = new ValueBlockState("block_state");
     public final ValueString blockEntityNbt = new ValueString("block_entity_nbt", "");
     public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+    public final ValueString biomeId = new ValueString("biome_id", "");
     public final ValueInt breaking = new ValueInt("breaking", 0, 0, 10);
     public final ValueInt repeatX = new ValueInt("repeat_x", 1, 1, 64);
     public final ValueInt repeatY = new ValueInt("repeat_y", 1, 1, 64);
@@ -38,6 +39,7 @@ public class BlockForm extends Form
         this.add(this.blockState);
         this.add(this.blockEntityNbt);
         this.add(this.color);
+        this.add(this.biomeId);
         this.add(this.breaking);
         this.add(this.repeatX);
         this.add(this.repeatY);
@@ -51,5 +53,22 @@ public class BlockForm extends Form
     protected String getDefaultDisplayName()
     {
         return Registries.BLOCK.getId(this.blockState.get().getBlock()).toString();
+    }
+
+    @Override
+    public String getTrackName(String property)
+    {
+        int slash = property.lastIndexOf('/');
+        String prefix = slash == -1 ? "" : property.substring(0, slash + 1);
+        String last = slash == -1 ? property : property.substring(slash + 1);
+
+        String mapped = last;
+
+        if ("biome_id".equals(last))
+        {
+            mapped = "biome";
+        }
+
+        return super.getTrackName(prefix + mapped);
     }
 }

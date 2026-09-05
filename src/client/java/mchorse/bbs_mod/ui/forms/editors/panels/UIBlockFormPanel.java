@@ -12,13 +12,24 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.block.BlockState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.util.Identifier;
+import net.minecraft.world.biome.Biome;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class UIBlockFormPanel extends UIFormPanel<BlockForm>
 {
@@ -33,6 +44,7 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
     public UIBlockStateEditor stateEditor;
+    public UIButton pickBiome;
     public UITrackpad breaking;
     public UITrackpad repeatX;
     public UITrackpad repeatY;
@@ -130,6 +142,7 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         });
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.stateEditor = new UIBlockStateEditor((blockState) -> this.form.blockState.set(blockState));
+        this.pickBiome = new UIButton(UIKeys.FORMS_EDITORS_STRUCTURE_PICK_BIOME, (b) -> this.pickBiome());
         this.breaking = new UITrackpad((v) -> this.form.breaking.set(v.intValue())).integer().limit(0, 10);
         this.breaking.tooltip(UIKeys.FORMS_EDITORS_BLOCK_BREAKING);
         this.repeatX = new UITrackpad((v) -> this.form.repeatX.set(v.intValue())).integer().limit(1, 64);
@@ -155,9 +168,42 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
             ).marginTop(4),
             this.stateEditor
         );
+        this.options.add(this.pickBiome);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT).marginTop(6), UI.row(this.repeatX, this.repeatY, this.repeatZ));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER).marginTop(6), UI.row(this.repeatCenterX, this.repeatCenterY, this.repeatCenterZ));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_BREAKING).marginTop(6), this.breaking);
+    }
+
+    private void pickBiome()
+    {
+        UIListOverlayPanel overlay = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_STRUCTURE_PICK_BIOME, (value) ->
+        {
+            String id = value == null ? "" : value;
+
+            this.form.biomeId.set(id);
+        });
+
+        List<String> ids = new ArrayList<>();
+
+        try
+        {
+            if (MinecraftClient.getInstance().world != null)
+            {
+                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BIOME);
+
+                for (Identifier id : reg.getIds())
+                {
+                    ids.add(id.toString());
+                }
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+
+        overlay.addValues(ids);
+        overlay.setValue(this.form.biomeId.get());
+        UIOverlay.addOverlay(this.getContext(), overlay, 280, 0.5F);
     }
 
     @Override
