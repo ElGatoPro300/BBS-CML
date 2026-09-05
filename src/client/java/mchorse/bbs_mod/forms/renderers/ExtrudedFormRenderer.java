@@ -25,7 +25,6 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -82,7 +81,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        MatrixStack stack = context.batcher.getContext().getMatrices();
+        context.batcher.flush();
+
+        MatrixStack stack = new MatrixStack();
 
         stack.push();
 
@@ -97,11 +98,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         /* Shading fix */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+        BBSRendering.setupLevelLighting();
 
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
 
         ShaderProgram modelShader = BBSShaders.getModel();
 
@@ -119,9 +118,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             );
         }
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
-
-        DiffuseLighting.disableGuiDepthLighting();
+        BBSRendering.depthFunc(GL11.GL_ALWAYS);
 
         stack.pop();
     }
@@ -144,7 +141,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         boolean useShadedFormat = shading
             || ((paintStrength != 0F || hasColorGrade) && !irisWorldModelPass);
         Supplier<ShaderProgram> shader = this.getShader(context,
-            useShadedFormat ? (irisWorldModelPass ? () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); } : BBSShaders::getModel) : () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); },
+            useShadedFormat ? (irisWorldModelPass ? BBSRendering::getEntityTranslucentProgram : BBSShaders::getModel) : BBSRendering::getPositionTexColorProgram,
             shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
         );
 
@@ -317,11 +314,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 ModelVAORenderer.clearFormColorGrade();
             }
 
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-
-            gameRenderer.getLightmapTextureManager().enable();
-            gameRenderer.getOverlayTexture().setupOverlayColor();
+            BBSRendering.enableBlend();
+            BBSRendering.defaultBlendFunc();
 
             if (deferTranslucentModel)
             {
@@ -584,9 +578,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                     ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
                                     ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformQueued, glowMaskHalfQueued, false);
                                     ModelVAORenderer.setGlow(glowSnapshot, resolvedGlowSnapshot.r, resolvedGlowSnapshot.g, resolvedGlowSnapshot.b, legacyGlowSnapshot);
-                                    RenderSystem.enableBlend();
-                                    RenderSystem.depthMask(false);
-                                    RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                                    BBSRendering.enableBlend();
+                                    BBSRendering.depthMask(false);
+                                    BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 
                                     try
                                     {
@@ -594,8 +588,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                     }
                                     finally
                                     {
-                                        RenderSystem.depthMask(true);
-                                        RenderSystem.defaultBlendFunc();
+                                        BBSRendering.depthMask(true);
+                                        BBSRendering.defaultBlendFunc();
                                     }
                                 }
                             }
@@ -609,8 +603,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                             ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
                             ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformQueued, glowMaskHalfQueued, false);
                             ModelVAORenderer.setGlow(glowSnapshot, resolvedGlowSnapshot.r, resolvedGlowSnapshot.g, resolvedGlowSnapshot.b, legacyGlowSnapshot);
-                            RenderSystem.enableBlend();
-                            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                            BBSRendering.enableBlend();
+                            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 
                             try
                             {
@@ -618,7 +612,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                             }
                             finally
                             {
-                                RenderSystem.defaultBlendFunc();
+                                BBSRendering.defaultBlendFunc();
                             }
                         }
                     }
@@ -655,17 +649,17 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             if (forceDepth || suppressDepth)
             {
                 savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-                RenderSystem.enableDepthTest();
+                BBSRendering.enableDepthTest();
 
                 if (forceDepth)
                 {
                     ShaderOpacityPatch.setForceLiveDepthWrite(true);
-                    RenderSystem.depthMask(true);
+                    BBSRendering.depthMask(true);
                 }
                 else
                 {
                     ShaderOpacityPatch.setSuppressLiveDepthWrite(true);
-                    RenderSystem.depthMask(false);
+                    BBSRendering.depthMask(false);
                 }
             }
 
@@ -778,9 +772,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                     ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot, false);
                                     ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
 
-                                    RenderSystem.enableBlend();
-                                    RenderSystem.depthMask(false);
-                                    RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                                    BBSRendering.enableBlend();
+                                    BBSRendering.depthMask(false);
+                                    BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 
                                     try
                                     {
@@ -788,8 +782,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                     }
                                     finally
                                     {
-                                        RenderSystem.depthMask(true);
-                                        RenderSystem.defaultBlendFunc();
+                                        BBSRendering.depthMask(true);
+                                        BBSRendering.defaultBlendFunc();
                                     }
                                 });
                             }
@@ -828,8 +822,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                 ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot, false);
                                 ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
 
-                                RenderSystem.enableBlend();
-                                RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                                BBSRendering.enableBlend();
+                                BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 
                                 try
                                 {
@@ -837,7 +831,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                 }
                                 finally
                                 {
-                                    RenderSystem.defaultBlendFunc();
+                                    BBSRendering.defaultBlendFunc();
                                 }
                             });
                         }
@@ -898,22 +892,19 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 if (forceDepth)
                 {
                     ShaderOpacityPatch.setForceLiveDepthWrite(false);
-                    RenderSystem.depthMask(savedDepthMask);
+                    BBSRendering.depthMask(savedDepthMask);
                 }
                 else if (suppressDepth)
                 {
                     ShaderOpacityPatch.setSuppressLiveDepthWrite(false);
-                    RenderSystem.depthMask(savedDepthMask);
+                    BBSRendering.depthMask(savedDepthMask);
                 }
             }
             }
             }
 
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.disableBlend();
-
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
+            BBSRendering.defaultBlendFunc();
+            BBSRendering.disableBlend();
         }
     }
 

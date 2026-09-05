@@ -78,9 +78,11 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
@@ -88,14 +90,18 @@ import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
@@ -1803,18 +1809,65 @@ public class BBSRendering
     {
         if (program != null)
         {
-            org.lwjgl.opengl.GL20.glUseProgram(program.getGlRef());
+            GL20.glUseProgram(program.getGlRef());
         }
     }
 
     public static void unbindProgram()
     {
-        org.lwjgl.opengl.GL20.glUseProgram(0);
+        GL20.glUseProgram(0);
     }
 
     public static int getBoundTexture()
     {
-        return org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
+        return GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+    }
+
+    public static void blendFuncSeparate(int srcRgb, int dstRgb, int srcAlpha, int dstAlpha)
+    {
+        GlStateManager._blendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+    }
+
+    public static void enableScissor(int x, int y, int w, int h)
+    {
+        GlStateManager._enableScissorTest();
+        GlStateManager._scissorBox(x, y, w, h);
+    }
+
+    public static void disableScissor()
+    {
+        GlStateManager._disableScissorTest();
+    }
+
+    public static void setProjectionMatrix(Matrix4f matrix, ProjectionType type)
+    {
+        if (RenderSystem.getDynamicUniforms() != null && matrix != null)
+        {
+            GpuBufferSlice slice = RenderSystem.getDynamicUniforms().write(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
+            RenderSystem.setProjectionMatrix(slice, type);
+        }
+    }
+
+    public static int getTextureGlId(Identifier id)
+    {
+        AbstractTexture texture = MinecraftClient.getInstance().getTextureManager().getTexture(id);
+
+        if (texture != null && texture.getGlTexture() instanceof GlTexture glTexture)
+        {
+            return glTexture.getGlId();
+        }
+
+        return 0;
+    }
+
+    public static void bindTexture(Identifier id)
+    {
+        int glId = getTextureGlId(id);
+
+        if (glId > 0)
+        {
+            GlStateManager._bindTexture(glId);
+        }
     }
 }
 

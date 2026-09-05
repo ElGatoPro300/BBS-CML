@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.particles;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.particles.ParticleScheme;
@@ -111,7 +112,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         GlStateManager._enableBlend();
         GlStateManager._enableDepthTest();
-        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR, BBSShaders.getParticlesLayer(), stack, OverlayTexture.DEFAULT_UV, context.getTransition());
+        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, BBSRendering::getParticleProgram, stack, OverlayTexture.DEFAULT_UV, context.getTransition());
         GlStateManager._disableDepthTest();
         GlStateManager._disableBlend();
 

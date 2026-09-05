@@ -79,6 +79,7 @@ import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.SkinTextures;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemDisplayContext;
@@ -3519,7 +3520,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         Identifier skinTexture = null;
         if (profile != null && profile.getGameProfile() != null)
         {
-            skinTexture = MinecraftClient.getInstance().getSkinProvider().supplySkinTextures(profile.getGameProfile(), false).get().texture();
+            SkinTextures textures = MinecraftClient.getInstance().getSkinProvider().supplySkinTextures(profile.getGameProfile(), false).get();
+            if (textures != null && textures.body() != null)
+            {
+                skinTexture = textures.body().id();
+            }
         }
         RenderLayer renderLayer = SkullBlockEntityRenderer.getCutoutRenderLayer(skullType, skinTexture);
 

@@ -307,7 +307,7 @@ public final class FormUIPreviewCache
         {
             /* Do not clear — wiping the main FB mid-UI causes white wash / text corruption. */
             BBSRendering.ensureMainFramebuffer();
-            client.getFramebuffer().beginWrite(false);
+            BBSRendering.bindMainFramebuffer(false);
         }
 
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);

@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -296,21 +297,21 @@ public abstract class FormRenderer <T extends Form>
         return normal;
     }
 
-    protected void setupTarget(FormRenderingContext context, ShaderProgram program)
+    public static void setupPickingUniform(ShaderProgram program, FormRenderingContext context)
     {
         if (program == null)
         {
             return;
         }
 
-        GlUniform target = program.getUniform("Target");
+        int pickingIndex = context.getPickingIndex();
 
-        if (target != null)
-        {
-            int pickingIndex = context.getPickingIndex();
+        BBSUniform.set(program, "Target", pickingIndex);
+    }
 
-            target.set(pickingIndex);
-        }
+    protected void setupTarget(FormRenderingContext context, ShaderProgram program)
+    {
+        setupPickingUniform(program, context);
     }
 
     protected void updateStencilMap(FormRenderingContext context)

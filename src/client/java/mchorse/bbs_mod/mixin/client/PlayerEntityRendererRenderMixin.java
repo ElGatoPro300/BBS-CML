@@ -35,7 +35,7 @@ public class PlayerEntityRendererRenderMixin
                 if (entity instanceof AbstractClientPlayerEntity abstractClientPlayerEntity)
                 {
                     float tickDelta = BBSRendering.isRenderingWorld()
-                        ? MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true)
+                        ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true)
                         : 1F;
 
                     if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, playerState.bodyYaw, tickDelta, matrixStack, vertexConsumerProvider, i))

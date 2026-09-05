@@ -85,9 +85,9 @@ public abstract class LivingEntityRendererMixin
                         Transform transform = new Transform();
                         float fix = poseTransform.fix;
 
-                        transform.translate.x = value.pivotX;
-                        transform.translate.y = value.pivotY;
-                        transform.translate.z = value.pivotZ;
+                        transform.translate.x = value.originX;
+                        transform.translate.y = value.originY;
+                        transform.translate.z = value.originZ;
                         transform.rotate.x = value.pitch;
                         transform.rotate.y = value.yaw;
                         transform.rotate.z = value.roll;
@@ -95,9 +95,9 @@ public abstract class LivingEntityRendererMixin
                         transform.scale.y = value.yScale;
                         transform.scale.z = value.zScale;
 
-                        value.pivotX = Lerps.lerp(value.pivotX, poseTransform.pivot.x, fix);
-                        value.pivotY = Lerps.lerp(value.pivotY, poseTransform.pivot.y, fix);
-                        value.pivotZ = Lerps.lerp(value.pivotZ, poseTransform.pivot.z, fix);
+                        value.originX = Lerps.lerp(value.originX, poseTransform.pivot.x, fix);
+                        value.originY = Lerps.lerp(value.originY, poseTransform.pivot.y, fix);
+                        value.originZ = Lerps.lerp(value.originZ, poseTransform.pivot.z, fix);
                         value.pitch = Lerps.lerp(value.pitch, poseTransform.rotate.x, fix);
                         value.yaw = Lerps.lerp(value.yaw, poseTransform.rotate.y, fix);
                         value.roll = Lerps.lerp(value.roll, poseTransform.rotate.z, fix);
@@ -120,9 +120,9 @@ public abstract class LivingEntityRendererMixin
             Transform transform = entry.getValue();
             ModelPart value = entry.getKey();
 
-            value.pivotX = transform.translate.x;
-            value.pivotY = transform.translate.y;
-            value.pivotZ = transform.translate.z;
+            value.originX = transform.translate.x;
+            value.originY = transform.translate.y;
+            value.originZ = transform.translate.z;
             value.pitch = transform.rotate.x;
             value.yaw = transform.rotate.y;
             value.roll = transform.rotate.z;

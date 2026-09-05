@@ -38,6 +38,7 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.command.permission.PermissionPredicate;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -362,7 +363,12 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            client.player.setClientPermissionLevel(cheats ? 4 : 0);
+            if (client.player != null)
+            {
+                client.player.setPermissions(cheats
+                    ? PermissionPredicate.ALL
+                    : PermissionPredicate.NONE);
+            }
         });
     }
 

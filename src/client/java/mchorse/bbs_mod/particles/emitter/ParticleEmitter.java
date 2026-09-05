@@ -2,6 +2,7 @@ package mchorse.bbs_mod.particles.emitter;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -19,7 +20,6 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;

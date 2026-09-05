@@ -1,8 +1,9 @@
 package net.minecraft.client.render;
 
+import net.minecraft.client.gl.RenderPipelines;
+
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.gl.RenderPipelines;
 
 /**
  * Compatibility shim for 1.21.11 where vanilla {@code BufferRenderer} was removed.
@@ -47,7 +48,7 @@ public class BufferRenderer
         VertexFormat format = params.format();
         VertexFormat.DrawMode mode = params.mode();
 
-        if (mode == VertexFormat.DrawMode.LINES || mode == VertexFormat.DrawMode.LINE_STRIP)
+        if (mode == VertexFormat.DrawMode.LINES || mode == VertexFormat.DrawMode.DEBUG_LINES || mode == VertexFormat.DrawMode.DEBUG_LINE_STRIP)
         {
             if (defaultLinesLayer == null)
             {

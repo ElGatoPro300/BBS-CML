@@ -22,10 +22,8 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
@@ -103,10 +101,10 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             Draw.fillBox(builder, stack, -outlineOffset, -outlineSize, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
             Draw.fillBox(builder, stack, -axisOffset, -1F, -axisOffset, axisOffset, 1F, axisOffset, 0, 1, 0);
 
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-            RenderSystem.disableDepthTest();
+            BBSRendering.bindProgram(BBSRendering.getGuiProgram());
+            BBSRendering.disableDepthTest();
             BufferRenderer.drawWithGlobalProgram(builder.end());
-            RenderSystem.enableDepthTest();
+            BBSRendering.enableDepthTest();
 
             return;
         }
@@ -246,9 +244,9 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         this.buildTrailQuads(builder, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, unblended, blended, colorTransform);
 
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
+        BBSRendering.enableBlend();
+        BBSRendering.defaultBlendFunc();
         BufferRenderer.drawWithGlobalProgram(builder.end());
 
         if (positivePaint)
@@ -261,7 +259,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity, this.resolveGlowEffectTransform(glowSettings, legacyGlow));
         }
 
-        RenderSystem.enableDepthTest();
+        BBSRendering.enableDepthTest();
         stack.pop();
     }
 
@@ -327,7 +325,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
             BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
             this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowColor, glowColor, glowTransform);
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });
