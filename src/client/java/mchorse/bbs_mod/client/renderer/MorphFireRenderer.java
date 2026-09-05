@@ -45,7 +45,7 @@ public final class MorphFireRenderer
 
     public static void render(MatrixStack matrices, VertexConsumerProvider consumers, IEntity morph, Form form, float tickDelta, Camera camera, boolean relative)
     {
-        if (morph.getFireTicks() <= 0 || consumers == null)
+        if (morph.getFireTicks() <= 0)
         {
             return;
         }

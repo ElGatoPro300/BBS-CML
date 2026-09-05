@@ -2,6 +2,15 @@
 
 Actualizado: 2026-09-04. Este documento describe trabajo **parcial**, no un port terminado.
 
+
+## Actualizaci?n de arranque tras Part 4 (2026-09-04, 22:17)
+
+El usuario continu? el port con otra IA hasta `d9f4eda4d` (`Part 4`). Los diagn?sticos de compilaci?n y pendientes descritos m?s abajo son hist?ricos: volver a comprobarlos antes de asumir que siguen vigentes. En esta revisi?n hab?a cambios locales previos en renderizadores, mixins y el JSON del cliente; se conservaron.
+
+El crash `run/crash-reports/crash-2026-09-04_22.15.38-client.txt` abortaba la inicializaci?n al aplicar `CameraMixin`: el callback recib?a `BlockView`, pero `Camera.update` espera `World` en 1.21.11. Se corrigieron ?nicamente el import y el argumento de ese callback.
+
+Validaci?n: `gradlew.bat runClient --console=plain`, salida en `build/port-startup-check.log`. El cliente super? ese fallo, carg? los atlas y sigui? ejecut?ndose con una ventana Minecraft 1.21.11 que respond?a. No apareci? otro crash report durante esta comprobaci?n. No se prob? cargar un mundo ni se audit? todav?a la implementaci?n de la otra IA. Los errores de autenticaci?n de la sesi?n de desarrollo y de metadata de resource packs que aparecen en el log no detuvieron este arranque.
+
 ## 1. Objetivo y condiciones
 
 Migrar BBS CML desde su renderizado de 1.21.4 a Fabric 1.21.11 conservando sus funciones: modelos BOBJ/glTF, formas, partículas, selección por píxel, gizmos, cámaras, editor, efectos, overlays, captura de películas y compatibilidad con Iris/Sodium.

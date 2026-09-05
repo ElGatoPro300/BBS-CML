@@ -291,7 +291,7 @@ public class FormUtilsClient
      * Flush after the feature so a later throw (trident) cannot skip {@code draw()}
      * and drop the last armor piece.
      */
-    public static void flushMobFormFeatureLayers(VertexConsumerProvider vertexConsumers)
+    public static void flushMobFormFeatureLayers(Object vertexConsumers)
     {
         if (!shouldFlushMobFormFeatureLayers() || vertexConsumers == null)
         {

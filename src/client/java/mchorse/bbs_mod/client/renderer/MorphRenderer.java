@@ -23,6 +23,7 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
@@ -35,7 +36,7 @@ public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -97,7 +98,7 @@ public class MorphRenderer
                 {
                     MorphFireRenderer.render(
                         matrixStack,
-                        vertexConsumerProvider,
+                        (VertexConsumerProvider) null,
                         morph.entity,
                         morph.getForm(),
                         g,
