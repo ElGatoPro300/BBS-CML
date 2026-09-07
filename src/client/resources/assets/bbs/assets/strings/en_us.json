@@ -263,7 +263,7 @@
     "bbs.config.editor.mute_render_audio_clips": "Mute clip audio while rendering",
     "bbs.config.editor.mute_render_audio_clips-comment": "Prevent camera audio clips from playing in real time during video render",
     "bbs.config.editor.orbit_restrict_to_viewport": "Restrict orbit to viewport",
-    "bbs.config.editor.orbit_restrict_to_viewport-comment": "When enabled, orbit and flight mouse controls only start when clicking inside the 3D preview area",
+    "bbs.config.editor.orbit_restrict_to_viewport-comment": "When enabled, mouse drag controls (look, roll, FOV) only start when clicking inside the 3D preview viewport. When disabled, clicking and dragging on empty dashboard/panel areas outside the preview can also rotate the camera",
     "bbs.config.editor.orbit_smooth_transition": "Smooth orbit transitions",
     "bbs.config.editor.orbit_smooth_transition-comment": "When enabled, switching between replays in orbit mode animates the camera instead of snapping instantly",
     "bbs.config.editor.orbit_transition_duration": "Orbit transition duration",

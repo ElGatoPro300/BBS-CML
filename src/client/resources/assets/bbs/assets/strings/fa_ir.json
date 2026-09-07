@@ -251,7 +251,7 @@
     "bbs.config.editor.mute_render_audio_clips": "بی‌صدا کردن کلیپ‌های صوتی هنگام رندر",
     "bbs.config.editor.mute_render_audio_clips-comment": "از پخش کلیپ‌های صوتی دوربین در زمان واقعی در حین رندر ویدیو جلوگیری می‌کند",
     "bbs.config.editor.orbit_restrict_to_viewport": "محدود کردن اوربیت به viewport",
-    "bbs.config.editor.orbit_restrict_to_viewport-comment": "وقتی فعال باشد، کنترل‌های ماوس اوربیت و پرواز فقط با کلیک داخل ناحیه پیش‌نمایش سه‌بعدی شروع می‌شوند",
+    "bbs.config.editor.orbit_restrict_to_viewport-comment": "وقتی فعال باشد، کنترل‌های ماوس (چرخش، زاویه، FOV) فقط با کلیک داخل ناحیه پیش‌نمایش سه‌بعدی شروع می‌شوند. وقتی غیرفعال باشد، کلیک روی فضاهای خالی خارج از پیش‌نمایش نیز دوربین را می‌چرخاند",
     "bbs.config.editor.orbit_smooth_transition": "ترنزیشن نرم اوربیت",
     "bbs.config.editor.orbit_smooth_transition-comment": "وقتی فعال باشد، جابه‌جایی بین ریپلی‌ها در حالت اوربیت با انیمیشن انجام می‌شود به‌جای جهش فوری",
     "bbs.config.editor.orbit_transition_duration": "مدت ترنزیشن اوربیت",

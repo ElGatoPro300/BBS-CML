@@ -284,7 +284,7 @@
     "bbs.config.editor.mute_render_audio_clips": "Silenciar audio de clips al renderizar",
     "bbs.config.editor.mute_render_audio_clips-comment": "Evita que los clips de audio de cámara suenen en tiempo real durante el render de video",
     "bbs.config.editor.orbit_restrict_to_viewport": "Restringir órbita al visor",
-    "bbs.config.editor.orbit_restrict_to_viewport-comment": "Al activarse, los controles de órbita y vuelo con el ratón solo se inician al hacer clic dentro del área de vista previa 3D.",
+    "bbs.config.editor.orbit_restrict_to_viewport-comment": "Al activarse, los controles del ratón (girar vista, roll, FOV) solo se inician al hacer clic dentro del recuadro del visor 3D. Al desactivarse, hacer clic y arrastrar en espacios vacíos del dashboard o fuera del visor también rotará la cámara.",
     "bbs.config.editor.orbit_smooth_transition": "Transiciones suaves de órbita",
     "bbs.config.editor.orbit_smooth_transition-comment": "Al activarse, cambiar entre replays en modo órbita anima la cámara en vez de saltar instantáneamente.",
     "bbs.config.editor.orbit_transition_duration": "Duración de transición de órbita",
