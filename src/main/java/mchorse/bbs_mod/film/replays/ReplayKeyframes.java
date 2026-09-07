@@ -563,6 +563,8 @@ public class ReplayKeyframes extends ValueGroup
      * {@code tick}, then clear from {@code tick} so the new take does not lerp into
      * deleted future keys. Empty channels are left alone — never seed defaults (0° =
      * south) or from-scratch recordings would face south until the first real insert.
+     * Vanilla pose/action zeros follow {@link #restoreVanillaPoseAction} so legacy
+     * tick-0 placeholders are not rewritten on every re-record.
      */
     public void bridgeRecordingFrom(float tick, List<String> groups)
     {
@@ -636,24 +638,26 @@ public class ReplayKeyframes extends ValueGroup
 
         if (poseActions)
         {
-            this.restoreDouble(this.sneaking, tick, sneaking);
-            this.restoreDouble(this.sprinting, tick, sprinting);
-            this.restoreDouble(this.swimming, tick, swimming);
-            this.restoreDouble(this.flying, tick, flying);
-            this.restoreDouble(this.fallFlying, tick, fallFlying);
-            this.restoreDouble(this.crawling, tick, crawling);
-            this.restoreDouble(this.climbing, tick, climbing);
-            this.restoreDouble(this.blocking, tick, blocking);
-            this.restoreDouble(this.sleeping, tick, sleeping);
-            this.restoreDouble(this.riptide, tick, riptide);
-            this.restoreDouble(this.grounded, tick, grounded);
-            this.restoreDouble(this.damage, tick, damage);
-            this.restoreDouble(this.deathTime, tick, deathTime);
-            this.restoreDouble(this.usingItem, tick, usingItem);
-            this.restoreDouble(this.itemUseTime, tick, itemUseTime);
-            this.restoreDouble(this.fire, tick, fire);
-            this.restoreDouble(this.particles, tick, particles);
-            this.restoreDouble(this.activeHand, tick, activeHand);
+            /* Same empty/zero policy as insertVanillaFlag — do not re-plant legacy tick-0
+             * zeros from old films when the cut does not need to break a prior hold. */
+            this.restoreVanillaPoseAction(this.sneaking, tick, sneaking);
+            this.restoreVanillaPoseAction(this.sprinting, tick, sprinting);
+            this.restoreVanillaPoseAction(this.swimming, tick, swimming);
+            this.restoreVanillaPoseAction(this.flying, tick, flying);
+            this.restoreVanillaPoseAction(this.fallFlying, tick, fallFlying);
+            this.restoreVanillaPoseAction(this.crawling, tick, crawling);
+            this.restoreVanillaPoseAction(this.climbing, tick, climbing);
+            this.restoreVanillaPoseAction(this.blocking, tick, blocking);
+            this.restoreVanillaPoseAction(this.sleeping, tick, sleeping);
+            this.restoreVanillaPoseAction(this.riptide, tick, riptide);
+            this.restoreVanillaPoseAction(this.grounded, tick, grounded);
+            this.restoreVanillaPoseAction(this.damage, tick, damage);
+            this.restoreVanillaPoseAction(this.deathTime, tick, deathTime);
+            this.restoreVanillaPoseAction(this.usingItem, tick, usingItem);
+            this.restoreVanillaPoseAction(this.itemUseTime, tick, itemUseTime);
+            this.restoreVanillaPoseAction(this.fire, tick, fire);
+            this.restoreVanillaPoseAction(this.particles, tick, particles);
+            this.restoreVanillaPoseAction(this.activeHand, tick, activeHand);
             /* riding/ridden: cleared in clearFrom but not restored — live recordMountKeyframes
              * rewrites from entity state so a non-sitting re-take does not keep old sitting keys. */
         }
@@ -830,6 +834,56 @@ public class ReplayKeyframes extends ValueGroup
         {
             channel.insert(tick, value);
         }
+    }
+
+    /**
+     * Bridge-restore for vanilla pose/action doubles after {@link #clearFrom}.
+     * Non-zero values always restore. Zero restores only when a prior keyframe
+     * holds a different value that must be cut at {@code tick} — otherwise legacy
+     * films with a sole {@code 0} at tick 0 would keep re-seeding empty tracks.
+     */
+    private void restoreVanillaPoseAction(KeyframeChannel<Double> channel, float tick, Double value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        if (value == 0D)
+        {
+            Keyframe<Double> previous = this.findLastKeyframeBefore(channel, tick);
+
+            if (previous == null)
+            {
+                return;
+            }
+
+            Double previousValue = previous.getValue();
+
+            if (previousValue != null && previousValue == 0D)
+            {
+                return;
+            }
+        }
+
+        channel.insert(tick, value);
+    }
+
+    private Keyframe<Double> findLastKeyframeBefore(KeyframeChannel<Double> channel, float tick)
+    {
+        Keyframe<Double> previous = null;
+
+        for (Keyframe<Double> frame : channel.getKeyframes())
+        {
+            if (frame.getTick() >= tick)
+            {
+                break;
+            }
+
+            previous = frame;
+        }
+
+        return previous;
     }
 
     /**
