@@ -2573,16 +2573,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.focusLinkedPropertiesTab(timelineId);
 
-        if ("cameraTimeline".equals(timelineId) && this.cameraEditor != null && this.cameraEditor.getClip() != null)
+        if ("cameraTimeline".equals(timelineId) && this.cameraEditor != null)
         {
-            /* fillData (not remount) so embedded keyframe views keep their selection. */
-            this.cameraEditor.fillData();
-            this.restoreEmbeddedKeyframeProperties(this.cameraEditor);
+            this.cameraEditor.restorePropertiesForActiveTimeline();
         }
-        else if ("actionTimeline".equals(timelineId) && this.actionEditor != null && this.actionEditor.getClip() != null)
+        else if ("actionTimeline".equals(timelineId) && this.actionEditor != null)
         {
-            this.actionEditor.fillData();
-            this.restoreEmbeddedKeyframeProperties(this.actionEditor);
+            this.actionEditor.restorePropertiesForActiveTimeline();
         }
         else if ("replayTimeline".equals(timelineId)
             && this.replayEditor != null
@@ -2590,7 +2587,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             && this.replayEditor.keyframeEditor.view != null
             && this.replayEditor.keyframeEditor.view.getGraph() != null)
         {
-            this.replayEditor.keyframeEditor.view.getGraph().pickSelected();
+            if (this.replayEditor.keyframeEditor.view.getGraph().getSelected() != null)
+            {
+                this.replayEditor.keyframeEditor.setVisible(true);
+                this.replayEditor.keyframeEditor.view.getGraph().pickSelected();
+            }
         }
     }
 
@@ -2606,24 +2607,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (embed instanceof UIKeyframeEditor editor)
         {
             editor.hidePropertiesPanel();
-        }
-    }
-
-    private void restoreEmbeddedKeyframeProperties(UIClipsPanel clipsPanel)
-    {
-        if (clipsPanel == null || clipsPanel.clips == null)
-        {
-            return;
-        }
-
-        UIElement embed = clipsPanel.clips.getEmbeddedView();
-
-        if (embed instanceof UIKeyframeEditor editor
-            && editor.view != null
-            && editor.view.getGraph() != null)
-        {
-            editor.setVisible(true);
-            editor.view.getGraph().pickSelected();
         }
     }
 
@@ -2648,14 +2631,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     this.replayEditor.hideKeyframeProperties();
                 }
 
-                if (!"cameraTimeline".equals(timelineId))
+                if (!"cameraTimeline".equals(timelineId) && this.cameraEditor != null)
                 {
                     this.hideEmbeddedKeyframeProperties(this.cameraEditor);
+                    this.cameraEditor.hideClipProperties();
                 }
 
-                if (!"actionTimeline".equals(timelineId))
+                if (!"actionTimeline".equals(timelineId) && this.actionEditor != null)
                 {
                     this.hideEmbeddedKeyframeProperties(this.actionEditor);
+                    this.actionEditor.hideClipProperties();
                 }
             }
             finally
