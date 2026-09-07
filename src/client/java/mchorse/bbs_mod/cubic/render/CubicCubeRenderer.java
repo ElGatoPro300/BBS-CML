@@ -312,6 +312,15 @@ public class CubicCubeRenderer implements ICubicRenderer
     {
         if (group.paintColor.a != 0F)
         {
+            /* Negative intensity is baked into vertex tint on the main pass — never re-apply
+             * via PaintColor uniforms (would double under Iris overlay). */
+            if (group.paintColor.a < 0F)
+            {
+                return ModelVAORenderer.getBasePaintStrength() > 0F
+                    ? ModelVAORenderer.getBasePaintStrength()
+                    : 0F;
+            }
+
             return group.paintColor.a;
         }
 
