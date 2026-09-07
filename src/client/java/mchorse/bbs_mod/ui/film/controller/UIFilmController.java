@@ -2292,7 +2292,9 @@ public class UIFilmController extends UIElement
     public Pair<String, TransformOrientation> getBone()
     {
         /* Pose gizmos belong to the replay timeline; hide them while another
-         * tab (e.g. camera clips) is active in the same tab group. */
+         * tab (e.g. camera clips) is active in the same tab group. Also null when
+         * the keyframe properties form was detached for a timeline switch — selection
+         * may remain on the dope sheet, but gizmos must not show. */
         if (this.panel.replayEditor == null || !this.panel.replayEditor.isVisible())
         {
             return null;

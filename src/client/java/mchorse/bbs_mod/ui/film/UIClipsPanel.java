@@ -242,6 +242,18 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         {
             this.panel.setVisible(visible);
         }
+
+        /* Detach embedded keyframe property forms from the shared host while this
+         * timeline is hidden; graph selection is kept for restore on show. */
+        if (!visible)
+        {
+            UIElement embed = this.clips.getEmbeddedView();
+
+            if (embed instanceof UIKeyframeEditor editor)
+            {
+                editor.hidePropertiesPanel();
+            }
+        }
     }
 
     public void setClips(Clips clips)
