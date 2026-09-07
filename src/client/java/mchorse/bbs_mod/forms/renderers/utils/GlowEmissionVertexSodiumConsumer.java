@@ -69,4 +69,21 @@ public class GlowEmissionVertexSodiumConsumer extends GlowEmissionVertexConsumer
             emissionColor = saved;
         }
     }
+
+    @Override
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        Color saved = emissionColor;
+
+        emissionColor = null;
+
+        try
+        {
+            super.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
+        }
+        finally
+        {
+            emissionColor = saved;
+        }
+    }
 }

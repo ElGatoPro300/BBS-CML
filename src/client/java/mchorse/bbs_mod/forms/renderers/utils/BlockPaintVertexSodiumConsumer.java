@@ -77,4 +77,24 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
             newPaintColor = savedPaint;
         }
     }
+
+    @Override
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        Color savedColor = newColor;
+        Color savedPaint = newPaintColor;
+
+        newColor = null;
+        newPaintColor = null;
+
+        try
+        {
+            super.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
+        }
+        finally
+        {
+            newColor = savedColor;
+            newPaintColor = savedPaint;
+        }
+    }
 }

@@ -49,14 +49,7 @@ public class StructureFormOverlayRenderer
 
     public void prepareVaoPaintForMainPass(Color resolvedPaint)
     {
-        if (resolvedPaint != null && resolvedPaint.a < 0F)
-        {
-            ModelVAORenderer.setPaint(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
-        }
-        else
-        {
-            this.clearVaoPaint();
-        }
+        this.clearVaoPaint();
     }
 
     public void clearVaoPaint()

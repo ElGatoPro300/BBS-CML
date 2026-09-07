@@ -172,43 +172,49 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean positiveGlow = glowIntensity > 0F;
         Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(tint, resolvedPaint);
+        Color vaoTint = tint.copy();
+
+        if (resolvedPaint != null && resolvedPaint.a < 0F)
+        {
+            FormColorEffects.applyPaintBlend(vaoTint, resolvedPaint, resolvedPaint.a);
+        }
 
         IModelVAO vao = this.getVao();
 
-            if (vao != null)
-            {
-                GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-                ShaderProgram shader = BBSShaders.getModel();
+        if (vao != null)
+        {
+            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+            ShaderProgram shader = BBSShaders.getModel();
 
-                gameRenderer.getLightmapTextureManager().enable();
-                gameRenderer.getOverlayTexture().setupOverlayColor();
+            gameRenderer.getLightmapTextureManager().enable();
+            gameRenderer.getOverlayTexture().setupOverlayColor();
 
-                RenderSystem.setShader(() -> shader);
-                RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShader(() -> shader);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
 
             boolean needBlendUI = tint.a < 0.999F || this.data.hasTranslucentLayer();
 
-                if (needBlendUI)
-                {
-                    RenderSystem.enableBlend();
-                    RenderSystem.defaultBlendFunc();
-                }
-                else
-                {
-                    RenderSystem.disableBlend();
-                }
+            if (needBlendUI)
+            {
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+            }
+            else
+            {
+                RenderSystem.disableBlend();
+            }
 
-                RenderSystem.enableCull();
+            RenderSystem.enableCull();
 
             this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
             this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
 
-                try
-                {
-                    ModelVAORenderer.render(shader, vao, matrices, tint.r, tint.g, tint.b, tint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-                }
-                finally
-                {
+            try
+            {
+                ModelVAORenderer.render(shader, vao, matrices, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+            }
+            finally
+            {
                 this.overlayRenderer.clearVaoColorTint();
                 this.overlayRenderer.clearVaoPaint();
                 this.overlayRenderer.clearVaoGlow();
@@ -335,6 +341,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(mainTint3D, resolvedPaint);
             Color vaoTint = mainTint3D.copy();
             Function<VertexConsumer, VertexConsumer> layerRecolor = mainRecolor;
+
+            if (resolvedPaint != null && resolvedPaint.a < 0F)
+            {
+                FormColorEffects.applyPaintBlend(vaoTint, resolvedPaint, resolvedPaint.a);
+            }
+
             /* Same contract as BlockForm/ItemForm: bake emission during Iris world (incl. soft
              * post-deferred flush). Post-composite additive glow overlays never bloom.
              * Structure still draws the additive glow overlay whenever glow is positive — Iris
@@ -351,6 +363,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms.
                  * Base emission on a neutral white base so form color tint does not distort bloom. */
                 vaoTint = new Color(1F, 1F, 1F, mainTint3D.a);
+
+                if (resolvedPaint != null && resolvedPaint.a < 0F)
+                {
+                    FormColorEffects.applyPaintBlend(vaoTint, resolvedPaint, resolvedPaint.a);
+                }
+
                 FormColorEffects.blendFormGlowBrighten(vaoTint, glowSettings, legacyGlow);
                 layerRecolor = this.getMainConsumer(new Color(1F, 1F, 1F, mainTint3D.a), resolvedPaint);
             }
