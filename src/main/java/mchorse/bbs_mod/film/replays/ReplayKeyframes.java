@@ -445,11 +445,38 @@ public class ReplayKeyframes extends ValueGroup
 
     public void copyOver(ReplayKeyframes keyframes, int tick)
     {
+        float clearFrom = Float.NaN;
+
+        for (KeyframeChannel<?> source : keyframes.getChannels())
+        {
+            if (!source.isEmpty())
+            {
+                float start = tick + source.getKeyframes().get(0).getTick();
+
+                clearFrom = Float.isNaN(clearFrom) ? start : Math.min(clearFrom, start);
+            }
+        }
+
         for (KeyframeChannel<?> channel : this.getChannels())
         {
             BaseValue keyframe = keyframes.get(channel.getId());
 
-            if (keyframe instanceof KeyframeChannel<?> keyframeChannel)
+            if (!(keyframe instanceof KeyframeChannel<?> keyframeChannel))
+            {
+                continue;
+            }
+
+            if (keyframeChannel.isEmpty())
+            {
+                /* Empty source used to no-op in KeyframeChannel.copyOver, which left
+                 * legacy pose/action keys on outside re-records. Clear from the take
+                 * start inferred from sibling channels that did record. */
+                if (!Float.isNaN(clearFrom))
+                {
+                    channel.removeFrom(clearFrom);
+                }
+            }
+            else
             {
                 channel.copyOver(keyframeChannel, tick);
             }
@@ -667,16 +694,18 @@ public class ReplayKeyframes extends ValueGroup
         this.restoreDouble(this.headYaw, tick, headYaw);
         this.restoreDouble(this.bodyYaw, tick, bodyYaw);
 
-        this.restoreDouble(this.stickLeftX, tick, stickLeftX);
-        this.restoreDouble(this.stickLeftY, tick, stickLeftY);
-        this.restoreDouble(this.stickRightX, tick, stickRightX);
-        this.restoreDouble(this.stickRightY, tick, stickRightY);
-        this.restoreDouble(this.triggerLeft, tick, triggerLeft);
-        this.restoreDouble(this.triggerRight, tick, triggerRight);
-        this.restoreDouble(this.extra1X, tick, extra1X);
-        this.restoreDouble(this.extra1Y, tick, extra1Y);
-        this.restoreDouble(this.extra2X, tick, extra2X);
-        this.restoreDouble(this.extra2Y, tick, extra2Y);
+        /* Sticks/triggers/extras often carry legacy sole-0@0 keys on old films — same
+         * idle-zero policy as pose/action so re-record does not rewrite them. */
+        this.restoreVanillaPoseAction(this.stickLeftX, tick, stickLeftX);
+        this.restoreVanillaPoseAction(this.stickLeftY, tick, stickLeftY);
+        this.restoreVanillaPoseAction(this.stickRightX, tick, stickRightX);
+        this.restoreVanillaPoseAction(this.stickRightY, tick, stickRightY);
+        this.restoreVanillaPoseAction(this.triggerLeft, tick, triggerLeft);
+        this.restoreVanillaPoseAction(this.triggerRight, tick, triggerRight);
+        this.restoreVanillaPoseAction(this.extra1X, tick, extra1X);
+        this.restoreVanillaPoseAction(this.extra1Y, tick, extra1Y);
+        this.restoreVanillaPoseAction(this.extra2X, tick, extra2X);
+        this.restoreVanillaPoseAction(this.extra2Y, tick, extra2Y);
 
         if (mainHand != null)
         {
@@ -837,10 +866,11 @@ public class ReplayKeyframes extends ValueGroup
     }
 
     /**
-     * Bridge-restore for vanilla pose/action doubles after {@link #clearFrom}.
-     * Non-zero values always restore. Zero restores only when a prior keyframe
-     * holds a different value that must be cut at {@code tick} — otherwise legacy
-     * films with a sole {@code 0} at tick 0 would keep re-seeding empty tracks.
+     * Bridge-restore for idle-prone doubles (pose/action flags, sticks, triggers,
+     * extras) after {@link #clearFrom}. Non-zero values always restore. Zero
+     * restores only when a prior keyframe holds a different value that must be
+     * cut at {@code tick} — otherwise legacy films with a sole {@code 0} at tick
+     * 0 would keep re-seeding those tracks on every re-record.
      */
     private void restoreVanillaPoseAction(KeyframeChannel<Double> channel, float tick, Double value)
     {

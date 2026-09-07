@@ -52,7 +52,9 @@ Position-only / rotation-only / stick takes **leave those tracks alone**.
 
 When all-groups recording writes a pose/action channel that is **empty**, a value of `0` is **not** inserted (intentionally cleared tracks stay empty until the entity actually enters a non-zero state).
 
-Bridge restore for those tracks matches that policy: a snapshotted `0` is **not** re-inserted when there is no prior key to cut, or when the last key before `T` is already `0`. That stops legacy films (sole `0` at tick 0) from rewriting pose/action keys on every re-record. A `0` **is** still restored when a prior non-zero hold must end at `T`.
+Bridge restore for those tracks matches that policy: a snapshotted `0` is **not** re-inserted when there is no prior key to cut, or when the last key before `T` is already `0`. That stops legacy films (sole `0` at tick 0) from rewriting pose/action keys on every re-record. A `0` **is** still restored when a prior non-zero hold must end at `T`. The same idle-zero restore policy applies to **sticks / triggers / extras** (also commonly seeded with sole `0@0` on older films).
+
+Outside / world re-record uses `ReplayKeyframes.copyOver`. If a source channel is **empty** (no keys written in the new take), destination keys from the take start onward are still cleared — previously `KeyframeChannel.copyOver` no-op'd on empty sources and left legacy pose/action keys in place.
 
 `riding` / `ridden` are cleared from `T` on all-groups re-record (same gate). They are **not** bridge-restored from old timeline values — `recordMountKeyframes` rewrites them from live mount state so a non-sitting re-take does not keep leftover sitting keys. On other replays, only `ridden` keys from `T` that **link to this rider index** are removed (other mounts' links stay intact).
 
