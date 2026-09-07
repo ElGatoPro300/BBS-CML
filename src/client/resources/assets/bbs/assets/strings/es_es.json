@@ -1315,6 +1315,7 @@
     "bbs.ui.film.replay.orbit.first_person": "Primera persona",
     "bbs.ui.film.replay.orbit.free": "Libre",
     "bbs.ui.film.replay.orbit.orbit": "Órbita",
+    "bbs.ui.film.replay.orbit.reset": "Restablecer órbita",
     "bbs.ui.film.replay.orbit.third_person_back": "Tercera persona (detrás)",
     "bbs.ui.film.replay.orbit.third_person_front": "Tercera persona (delante)",
     "bbs.ui.film.replay.pick_axes_preview": "Elegir hueso de vista previa...",

@@ -1227,6 +1227,7 @@
     "bbs.ui.film.replay.orbit.first_person": "First-person",
     "bbs.ui.film.replay.orbit.free": "Free",
     "bbs.ui.film.replay.orbit.orbit": "Orbit",
+    "bbs.ui.film.replay.orbit.reset": "Reset orbit",
     "bbs.ui.film.replay.orbit.third_person_back": "Third-person (back)",
     "bbs.ui.film.replay.orbit.third_person_front": "Third-person (front)",
     "bbs.ui.film.replay.pick_axes_preview": "Pick preview bone...",

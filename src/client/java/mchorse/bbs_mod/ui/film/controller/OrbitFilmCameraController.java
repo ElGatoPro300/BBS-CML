@@ -667,9 +667,11 @@ public class OrbitFilmCameraController implements ICameraController
     {
         this.position.set(0F, 0F, -DEFAULT_ORBIT_DISTANCE);
         this.distance = DEFAULT_ORBIT_DISTANCE;
+        this.offsetY = 0F;
         this.rotation.set(0F, Math.PI);
         this.roll = 0F;
         this.dragging = -1;
+        this.dragSlop = 0;
         this.center = false;
         this.animating = false;
         this.animProgress = 0F;
