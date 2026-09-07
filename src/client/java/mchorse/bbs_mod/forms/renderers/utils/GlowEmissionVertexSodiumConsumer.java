@@ -22,6 +22,12 @@ public class GlowEmissionVertexSodiumConsumer extends GlowEmissionVertexConsumer
     }
 
     @Override
+    public boolean canUseIntrinsics()
+    {
+        return this.consumer instanceof VertexBufferWriter writer && writer.canUseIntrinsics();
+    }
+
+    @Override
     public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)

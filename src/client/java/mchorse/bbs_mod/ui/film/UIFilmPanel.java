@@ -81,6 +81,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
@@ -2546,6 +2547,69 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return false;
     }
 
+    /**
+     * After a timeline tab becomes active, focus its linked properties host and
+     * remount/refill the form for the current clip or keyframe selection.
+     * <p>
+     * Tab clicks used to only {@link #syncLinkedPropertiesTab} (layout only). Leaving
+     * a pose keyframe on the replay timeline then returning to camera/action left
+     * Propiedades generales empty until the clip was re-picked.
+     */
+    public void refreshTimelineLinkedProperties(String timelineId)
+    {
+        if (timelineId == null)
+        {
+            return;
+        }
+
+        if (!"cameraTimeline".equals(timelineId)
+            && !"replayTimeline".equals(timelineId)
+            && !"actionTimeline".equals(timelineId))
+        {
+            this.syncLinkedPropertiesTab(timelineId);
+
+            return;
+        }
+
+        this.focusLinkedPropertiesTab(timelineId);
+
+        if ("cameraTimeline".equals(timelineId) && this.cameraEditor != null)
+        {
+            this.cameraEditor.restorePropertiesForActiveTimeline();
+        }
+        else if ("actionTimeline".equals(timelineId) && this.actionEditor != null)
+        {
+            this.actionEditor.restorePropertiesForActiveTimeline();
+        }
+        else if ("replayTimeline".equals(timelineId)
+            && this.replayEditor != null
+            && this.replayEditor.keyframeEditor != null
+            && this.replayEditor.keyframeEditor.view != null
+            && this.replayEditor.keyframeEditor.view.getGraph() != null)
+        {
+            if (this.replayEditor.keyframeEditor.view.getGraph().getSelected() != null)
+            {
+                this.replayEditor.keyframeEditor.setVisible(true);
+                this.replayEditor.keyframeEditor.view.getGraph().pickSelected();
+            }
+        }
+    }
+
+    private void hideEmbeddedKeyframeProperties(UIClipsPanel clipsPanel)
+    {
+        if (clipsPanel == null || clipsPanel.clips == null)
+        {
+            return;
+        }
+
+        UIElement embed = clipsPanel.clips.getEmbeddedView();
+
+        if (embed instanceof UIKeyframeEditor editor)
+        {
+            editor.hidePropertiesPanel();
+        }
+    }
+
     public void clearSelectionsExcept(String timelineId)
     {
         if (this.clearingSelections)
@@ -2558,19 +2622,25 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.clearingSelections = true;
             try
             {
-                /* Replay timeline interaction should not drop the camera clip selection; users
-                 * often keep a camera clip selected while editing replay keyframes in unified layout. */
-                if (!"cameraTimeline".equals(timelineId) && !"replayTimeline".equals(timelineId) && this.cameraEditor != null && this.cameraEditor.clips != null)
-                {
-                    this.cameraEditor.clips.pickClip(null);
-                }
-                if (!"actionTimeline".equals(timelineId) && this.actionEditor != null && this.actionEditor.clips != null)
-                {
-                    this.actionEditor.clips.pickClip(null);
-                }
+                /* Keep clip / keyframe graph selections across timeline switches. Only
+                 * detach property forms from the shared host so another timeline can
+                 * show its form. Gizmos stay hidden while their timeline is not visible
+                 * ({@link UIFilmController#getBone}). */
                 if (!"replayTimeline".equals(timelineId) && this.replayEditor != null)
                 {
-                    this.replayEditor.clearSelection();
+                    this.replayEditor.hideKeyframeProperties();
+                }
+
+                if (!"cameraTimeline".equals(timelineId) && this.cameraEditor != null)
+                {
+                    this.hideEmbeddedKeyframeProperties(this.cameraEditor);
+                    this.cameraEditor.hideClipProperties();
+                }
+
+                if (!"actionTimeline".equals(timelineId) && this.actionEditor != null)
+                {
+                    this.hideEmbeddedKeyframeProperties(this.actionEditor);
+                    this.actionEditor.hideClipProperties();
                 }
             }
             finally
@@ -4538,11 +4608,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 BBSSettings.editorLayoutSettings.setFilmLayoutRoot(root);
             }
-
-            if (this.suppressLinkedPropertiesTabFocus == 0)
-            {
-                this.syncLinkedPropertiesTab(panelId);
-            }
         }
 
         int index = this.panels.indexOf(element);
@@ -4561,6 +4626,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         /* Re-sync tab visibility so tabbed panels are correctly shown/hidden */
         this.setupEditorFlex(true);
+
+        if (panelId != null && this.suppressLinkedPropertiesTabFocus == 0)
+        {
+            this.refreshTimelineLinkedProperties(panelId);
+        }
     }
 
     public UIFilmController getController()
@@ -9202,7 +9272,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             if (this.area.isInside(context) && context.mouseButton == 0)
             {
                 this.tabbedNode.activeTab = this.index;
-                this.panel.syncLinkedPropertiesTab(this.panelId);
                 UIElement tabElement = this.panel.panelById.get(this.panelId);
 
                 if (tabElement != null)
@@ -9217,8 +9286,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
                 ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
                 layout.setFilmLayoutRoot(layout.getFilmLayoutRoot());
-                /* Keep existing tab bars so horizontal scroll is not wiped before a drag starts. */
+                /* Keep existing tab bars so horizontal scroll is not wiped before a drag starts.
+                 * Refresh properties after flex so the active timeline is visible when remounting. */
                 this.panel.setupEditorFlex(true, false, false);
+                this.panel.refreshTimelineLinkedProperties(this.panelId);
 
                 if (!layout.isLayoutLocked())
                 {

@@ -1494,7 +1494,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             /* Always force ColorModulator.a = 1 in shadow (even without shaderTint / when
              * isRenderingWorld is false). Leftover modulator alpha × recolor opacity squares
-             * leaf Bayer dither vs solid VAO. */
+             * leaf Bayer dither vs solid VAO. Negative paint uses BlockPaint recolor — same rule. */
             final Color tint = shaderTint;
 
             CustomVertexConsumerProvider.hijackVertexFormat((l) ->

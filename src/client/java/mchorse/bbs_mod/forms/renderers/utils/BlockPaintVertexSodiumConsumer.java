@@ -10,8 +10,8 @@ import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 import org.lwjgl.system.MemoryStack;
 
 /**
- * Same Sodium double-tint guard as {@link RecolorVertexSodiumConsumer}:
- * {@code color()}/{@code vertex()} already bake tint; {@code push} uses {@code newColor}.
+ * Same Sodium double-tint guard as {@link RecolorVertexSodiumConsumer}.
+ * Negative paint uses this consumer — without the guard, leaf/cutout shadow Bayer sees opacity².
  */
 public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer implements VertexBufferWriter
 {
@@ -21,6 +21,12 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
 
         newColor = color;
         newPaintColor = paintColor != null && paintColor.a != 0F ? paintColor : null;
+    }
+
+    @Override
+    public boolean canUseIntrinsics()
+    {
+        return this.consumer instanceof VertexBufferWriter writer && writer.canUseIntrinsics();
     }
 
     @Override
