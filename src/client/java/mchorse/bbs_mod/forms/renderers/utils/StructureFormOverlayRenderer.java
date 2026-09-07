@@ -41,7 +41,6 @@ import java.util.function.Consumer;
  */
 public class StructureFormOverlayRenderer
 {
-    private static boolean diagnosticStructure;
     public enum StructurePaintLayer
     {
         BIOME,
@@ -458,12 +457,6 @@ public class StructureFormOverlayRenderer
 
         Runnable draw = () ->
         {
-            if (Boolean.getBoolean("bbs.debugFormEffects") && !diagnosticStructure)
-            {
-                diagnosticStructure = true;
-                System.out.println("BBS structure deferred blocks=" + data.getBlocks().size() + " saturation=" + form.color.get().saturation
-                    + " culled=" + (culledWorldDraw != null) + " matrix=" + positionMatrix);
-            }
             MatrixStack overlayStack = new MatrixStack();
             overlayStack.peek().getPositionMatrix().set(positionMatrix);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);

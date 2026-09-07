@@ -903,7 +903,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-        RenderLayer layer = TexturedRenderLayers.getItemTranslucentCull();
+        RenderLayer layer = TexturedRenderLayers.getBlockTranslucentCull();
         VertexConsumer vc = consumers.getBuffer(layer);
 
         if (recolor != null)
@@ -1225,7 +1225,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
         RenderLayer layer = softOpacity
-            ? TexturedRenderLayers.getItemTranslucentCull()
+            ? TexturedRenderLayers.getBlockTranslucentCull()
             : this.resolveStructureLeavesLayer(state, false);
         VertexConsumer vc = consumers.getBuffer(layer);
 
@@ -1293,7 +1293,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (!BBSRendering.isIrisShadowPass())
                 {
                     /* Entity translucent — terrain translucent/cutout fails in soft post-deferred. */
-                    layer = TexturedRenderLayers.getItemTranslucentCull();
+                    layer = TexturedRenderLayers.getBlockTranslucentCull();
                 }
             }
 
@@ -1483,7 +1483,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     /* Always entity translucent under soft opacity - terrain translucent vanishes
                      * when drawn from the soft post-deferred flush without shaders. */
-                    layer = TexturedRenderLayers.getItemTranslucentCull();
+                    layer = TexturedRenderLayers.getBlockTranslucentCull();
                 }
 
                 VertexConsumer vc = consumers.getBuffer(layer);

@@ -36,11 +36,9 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
@@ -52,7 +50,6 @@ public final class ModelEffectPass
     private static final Map<Key, RenderPipeline> PIPELINES = new HashMap<>();
     private static final Map<ShaderProgram, String> PROGRAMS = new WeakHashMap<>();
     private static ShaderProgram boundEffects;
-    private static final Set<String> diagnosticDraws = new HashSet<>();
 
     public static void bound(ShaderProgram program)
     {
@@ -212,19 +209,6 @@ public final class ModelEffectPass
             }
 
             BuiltBuffer.DrawParameters draws = buffer.getDrawParameters();
-            if (Boolean.getBoolean("bbs.debugFormEffects"))
-            {
-                String diagnostic = PROGRAMS.get(parameters) + ":" + draws.format() + ":" + ModelVAORenderer.isGlowEmissionPass()
-                    + ":grade=" + ModelEffectUniforms.value(parameters, "ColorGradeActive") + ":count=" + draws.vertexCount()
-                    + ":gradePass=" + ModelVAORenderer.isColorGradeOverlayPass();
-
-                if (diagnosticDraws.add(diagnostic))
-                {
-                    System.out.println("BBS effects diagnostic " + diagnostic + " vertices=" + draws.vertexCount()
-                        + " glow=" + ModelEffectUniforms.value(parameters, "GlowingColor")
-                        + " tint=" + ModelVAORenderer.isColorTintOverlayPass() + " gradePass=" + ModelVAORenderer.isColorGradeOverlayPass());
-                }
-            }
             RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.mode(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
                 (ModelVAORenderer.isColorTintOverlayPass() || PROGRAMS.get(parameters).endsWith("color_tint_overlay"))
                     && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F, ModelVAORenderer.isGlowEmissionPass()));
