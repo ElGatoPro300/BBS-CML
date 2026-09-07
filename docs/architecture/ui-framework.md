@@ -21,5 +21,3 @@ The UI is built on a custom framework centered around `UIElement`.
 
 * Creating a new widget: `docs/architecture/how-to-ui-element.md`
 * Localization: `docs/architecture/ui-localization.md`
-* Maintainability / dock-as-orchestrator: `docs/architecture/code-organization.md`
-* UI redesign branch migration: `docs/architecture/ui-redesign-migration.md`

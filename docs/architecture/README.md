@@ -12,8 +12,6 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 | [ui-framework.md](ui-framework.md) | `UIElement`, layouts, dashboard/panels |
 | [values-and-registration.md](values-and-registration.md) | `Value` system, registration, model formats |
 | [rendering-iris.md](rendering-iris.md) | Iris/shadow/render-state rules |
-| [code-organization.md](code-organization.md) | Maintainability patterns (orchestrators, dock, utils/passes) |
-| [ui-redesign-migration.md](ui-redesign-migration.md) | FS-based UI redesign branch + CML feature migration plan |
 
 ## Film / forms
 
