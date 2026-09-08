@@ -493,13 +493,14 @@ public class ModelVAORenderer
         RenderSystem.setShader(BBSShaders.getModel());
 
         Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType savedProjectionType = RenderSystem.getProjectionType();
         Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         try
         {
             paintOverlaySynced = entry.synced;
 
-            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.PERSPECTIVE);
 
             MatrixStackUtils.pushIdentityModelView();
 
@@ -566,7 +567,7 @@ public class ModelVAORenderer
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
 
             Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 

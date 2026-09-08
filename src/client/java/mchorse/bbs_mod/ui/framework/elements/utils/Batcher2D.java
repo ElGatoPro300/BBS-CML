@@ -514,6 +514,8 @@ public class Batcher2D
             return;
         }
 
+        int lastTexture = RenderSystem.getShaderTexture(0);
+
         RenderSystem.setShaderTexture(0, texture);
         RenderSystem.setShader(program);
 
@@ -538,6 +540,9 @@ public class Batcher2D
         this.fillTexturedBox(builder, matrix, Colors.WHITE, x, y, w, h, 0, textureH, textureW, 0, textureW, textureH);
 
         BufferRenderer.drawWithGlobalProgram(builder.end());
+
+        /* Do not leave the pick FBO on TU0 — next world/GUI draws would sample it as black. */
+        RenderSystem.setShaderTexture(0, lastTexture);
     }
 
     private void fillTexturedBox(BufferBuilder builder, Matrix4f matrix, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)

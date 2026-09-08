@@ -703,7 +703,7 @@ public class Gizmo
         context.batcher.flush();
 
         MatrixStackUtils.cacheMatrices();
-        RenderSystem.setProjectionMatrix(projection, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE);
 
         /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional
          * scales like 1.5 up to 2, which offset/stretched the gizmo viewport and could push vy/vh
@@ -778,7 +778,7 @@ public class Gizmo
         MinecraftClient mc = MinecraftClient.getInstance();
 
         MatrixStackUtils.cacheMatrices();
-        RenderSystem.setProjectionMatrix(projection, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE);
 
         /* Keep in sync with renderInterface: fractional UI scales must not be rounded. */
         float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
@@ -820,10 +820,12 @@ public class Gizmo
         boolean iris = BBSRendering.isIrisShadersEnabled();
         Matrix4f savedProjection = new Matrix4f();
         Matrix4f savedModelView = new Matrix4f();
+        ProjectionType savedProjectionType = ProjectionType.PERSPECTIVE;
 
         if (iris)
         {
             savedProjection.set(RenderSystem.getProjectionMatrix());
+            savedProjectionType = RenderSystem.getProjectionType();
             savedModelView.set(RenderSystem.getModelViewMatrix());
         }
 
@@ -835,7 +837,7 @@ public class Gizmo
                  * longer carries the same projection matrix as RenderLayer#getSolid(), where
                  * the gizmo transform was captured. Re-binding the saved projection keeps the
                  * deferred draw aligned with the hitbox/stencil pass on the ground. */
-                RenderSystem.setProjectionMatrix(deferred.projection, ProjectionType.ORTHOGRAPHIC);
+                RenderSystem.setProjectionMatrix(deferred.projection, ProjectionType.PERSPECTIVE);
             }
 
             stack.push();
@@ -862,7 +864,7 @@ public class Gizmo
 
         if (iris)
         {
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
 
             Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
@@ -1051,6 +1053,9 @@ public class Gizmo
         {
             return;
         }
+
+        /* Keep pick FBO bound — POSITION_COLOR draws skip RenderLayer hijacks. */
+        StencilFormFramebuffer.rebindActive();
 
         Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
         stack.peek().getPositionMatrix().set(normalized);

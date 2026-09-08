@@ -177,6 +177,7 @@ public class Draw
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean savedDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
         Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType savedProjectionType = RenderSystem.getProjectionType();
         MatrixStack stack = new MatrixStack();
 
         RenderSystem.disableBlend();
@@ -191,7 +192,7 @@ public class Draw
             for (IrisBox box : irisBoxQueue)
             {
                 /* LAST no longer carries the solid-pass projection; rebind what was captured. */
-                RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
+                RenderSystem.setProjectionMatrix(box.projection, ProjectionType.PERSPECTIVE);
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
                 renderBoxSolidEdges(stack, box.w, box.h, box.d, box.r, box.g, box.b);
@@ -200,7 +201,7 @@ public class Draw
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
             MatrixStackUtils.popModelView();
             irisBoxQueue.clear();
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);

@@ -763,7 +763,7 @@ public class BBSRendering
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
-            RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(cache, cacheType);
         }
 
         if (!customSize)

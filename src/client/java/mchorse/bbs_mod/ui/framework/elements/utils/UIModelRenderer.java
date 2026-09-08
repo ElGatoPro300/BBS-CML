@@ -33,7 +33,6 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 
@@ -247,7 +246,7 @@ public abstract class UIModelRenderer extends UIElement
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        RenderSystem.setProjectionMatrix(this.camera.projection, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(this.camera.projection, ProjectionType.PERSPECTIVE);
 
         /* Rendering begins... */
         stack.push();
@@ -283,6 +282,11 @@ public abstract class UIModelRenderer extends UIElement
         RenderSystem.viewport(0, 0, mc.getWindow().getFramebufferWidth(), mc.getWindow().getFramebufferHeight());
         MatrixStackUtils.restoreMatrices();
         context.resetMatrix();
+
+        /* Preview/pick can leave lightmap, ColorModulator, or overlay dirty — pause-menu world
+         * would then draw black until a later HUD restore. */
+        BBSRendering.restoreWorldRenderState();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.enableDepthTest();
