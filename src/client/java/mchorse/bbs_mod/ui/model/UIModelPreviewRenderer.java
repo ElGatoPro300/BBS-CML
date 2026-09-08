@@ -11,7 +11,7 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix4f;

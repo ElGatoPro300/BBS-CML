@@ -31,7 +31,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.Lightmap;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -39,7 +39,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -203,7 +203,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             return;
         }
 
-        float brightness = LightTexture.getBrightness(world.dimensionType(), light);
+        float brightness = Lightmap.getBrightness(world.dimensionType(), light);
         float alpha = Mth.clamp(heightFade * 0.5F * brightness, 0F, 1F);
 
         if (alpha <= 0F)
@@ -274,7 +274,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     }
 
     @Override
-    public void updateRenderState(ModelBlockEntity entity, ModelBlockEntityRenderState state, float tickDelta, Vec3 cameraPosition, ModelFeatureRenderer.CrumblingOverlay crumblingOverlay)
+    public void extractRenderState(ModelBlockEntity entity, ModelBlockEntityRenderState state, float tickDelta, Vec3 cameraPosition, ModelFeatureRenderer.CrumblingOverlay crumblingOverlay)
     {
         BlockEntityRenderState.extractBase(entity, state, crumblingOverlay);
         state.entity = entity;
@@ -303,7 +303,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     }
 
     @Override
-    public void render(ModelBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
+    public void submit(ModelBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
         ModelBlockEntity entity = state.entity;
 
@@ -319,7 +319,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         Minecraft mc = Minecraft.getInstance();
         ModelProperties properties = entity.getProperties();
         Transform transform = properties.getTransform();
-        BlockPos pos = entity.getPos();
+        BlockPos pos = entity.getBlockPos();
         boolean appliedRuntimeOverlay = false;
 
         matrices.pushPose();
@@ -421,7 +421,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             ? mc.player.getEyePosition(tickDelta)
             : camera.position();
 
-        BlockPos pos = entity.getPos();
+        BlockPos pos = entity.getBlockPos();
         double x = pos.getX() + 0.5D + transform.translate.x;
         double y = pos.getY() + transform.translate.y;
         double z = pos.getZ() + 0.5D + transform.translate.z;
@@ -527,7 +527,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
      */
     public static void renderIntoShadowMap(ModelBlockEntity entity, PoseStack shadowStack, MultiBufferSource consumers, float tickDelta, double camX, double camY, double camZ)
     {
-        if (entity == null || entity.isRemoved() || entity.getWorld() == null)
+        if (entity == null || entity.isRemoved() || entity.getLevel() == null)
         {
             return;
         }
@@ -552,7 +552,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         Minecraft mc = Minecraft.getInstance();
         Transform transform = properties.getTransform();
-        BlockPos pos = entity.getPos();
+        BlockPos pos = entity.getBlockPos();
         Transform applied = transform;
 
         shadowStack.pushPose();
@@ -588,19 +588,19 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
     private static int resolveModelBlockLight(ModelBlockEntity entity, ModelProperties properties, Transform transform, int fallbackLight)
     {
-        if (entity.getWorld() == null)
+        if (entity.getLevel() == null)
         {
             return fallbackLight;
         }
 
-        BlockPos pos = entity.getPos();
+        BlockPos pos = entity.getBlockPos();
 
         if (!properties.isLocalLighting())
         {
-            return LevelRenderer.getLightColor(entity.getWorld(), pos);
+            return LevelRenderer.getLightCoords(entity.getLevel(), pos);
         }
 
-        return LevelRenderer.getLightColor(entity.getWorld(), pos.offset(
+        return LevelRenderer.getLightCoords(entity.getLevel(), pos.offset(
             (int) transform.translate.x,
             (int) transform.translate.y,
             (int) transform.translate.z));

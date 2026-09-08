@@ -42,7 +42,7 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -59,8 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import IModel;
 
 public class ModelInstance implements IModelInstance
 {

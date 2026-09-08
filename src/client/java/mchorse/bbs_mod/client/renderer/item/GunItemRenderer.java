@@ -17,7 +17,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.special.SpecialModelRenderer;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -87,12 +87,13 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public void render(ItemStack data, ItemDisplayContext mode, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean hasGlint, int outlineColor)
+    public void submit(ItemStack data, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean hasGlint, int outlineColor)
     {
         Item item = this.get(data);
 
         if (item != null)
         {
+            ItemDisplayContext mode = ItemDisplayContext.NONE;
             GunProperties properties = item.properties;
             Form form = properties.getForm(mode);
             Transform transform = properties.getTransform(mode);
@@ -123,14 +124,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 try
                 {
-                    if (mode == ItemDisplayContext.GUI)
-                    {
-                        BBSRendering.depthMask(true);
-                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-                        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
-                    }
-
-                    int renderLight = mode == ItemDisplayContext.GUI ? LightTexture.FULL_BRIGHT : light;
+                    int renderLight = light;
 
                     FormUtilsClient.render(form, new FormRenderingContext()
                         .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false))
@@ -138,18 +132,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
                 }
                 finally
                 {
-                    if (mode == ItemDisplayContext.GUI)
-                    {
-                        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
-                        BBSRendering.restoreAfterGuiItemForm();
-                        BBSRendering.depthMask(true);
-                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-                    }
-                    else
-                    {
-                        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-                    }
-
+                    BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
                     BBSRendering.disableDepthTest();
                 }
                 matrices.popPose();
@@ -176,7 +159,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
         return item;
     }
 
-    public static class Unbaked implements SpecialModelRenderer.Unbaked
+    public static class Unbaked implements SpecialModelRenderer.Unbaked<ItemStack>
     {
         public static final MapCodec<GunItemRenderer.Unbaked> CODEC = MapCodec.unit(new GunItemRenderer.Unbaked());
 
@@ -187,7 +170,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
         }
 
         @Override
-        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakingContext context)
+        public SpecialModelRenderer<ItemStack> bake(SpecialModelRenderer.BakingContext context)
         {
             return BBSModClient.getGunItemRenderer();
         }

@@ -125,7 +125,7 @@ public class ArmorRenderer
                 HumanoidModel bipedModel = this.getModel(armorSlot);
                 ModelPart part = this.getPart(bipedModel, type);
 
-                bipedModel.setAllVisible(true);
+                this.setAllVisible(bipedModel, true);
 
                 part.x = part.y = part.z = 0F;
                 part.xRot = part.yRot = part.zRot = 0F;
@@ -287,5 +287,16 @@ public class ArmorRenderer
         }
 
         return found;
+    }
+
+    private void setAllVisible(HumanoidModel<?> model, boolean visible)
+    {
+        model.head.visible = visible;
+        model.hat.visible = visible;
+        model.body.visible = visible;
+        model.rightArm.visible = visible;
+        model.leftArm.visible = visible;
+        model.rightLeg.visible = visible;
+        model.leftLeg.visible = visible;
     }
 }

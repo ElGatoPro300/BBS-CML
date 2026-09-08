@@ -163,20 +163,15 @@ public class FormUtilsClient
     {
         SequencedMap<RenderType, ByteBufferBuilder> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
         {
-            map.put(Sheets.solidBlockSheet(), new ByteBufferBuilder(786432));
             map.put(Sheets.cutoutBlockSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.bannerSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.cutoutBlockItemSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.cutoutItemSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.translucentBlockSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.translucentBlockItemSheet(), new ByteBufferBuilder(786432));
             map.put(Sheets.translucentItemSheet(), new ByteBufferBuilder(786432));
             FormUtilsClient.assignBuffer(map, RenderTypes.solidMovingBlock());
             FormUtilsClient.assignBuffer(map, RenderTypes.cutoutMovingBlock());
-            FormUtilsClient.assignBuffer(map, Sheets.translucentItemSheet());
             FormUtilsClient.assignBuffer(map, RenderTypes.translucentMovingBlock());
-            FormUtilsClient.assignBuffer(map, Sheets.shieldSheet());
-            FormUtilsClient.assignBuffer(map, Sheets.bedSheet());
-            FormUtilsClient.assignBuffer(map, Sheets.shulkerBoxSheet());
-            FormUtilsClient.assignBuffer(map, Sheets.signSheet());
-            FormUtilsClient.assignBuffer(map, Sheets.hangingSignSheet());
-            map.put(Sheets.chestSheet(), new ByteBufferBuilder(786432));
             /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
              * has no trim entry; our dual-shell trim must depth-write first). */
             FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(false));

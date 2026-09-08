@@ -28,7 +28,6 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
@@ -151,7 +150,7 @@ public class ProceduralAnimator implements IAnimator
         ItemStack offhand = target.getEquipmentStack(EquipmentSlot.OFFHAND);
 
         boolean isRolling = target.getRoll() > 4;
-        boolean isInSwimmingPose = target.getEntityPose() == Pose.SWIMMING;
+        boolean isInSwimmingPose = target.getEntityPose() == net.minecraft.world.entity.Pose.SWIMMING;
 
         /* Common variables */
         float handSwingProgress = target.getHandSwingProgress(transition);
@@ -290,7 +289,7 @@ public class ProceduralAnimator implements IAnimator
 
                         group.current.rotate.x = Mth.lerp(leaningPitch > 0F ? leaningPitch : 1F, 0F, newPitch);
 
-                        if (target.getEntityPose() == Pose.SWIMMING || target.isSwimming())
+                        if (target.getEntityPose() == net.minecraft.world.entity.Pose.SWIMMING || target.isSwimming())
                         {
                             group.current.translate.y -= 0.5F * 16F;
                             group.current.translate.z += 0.3F * 16F;
@@ -305,7 +304,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         group.current.rotate.x = 45;
                     }
-                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == Pose.FALL_FLYING)
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == net.minecraft.world.entity.Pose.FALL_FLYING)
                     {
                         group.current.rotate.x = this.lerpAngle(flyProgress, -pitch, -pitch + 90F);
                     }
@@ -532,7 +531,7 @@ public class ProceduralAnimator implements IAnimator
 
                         bone.transform.rotate.x = MathUtils.toRad(Mth.lerp(leaningPitch > 0F ? leaningPitch : 1F, 0F, newPitch));
 
-                        if (target.getEntityPose() == Pose.SWIMMING || target.isSwimming())
+                        if (target.getEntityPose() == net.minecraft.world.entity.Pose.SWIMMING || target.isSwimming())
                         {
                             bone.transform.translate.y -= MathUtils.toRad(0.5F * 16F);
                             bone.transform.translate.z += MathUtils.toRad(0.3F * 16F);
@@ -547,7 +546,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(45);
                     }
-                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == Pose.FALL_FLYING)
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == net.minecraft.world.entity.Pose.FALL_FLYING)
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(this.lerpAngle(flyProgress, -pitch, -pitch + 90F));
                     }
@@ -744,7 +743,7 @@ public class ProceduralAnimator implements IAnimator
         geckoContext.sneaking = target.isSneaking();
         geckoContext.riding = target.isRiding() || target.isSitting();
         geckoContext.sprinting = target.isSprinting();
-        geckoContext.swimming = target.getEntityPose() == Pose.SWIMMING;
+        geckoContext.swimming = target.getEntityPose() == net.minecraft.world.entity.Pose.SWIMMING;
         geckoContext.fallFlying = target.isFallFlying();
         geckoContext.usingRiptide = target.isUsingRiptide();
         geckoContext.hasMainHandItem = !main.isEmpty();

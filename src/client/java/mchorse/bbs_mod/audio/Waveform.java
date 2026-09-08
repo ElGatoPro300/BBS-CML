@@ -12,7 +12,7 @@ import org.lwjgl.opengl.GL13;
 import java.util.ArrayList;
 import java.util.List;
 
-import ColorCode;
+import mchorse.bbs_mod.audio.ColorCode;
 
 public class Waveform
 {

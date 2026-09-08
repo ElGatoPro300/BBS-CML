@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
@@ -124,7 +123,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
         int x = (int) Math.round(this.area.mx() * fx);
         int y = (int) Math.round(this.area.my() * fy);
 
-        Window.moveCursor(x, y);
+        mchorse.bbs_mod.graphics.window.Window.moveCursor(x, y);
         context.mouseX = this.area.mx();
         context.mouseY = this.area.my();
         this.centerCursor = false;

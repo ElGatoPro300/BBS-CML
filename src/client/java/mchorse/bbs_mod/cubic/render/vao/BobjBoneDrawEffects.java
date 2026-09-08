@@ -8,7 +8,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 
 /**
  * Per-bone paint / glow / tint / grade uniforms for BOBJ skinned meshes. BOBJ shares one VAO

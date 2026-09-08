@@ -135,7 +135,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL30.glCullFace(GL30.GL_BACK);
 
         boolean shading = !context.isPicking();
-        VertexFormat format = shading ? DefaultVertexFormat.NEW_ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
+        VertexFormat format = shading ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
         GlProgram shaderKey = shading ? BBSRendering.getEntityTranslucentProgram() : BBSRendering.getPositionTexColorProgram();
 
         this.renderModel(framebuffer.getMainTexture(), format, shaderKey, context.stack, context.overlay, context.light, context.color, context.getTransition());
@@ -176,7 +176,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private void renderQuad(VertexFormat format, Texture texture, GlProgram shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition)
     {
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
         Color color = Color.white();
         PoseStack.Pose entry = matrices.last();
         Matrix4f matrix = entry.pose();
@@ -184,9 +184,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         color.mul(overlayColor);
 
         GameRenderer gameRenderer = Minecraft.getInstance().gameRenderer;
-        if (format == DefaultVertexFormat.NEW_ENTITY)
+        if (format == DefaultVertexFormat.ENTITY)
         {
-                                }
+        }
 
         BBSModClient.getTextures().bindTexture(texture);
         BBSRendering.bindProgram(shader);
@@ -216,9 +216,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         BBSRendering.enableBlend();
         BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
 
-        if (format == DefaultVertexFormat.NEW_ENTITY)
+        if (format == DefaultVertexFormat.ENTITY)
         {
-                                }
+        }
     }
 
     private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, PoseStack.Pose entry, float nz)
@@ -233,6 +233,6 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             return consumer.addVertex(matrix, x, y, 0F).setUv(u, v).setColor(color.r, color.g, color.b, color.a);
         }
 
-        return consumer.addVertex(matrix, x, y, 0F).setColor(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+        return consumer.addVertex(matrix, x, y, 0F).setColor(color.r, color.g, color.b, color.a).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, 0F, 0F, nz);
     }
 }

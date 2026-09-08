@@ -50,7 +50,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import Film;
+import mchorse.bbs_mod.film.Film;
 
 /**
  * Captures world mobs into new film replays while {@link Recorder} is active.
@@ -1509,7 +1509,7 @@ public final class RecorderMobCapture
         Entity best = null;
         double bestDist = Double.MAX_VALUE;
 
-        for (Entity entity : world.getEntities(null, box, this::canCaptureConversionSuccessor))
+        for (Entity entity : world.getEntities((Entity) null, box, this::canCaptureConversionSuccessor))
         {
             if (entity.tickCount > CONVERSION_SUCCESSOR_MAX_AGE)
             {

@@ -26,14 +26,11 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.block.ModelBlockRenderer;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.BlockModelPart;
-import net.minecraft.client.renderer.block.model.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
@@ -41,14 +38,17 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.resources.model.ModelBakery;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.Level;
@@ -69,12 +69,14 @@ import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.SheetedDecalTextureGenerator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Function;
 
 public class BlockFormRenderer extends FormRenderer<BlockForm>
@@ -729,7 +731,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return fallback;
         }
 
-        int sampled = LevelRenderer.getLightColor(world, blockPos);
+        int sampled = LevelRenderer.getLightCoords(world, blockPos);
 
         if (luminance > 0)
         {
@@ -866,35 +868,56 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderBlockModel(BlockState blockState, PoseStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, BlockPos worldPos)
     {
-        BlockStateModel model = Minecraft.getInstance().getBlockRenderer().getBlockModel(blockState);
+        BlockStateModel model = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(blockState);
+
+        if (model == null)
+        {
+            return;
+        }
+
         int tint = this.resolveBlockTint(blockState, worldPos);
         float r = (float) (tint >> 16 & 0xFF) / 255.0F;
         float g = (float) (tint >> 8 & 0xFF) / 255.0F;
         float b = (float) (tint & 0xFF) / 255.0F;
 
-        ModelBlockRenderer.renderModel(
-            stack.last(),
-            consumers.getBuffer(this.resolveBlockLayer(blockState)),
-            model,
-            r,
-            g,
-            b,
-            light,
-            overlay
-        );
+        VertexConsumer consumer = consumers.getBuffer(this.resolveBlockLayer(blockState));
+        QuadInstance quadInstance = new QuadInstance();
+
+        quadInstance.setColor(ARGB.colorFromFloat(1F, r, g, b));
+        quadInstance.setLightCoords(light);
+        quadInstance.setOverlayCoords(overlay);
+
+        List<BlockStateModelPart> parts = new ArrayList<>();
+        model.collectParts(RandomSource.create(42L), parts);
+
+        for (BlockStateModelPart part : parts)
+        {
+            for (Direction direction : Direction.values())
+            {
+                for (BakedQuad quad : part.getQuads(direction))
+                {
+                    consumer.putBakedQuad(stack.last(), quad, quadInstance);
+                }
+            }
+
+            for (BakedQuad quad : part.getQuads(null))
+            {
+                consumer.putBakedQuad(stack.last(), quad, quadInstance);
+            }
+        }
     }
 
     private RenderType resolveBlockLayer(BlockState state)
     {
         StructureData.syncFancyGraphicsFromOptions();
-        ChunkSectionLayer base = ItemBlockRenderTypes.getChunkRenderType(state);
+        BlockStateModel model = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
 
-        if (base == ChunkSectionLayer.SOLID)
+        if (model != null && (model.materialFlags() & BakedQuad.FLAG_TRANSLUCENT) != 0)
         {
-            return Sheets.solidBlockSheet();
+            return Sheets.translucentBlockSheet();
         }
 
-        return ItemBlockRenderTypes.getRenderType(state);
+        return Sheets.cutoutBlockSheet();
     }
 
     private int resolveBlockTint(BlockState state, BlockPos worldPos)
@@ -924,10 +947,24 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 this.blockView.setWorldAnchor(BlockPos.ZERO, 0, 0, 0);
             }
 
-            return Minecraft.getInstance().getBlockColors().getColor(state, this.blockView, BlockPos.ZERO, 0);
+            BlockTintSource source = Minecraft.getInstance().getBlockColors().getTintSource(state, 0);
+
+            if (source != null)
+            {
+                return source.colorInWorld(state, this.blockView, BlockPos.ZERO);
+            }
+
+            return -1;
         }
 
-        return Minecraft.getInstance().getBlockColors().getColor(state, null, null, 0);
+        BlockTintSource source = Minecraft.getInstance().getBlockColors().getTintSource(state, 0);
+
+        if (source != null)
+        {
+            return source.color(state);
+        }
+
+        return -1;
     }
 
     private boolean isTranslucentBlockState(BlockState state)
@@ -937,7 +974,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        return ItemBlockRenderTypes.getChunkRenderType(state).sortOnUpload();
+        BlockStateModel model = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
+
+        return model != null && (model.materialFlags() & BakedQuad.FLAG_TRANSLUCENT) != 0;
     }
 
     /**
@@ -1322,7 +1361,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         max.set(0F, 0F, 0F);
 
         Minecraft client = Minecraft.getInstance();
-        BlockStateModel model = client.getBlockRenderer().getBlockModelShaper().getBlockModel(state);
+        BlockStateModel model = client.getModelManager().getBlockStateModelSet().get(state);
 
         if (model == null)
         {
@@ -1331,8 +1370,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         boolean found = false;
         RandomSource random = RandomSource.create(42L);
+        List<BlockStateModelPart> parts = new ArrayList<>();
+        model.collectParts(random, parts);
 
-        for (BlockModelPart part : model.collectParts(random))
+        for (BlockStateModelPart part : parts)
         {
             for (Direction direction : Direction.values())
             {
@@ -1357,7 +1398,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         for (int v = 0; v < 4; v++)
         {
-            Vector3fc pos = quad.position(v);
+            org.joml.Vector3fc pos = quad.position(v);
 
             min.x = Math.min(min.x, pos.x());
             min.y = Math.min(min.y, pos.y());

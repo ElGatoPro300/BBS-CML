@@ -11,7 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -184,7 +184,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
             this.profileResolved = true;
         }
 
-        private void drawPlayerHead(GuiGraphics drawContext, Identifier texture, int x, int y, int size)
+        private void drawPlayerHead(GuiGraphicsExtractor drawContext, Identifier texture, int x, int y, int size)
         {
             drawContext.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
             drawContext.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);

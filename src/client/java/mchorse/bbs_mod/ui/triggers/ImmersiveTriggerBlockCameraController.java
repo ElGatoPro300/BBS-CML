@@ -28,7 +28,7 @@ public class ImmersiveTriggerBlockCameraController implements ICameraController
 
         this.renderer.setupPosition();
 
-        BlockPos pos = this.entity.getPos();
+        BlockPos pos = this.entity.getBlockPos();
         Camera rendererCamera = this.renderer.camera;
 
         camera.position.set(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);

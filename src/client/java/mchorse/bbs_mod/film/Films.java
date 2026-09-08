@@ -22,7 +22,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -38,7 +38,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import Film;
+import mchorse.bbs_mod.film.Film;
 
 public class Films
 {
@@ -67,7 +67,7 @@ public class Films
             {
                 ContentType.FILMS.getRepository().load(filmId, (data) ->
                 {
-                    MinecraftClient.getInstance().execute(() -> playFilm((Film) data, withCamera));
+                    Minecraft.getInstance().execute(() -> playFilm((Film) data, withCamera));
                 });
             }
         }
@@ -377,7 +377,7 @@ public class Films
         }
     }
 
-    public void render(WorldRenderContext context)
+    public void render(LevelRenderContext context)
     {
         Gizmo.INSTANCE.clearVisual();
 

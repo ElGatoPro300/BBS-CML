@@ -1824,8 +1824,8 @@ public class ModelVAORenderer
             }
 
             /* Retained meshes need an explicit pass to bind picking uniforms and attachments. */
-            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-                DefaultVertexFormat.NEW_ENTITY);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+                DefaultVertexFormat.ENTITY);
 
             for (int i = 0; i < data.vertices().length / 3; i++)
             {
@@ -1856,7 +1856,7 @@ public class ModelVAORenderer
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
-        modelVAO.render(DefaultVertexFormat.NEW_ENTITY, r, g, b, a, light, overlay);
+        modelVAO.render(DefaultVertexFormat.ENTITY, r, g, b, a, light, overlay);
 
         GlStateManager._activeTexture(GL30.GL_TEXTURE0);
 

@@ -3,7 +3,7 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
@@ -74,7 +74,7 @@ public class UIBossBarRenderer
         int barY = anchorY + textBlockHeight + (hasText ? TEXT_GAP : 0);
         float blockCenterX = x + displayWidth / 2F;
 
-        GuiGraphics context = batcher.getContext();
+        GuiGraphicsExtractor context = batcher.getContext();
 
         context.fill(x, barY, x + displayWidth, barY + displayHeight, 0xFFFFFFFF);
 

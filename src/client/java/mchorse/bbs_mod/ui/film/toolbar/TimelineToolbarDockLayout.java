@@ -3,8 +3,6 @@ package mchorse.bbs_mod.ui.film.toolbar;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 
-import TimelineToolbarDock;
-
 /**
  * Applies flex layout for a timeline toolbar and its content siblings based on
  * the active dock edge.

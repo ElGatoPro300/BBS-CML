@@ -147,8 +147,8 @@ public class CubicLayerRenderer extends CubicCubeRenderer
             ModelVAORenderer.beginCpuGeometry(this.effectShader);
         }
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-            DefaultVertexFormat.NEW_ENTITY);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+            DefaultVertexFormat.ENTITY);
 
         CubicRenderer.processRenderModel(this, builder, stack, model);
 
@@ -264,8 +264,8 @@ public class CubicLayerRenderer extends CubicCubeRenderer
                 ModelVAORenderer.setGroupFormColorTint(group.color);
             }
 
-            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-                DefaultVertexFormat.NEW_ENTITY);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+                DefaultVertexFormat.ENTITY);
 
             if (material.isEmpty())
             {
@@ -333,7 +333,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
         int blockLight = Math.round((this.light & 65535) + (240 - (this.light & 65535)) * Math.max(0F, Math.min(1F, group.lighting)));
 
         builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z).setColor(this.r, this.g, this.b, this.a)
-            .setUv(vertex.uv.x, vertex.uv.y).overlay(this.overlay).light(blockLight, this.light >>> 16)
-            .normal(normal.x, normal.y, normal.z);
+            .setUv(vertex.uv.x, vertex.uv.y).setOverlay(this.overlay).setUv2(blockLight, this.light >>> 16)
+            .setNormal(normal.x, normal.y, normal.z);
     }
 }

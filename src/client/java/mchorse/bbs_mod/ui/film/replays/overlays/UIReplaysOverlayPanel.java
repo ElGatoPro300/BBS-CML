@@ -40,6 +40,9 @@ import com.mojang.logging.LogUtils;
 
 import org.lwjgl.glfw.GLFW;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -345,7 +348,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.dropItemsOnDeath.tooltip(UIKeys.FILM_REPLAY_DROP_ITEMS_ON_DEATH_TOOLTIP);
         this.replaceReplayInventory = new UIButton(UIKeys.FILM_REPLACE_INVENTORY, (b) ->
         {
-            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+            LocalPlayer player = Minecraft.getInstance().player;
 
             if (player != null)
             {

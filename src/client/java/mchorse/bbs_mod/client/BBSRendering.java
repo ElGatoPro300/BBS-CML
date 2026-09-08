@@ -64,14 +64,14 @@ import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.sodium.SodiumUtils;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.fog.FogRenderer;
@@ -93,6 +93,7 @@ import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlRenderPipeline;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
 import com.mojang.blaze3d.pipeline.MainTarget;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -401,7 +402,7 @@ public class BBSRendering
         ensureMainFramebuffer();
         bindMainFramebuffer(false);
         restoreGuiRenderState();
-        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
     }
@@ -418,7 +419,7 @@ public class BBSRendering
     {
         ModelVAORenderer.clearFormColorGrade();
         /* Keep vanilla's GL state cache synchronized between preview render passes. */
-        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
         GlStateManager._depthMask(true);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -436,7 +437,7 @@ public class BBSRendering
     public static void restoreWorldRenderState()
     {
         GlStateManager._depthMask(true);
-        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         GlStateManager._enableDepthTest();
@@ -538,7 +539,7 @@ public class BBSRendering
 
         BlockPos pos = BlockPos.containing(entity.getX(), entity.getY(), entity.getZ());
 
-        return LevelRenderer.getLightColor(entity.getWorld(), pos);
+        return LevelRenderer.getLightCoords(entity.getWorld(), pos);
     }
 
     /**
@@ -593,7 +594,7 @@ public class BBSRendering
 
         ModelBlockEntityUpdateCallback.EVENT.register((entity) ->
         {
-            if (entity.hasWorld() && entity.getWorld().isClient())
+            if (entity.hasLevel() && entity.getLevel().isClientSide())
             {
                 capturedModelBlocks.add(entity);
             }
@@ -601,7 +602,7 @@ public class BBSRendering
 
         TriggerBlockEntityUpdateCallback.EVENT.register((entity) ->
         {
-            if (entity.hasWorld() && entity.getWorld().isClient())
+            if (entity.hasLevel() && entity.getLevel().isClientSide())
             {
                 TriggerBlockEntityRenderer.capturedTriggerBlocks.add(entity);
             }
@@ -795,7 +796,7 @@ public class BBSRendering
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
-            if (mc.gameRenderer != null && mc.gameRenderer.guiRenderState != null)
+            if (mc.gameRenderer != null && mc.gameRenderer.getGameRenderState() != null && mc.gameRenderer.getGameRenderState().guiRenderState != null)
             {
                 BbsGuiScale.withBbsWindowScale(() ->
                 {
@@ -804,8 +805,8 @@ public class BBSRendering
                     int sh = window.getGuiScaledHeight();
                     Area area = new Area(0, 0, sw, sh);
 
-                    mc.gameRenderer.guiRenderState.reset();
-                    GuiGraphics drawContext = new GuiGraphics(mc, mc.gameRenderer.guiRenderState, sw, sh);
+                    mc.gameRenderer.getGameRenderState().guiRenderState.reset();
+                    GuiGraphicsExtractor drawContext = new GuiGraphicsExtractor(mc, mc.gameRenderer.getGameRenderState().guiRenderState, sw, sh);
                     Batcher2D batcher = new Batcher2D(drawContext);
 
                     VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
@@ -818,7 +819,7 @@ public class BBSRendering
 
         if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
-            if (mc.gameRenderer != null && mc.gameRenderer.guiRenderState != null)
+            if (mc.gameRenderer != null && mc.gameRenderer.getGameRenderState() != null && mc.gameRenderer.getGameRenderState().guiRenderState != null)
             {
                 BbsGuiScale.withBbsWindowScale(() ->
                 {
@@ -827,8 +828,8 @@ public class BBSRendering
                     int sh = window.getGuiScaledHeight();
                     Area area = new Area(0, 0, sw, sh);
 
-                    mc.gameRenderer.guiRenderState.reset();
-                    GuiGraphics drawContext = new GuiGraphics(mc, mc.gameRenderer.guiRenderState, sw, sh);
+                    mc.gameRenderer.getGameRenderState().guiRenderState.reset();
+                    GuiGraphicsExtractor drawContext = new GuiGraphicsExtractor(mc, mc.gameRenderer.getGameRenderState().guiRenderState, sw, sh);
                     Batcher2D batcher = new Batcher2D(drawContext);
 
                     VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
@@ -853,7 +854,7 @@ public class BBSRendering
         {
             if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
             {
-                if (mc.gameRenderer != null && mc.gameRenderer.guiRenderState != null)
+                if (mc.gameRenderer != null && mc.gameRenderer.getGameRenderState() != null && mc.gameRenderer.getGameRenderState().guiRenderState != null)
                 {
                     BbsGuiScale.withBbsWindowScale(() ->
                     {
@@ -864,8 +865,8 @@ public class BBSRendering
 
                         if (panel.getData() != null && panel.getData().camera != null)
                         {
-                            mc.gameRenderer.guiRenderState.reset();
-                            GuiGraphics drawContext = new GuiGraphics(mc, mc.gameRenderer.guiRenderState, sw, sh);
+                            mc.gameRenderer.getGameRenderState().guiRenderState.reset();
+                            GuiGraphicsExtractor drawContext = new GuiGraphicsExtractor(mc, mc.gameRenderer.getGameRenderState().guiRenderState, sw, sh);
                             Batcher2D offscreenBatcher = new Batcher2D(drawContext);
 
                             CameraClipContext context = panel.getRunner().getContext();
@@ -896,10 +897,10 @@ public class BBSRendering
     {
         Minecraft mc = Minecraft.getInstance();
 
-        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.guiRenderer != null && mc.gameRenderer.guiRenderState != null && mc.gameRenderer.fogRenderer != null)
+        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.guiRenderer != null && mc.gameRenderer.getGameRenderState() != null && mc.gameRenderer.getGameRenderState().guiRenderState != null && mc.gameRenderer.fogRenderer != null)
         {
             mc.gameRenderer.guiRenderer.render(mc.gameRenderer.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
-            mc.gameRenderer.guiRenderState.reset();
+            mc.gameRenderer.getGameRenderState().guiRenderState.reset();
         }
     }
 
@@ -994,7 +995,7 @@ public class BBSRendering
     {
     }
 
-    public static void renderHud(GuiGraphics drawContext, float tickDelta)
+    public static void renderHud(GuiGraphicsExtractor drawContext, float tickDelta)
     {
         Batcher2D batcher2D = new Batcher2D(drawContext);
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
@@ -1027,7 +1028,7 @@ public class BBSRendering
         }
     }
 
-    private static void renderSelectedReplayHud(GuiGraphics drawContext, Batcher2D batcher2D, int yOffset)
+    private static void renderSelectedReplayHud(GuiGraphicsExtractor drawContext, Batcher2D batcher2D, int yOffset)
     {
         Replay replay = BBSModClient.getSelectedReplay();
 
@@ -1153,7 +1154,7 @@ public class BBSRendering
         return bottom ? screenH - margin - boxH : margin + extraTopLeft;
     }
 
-    public static void renderCoolStuff(WorldRenderContext worldRenderContext)
+    public static void renderCoolStuff(LevelRenderContext worldRenderContext)
     {
         if (Minecraft.getInstance().screen instanceof UIScreen screen)
         {
@@ -1924,7 +1925,8 @@ public class BBSRendering
 
     public static void colorMask(boolean red, boolean green, boolean blue, boolean alpha)
     {
-        GlStateManager._colorMask(red, green, blue, alpha);
+        int mask = (red ? ColorTargetState.WRITE_RED : 0) | (green ? ColorTargetState.WRITE_GREEN : 0) | (blue ? ColorTargetState.WRITE_BLUE : 0) | (alpha ? ColorTargetState.WRITE_ALPHA : 0);
+        GlStateManager._colorMask(mask);
     }
 
     public static void setShaderColor(float r, float g, float b, float a)
@@ -1980,7 +1982,7 @@ public class BBSRendering
 
         if (RenderSystem.getDynamicUniforms() != null && matrix != null)
         {
-            GpuBufferSlice slice = RenderSystem.getDynamicUniforms().write(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
+            GpuBufferSlice slice = RenderSystem.getDynamicUniforms().writeTransform(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
             RenderSystem.setProjectionMatrix(slice, type);
         }
     }

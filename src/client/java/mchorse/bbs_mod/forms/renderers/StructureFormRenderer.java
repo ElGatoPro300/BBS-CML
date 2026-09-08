@@ -27,12 +27,14 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ItemBlockRenderTypes;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.FluidRenderer;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
@@ -40,15 +42,17 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
+import com.mojang.blaze3d.vertex.QuadInstance;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -222,17 +226,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (runPaintOverlay)
                 {
                     EffectTransform paintTransform = this.form.paintSettings.get().transform;
-                    this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.NO_OVERLAY, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
+                    this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.NO_OVERLAY, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.NO_OVERLAY, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
 
                 if (colorTransformWanted)
                 {
-                    this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.NO_OVERLAY, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
+                    this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.NO_OVERLAY, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.NO_OVERLAY, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
 
                 if (positiveGlow || negativeGlowMasked)
                 {
-                    this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.NO_OVERLAY, false, BBSRendering.isIrisShadersEnabled(), null, (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
+                    this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.NO_OVERLAY, false, BBSRendering.isIrisShadersEnabled(), null, (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
         }
 
@@ -903,11 +907,37 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return true;
         }
 
-        ChunkSectionLayer layer = ItemBlockRenderTypes.getChunkRenderType(state);
+        return !state.canOcclude();
+    }
 
-        return layer == ChunkSectionLayer.CUTOUT
-            || layer == ChunkSectionLayer.TRANSLUCENT
-            || layer == ChunkSectionLayer.TRIPWIRE;
+    private void renderBlockModel(BlockState state, BlockPos pos, PoseStack stack, VertexConsumer vc)
+    {
+        BlockStateModel model = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
+
+        if (model == null)
+        {
+            return;
+        }
+
+        List<BlockStateModelPart> parts = new ArrayList<>();
+        model.collectParts(RandomSource.create(state.getSeed(pos)), parts);
+        QuadInstance quadInstance = new QuadInstance();
+
+        for (BlockStateModelPart part : parts)
+        {
+            for (Direction direction : Direction.values())
+            {
+                for (BakedQuad quad : part.getQuads(direction))
+                {
+                    vc.putBakedQuad(stack.last(), quad, quadInstance);
+                }
+            }
+
+            for (BakedQuad quad : part.getQuads(null))
+            {
+                vc.putBakedQuad(stack.last(), quad, quadInstance);
+            }
+        }
     }
 
     private void renderStructureSoftBlock(BlockEntry entry, RenderInfo info, PoseStack stack, MultiBufferSource consumers, Function<VertexConsumer, VertexConsumer> recolor)
@@ -931,23 +961,22 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
         {
             RenderType fluidLayer = shadersEnabled
-                ? ItemBlockRenderTypes.getRenderType(entry.state)
+                ? this.resolveStructureBlockLayer(entry.state, true)
                 : RenderTypes.translucentMovingBlock();
-            VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
+            VertexConsumer rawFluidVc = consumers.getBuffer(fluidLayer);
 
             if (recolor != null)
             {
-                fluidVc = recolor.apply(fluidVc);
+                rawFluidVc = recolor.apply(rawFluidVc);
             }
 
-            fluidVc = new TransformingVertexConsumer(fluidVc, stack.last(), entry.pos, shadersEnabled);
-            Minecraft.getInstance().getBlockRenderer().renderLiquid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
+            final VertexConsumer finalFluidVc = new TransformingVertexConsumer(rawFluidVc, stack.last(), entry.pos, shadersEnabled);
+            new FluidRenderer(Minecraft.getInstance().getModelManager().getFluidStateModelSet()).tesselate(info.view, entry.pos, (l) -> finalFluidVc, entry.state, entry.state.getFluidState());
         }
 
         if (entry.state.getRenderShape() != RenderShape.INVISIBLE)
         {
-            BlockRenderDispatcher manager = Minecraft.getInstance().getBlockRenderer();
-            manager.renderBatched(entry.state, entry.pos, info.view, stack, vc, true, manager.getBlockModel(entry.state).collectParts(RandomSource.create(entry.state.getSeed(entry.pos))));
+            this.renderBlockModel(entry.state, entry.pos, stack, vc);
         }
     }
 
@@ -1207,9 +1236,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return this.resolveStructureLeavesLayer(state, useEntityLayers);
         }
 
-        return useEntityLayers
-            ? ItemBlockRenderTypes.getRenderType(state)
-            : ItemBlockRenderTypes.getMovingBlockRenderType(state);
+        BlockStateModel model = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
+
+        if (model != null && (model.materialFlags() & BakedQuad.FLAG_TRANSLUCENT) != 0)
+        {
+            return useEntityLayers ? Sheets.translucentBlockItemSheet() : Sheets.translucentBlockSheet();
+        }
+
+        if (!state.canOcclude())
+        {
+            return useEntityLayers ? Sheets.cutoutBlockItemSheet() : Sheets.cutoutBlockSheet();
+        }
+
+        return useEntityLayers ? Sheets.cutoutBlockItemSheet() : Sheets.cutoutBlockSheet();
     }
 
     private RenderType resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
@@ -1218,19 +1257,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (irisWorld || useEntityLayers)
         {
-            return ItemBlockRenderTypes.getRenderType(state);
+            return Sheets.cutoutBlockItemSheet();
         }
 
         if (StructureData.isFancyGraphicsEnabled())
         {
-            try
-            {
-                ItemBlockRenderTypes.setCutoutLeaves(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
             return RenderTypes.cutoutMovingBlock();
         }
 
@@ -1251,8 +1282,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             vc = recolor.apply(vc);
         }
 
-        BlockRenderDispatcher manager = Minecraft.getInstance().getBlockRenderer();
-        manager.renderBatched(state, pos, view, stack, vc, true, manager.getBlockModel(state).collectParts(RandomSource.create(state.getSeed(pos))));
+        this.renderBlockModel(state, pos, stack, vc);
     }
 
     /**
@@ -1325,17 +1355,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 boolean shaders = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
                 RenderType fluidLayer = shaders
-                    ? ItemBlockRenderTypes.getRenderType(entry.state)
+                    ? this.resolveStructureBlockLayer(entry.state, true)
                     : RenderTypes.translucentMovingBlock();
-                VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
+                VertexConsumer rawFluidVc = consumers.getBuffer(fluidLayer);
 
                 if (recolor != null)
                 {
-                    fluidVc = recolor.apply(fluidVc);
+                    rawFluidVc = recolor.apply(rawFluidVc);
                 }
 
-                fluidVc = new TransformingVertexConsumer(fluidVc, stack.last(), entry.pos, shaders);
-                Minecraft.getInstance().getBlockRenderer().renderLiquid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
+                final VertexConsumer finalFluidVc = new TransformingVertexConsumer(rawFluidVc, stack.last(), entry.pos, shaders);
+                new FluidRenderer(Minecraft.getInstance().getModelManager().getFluidStateModelSet()).tesselate(info.view, entry.pos, (l) -> finalFluidVc, entry.state, entry.state.getFluidState());
             }
 
             if (entry.state.getRenderShape() != RenderShape.INVISIBLE)
@@ -1346,8 +1376,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
                 else
                 {
-                    BlockRenderDispatcher manager = Minecraft.getInstance().getBlockRenderer();
-                    manager.renderBatched(entry.state, entry.pos, info.view, stack, vc, true, manager.getBlockModel(entry.state).collectParts(RandomSource.create(entry.state.getSeed(entry.pos))));
+                    this.renderBlockModel(entry.state, entry.pos, stack, vc);
                 }
             }
 
@@ -1513,23 +1542,22 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
                 {
                     RenderType fluidLayer = shadersEnabled
-                        ? ItemBlockRenderTypes.getRenderType(entry.state)
+                        ? this.resolveStructureBlockLayer(entry.state, true)
                         : RenderTypes.translucentMovingBlock();
-                    VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
+                    VertexConsumer rawFluidVc = consumers.getBuffer(fluidLayer);
 
                     if (recolor != null)
                     {
-                        fluidVc = recolor.apply(fluidVc);
+                        rawFluidVc = recolor.apply(rawFluidVc);
                     }
 
-                    fluidVc = new TransformingVertexConsumer(fluidVc, stack.last(), entry.pos, shadersEnabled);
-                    Minecraft.getInstance().getBlockRenderer().renderLiquid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
+                    final VertexConsumer finalFluidVc = new TransformingVertexConsumer(rawFluidVc, stack.last(), entry.pos, shadersEnabled);
+                    new FluidRenderer(Minecraft.getInstance().getModelManager().getFluidStateModelSet()).tesselate(info.view, entry.pos, (l) -> finalFluidVc, entry.state, entry.state.getFluidState());
                 }
 
                 if (entry.state.getRenderShape() != RenderShape.INVISIBLE)
                 {
-                    BlockRenderDispatcher manager = Minecraft.getInstance().getBlockRenderer();
-                    manager.renderBatched(entry.state, entry.pos, info.view, stack, vc, true, manager.getBlockModel(entry.state).collectParts(RandomSource.create(entry.state.getSeed(entry.pos))));
+                    this.renderBlockModel(entry.state, entry.pos, stack, vc);
                 }
 
                 stack.popPose();

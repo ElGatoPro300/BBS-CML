@@ -2,26 +2,27 @@ package mchorse.bbs_mod.graphics;
 
 import mchorse.bbs_mod.BBSMod;
 
-import net.minecraft.client.gui.navigation.ScreenRectangle;
-import net.minecraft.client.gui.render.TextureSetup;
-import net.minecraft.client.gui.render.state.ScreenArea;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
-
-import org.joml.Matrix3x2f;
-import org.joml.Matrix3x2fc;
-
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
 
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fc;
 import org.jspecify.annotations.Nullable;
 
-public class PickerPreviewRenderState implements ScreenArea
+public class PickerPreviewRenderState implements GuiElementRenderState
 {
     /* UV1 carries the pick ID so differently highlighted previews can share a GUI batch. */
     private static final VertexFormat FORMAT = VertexFormat.builder()
@@ -36,13 +37,12 @@ public class PickerPreviewRenderState implements ScreenArea
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_preview"))
             .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
             .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
-            .withVertexFormat(FORMAT, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(FORMAT, VertexFormat.Mode.QUADS)
             .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withSampler("Sampler0")
-            .withBlend(BlendFunction.TRANSLUCENT)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withDepthWrite(false)
+            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
             .withCull(false)
             .build());
 

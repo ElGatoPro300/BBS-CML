@@ -8,7 +8,7 @@ import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
@@ -137,7 +137,7 @@ public class WorldFilmController extends BaseFilmController
     }
 
     @Override
-    public void render(WorldRenderContext context)
+    public void render(LevelRenderContext context)
     {
         super.render(context);
 
@@ -147,7 +147,7 @@ public class WorldFilmController extends BaseFilmController
         {
             int tick = Math.max(this.tick, 0);
 
-            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.matrices());
+            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.poseStack());
         }
 
         AudioClientClip.manageSounds(this.context);

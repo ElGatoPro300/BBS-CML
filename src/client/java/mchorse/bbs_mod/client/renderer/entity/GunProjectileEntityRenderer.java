@@ -13,7 +13,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 
@@ -23,7 +24,8 @@ import com.mojang.math.Axis;
 
 public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEntity, GunProjectileEntityRenderer.GunProjectileEntityState>
 {
-    public static class GunProjectileEntityState extends EntityRenderState {
+    public static class GunProjectileEntityState extends EntityRenderState
+    {
         public GunProjectileEntity projectile;
         public float tickDelta;
     }
@@ -34,12 +36,14 @@ public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEnt
     }
 
     @Override
-    public GunProjectileEntityState createRenderState() {
+    public GunProjectileEntityState createRenderState()
+    {
         return new GunProjectileEntityState();
     }
 
     @Override
-    public void updateRenderState(GunProjectileEntity entity, GunProjectileEntityState state, float tickDelta) {
+    public void extractRenderState(GunProjectileEntity entity, GunProjectileEntityState state, float tickDelta)
+    {
         super.extractRenderState(entity, state, tickDelta);
         state.projectile = entity;
         state.tickDelta = tickDelta;
@@ -51,11 +55,15 @@ public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEnt
     }
 
     @Override
-    public void render(GunProjectileEntityState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
+    public void submit(GunProjectileEntityState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
         GunProjectileEntity projectile = state.projectile;
-        if (projectile == null) return;
-        
+
+        if (projectile == null)
+        {
+            return;
+        }
+
         float tickDelta = state.tickDelta;
 
         matrices.pushPose();
@@ -63,18 +71,26 @@ public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEnt
         GunProperties properties = projectile.getProperties();
         int out = properties.lifeSpan - 2;
 
-        float bodyYaw = projectile.getYaw();
-        float pitch = projectile.getPitch();
-        float scale = Lerps.envelope(projectile.age + tickDelta, 0, properties.fadeIn, out - properties.fadeOut, out);
+        float bodyYaw = projectile.getYRot();
+        float pitch = projectile.getXRot();
+        float scale = Lerps.envelope(projectile.tickCount + tickDelta, 0F, (float) properties.fadeIn, (float) (out - properties.fadeOut), (float) out);
 
-        if (properties.yaw) matrices.mulPose(Axis.YP.rotationDegrees(bodyYaw));
-        if (properties.pitch) matrices.mulPose(Axis.XP.rotationDegrees(-pitch));
+        if (properties.yaw)
+        {
+            matrices.mulPose(Axis.YP.rotationDegrees(bodyYaw));
+        }
+
+        if (properties.pitch)
+        {
+            matrices.mulPose(Axis.XP.rotationDegrees(-pitch));
+        }
+
         matrices.scale(scale, scale, scale);
         MatrixStackUtils.applyTransform(matrices, properties.projectileTransform);
 
         GlStateManager._enableDepthTest();
         FormUtilsClient.render(projectile.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, new MCEntity(projectile), matrices, state.light, OverlayTexture.NO_OVERLAY, tickDelta)
+            .set(FormRenderType.ENTITY, new MCEntity(projectile), matrices, state.lightCoords, OverlayTexture.NO_OVERLAY, tickDelta)
             .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
         GlStateManager._disableDepthTest();
 

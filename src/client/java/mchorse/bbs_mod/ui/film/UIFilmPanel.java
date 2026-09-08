@@ -122,7 +122,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -132,7 +132,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
 
-import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -153,7 +152,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -997,7 +995,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             menu.action(Icons.LINE, UIKeys.FILM_REPLACE_INVENTORY, () ->
             {
-                BaseValue.edit(this.getData().inventory, (val) -> val.fromPlayer(MinecraftClient.getInstance().player));
+                BaseValue.edit(this.getData().inventory, (val) -> val.fromPlayer(Minecraft.getInstance().player));
             });
         };
 
@@ -7076,7 +7074,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        Window window = Minecraft.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         if (flight)
         {
@@ -7102,7 +7100,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        Window window = Minecraft.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         if (GLFW.glfwGetInputMode(window.handle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
         {
@@ -7114,14 +7112,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return false;
     }
 
-    private void centerCursor(Window window)
+    private void centerCursor(com.mojang.blaze3d.platform.Window window)
     {
         mchorse.bbs_mod.graphics.window.Window.moveCursor(window.getScreenWidth() / 2, window.getScreenHeight() / 2);
     }
 
     private void updateFreeFlightLookFromRawCursor(boolean orbitFlight)
     {
-        Window window = Minecraft.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         if (this.enforceFreeFlightMouseCapture())
         {
@@ -7225,7 +7223,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     }
 
     @Override
-    public void renderInWorld(WorldRenderContext context)
+    public void renderInWorld(LevelRenderContext context)
     {
         if (!this.needsViewportRender())
         {
@@ -7237,7 +7235,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!BBSRendering.isIrisShadowPass())
         {
             this.lastProjection.set(BBSRendering.projection);
-            PoseStack ms = context.matrices();
+            PoseStack ms = context.poseStack();
             if (ms != null)
             {
                 this.lastView.set(ms.last().pose());
@@ -7646,7 +7644,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         CrossWorldFilmScanner.scanAsync().whenComplete((entries, error) ->
         {
-            MinecraftClient.getInstance().execute(() ->
+            Minecraft.getInstance().execute(() ->
             {
                 this.crossWorldScanning = false;
                 this.crossWorldFilmEntries.clear();

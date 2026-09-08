@@ -497,7 +497,7 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
     protected void renderGrid(UIContext context)
     {
         Matrix4f matrix4f = this.createCameraStack().last().pose();
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
 
         for (int x = 0; x <= 10; x ++)
         {
