@@ -776,24 +776,6 @@ public class UIFilmPreview extends UIElement
             BBSSettings.editorReplayHudDisplayName.set(oldNames);
         }
 
-        if (this.panel.getData() != null)
-        {
-            /* Render global video clips (overlays) */
-            VideoRenderer.renderClips(
-                new MatrixStack(),
-                context.batcher,
-                this.panel.getData().camera.getClips(this.panel.getCursor()),
-                this.panel.getCursor(),
-                this.panel.getRunner().isRunning(),
-                this.getViewport(),
-                context.menu.viewport,
-                context,
-                context.menu.width,
-                context.menu.height,
-                true
-            );
-
-        }
         this.renderCursor(context);
 
         /* Render rule of thirds */

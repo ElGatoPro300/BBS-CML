@@ -151,20 +151,9 @@ public class VideoRenderer
                 int vx = baseArea.x + (baseArea.w - vw) / 2 + video.x.get();
                 int vy = baseArea.y + (baseArea.h - vh) / 2 + video.y.get();
 
-                if (!video.global.get())
+                if (!video.global.get() && context != null)
                 {
-                    if (context != null)
-                    {
-                        batcher.clip(viewport, context);
-                    }
-                    else
-                    {
-                        batcher.clip(viewport.x, viewport.y, viewport.w, viewport.h, screenWidth, screenHeight);
-                    }
-                }
-                else
-                {
-                    batcher.flush();
+                    batcher.clip(viewport, context);
                 }
 
                 render(stack, batcher,
@@ -176,16 +165,9 @@ public class VideoRenderer
                     video.cropX.get(), video.cropY.get(), video.cropWidth.get(), video.cropHeight.get(),
                     video.loops.get());
 
-                if (!video.global.get())
+                if (!video.global.get() && context != null)
                 {
-                    if (context != null)
-                    {
-                        batcher.unclip(context);
-                    }
-                    else
-                    {
-                        batcher.unclip(screenWidth, screenHeight);
-                    }
+                    batcher.unclip(context);
                 }
             }
         }
@@ -345,14 +327,17 @@ public class VideoRenderer
         if (loops && duration > 0)
         {
             bbsTime = bbsTime % duration;
-            if (bbsTime < 0) bbsTime += duration;
+            if (bbsTime < 0)
+            {
+                bbsTime += duration;
+            }
         }
 
         boolean shouldSeek = false;
 
         if (playing)
         {
-            // When playing, sync only if drift is large and we haven't sought recently
+            /* When playing, sync only if drift is large and we haven't sought recently */
             long diff = Math.abs(videoTime - bbsTime);
 
             if (loops && duration > 0)
@@ -368,7 +353,7 @@ public class VideoRenderer
         }
         else
         {
-            // When paused, seek only if the timeline cursor moved or if we are out of sync
+            /* When paused, seek only if the timeline cursor moved or if we are out of sync */
             if (wrapper.lastBbsTime != bbsTime)
             {
                 shouldSeek = true;
@@ -387,7 +372,7 @@ public class VideoRenderer
         }
         else if (!playing)
         {
-            // Update tracking even if we didn't seek, to avoid seeking on same frame later if conditions change
+            /* Update tracking even if we didn't seek, to avoid seeking on same frame later */
             wrapper.lastBbsTime = bbsTime;
         }
 
@@ -397,50 +382,6 @@ public class VideoRenderer
         {
             int vw = player.width();
             int vh = player.height();
-
-            if (w == 0 || h == 0)
-            {
-                if (vw > 0 && vh > 0)
-                {
-                    // Fit video into target area (x, y, w, h are treated as container if w=0 or h=0 passed initially? No, wait)
-                    // The caller passes 'area.w' and 'area.h' if video.width/height are 0.
-                    // But here we want to RESPECT aspect ratio if the user didn't specify exact dimensions.
-                    
-                    // Actually, let's look at how UIFilmPreview calls this.
-                    // It passes video.width/height if set, OR area.w/area.h if 0.
-                    // So if user sets 0, we get area.w/area.h.
-                    // To support "fit to camera" with correct aspect ratio, we need to know if the caller WANTED original aspect ratio.
-                    // But here, we are low level.
-                    
-                    // However, we can improve this:
-                    // If the user specified explicit dimensions (w != area.w perhaps?), use them.
-                    // But since we can't easily know the "container" size here without more args,
-                    // let's assume if the input w/h match the viewport, we might want to fit.
-                    
-                    // BETTER APPROACH:
-                    // We'll calculate the draw rect here.
-                    // But wait, the previous code just drew a quad from x,y to x+w,y+h.
-                    
-                    // If we want to preserve aspect ratio, we need to adjust x, y, w, h.
-                    // But 'render' just draws a quad.
-                    // It's better to do the calculation in UIFilmPreview.
-                    // However, I can't easily access 'player.width()' from UIFilmPreview without exposing the player wrapper or adding a getter.
-                    
-                    // So, let's modify THIS method to handle aspect ratio if a flag is set?
-                    // Or better, let's return the player dimensions so UIFilmPreview can use them?
-                    // No, that's complex async state.
-                    
-                    // Let's do this:
-                    // If w and h are provided, we fill that rect.
-                    // BUT, if the user wants "auto" size (0, 0 in clip), UIFilmPreview passes area.w/area.h.
-                    // That stretches it.
-                    
-                    // We need a way to tell render() "Use these bounds but FIT the video inside".
-                    // Or, we can query dimensions.
-                    
-                    // Let's add a method to get dimensions for a path.
-                }
-            }
 
             /* Recorte por lados (izq/arr/der/abajo) y ajuste de tamaño para evitar estirar. */
             float left = Math.max(0F, Math.min(1F, cropX / 100F));
