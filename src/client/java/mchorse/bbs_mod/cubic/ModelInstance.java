@@ -818,7 +818,7 @@ public class ModelInstance implements IModelInstance
             }
 
             renderer.setColor(cr, cg, cb, ca);
-            CubicRenderer.processRenderModel(renderer, null, stack, model);
+            renderer.renderModel(stack, model);
 
             if (stencilMap != null)
             {

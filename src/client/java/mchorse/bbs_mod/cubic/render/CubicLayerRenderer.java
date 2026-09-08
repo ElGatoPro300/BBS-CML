@@ -56,11 +56,147 @@ public class CubicLayerRenderer extends CubicCubeRenderer
         this.cull = cull;
     }
 
+    public void renderModel(MatrixStack stack, Model model)
+    {
+        if (this.canBatchModel(model))
+        {
+            this.renderModelBatched(stack, model);
+        }
+        else
+        {
+            CubicRenderer.processRenderModel(this, null, stack, model);
+        }
+    }
+
+    private boolean canBatchModel(Model model)
+    {
+        if (this.stencilMap != null)
+        {
+            return false;
+        }
+
+        Link fallbackTexture = this.resolveDefaultTexture();
+
+        if (fallbackTexture == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getAllGroups())
+        {
+            if (group.textureOverride != null || group.textureBlendTo != null)
+            {
+                return false;
+            }
+
+            if (group.paintColor != null && group.paintColor.a > 0F)
+            {
+                return false;
+            }
+
+            if (group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive())
+            {
+                return false;
+            }
+
+            if (group.color != null && group.color.hasActiveTransform())
+            {
+                return false;
+            }
+
+            for (ModelMesh mesh : group.meshes)
+            {
+                if (mesh.material != null && !mesh.material.isEmpty())
+                {
+                    Link meshTexture = this.textures == null ? null : this.textures.apply(mesh.material);
+
+                    if (meshTexture != null && !meshTexture.equals(fallbackTexture))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private Link resolveDefaultTexture()
+    {
+        Link texture = this.textures == null ? null : this.textures.apply("");
+
+        if (texture == null)
+        {
+            texture = this.fallback;
+        }
+
+        return texture;
+    }
+
+    private void renderModelBatched(MatrixStack stack, Model model)
+    {
+        Link textureLink = this.resolveDefaultTexture();
+        Texture texture = BBSModClient.getTextures().getTexture(textureLink);
+
+        if (texture == null || this.a <= 0.001F)
+        {
+            return;
+        }
+
+        if (this.effectShader != null)
+        {
+            ModelVAORenderer.beginCpuGeometry(this.effectShader);
+        }
+
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
+            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+        CubicRenderer.processRenderModel(this, builder, stack, model);
+
+        BuiltBuffer buffer = builder.endNullable();
+
+        if (buffer != null)
+        {
+            if (this.effectShader != null)
+            {
+                ModelVAORenderer.setupUniformsCpuPretransformed(this.effectShader, this.rootInverse);
+                BBSUniform.set(this.effectShader, "TextureBlendActive", 0F);
+
+                boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();
+                ModelEffectPass.draw(buffer, texture, this.effectShader, false,
+                    !overlayPass && this.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, this.cull, overlayPass);
+            }
+            else
+            {
+                BillboardRenderLayers.draw(buffer, texture, texture.isLinear(), false,
+                    this.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, this.cull);
+            }
+        }
+    }
+
     @Override
-    public boolean renderGroup(BufferBuilder unused, MatrixStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
     {
         if (this.stencilMap != null && !this.stencilMap.isBoneAllowed(group.id))
         {
+            return false;
+        }
+
+        if (builder != null)
+        {
+            for (ModelCube cube : group.cubes)
+            {
+                if (cube.visible)
+                {
+                    this.renderCube(builder, stack, group, cube);
+                }
+            }
+
+            for (ModelMesh mesh : group.meshes)
+            {
+                this.renderMesh(builder, stack, model, group, mesh);
+            }
+
             return false;
         }
 
