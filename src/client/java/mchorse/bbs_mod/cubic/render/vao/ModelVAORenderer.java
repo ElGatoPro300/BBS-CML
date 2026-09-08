@@ -1928,7 +1928,7 @@ public class ModelVAORenderer
          */
         if (cpuPretransformed && stack == null)
         {
-            BBSUniform.setMatrix3f(shader, "NormalMat", RenderSystem.getModelViewMatrix().normal(new Matrix3f()));
+            BBSUniform.setMatrix3f(shader, "NormalMat", IDENTITY_NORMAL);
         }
         else if (stack != null)
         {
