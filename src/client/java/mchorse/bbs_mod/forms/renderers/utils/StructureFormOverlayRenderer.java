@@ -179,6 +179,15 @@ public class StructureFormOverlayRenderer
             return;
         }
 
+        if (glowIntensity < 0F)
+        {
+            Color darken = FormColorEffects.resolveNegativeGlowDarkenOverlayColor(glowIntensity, alpha);
+
+            this.runStructureBlocksPaintOverlay(data, darken, stack, glowTransform, null, null, 0F, alpha, true, () -> draw.accept(stack));
+
+            return;
+        }
+
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         Vector3f structureSize = new Vector3f();
         this.resolveStructureMaskSize(data, structureSize);
@@ -267,18 +276,24 @@ public class StructureFormOverlayRenderer
 
     public void renderStructurePaintOverlay(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color resolvedPaint, float alpha, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Consumer<StructurePaintLayer> layerDraw, Consumer<MatrixStack> culledWorldDraw)
     {
-        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
-        paintOverlay.a *= alpha;
+        boolean multiplyDarken = resolvedPaint != null && resolvedPaint.a < 0F;
+        Color atlasPaintOverlay = FormColorEffects.resolvePaintOverlayDrawColor(resolvedPaint, alpha);
+        Color vaoPaintOverlay = resolvedPaint == null
+            ? new Color(1F, 1F, 1F, alpha)
+            : new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a * alpha);
 
-        this.renderStructurePaintOverlayPass(data, vao, context, stack, paintOverlay, overlay, optimize, useEntityLayers, transform, glowSettings, legacyGlow, glowIntensity, alpha, layerDraw, culledWorldDraw);
+        this.renderStructurePaintOverlayPass(data, vao, context, stack, atlasPaintOverlay, vaoPaintOverlay, multiplyDarken, overlay, optimize, useEntityLayers, transform, glowSettings, legacyGlow, glowIntensity, alpha, layerDraw, culledWorldDraw);
     }
 
     public void submitDeferredStructurePaintOverlay(StructureData data, IModelVAO vao, FormRenderingContext context, Color resolvedPaint, float alpha, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Consumer<StructurePaintLayer> layerDraw, Consumer<MatrixStack> culledWorldDraw)
     {
         Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
-        paintOverlay.a *= alpha;
+        boolean multiplyDarken = resolvedPaint != null && resolvedPaint.a < 0F;
+        Color atlasPaintOverlay = FormColorEffects.resolvePaintOverlayDrawColor(resolvedPaint, alpha);
+        Color vaoPaintOverlay = resolvedPaint == null
+            ? new Color(1F, 1F, 1F, alpha)
+            : new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a * alpha);
 
         ModelVAORenderer.submitPaintOverlay(false, () ->
         {
@@ -286,36 +301,36 @@ public class StructureFormOverlayRenderer
             overlayStack.peek().getPositionMatrix().set(positionMatrix);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderStructurePaintOverlayPass(data, vao, context, overlayStack, paintOverlay, overlay, optimize, useEntityLayers, transform, glowSettings, legacyGlow, glowIntensity, alpha, layerDraw, culledWorldDraw);
+            this.renderStructurePaintOverlayPass(data, vao, context, overlayStack, atlasPaintOverlay, vaoPaintOverlay, multiplyDarken, overlay, optimize, useEntityLayers, transform, glowSettings, legacyGlow, glowIntensity, alpha, layerDraw, culledWorldDraw);
         });
     }
 
-    private void renderStructurePaintOverlayPass(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color paintOverlay, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, Consumer<StructurePaintLayer> layerDraw, Consumer<MatrixStack> culledWorldDraw)
+    private void renderStructurePaintOverlayPass(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color atlasPaintOverlay, Color vaoPaintOverlay, boolean multiplyDarken, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, Consumer<StructurePaintLayer> layerDraw, Consumer<MatrixStack> culledWorldDraw)
     {
         if (culledWorldDraw != null)
         {
-            this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> culledWorldDraw.accept(stack));
+            this.runStructureBlocksPaintOverlay(data, atlasPaintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, multiplyDarken, () -> culledWorldDraw.accept(stack));
         }
         else if (optimize)
         {
             if (vao != null)
             {
-                this.renderStructureVaoPaintOverlay(data, vao, stack, Color.white(), paintOverlay, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, transform);
+                this.renderStructureVaoPaintOverlay(data, vao, stack, Color.white(), vaoPaintOverlay, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, transform);
             }
 
             if (data.hasBiomeTintedLayer() && layerDraw != null)
             {
-                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.BIOME));
+                this.runStructureBlocksPaintOverlay(data, atlasPaintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, multiplyDarken, () -> layerDraw.accept(StructurePaintLayer.BIOME));
             }
 
             if (data.hasAnimatedLayer() && layerDraw != null)
             {
-                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.ANIMATED));
+                this.runStructureBlocksPaintOverlay(data, atlasPaintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, multiplyDarken, () -> layerDraw.accept(StructurePaintLayer.ANIMATED));
             }
 
             if (data.hasTranslucentLayer() && layerDraw != null)
             {
-                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT));
+                this.runStructureBlocksPaintOverlay(data, atlasPaintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, multiplyDarken, () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT));
             }
         }
     }
@@ -356,7 +371,7 @@ public class StructureFormOverlayRenderer
         }
     }
 
-    private void runStructureBlocksPaintOverlay(StructureData data, Color paintOverlay, MatrixStack stack, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, Runnable draw)
+    private void runStructureBlocksPaintOverlay(StructureData data, Color paintOverlay, MatrixStack stack, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, boolean multiplyDarken, Runnable draw)
     {
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
@@ -364,6 +379,7 @@ public class StructureFormOverlayRenderer
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
         boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        final boolean darken = multiplyDarken;
 
         CustomVertexConsumerProvider.clearRunnables();
 
@@ -371,11 +387,25 @@ public class StructureFormOverlayRenderer
         this.resolveStructureMaskSize(data, structureSize);
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
         {
-            BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z);
+            BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z, darken);
         });
 
         RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        if (darken)
+        {
+            RenderSystem.blendFuncSeparate(
+                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_COLOR,
+                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO,
+                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_ALPHA,
+                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO
+            );
+        }
+        else
+        {
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
+
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
@@ -415,6 +445,7 @@ public class StructureFormOverlayRenderer
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
