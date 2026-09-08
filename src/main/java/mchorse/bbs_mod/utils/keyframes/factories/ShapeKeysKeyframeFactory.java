@@ -25,7 +25,7 @@ public class ShapeKeysKeyframeFactory implements IKeyframeFactory<ShapeKeys>
     @Override
     public BaseType toData(ShapeKeys value)
     {
-        return value.toData();
+        return value == null ? new mchorse.bbs_mod.data.types.MapType() : value.toData();
     }
 
     @Override
@@ -37,7 +37,7 @@ public class ShapeKeysKeyframeFactory implements IKeyframeFactory<ShapeKeys>
     @Override
     public ShapeKeys copy(ShapeKeys value)
     {
-        return value.copy();
+        return value == null ? new ShapeKeys() : value.copy();
     }
 
     @Override

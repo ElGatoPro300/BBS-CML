@@ -36,7 +36,7 @@ public class PoseKeyframeFactory implements IKeyframeFactory<Pose>
     @Override
     public BaseType toData(Pose value)
     {
-        return value.toData();
+        return value == null ? new mchorse.bbs_mod.data.types.MapType() : value.toData();
     }
 
     @Override
@@ -48,7 +48,7 @@ public class PoseKeyframeFactory implements IKeyframeFactory<Pose>
     @Override
     public Pose copy(Pose value)
     {
-        return value.copy();
+        return value == null ? new Pose() : value.copy();
     }
 
     @Override

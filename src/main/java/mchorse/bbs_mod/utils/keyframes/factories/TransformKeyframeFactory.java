@@ -34,7 +34,7 @@ public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
     @Override
     public BaseType toData(Transform value)
     {
-        return value.toData();
+        return value == null ? new mchorse.bbs_mod.data.types.MapType() : value.toData();
     }
 
     @Override
@@ -46,7 +46,7 @@ public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
     @Override
     public Transform copy(Transform value)
     {
-        return value.copy();
+        return value == null ? new Transform() : value.copy();
     }
 
     @Override
