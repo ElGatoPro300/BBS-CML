@@ -17,12 +17,11 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.function.Consumer;
 
@@ -213,10 +212,10 @@ public class UIItemStack extends UIElement
 
         if (this.stack != null && !this.stack.isEmpty())
         {
-            MatrixStack matrices = new MatrixStack();
+            PoseStack matrices = new PoseStack();
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-            matrices.push();
+            matrices.pushPose();
             /* TODO 1.21.11: GlStateManager._disableDepthTest() removed */
             consumers.setUI(true);
 
@@ -224,8 +223,8 @@ public class UIItemStack extends UIElement
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
             /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting() removed */
 
-            context.batcher.getContext().drawItem(this.stack, stackCenterX - 8, this.area.my() - 8);
-            context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().renderItem(this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
 
             /* TODO 1.21.11: context.draw() removed */
 
@@ -234,7 +233,7 @@ public class UIItemStack extends UIElement
             consumers.setUI(false);
             /* TODO 1.21.11: GlStateManager._enableDepthTest() removed */
             /* TODO 1.21.11: GlStateManager._depthFunc() removed */
-            matrices.pop();
+            matrices.popPose();
         }
 
         super.render(context);

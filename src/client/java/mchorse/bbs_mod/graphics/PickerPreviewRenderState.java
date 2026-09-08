@@ -2,13 +2,11 @@ package mchorse.bbs_mod.graphics;
 
 import mchorse.bbs_mod.BBSMod;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.ScreenArea;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fc;
@@ -16,12 +14,14 @@ import org.joml.Matrix3x2fc;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
 
 import org.jspecify.annotations.Nullable;
 
-public class PickerPreviewRenderState implements SimpleGuiElementRenderState
+public class PickerPreviewRenderState implements ScreenArea
 {
     /* UV1 carries the pick ID so differently highlighted previews can share a GUI batch. */
     private static final VertexFormat FORMAT = VertexFormat.builder()
@@ -33,9 +33,9 @@ public class PickerPreviewRenderState implements SimpleGuiElementRenderState
 
     private static final RenderPipeline PIPELINE = RenderPipelines.register(
         RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/picker_preview"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_preview"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
             .withVertexFormat(FORMAT, VertexFormat.DrawMode.QUADS)
             .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
@@ -54,10 +54,10 @@ public class PickerPreviewRenderState implements SimpleGuiElementRenderState
     private final int height;
     private final int target;
     private final int highlight;
-    private final ScreenRect scissor;
-    private final ScreenRect bounds;
+    private final ScreenRectangle scissor;
+    private final ScreenRectangle bounds;
 
-    public PickerPreviewRenderState(TextureSetup textureSetup, Matrix3x2fc matrix, int x, int y, int width, int height, int target, int highlight, @Nullable ScreenRect scissor)
+    public PickerPreviewRenderState(TextureSetup textureSetup, Matrix3x2fc matrix, int x, int y, int width, int height, int target, int highlight, @Nullable ScreenRectangle scissor)
     {
         this.textureSetup = textureSetup;
         this.matrix = new Matrix3x2f(matrix);
@@ -69,7 +69,7 @@ public class PickerPreviewRenderState implements SimpleGuiElementRenderState
         this.highlight = highlight;
         this.scissor = scissor;
 
-        ScreenRect bounds = new ScreenRect(x, y, width, height).transformEachVertex(this.matrix);
+        ScreenRectangle bounds = new ScreenRectangle(x, y, width, height).transformMaxBounds(this.matrix);
 
         this.bounds = scissor == null ? bounds : bounds.intersection(scissor);
     }
@@ -88,20 +88,20 @@ public class PickerPreviewRenderState implements SimpleGuiElementRenderState
 
     @Override
     @Nullable
-    public ScreenRect scissorArea()
+    public ScreenRectangle scissorArea()
     {
         return this.scissor;
     }
 
     @Override
     @Nullable
-    public ScreenRect bounds()
+    public ScreenRectangle bounds()
     {
         return this.bounds;
     }
 
     @Override
-    public void setupVertices(VertexConsumer vertices)
+    public void buildVertices(VertexConsumer vertices)
     {
         /* Picker targets use framebuffer coordinates, whose Y axis is opposite to GUI coordinates. */
         this.vertex(vertices, this.x, this.y, 0F, 1F);
@@ -112,9 +112,9 @@ public class PickerPreviewRenderState implements SimpleGuiElementRenderState
 
     private void vertex(VertexConsumer vertices, int x, int y, float u, float v)
     {
-        vertices.vertex(this.matrix, x, y)
-            .color(this.highlight)
-            .texture(u, v)
-            .overlay(this.target & 0xFFFF, (this.target >>> 16) & 0xFF);
+        vertices.addVertexWith2DPose(this.matrix, x, y)
+            .setColor(this.highlight)
+            .setUv(u, v)
+            .setUv1(this.target & 0xFFFF, (this.target >>> 16) & 0xFF);
     }
 }

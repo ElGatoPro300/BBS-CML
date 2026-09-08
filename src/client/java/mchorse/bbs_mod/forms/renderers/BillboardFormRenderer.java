@@ -29,18 +29,8 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Intersectionf;
 import org.joml.Matrix3f;
@@ -48,7 +38,13 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -134,9 +130,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     {
         context.batcher.flush();
 
-        MatrixStack stack = new MatrixStack();
+        PoseStack stack = new PoseStack();
 
-        stack.push();
+        stack.pushPose();
 
         Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
@@ -148,11 +144,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         BBSRendering.setupLevelLighting();
 
-        VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
+        VertexFormat format = DefaultVertexFormat.NEW_ENTITY;
 
         this.renderModel(format, BBSRendering::getEntityTranslucentProgram,
             stack,
-            OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
+            OverlayTexture.NO_OVERLAY, LightTexture.FULL_BRIGHT, Colors.WHITE,
             context.getTransition(),
             null,
             true,
@@ -160,7 +156,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             null
         );
 
-        stack.pop();
+        stack.popPose();
     }
 
     @Override
@@ -170,8 +166,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
          * the billboard pulse bright/dark when the orbit camera moves. Respect form.shading. */
         boolean shading = this.form.shading.get();
 
-        VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
-        Supplier<ShaderProgram> shader = this.getShader(
+        VertexFormat format = shading ? DefaultVertexFormat.NEW_ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
+        Supplier<GlProgram> shader = this.getShader(
             context,
             shading ? BBSRendering::getEntityTranslucentProgram : BBSRendering::getPositionTexColorProgram,
             shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
@@ -180,7 +176,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         this.renderModel(format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context.camera, false, context.modelRenderer || context.isPicking(), context);
     }
 
-    private void renderModel(VertexFormat format, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, FormRenderingContext deferContext)
+    private void renderModel(VertexFormat format, Supplier<GlProgram> shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, FormRenderingContext deferContext)
     {
         Link defaultLink = this.form.texture.get();
 
@@ -202,7 +198,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         });
     }
 
-    private void renderModelPass(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, float alphaFactor, FormRenderingContext deferContext, Link textureLink)
+    private void renderModelPass(VertexFormat format, Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, float alphaFactor, FormRenderingContext deferContext, Link textureLink)
     {
         float w = texture.width;
         float h = texture.height;
@@ -269,14 +265,14 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         this.renderQuad(format, texture, shader, matrices, overlay, light, overlayColor, transition, camera, invertY, modelRenderer, alphaFactor, deferContext, textureLink);
     }
 
-    private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, float alphaFactor, FormRenderingContext deferContext, Link textureLink)
+    private void renderQuad(VertexFormat format, Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, float alphaFactor, FormRenderingContext deferContext, Link textureLink)
     {
         Color storedFormColor = this.form.color.get();
         boolean hasColorAdjustments = storedFormColor != null && storedFormColor.hasColorAdjustments();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor);
         Color color = new Color().set(overlayColor, true);
-        Matrix4f matrix = matrices.peek().getPositionMatrix();
-        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f matrix = matrices.last().pose();
+        PoseStack.Pose entry = matrices.last();
         boolean shadowPassEarly = BBSRendering.isIrisShadowPass()
             || (deferContext != null && deferContext.isShadowPass);
         /* Orbit UI / form preview / inventory GUI: draw soft live. World post-deferred
@@ -344,7 +340,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
          * gizmo handles and General translate/rotate/scale fields match what you see. */
         if (this.form.billboard.get() && (deferContext == null || !deferContext.modelRenderer))
         {
-            Matrix4f modelMatrix = matrices.peek().getPositionMatrix();
+            Matrix4f modelMatrix = matrices.last().pose();
             Vector3f scale = new Vector3f();
 
             modelMatrix.getScale(scale);
@@ -367,8 +363,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
             /* Keep identity normals. Baking camera.view into the normal matrix made Iris/BBS
              * lighting track the orbit camera and pulse the billboard bright/dark. */
-            matrices.peek().getNormalMatrix().identity();
-            matrices.peek().getNormalMatrix().scale(
+            matrices.last().normal().identity();
+            matrices.last().normal().scale(
                 MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
                 MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
                 MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
@@ -376,7 +372,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
 
         BBSModClient.getTextures().bindTexture(texture);
-        ShaderProgram program = shader.get();
+        GlProgram program = shader.get();
         if (program != null)
         {
             BBSRendering.bindProgram(program);
@@ -417,7 +413,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             Matrix4f positionMatrix = irisCamera
                 ? new Matrix4f(matrix)
                 : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
-            Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+            Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();
             Quad localUvQuad = new Quad();
@@ -451,9 +447,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
              * Note: unshaded soft still uses position_tex_color (no fog in that shader) —
              * that is a separate limitation, not the yaw-dependent cylindrical-fog bug. */
             VertexFormat deferredFormat = gradeOnDeferredDraw
-                ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+                ? DefaultVertexFormat.NEW_ENTITY
                 : format;
-            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
+            Supplier<GlProgram> deferredShader = gradeOnDeferredDraw
                 ? BBSShaders::getModel
                 : shader;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
@@ -483,10 +479,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     return;
                 }
 
-                MatrixStack overlayStack = new MatrixStack();
+                PoseStack overlayStack = new PoseStack();
 
-                overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                overlayStack.peek().getNormalMatrix().set(normalMatrix);
+                overlayStack.last().pose().set(positionMatrix);
+                overlayStack.last().normal().set(normalMatrix);
 
                 try
                 {
@@ -499,8 +495,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
                         ModelVAORenderer.setGradeEffectTransforms(gradeSourceSnapshot);
 
-                        ShaderProgram gradeShader = BBSShaders.getModel();
-                        MatrixStack gradeStack = new MatrixStack();
+                        GlProgram gradeShader = BBSShaders.getModel();
+                        PoseStack gradeStack = new PoseStack();
 
                         BBSRendering.bindProgram(gradeShader);
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
@@ -560,7 +556,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     {
                         EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
                         boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-                        Supplier<ShaderProgram> glowShader = BBSRendering::getPositionTexColorProgram;
+                        Supplier<GlProgram> glowShader = BBSRendering::getPositionTexColorProgram;
 
                         if (hasGlowTransform)
                         {
@@ -634,9 +630,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
             boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
-            VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
+            VertexFormat deferredFormat = DefaultVertexFormat.NEW_ENTITY;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
+            Supplier<GlProgram> deferredShader = gradeOnDeferredDraw
                 ? () -> BBSShaders.getModel()
                 : BBSRendering::getEntityTranslucentProgram;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
@@ -665,10 +661,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     return;
                 }
 
-                MatrixStack overlayStack = new MatrixStack();
+                PoseStack overlayStack = new PoseStack();
 
-                overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                overlayStack.peek().getNormalMatrix().identity();
+                overlayStack.last().pose().set(positionMatrix);
+                overlayStack.last().normal().identity();
 
                 try
                 {
@@ -679,8 +675,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
                         ModelVAORenderer.setGradeEffectTransforms(gradeSourceSnapshot);
 
-                        ShaderProgram gradeShader = BBSShaders.getModel();
-                        MatrixStack gradeStack = new MatrixStack();
+                        GlProgram gradeShader = BBSShaders.getModel();
+                        PoseStack gradeStack = new PoseStack();
 
                         BBSRendering.bindProgram(gradeShader);
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
@@ -706,7 +702,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     {
                         EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
                         boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-                        Supplier<ShaderProgram> glowShader = BBSRendering::getPositionTexColorProgram;
+                        Supplier<GlProgram> glowShader = BBSRendering::getPositionTexColorProgram;
 
                         if (hasGlowTransform)
                         {
@@ -758,7 +754,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
             boolean touchedDepthMask = false;
 
-            if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+            if (format == DefaultVertexFormat.NEW_ENTITY)
             {
                 if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
                 {
@@ -791,7 +787,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
             try
             {
-                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
+                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
                 float quadWidth = Math.abs(quad.p2.x - quad.p1.x);
                 float quadHeight = Math.abs(quad.p1.y - quad.p3.y);
@@ -862,8 +858,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
                 if (useFormColorGrade)
                 {
-                    ShaderProgram gradeShader = BBSShaders.getModel();
-                    MatrixStack gradeStack = new MatrixStack();
+                    GlProgram gradeShader = BBSShaders.getModel();
+                    PoseStack gradeStack = new PoseStack();
 
                     /* Vertices already include the model matrix; keep ModelView identity. */
                     ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
@@ -871,11 +867,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
                 if (useFormColorGrade || (deferContext != null && deferContext.isPicking()))
                 {
-                    BufferRenderer.drawWithGlobalProgram(builder.end());
+                    BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
                 }
                 else
                 {
-                    BillboardRenderLayers.draw(builder.end(), texture, this.form.linear.get(), this.form.mipmap.get(),
+                    BillboardRenderLayers.draw(builder.buildOrThrow(), texture, this.form.linear.get(), this.form.mipmap.get(),
                         shadowPass || localPreview || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, true);
                 }
             }
@@ -918,7 +914,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             if (localPreview)
             {
                 /* Form editor / UI preview: draw paint immediately (no world deferral). */
-                this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.DEFAULT_UV, resolvedPaint, color.a, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity);
+                this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.NO_OVERLAY, resolvedPaint, color.a, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity);
             }
             else
             {
@@ -956,7 +952,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         BBSRendering.enableCull();
 
         texture.setFilterMipmap(false, false);
-        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+        if (format == DefaultVertexFormat.NEW_ENTITY)
         {
                                 }
     }
@@ -966,11 +962,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
      *        windings share z=0 and cull keeps only the facing side (avoids ±FACE_Z_BIAS
      *        depth fighting at distance / Iris reversed-Z).
      */
-    private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
+    private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<GlProgram> shader, PoseStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
     {
-        Matrix4f matrix = matrices.peek().getPositionMatrix();
-        MatrixStack.Entry entry = matrices.peek();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
+        Matrix4f matrix = matrices.last().pose();
+        PoseStack.Pose entry = matrices.last();
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
         boolean dualSided = !singleSided && !ModelVAORenderer.isPaintOverlayPass();
         float faceZ = singleSided ? this.resolveOverlayFaceZ(matrix) : 0F;
         float frontNz = faceZ >= 0F ? 1F : -1F;
@@ -1012,46 +1008,46 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, faceZ, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
         }
 
-        ShaderProgram bound = shader.get();
+        GlProgram bound = shader.get();
 
         /* Vertices already include the model matrix; keep ModelView identity for BBS uniforms
          * (FormColorGrade / ColorGradeOverlay) right before draw. */
         if (bound == BBSShaders.getModel())
         {
-            ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
+            ModelVAORenderer.setupUniforms(new PoseStack(), bound);
         }
 
         if (bound == BBSShaders.getModel() || singleSided || ModelVAORenderer.isPaintOverlayPass())
         {
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
         }
         else
         {
-            BillboardRenderLayers.draw(builder.end(), texture, linear, mipmap,
+            BillboardRenderLayers.draw(builder.buildOrThrow(), texture, linear, mipmap,
                 GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK), dualSided);
         }
         texture.setFilterMipmap(false, false);
     }
 
-    private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
+    private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, PoseStack.Pose entry, float nz)
     {
-        if (format == VertexFormats.POSITION_TEXTURE_LIGHT_COLOR)
+        if (format == DefaultVertexFormat.POSITION_TEX_LIGHTMAP_COLOR)
         {
-            return consumer.vertex(matrix, x, y, z).texture(u, v).light(light).color(color.r, color.g, color.b, color.a);
+            return consumer.addVertex(matrix, x, y, z).setUv(u, v).setLight(light).setColor(color.r, color.g, color.b, color.a);
         }
 
-        if (format == VertexFormats.POSITION_TEXTURE_COLOR)
+        if (format == DefaultVertexFormat.POSITION_TEX_COLOR)
         {
-            return consumer.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a);
+            return consumer.addVertex(matrix, x, y, z).setUv(u, v).setColor(color.r, color.g, color.b, color.a);
         }
 
-        return consumer.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+        return consumer.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
-    private void submitDeferredBillboardPaintOverlay(Texture texture, Link textureLink, Supplier<ShaderProgram> shader, MatrixStack matrices, Color resolvedPaint, float alpha, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void submitDeferredBillboardPaintOverlay(Texture texture, Link textureLink, Supplier<GlProgram> shader, PoseStack matrices, Color resolvedPaint, float alpha, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
         paintOverlay.a *= alpha;
@@ -1083,46 +1079,46 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 return;
             }
 
-            MatrixStack overlayStack = new MatrixStack();
+            PoseStack overlayStack = new PoseStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
-            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+            overlayStack.last().pose().set(positionMatrix);
+            overlayStack.last().normal().set(normalMatrix);
 
-            this.renderPaintOverlay(deferredTexture, shader, overlayStack, OverlayTexture.DEFAULT_UV, paintOverlay, 1F, localQuad, localUvQuad, paintTransform, glowSettings, legacyGlow, glowIntensity, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
+            this.renderPaintOverlay(deferredTexture, shader, overlayStack, OverlayTexture.NO_OVERLAY, paintOverlay, 1F, localQuad, localUvQuad, paintTransform, glowSettings, legacyGlow, glowIntensity, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
         });
     }
 
-    private void renderPaintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color resolvedPaint, float alpha, EffectTransform transform)
+    private void renderPaintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color resolvedPaint, float alpha, EffectTransform transform)
     {
         this.renderPaintOverlay(texture, shader, matrices, overlay, resolvedPaint, alpha, quad, uvQuad, transform, null, null, 0F, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderPaintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color resolvedPaint, float alpha, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void renderPaintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color resolvedPaint, float alpha, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
         this.renderPaintOverlay(texture, shader, matrices, overlay, resolvedPaint, alpha, quad, uvQuad, transform, glowSettings, legacyGlow, glowIntensity, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderPaintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color resolvedPaint, float alpha, Quad drawQuad, Quad drawUvQuad, EffectTransform transform)
+    private void renderPaintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color resolvedPaint, float alpha, Quad drawQuad, Quad drawUvQuad, EffectTransform transform)
     {
         this.renderPaintOverlay(texture, shader, matrices, overlay, resolvedPaint, alpha, drawQuad, drawUvQuad, transform, null, null, 0F, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderPaintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color resolvedPaint, float alpha, Quad drawQuad, Quad drawUvQuad, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void renderPaintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color resolvedPaint, float alpha, Quad drawQuad, Quad drawUvQuad, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
         this.renderPaintOverlay(texture, shader, matrices, overlay, resolvedPaint, alpha, drawQuad, drawUvQuad, transform, glowSettings, legacyGlow, glowIntensity, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderPaintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color resolvedPaint, float alpha, Quad drawQuad, Quad drawUvQuad, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float polygonOffsetFactor, float polygonOffsetUnits)
+    private void renderPaintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color resolvedPaint, float alpha, Quad drawQuad, Quad drawUvQuad, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float polygonOffsetFactor, float polygonOffsetUnits)
     {
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
         paintOverlay.a *= alpha;
         this.applyPaintOnlyGlow(paintOverlay, glowSettings, legacyGlow, glowIntensity);
 
-        matrices.push();
+        matrices.pushPose();
 
-        Matrix4f paintMatrix = matrices.peek().getPositionMatrix();
-        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f paintMatrix = matrices.last().pose();
+        PoseStack.Pose entry = matrices.last();
         Matrix4f formRootInverse = new Matrix4f(paintMatrix).invert();
 
         this.resolveQuadMaskHalf(drawQuad, transform, MASK_HALF);
@@ -1156,18 +1152,18 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         texture.setFilterMipmap(false, false);
         BBSRendering.bindProgram(shader.get());
-        matrices.pop();
+        matrices.popPose();
     }
 
-    private void fillPaint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
+    private void fillPaint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, PoseStack.Pose entry, float nz)
     {
-        builder.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+        builder.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
-    private void submitDeferredBillboardColorTintOverlay(Texture texture, Link textureLink, Supplier<ShaderProgram> shader, MatrixStack matrices, Color formTintColor, EffectTransform colorTransform)
+    private void submitDeferredBillboardColorTintOverlay(Texture texture, Link textureLink, Supplier<GlProgram> shader, PoseStack matrices, Color formTintColor, EffectTransform colorTransform)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
         Color tintSnapshot = new Color(formTintColor.r, formTintColor.g, formTintColor.b, formTintColor.a);
 
         Quad localQuad = new Quad();
@@ -1197,19 +1193,19 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 return;
             }
 
-            MatrixStack overlayStack = new MatrixStack();
+            PoseStack overlayStack = new PoseStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
-            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+            overlayStack.last().pose().set(positionMatrix);
+            overlayStack.last().normal().set(normalMatrix);
 
-            this.renderColorTintOverlay(deferredTexture, shader, overlayStack, OverlayTexture.DEFAULT_UV, tintSnapshot, localQuad, localUvQuad, colorTransformSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
+            this.renderColorTintOverlay(deferredTexture, shader, overlayStack, OverlayTexture.NO_OVERLAY, tintSnapshot, localQuad, localUvQuad, colorTransformSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
         });
     }
 
-    private void submitDeferredBillboardColorGradeOverlay(Texture texture, Link textureLink, MatrixStack matrices, Color drawColor, Color gradeSource)
+    private void submitDeferredBillboardColorGradeOverlay(Texture texture, Link textureLink, PoseStack matrices, Color drawColor, Color gradeSource)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
         Color colorSnapshot = drawColor.copy();
         float gradeBrightness = gradeSource.brightness;
         float gradeContrast = gradeSource.contrast;
@@ -1250,27 +1246,27 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 ModelVAORenderer.clearPaint();
                 ModelVAORenderer.clearGlowing();
 
-                MatrixStack overlayStack = new MatrixStack();
+                PoseStack overlayStack = new PoseStack();
 
-                overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                overlayStack.peek().getNormalMatrix().set(normalMatrix);
+                overlayStack.last().pose().set(positionMatrix);
+                overlayStack.last().normal().set(normalMatrix);
 
-                ShaderProgram gradeShader = BBSShaders.getModel();
-                MatrixStack uniformStack = new MatrixStack();
+                GlProgram gradeShader = BBSShaders.getModel();
+                PoseStack uniformStack = new PoseStack();
 
                 BBSRendering.bindProgram(gradeShader);
                 ModelVAORenderer.setupUniforms(uniformStack, gradeShader);
 
                 this.drawBillboardFaces(
-                    VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
+                    DefaultVertexFormat.NEW_ENTITY,
                     deferredTexture,
                     BBSShaders::getModel,
                     overlayStack,
                     colorSnapshot,
                     localQuad,
                     localUvQuad,
-                    OverlayTexture.DEFAULT_UV,
-                    LightmapTextureManager.MAX_LIGHT_COORDINATE,
+                    OverlayTexture.NO_OVERLAY,
+                    LightTexture.FULL_BRIGHT,
                     linear,
                     mipmap,
                     true
@@ -1285,22 +1281,22 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         });
     }
 
-    private void renderColorTintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color formTintColor, EffectTransform transform)
+    private void renderColorTintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color formTintColor, EffectTransform transform)
     {
         this.renderColorTintOverlay(texture, shader, matrices, overlay, formTintColor, quad, uvQuad, transform);
     }
 
-    private void renderColorTintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color formTintColor, Quad drawQuad, Quad drawUvQuad, EffectTransform transform)
+    private void renderColorTintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color formTintColor, Quad drawQuad, Quad drawUvQuad, EffectTransform transform)
     {
         this.renderColorTintOverlay(texture, shader, matrices, overlay, formTintColor, drawQuad, drawUvQuad, transform, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderColorTintOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, Color formTintColor, Quad drawQuad, Quad drawUvQuad, EffectTransform transform, float polygonOffsetFactor, float polygonOffsetUnits)
+    private void renderColorTintOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, int overlay, Color formTintColor, Quad drawQuad, Quad drawUvQuad, EffectTransform transform, float polygonOffsetFactor, float polygonOffsetUnits)
     {
-        matrices.push();
+        matrices.pushPose();
 
-        Matrix4f tintMatrix = matrices.peek().getPositionMatrix();
-        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f tintMatrix = matrices.last().pose();
+        PoseStack.Pose entry = matrices.last();
         Matrix4f formRootInverse = new Matrix4f(tintMatrix).invert();
 
         this.resolveQuadMaskHalf(drawQuad, transform, MASK_HALF);
@@ -1334,13 +1330,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         texture.setFilterMipmap(false, false);
         BBSRendering.bindProgram(shader.get());
-        matrices.pop();
+        matrices.popPose();
     }
 
-    private void fillColorTint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
+    private void fillColorTint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, float u, float v, int overlay, int light, PoseStack.Pose entry, float nz)
     {
         /* Neutral verts — FormColorTint + spatial mask live in the fragment shader. */
-        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+        builder.addVertex(matrix, x, y, z).setColor(1F, 1F, 1F, 1F).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, 0F, 0F, nz);
     }
 
     /**
@@ -1378,10 +1374,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         return sign * (FACE_Z_BIAS + OVERLAY_FACE_EXTRA);
     }
 
-    private void submitDeferredBillboardGlowOverlayMasked(Texture texture, Link textureLink, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    private void submitDeferredBillboardGlowOverlayMasked(Texture texture, Link textureLink, Supplier<GlProgram> shader, PoseStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
         GlowSettings glowSnapshot = glowSettings == null ? null : glowSettings.copy();
         Color legacyGlowSnapshot = legacyGlow == null ? null : legacyGlow.copy();
         EffectTransform glowTransformSnapshot = glowTransform == null ? null : glowTransform.copy();
@@ -1411,26 +1407,26 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 return;
             }
 
-            MatrixStack overlayStack = new MatrixStack();
+            PoseStack overlayStack = new PoseStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
-            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+            overlayStack.last().pose().set(positionMatrix);
+            overlayStack.last().normal().set(normalMatrix);
 
             this.renderGlowOverlayMasked(deferredTexture, shader, overlayStack, glowSnapshot, legacyGlowSnapshot, alpha, glowIntensity, localQuad, localUvQuad, glowTransformSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
         });
     }
 
-    private void renderGlowOverlayMasked(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    private void renderGlowOverlayMasked(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
     {
         this.renderGlowOverlayMasked(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, quad, uvQuad, glowTransform, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderGlowOverlayMasked(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform)
+    private void renderGlowOverlayMasked(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform)
     {
         this.renderGlowOverlayMasked(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, drawQuad, drawUvQuad, glowTransform, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
     }
 
-    private void renderGlowOverlayMasked(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform, float polygonOffsetFactor, float polygonOffsetUnits)
+    private void renderGlowOverlayMasked(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform, float polygonOffsetFactor, float polygonOffsetUnits)
     {
         Color resolvedGlow = new Color();
         glowSettings.resolveColor(legacyGlow, resolvedGlow);
@@ -1443,10 +1439,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             alpha
         );
 
-        matrices.push();
+        matrices.pushPose();
 
-        Matrix4f glowMatrix = matrices.peek().getPositionMatrix();
-        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f glowMatrix = matrices.last().pose();
+        PoseStack.Pose entry = matrices.last();
         Matrix4f formRootInverse = new Matrix4f(glowMatrix).invert();
 
         this.resolveQuadMaskHalf(drawQuad, glowTransform, MASK_HALF);
@@ -1479,19 +1475,19 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         texture.setFilterMipmap(false, false);
         BBSRendering.bindProgram(shader.get());
-        matrices.pop();
+        matrices.popPose();
     }
 
-    private void renderGlowOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)
+    private void renderGlowOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)
     {
         this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, quad, uvQuad);
     }
 
-    private void renderGlowOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad)
+    private void renderGlowOverlay(Texture texture, Supplier<GlProgram> shader, PoseStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad)
     {
-        matrices.push();
+        matrices.pushPose();
 
-        Matrix4f glowMatrix = matrices.peek().getPositionMatrix();
+        Matrix4f glowMatrix = matrices.last().pose();
 
         this.bindFormTexture(texture);
         texture.bind();
@@ -1522,12 +1518,12 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         texture.setFilterMipmap(false, false);
         BBSRendering.bindProgram(shader.get());
-        matrices.pop();
+        matrices.popPose();
     }
 
     private void fillGlow(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v)
     {
-        builder.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a);
+        builder.addVertex(matrix, x, y, z).setUv(u, v).setColor(color.r, color.g, color.b, color.a);
     }
 
     private void applyPaintOnlyGlow(Color paintOverlay, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)

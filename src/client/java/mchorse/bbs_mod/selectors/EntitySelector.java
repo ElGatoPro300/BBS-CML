@@ -6,15 +6,15 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.StringUtils;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.StringNbtReader;
-import net.minecraft.registry.Registries;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.storage.TagValueOutput;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -27,7 +27,7 @@ public class EntitySelector implements IMapSerializable
     public Form form;
     public Identifier entity;
     public String name = "";
-    public NbtCompound nbt;
+    public CompoundTag nbt;
 
     public boolean matches(LivingEntity mcEntity)
     {
@@ -36,20 +36,20 @@ public class EntitySelector implements IMapSerializable
             return false;
         }
 
-        Identifier id = Registries.ENTITY_TYPE.getId(mcEntity.getType());
+        Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(mcEntity.getType());
 
         if (!id.equals(this.entity))
         {
             return false;
         }
 
-        Text displayName = mcEntity.getDisplayName();
+        Component displayName = mcEntity.getDisplayName();
 
         if (this.nbt != null)
         {
-            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, mcEntity.getEntityWorld().getRegistryManager());
-            mcEntity.writeData(view);
-            NbtCompound entityCompound = view.getNbt();
+            TagValueOutput view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, mcEntity.level().registryAccess());
+            mcEntity.saveWithoutId(view);
+            CompoundTag entityCompound = view.buildResult();
 
             if (!this.compare(this.nbt, entityCompound))
             {
@@ -59,7 +59,7 @@ public class EntitySelector implements IMapSerializable
 
         if (displayName != null && !this.name.isEmpty())
         {
-            String a = StringUtils.plainText(displayName.asOrderedText());
+            String a = StringUtils.plainText(displayName.getVisualOrderText());
 
             return Objects.equals(a, this.name);
         }
@@ -67,14 +67,14 @@ public class EntitySelector implements IMapSerializable
         return true;
     }
 
-    private boolean compare(NbtCompound source, NbtCompound base)
+    private boolean compare(CompoundTag source, CompoundTag base)
     {
-        for (String key : source.getKeys())
+        for (String key : source.keySet())
         {
-            NbtElement a = source.get(key);
-            NbtElement b = base.get(key);
+            Tag a = source.get(key);
+            Tag b = base.get(key);
 
-            if (a instanceof NbtCompound aCompound && b instanceof NbtCompound bCompound)
+            if (a instanceof CompoundTag aCompound && b instanceof CompoundTag bCompound)
             {
                 return this.compare(aCompound, bCompound);
             }
@@ -94,13 +94,13 @@ public class EntitySelector implements IMapSerializable
 
         if (data.has("enabled")) this.enabled = data.getBool("enabled");
         if (data.has("form")) this.form = FormUtils.fromData(data.getMap("form"));
-        if (data.has("entity")) this.entity = Identifier.of(data.getString("entity"));
+        if (data.has("entity")) this.entity = Identifier.parse(data.getString("entity"));
         if (data.has("name")) this.name = data.getString("name");
         if (data.has("nbt"))
         {
             try
             {
-                this.nbt = StringNbtReader.readCompound(data.getString("nbt"));
+                this.nbt = TagParser.parseCompoundFully(data.getString("nbt"));
             }
             catch (CommandSyntaxException e)
             {

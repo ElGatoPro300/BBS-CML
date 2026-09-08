@@ -7,14 +7,13 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.skin.SkinManager;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerSkinType;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.world.level.storage.TagValueOutput;
 
 import com.mojang.authlib.GameProfile;
 
@@ -49,7 +48,7 @@ public final class PlayerCaptureForms
     private PlayerCaptureForms()
     {}
 
-    public static Form create(PlayerEntity target, boolean modelForm)
+    public static Form create(Player target, boolean modelForm)
     {
         if (target == null)
         {
@@ -59,28 +58,28 @@ public final class PlayerCaptureForms
         return modelForm ? createModelForm(target) : createMobForm(target);
     }
 
-    public static boolean isSlim(PlayerEntity target)
+    public static boolean isSlim(Player target)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
-        if (target == null || mc.getNetworkHandler() == null)
+        if (target == null || mc.getConnection() == null)
         {
             return false;
         }
 
-        PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(target.getUuid());
+        PlayerInfo entry = mc.getConnection().getPlayerInfo(target.getUUID());
 
-        return entry != null && entry.getSkinTextures().model() == PlayerSkinType.SLIM;
+        return entry != null && entry.getSkin().model() == PlayerModelType.SLIM;
     }
 
-    private static MobForm createMobForm(PlayerEntity target)
+    private static MobForm createMobForm(Player target)
     {
         MobForm form = new MobForm();
-        NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY);
+        TagValueOutput view = TagValueOutput.createWithoutContext(ProblemReporter.DISCARDING);
 
-        target.saveSelfData(view);
+        target.saveAsPassenger(view);
 
-        NbtCompound compound = view.getNbt();
+        CompoundTag compound = view.buildResult();
 
         for (String key : Arrays.asList(
             "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
@@ -104,7 +103,7 @@ public final class PlayerCaptureForms
         return form;
     }
 
-    private static ModelForm createModelForm(PlayerEntity target)
+    private static ModelForm createModelForm(Player target)
     {
         ModelForm form = new ModelForm();
         boolean slim = isSlim(target);
@@ -172,7 +171,7 @@ public final class PlayerCaptureForms
                     return;
                 }
 
-                MinecraftClient.getInstance().execute(() ->
+                Minecraft.getInstance().execute(() ->
                 {
                     Link link = BBSMod.getProvider().getLink(file);
 

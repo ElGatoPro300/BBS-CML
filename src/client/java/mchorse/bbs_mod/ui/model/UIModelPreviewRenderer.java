@@ -10,10 +10,9 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix4f;
 
@@ -143,12 +142,12 @@ public class UIModelPreviewRenderer extends UIModelRenderer
         int sx = -context.globalX(0);
         int sy = -context.globalY(0);
 
-        context.batcher.getContext().getMatrices().pushMatrix();
-        context.batcher.getContext().getMatrices().translate((float) sx, (float) sy);
+        context.batcher.getContext().pose().pushMatrix();
+        context.batcher.getContext().pose().translate((float) sx, (float) sy);
 
         super.render(context);
 
-        context.batcher.getContext().getMatrices().popMatrix();
+        context.batcher.getContext().pose().popMatrix();
     }
 
     /* ---- Orthographic viewport ---- */
@@ -158,12 +157,12 @@ public class UIModelPreviewRenderer extends UIModelRenderer
     {
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional scales
            like 1.5 up to 2, which offset the viewport and drew the morph preview off to the side. */
-        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
-        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
+        float rx = (float) (mc.getWindow().getScreenWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getScreenHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
 
         /* Account for scroll/shift to fix disappearing models using global UI coordinates */
@@ -171,7 +170,7 @@ public class UIModelPreviewRenderer extends UIModelRenderer
         int ay = context.globalY(this.area.y);
 
         int vx = (int) (ax * rx);
-        int vy = (int) (mc.getWindow().getHeight() - (ay + this.area.h) * ry);
+        int vy = (int) (mc.getWindow().getScreenHeight() - (ay + this.area.h) * ry);
         int vw = (int) (this.area.w * rx);
         int vh = (int) (this.area.h * ry);
 
@@ -195,7 +194,7 @@ public class UIModelPreviewRenderer extends UIModelRenderer
     protected void renderUserModel(UIContext context)
     {
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, this.createCameraStack(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, this.createCameraStack(), LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 

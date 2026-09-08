@@ -8,19 +8,19 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.FireworkRocketEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -93,9 +93,9 @@ public final class RecorderProjectileCapture
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel world = mc.level;
+        LocalPlayer player = mc.player;
 
         if (world == null || player == null)
         {
@@ -118,9 +118,9 @@ public final class RecorderProjectileCapture
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel world = mc.level;
+        LocalPlayer player = mc.player;
 
         if (world == null || player == null)
         {
@@ -137,17 +137,17 @@ public final class RecorderProjectileCapture
     {
     }
 
-    private void scanForNewProjectiles(Recorder recorder, RecorderMobCapture mobCapture, ClientWorld world, ClientPlayerEntity player, Set<Integer> capturedMobIds, int tick, Film film, int playerReplayIndex)
+    private void scanForNewProjectiles(Recorder recorder, RecorderMobCapture mobCapture, ClientLevel world, LocalPlayer player, Set<Integer> capturedMobIds, int tick, Film film, int playerReplayIndex)
     {
         Map<String, Integer> actors = recorder == null ? null : recorder.getActors();
 
         this.scanForNewProjectiles(recorder, mobCapture, world, player, capturedMobIds, tick, film, playerReplayIndex, actors);
     }
 
-    private void scanForNewProjectiles(Recorder recorder, RecorderMobCapture mobCapture, ClientWorld world, ClientPlayerEntity player, Set<Integer> capturedMobIds, int tick, Film film, int playerReplayIndex, Map<String, Integer> actors)
+    private void scanForNewProjectiles(Recorder recorder, RecorderMobCapture mobCapture, ClientLevel world, LocalPlayer player, Set<Integer> capturedMobIds, int tick, Film film, int playerReplayIndex, Map<String, Integer> actors)
     {
-        Box box = player.getBoundingBox().expand(SCAN_RADIUS);
-        List<Entity> projectiles = world.getOtherEntities(player, box, this::isFreshProjectile);
+        AABB box = player.getBoundingBox().inflate(SCAN_RADIUS);
+        List<Entity> projectiles = world.getEntities(player, box, this::isFreshProjectile);
 
         for (Entity projectile : projectiles)
         {
@@ -169,7 +169,7 @@ public final class RecorderProjectileCapture
 
     private boolean isFreshProjectile(Entity entity)
     {
-        if (entity == null || !entity.isAlive() || entity.age > MAX_PROJECTILE_AGE)
+        if (entity == null || !entity.isAlive() || entity.tickCount > MAX_PROJECTILE_AGE)
         {
             return false;
         }
@@ -184,12 +184,12 @@ public final class RecorderProjectileCapture
             return false;
         }
 
-        return entity instanceof ProjectileEntity || entity instanceof FireworkRocketEntity;
+        return entity instanceof Projectile || entity instanceof FireworkRocketEntity;
     }
 
     private static Entity resolveOwner(Entity projectile)
     {
-        if (projectile instanceof ProjectileEntity projectileEntity)
+        if (projectile instanceof Projectile projectileEntity)
         {
             Entity owner = projectileEntity.getOwner();
 
@@ -212,9 +212,9 @@ public final class RecorderProjectileCapture
         return null;
     }
 
-    private int resolveOwnerReplayIndex(RecorderMobCapture mobCapture, Entity owner, Set<Integer> capturedMobIds, Map<String, Integer> actors, Film film, ClientPlayerEntity player, int playerReplayIndex)
+    private int resolveOwnerReplayIndex(RecorderMobCapture mobCapture, Entity owner, Set<Integer> capturedMobIds, Map<String, Integer> actors, Film film, LocalPlayer player, int playerReplayIndex)
     {
-        if (player != null && owner instanceof PlayerEntity && owner.getUuid().equals(player.getUuid()) && playerReplayIndex >= 0 && playerReplayIndex < film.replays.getList().size())
+        if (player != null && owner instanceof Player && owner.getUUID().equals(player.getUUID()) && playerReplayIndex >= 0 && playerReplayIndex < film.replays.getList().size())
         {
             return playerReplayIndex;
         }
@@ -243,7 +243,7 @@ public final class RecorderProjectileCapture
         return -1;
     }
 
-    private void trackActiveSessions(Recorder recorder, ClientWorld world, int tick, Film film)
+    private void trackActiveSessions(Recorder recorder, ClientLevel world, int tick, Film film)
     {
         Iterator<Session> iterator = this.sessions.iterator();
 
@@ -258,7 +258,7 @@ public final class RecorderProjectileCapture
             }
 
             Replay ownerReplay = film.replays.getList().get(session.ownerReplayIndex);
-            Entity entity = world.getEntityById(session.entityId);
+            Entity entity = world.getEntity(session.entityId);
 
             if (entity != null && entity.isAlive())
             {
@@ -317,14 +317,14 @@ public final class RecorderProjectileCapture
         return true;
     }
 
-    private void captureImpactEffects(Replay replay, Session session, int tick, ClientWorld world)
+    private void captureImpactEffects(Replay replay, Session session, int tick, ClientLevel world)
     {
         if (world == null)
         {
             return;
         }
 
-        BlockPos center = BlockPos.ofFloored(session.lastX, session.lastY, session.lastZ);
+        BlockPos center = BlockPos.containing(session.lastX, session.lastY, session.lastZ);
         int radius = IMPACT_EFFECT_RADIUS;
 
         for (int dx = -radius; dx <= radius; dx++)
@@ -333,7 +333,7 @@ public final class RecorderProjectileCapture
             {
                 for (int dz = -radius; dz <= radius; dz++)
                 {
-                    BlockPos pos = center.add(dx, dy, dz);
+                    BlockPos pos = center.offset(dx, dy, dz);
                     long key = pos.asLong();
 
                     if (session.capturedEffectPositions.contains(key))
@@ -372,7 +372,7 @@ public final class RecorderProjectileCapture
             return;
         }
 
-        MinecraftClient.getInstance().execute(() ->
+        Minecraft.getInstance().execute(() ->
         {
             UIDashboard dashboard = BBSModClient.getDashboard();
 

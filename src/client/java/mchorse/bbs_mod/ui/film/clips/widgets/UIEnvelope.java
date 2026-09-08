@@ -49,11 +49,11 @@ public class UIEnvelope extends UIElement
 
         this.enabled = new UIToggle(UIKeys.CAMERA_PANELS_ENABLED, (b) ->
         {
-            this.panel.editor.editMultiple(this.get().enabled, (value) -> value.set(b.getValue()));
+            this.panel.editor.editMultiple(this.get().enabled, (val) -> val.set(b.getValue()));
         });
         this.mode = new UICirculate((b) ->
         {
-            this.panel.editor.editMultiple(this.get().mode, (value) -> value.set(b.getValue()));
+            this.panel.editor.editMultiple(this.get().mode, (val) -> val.set(b.getValue()));
         });
         this.mode.addLabel(UIKeys.CAMERA_PANELS_ENVELOPES_MODES_NORMAL);
         this.mode.addLabel(UIKeys.CAMERA_PANELS_ENVELOPES_START_D);
@@ -71,18 +71,18 @@ public class UIEnvelope extends UIElement
 
         this.fadeIn = new UITrackpad((v) ->
         {
-            this.panel.editor.editMultiple(this.get().fadeIn, (value) -> value.set((float) TimeUtils.fromTime(v.floatValue())));
+            this.panel.editor.editMultiple(this.get().fadeIn, (val) -> val.set((float) TimeUtils.fromTime(v.floatValue())));
         });
         this.fadeIn.tooltip(UIKeys.CAMERA_PANELS_ENVELOPES_START_D, Direction.TOP);
         this.fadeOut = new UITrackpad((v) ->
         {
-            this.panel.editor.editMultiple(this.get().fadeOut, (value) -> value.set((float) TimeUtils.fromTime(v.floatValue())));
+            this.panel.editor.editMultiple(this.get().fadeOut, (val) -> val.set((float) TimeUtils.fromTime(v.floatValue())));
         });
         this.fadeOut.tooltip(UIKeys.CAMERA_PANELS_ENVELOPES_END_D, Direction.TOP);
 
         this.keyframes = new UIToggle(UIKeys.CAMERA_PANELS_KEYFRAMES, (b) ->
         {
-            this.panel.editor.editMultiple(this.get().keyframes, (value) -> value.set(b.getValue()));
+            this.panel.editor.editMultiple(this.get().keyframes, (val) -> val.set(b.getValue()));
             this.toggleKeyframes(b.getValue());
         });
         this.editKeyframes = new UIButton(UIKeys.CAMERA_PANELS_EDIT_KEYFRAMES, (b) ->

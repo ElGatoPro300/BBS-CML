@@ -7,8 +7,7 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -83,8 +82,8 @@ public class MobCemItemCapture
         return a.usingItem == b.usingItem
             && a.itemUseElapsed == b.itemUseElapsed
             && a.activeHand == b.activeHand
-            && ItemStack.areEqual(a.mainHand, b.mainHand)
-            && ItemStack.areEqual(a.offHand, b.offHand);
+            && ItemStack.matches(a.mainHand, b.mainHand)
+            && ItemStack.matches(a.offHand, b.offHand);
     }
 
     private static MobItemStats copyStats(MobItemStats stats)

@@ -2,44 +2,45 @@ package mchorse.bbs_mod.client.render;
 
 import mchorse.bbs_mod.forms.FormUtilsClient;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.command.OrderedRenderCommandQueueImpl;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 /**
- * 1.21.11 item draw path: ItemModelManager fills {@link ItemRenderState}, then submits
- * into an {@link OrderedRenderCommandQueue}.
+ * 1.21.11 item draw path: ItemModelManager fills {@link ItemStackRenderState}, then submits
+ * into an {@link SubmitNodeCollector}.
  * An isolated queue/dispatcher is used for immediate previews to avoid clearing or corrupting
  * unrelated global queues.
  */
 public final class ItemRenderHelper
 {
-    private static final ItemRenderState STATE = new ItemRenderState();
-    private static OrderedRenderCommandQueueImpl isolatedQueue;
-    private static RenderDispatcher isolatedDispatcher;
+    private static final ItemStackRenderState STATE = new ItemStackRenderState();
+    private static SubmitNodeStorage isolatedQueue;
+    private static FeatureRenderDispatcher isolatedDispatcher;
 
     private static void ensureIsolatedDispatcher()
     {
         if (isolatedDispatcher == null)
         {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
 
-            isolatedQueue = new OrderedRenderCommandQueueImpl();
-            isolatedDispatcher = new RenderDispatcher(
+            isolatedQueue = new SubmitNodeStorage();
+            isolatedDispatcher = new FeatureRenderDispatcher(
                 isolatedQueue,
-                client.getBlockRenderManager(),
-                client.getBufferBuilders().getEntityVertexConsumers(),
+                client.getBlockRenderer(),
+                client.renderBuffers().bufferSource(),
                 client.getAtlasManager(),
-                client.getBufferBuilders().getOutlineVertexConsumers(),
-                client.getBufferBuilders().getEffectVertexConsumers(),
-                client.textRenderer
+                client.renderBuffers().outlineBufferSource(),
+                client.renderBuffers().crumblingBufferSource(),
+                client.font
             );
         }
     }
@@ -47,29 +48,29 @@ public final class ItemRenderHelper
     private ItemRenderHelper()
     {}
 
-    public static void renderItem(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, int light, int overlay, World world, LivingEntity entity)
+    public static void renderItem(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, int light, int overlay, Level world, LivingEntity entity)
     {
         renderItem(stack, mode, matrices, light, overlay, world, entity, false);
     }
 
-    public static void renderItem(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, int light, int overlay, World world, LivingEntity entity, boolean flush)
+    public static void renderItem(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, int light, int overlay, Level world, LivingEntity entity, boolean flush)
     {
         if (stack == null || stack.isEmpty())
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         STATE.clear();
 
         if (entity != null)
         {
-            client.getItemModelManager().updateForLivingEntity(STATE, stack, mode, entity);
+            client.getItemModelResolver().updateForLiving(STATE, stack, mode, entity);
         }
         else
         {
-            client.getItemModelManager().clearAndUpdate(STATE, stack, mode, world, null, 0);
+            client.getItemModelResolver().updateForTopItem(STATE, stack, mode, world, null, 0);
         }
 
         if (STATE.isEmpty())
@@ -80,41 +81,41 @@ public final class ItemRenderHelper
         if (flush)
         {
             ensureIsolatedDispatcher();
-            STATE.render(matrices, isolatedQueue, light, overlay, 0);
-            isolatedDispatcher.render();
+            STATE.submit(matrices, isolatedQueue, light, overlay, 0);
+            isolatedDispatcher.renderAllFeatures();
             FormUtilsClient.getProvider().draw();
         }
         else
         {
-            OrderedRenderCommandQueue queue = client.gameRenderer.getEntityRenderCommandQueue();
+            SubmitNodeCollector queue = client.gameRenderer.getSubmitNodeStorage();
 
-            STATE.render(matrices, queue, light, overlay, 0);
+            STATE.submit(matrices, queue, light, overlay, 0);
         }
     }
 
-    public static void renderItem(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, int light, int overlay, World world, LivingEntity entity, OrderedRenderCommandQueue queue)
+    public static void renderItem(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, int light, int overlay, Level world, LivingEntity entity, SubmitNodeCollector queue)
     {
         if (stack == null || stack.isEmpty() || queue == null)
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         STATE.clear();
 
         if (entity != null)
         {
-            client.getItemModelManager().updateForLivingEntity(STATE, stack, mode, entity);
+            client.getItemModelResolver().updateForLiving(STATE, stack, mode, entity);
         }
         else
         {
-            client.getItemModelManager().clearAndUpdate(STATE, stack, mode, world, null, 0);
+            client.getItemModelResolver().updateForTopItem(STATE, stack, mode, world, null, 0);
         }
 
         if (!STATE.isEmpty())
         {
-            STATE.render(matrices, queue, light, overlay, 0);
+            STATE.submit(matrices, queue, light, overlay, 0);
         }
     }
 }

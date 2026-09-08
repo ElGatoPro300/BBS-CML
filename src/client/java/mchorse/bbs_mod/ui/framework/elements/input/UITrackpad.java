@@ -19,7 +19,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -503,14 +503,14 @@ public class UITrackpad extends UIBaseTextbox
                     return true;
                 }
 
-                MinecraftClient mc = MinecraftClient.getInstance();
-                double factor = context.menu.width <= 0 ? 1D : (double) mc.getWindow().getWidth() / context.menu.width;
+                Minecraft mc = Minecraft.getInstance();
+                double factor = context.menu.width <= 0 ? 1D : (double) mc.getWindow().getScreenWidth() / context.menu.width;
 
                 this.dragging = true;
                 this.shiftX = 0D;
                 this.warpedLeft = false;
                 this.warpedRight = false;
-                this.initialX = mc.mouse.getX() / factor;
+                this.initialX = mc.mouseHandler.xpos() / factor;
                 this.initialY = context.mouseY;
                 this.grabX = context.mouseX;
                 this.time = System.currentTimeMillis();
@@ -857,12 +857,12 @@ public class UITrackpad extends UIBaseTextbox
 
         if (this.dragging)
         {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            int ww = mc.getWindow().getWidth();
+            Minecraft mc = Minecraft.getInstance();
+            int ww = mc.getWindow().getScreenWidth();
 
             double factor = context.menu.width <= 0 ? 1D : (double) ww / context.menu.width;
             int mouseXInt = context.globalX(context.mouseX);
-            double mouseX = mc.mouse.getX() / factor;
+            double mouseX = mc.mouseHandler.xpos() / factor;
 
             final int border = 5;
             final int borderPadding = border + 1;
@@ -897,13 +897,13 @@ public class UITrackpad extends UIBaseTextbox
             {
                 if (mouseXInt <= border)
                 {
-                    Window.moveCursor(ww - (int) (factor * borderPadding), (int) mc.mouse.getY());
+                    Window.moveCursor(ww - (int) (factor * borderPadding), (int) mc.mouseHandler.ypos());
                     this.warpedLeft = true;
                     stop = true;
                 }
                 else if (mouseXInt >= context.menu.width - border)
                 {
-                    Window.moveCursor((int) (factor * borderPadding), (int) mc.mouse.getY());
+                    Window.moveCursor((int) (factor * borderPadding), (int) mc.mouseHandler.ypos());
                     this.warpedRight = true;
                     stop = true;
                 }

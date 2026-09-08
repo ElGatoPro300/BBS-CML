@@ -27,7 +27,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.HashMap;
 import java.util.List;
@@ -166,7 +166,7 @@ public class Replay extends ValueGroup
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
     {
-        if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+        if (actor != null && (actor.isDeadOrDying() || actor.getHealth() <= 0F || actor.deathTime > 0))
         {
             return;
         }

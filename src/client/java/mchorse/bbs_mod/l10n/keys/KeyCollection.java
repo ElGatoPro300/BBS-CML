@@ -5,6 +5,8 @@ import mchorse.bbs_mod.resources.Link;
 
 import java.util.Collection;
 
+import IKey;
+
 /**
  * Key collection allows to force load a set of keys given the
  * template for ID. ^ symbol is the placeholder symbol.

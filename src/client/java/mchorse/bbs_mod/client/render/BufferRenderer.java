@@ -2,34 +2,34 @@ package mchorse.bbs_mod.client.render;
 
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Compatibility shim for 1.21.11 where vanilla {@code BufferRenderer} was removed.
- * Routes {@link BuiltBuffer} draws to appropriate {@link RenderLayer} pipelines.
+ * Routes {@link MeshData} draws to appropriate {@link RenderType} pipelines.
  */
 public class BufferRenderer
 {
-    private static RenderLayer defaultGuiTexturedLayer;
-    private static RenderLayer defaultGuiLayer;
-    private static RenderLayer defaultTranslucentParticleLayer;
-    private static RenderLayer defaultLinesLayer;
-    private static RenderLayer defaultDebugQuadsLayer;
+    private static RenderType defaultGuiTexturedLayer;
+    private static RenderType defaultGuiLayer;
+    private static RenderType defaultTranslucentParticleLayer;
+    private static RenderType defaultLinesLayer;
+    private static RenderType defaultDebugQuadsLayer;
 
-    public static void drawWithGlobalProgram(BuiltBuffer buffer)
+    public static void drawWithGlobalProgram(MeshData buffer)
     {
         if (buffer == null)
         {
             return;
         }
 
-        BuiltBuffer.DrawParameters params = buffer.getDrawParameters();
+        MeshData.DrawState params = buffer.drawState();
 
         if (params == null || params.vertexCount() == 0)
         {
@@ -43,56 +43,56 @@ public class BufferRenderer
             return;
         }
 
-        RenderLayer layer = resolveLayer(params);
+        RenderType layer = resolveLayer(params);
 
         layer.draw(buffer);
     }
 
-    public static void draw(BuiltBuffer buffer)
+    public static void draw(MeshData buffer)
     {
         drawWithGlobalProgram(buffer);
     }
 
-    private static RenderLayer resolveLayer(BuiltBuffer.DrawParameters params)
+    private static RenderType resolveLayer(MeshData.DrawState params)
     {
         VertexFormat format = params.format();
-        VertexFormat.DrawMode mode = params.mode();
+        VertexFormat.Mode mode = params.mode();
 
         if (mode == VertexFormat.DrawMode.LINES || mode == VertexFormat.DrawMode.DEBUG_LINES || mode == VertexFormat.DrawMode.DEBUG_LINE_STRIP)
         {
             if (defaultLinesLayer == null)
             {
-                defaultLinesLayer = RenderLayer.of("bbs_compat_lines", RenderSetup.builder(RenderPipelines.LINES).build());
+                defaultLinesLayer = RenderType.create("bbs_compat_lines", RenderSetup.builder(RenderPipelines.LINES).createRenderSetup());
             }
 
             return defaultLinesLayer;
         }
 
-        if (format == VertexFormats.POSITION_TEXTURE_COLOR_LIGHT)
+        if (format == DefaultVertexFormat.PARTICLE)
         {
             if (defaultTranslucentParticleLayer == null)
             {
-                defaultTranslucentParticleLayer = RenderLayer.of("bbs_compat_particle", RenderSetup.builder(RenderPipelines.TRANSLUCENT_PARTICLE).build());
+                defaultTranslucentParticleLayer = RenderType.create("bbs_compat_particle", RenderSetup.builder(RenderPipelines.TRANSLUCENT_PARTICLE).createRenderSetup());
             }
 
             return defaultTranslucentParticleLayer;
         }
 
-        if (format == VertexFormats.POSITION_COLOR)
+        if (format == DefaultVertexFormat.POSITION_COLOR)
         {
             if (defaultGuiLayer == null)
             {
-                defaultGuiLayer = RenderLayer.of("bbs_compat_gui", RenderSetup.builder(RenderPipelines.GUI).build());
+                defaultGuiLayer = RenderType.create("bbs_compat_gui", RenderSetup.builder(RenderPipelines.GUI).createRenderSetup());
             }
 
             return defaultGuiLayer;
         }
 
-        if (format == VertexFormats.POSITION)
+        if (format == DefaultVertexFormat.POSITION)
         {
             if (defaultDebugQuadsLayer == null)
             {
-                defaultDebugQuadsLayer = RenderLayer.of("bbs_compat_debug_quads", RenderSetup.builder(RenderPipelines.DEBUG_QUADS).build());
+                defaultDebugQuadsLayer = RenderType.create("bbs_compat_debug_quads", RenderSetup.builder(RenderPipelines.DEBUG_QUADS).createRenderSetup());
             }
 
             return defaultDebugQuadsLayer;
@@ -100,7 +100,7 @@ public class BufferRenderer
 
         if (defaultGuiTexturedLayer == null)
         {
-            defaultGuiTexturedLayer = RenderLayer.of("bbs_compat_gui_textured", RenderSetup.builder(RenderPipelines.GUI_TEXTURED).build());
+            defaultGuiTexturedLayer = RenderType.create("bbs_compat_gui_textured", RenderSetup.builder(RenderPipelines.GUI_TEXTURED).createRenderSetup());
         }
 
         return defaultGuiTexturedLayer;

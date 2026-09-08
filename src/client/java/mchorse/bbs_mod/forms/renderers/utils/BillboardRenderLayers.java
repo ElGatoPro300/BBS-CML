@@ -6,12 +6,10 @@ import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -21,6 +19,8 @@ import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class BillboardRenderLayers
@@ -41,12 +41,12 @@ public class BillboardRenderLayers
                 : BlendFunction.TRANSLUCENT;
 
             RenderPipeline.Builder builder = RenderPipeline.builder(shaded
-                ? RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET
-                : RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-                .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/billboard_" + index))
+                ? RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET
+                : RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+                .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/billboard_" + index))
                 .withVertexShader(source.getVertexShader())
                 .withFragmentShader(source.getFragmentShader())
-                .withVertexFormat(shaded ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR,
+                .withVertexFormat(shaded ? DefaultVertexFormat.NEW_ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR,
                     quads ? VertexFormat.DrawMode.QUADS : VertexFormat.DrawMode.TRIANGLES)
                 .withSampler("Sampler0")
                 .withBlend(blend)
@@ -72,12 +72,12 @@ public class BillboardRenderLayers
         return PIPELINES[index];
     }
 
-    public static void draw(BuiltBuffer buffer, Texture texture, boolean linear, boolean mipmap, boolean depthWrite, boolean cull)
+    public static void draw(MeshData buffer, Texture texture, boolean linear, boolean mipmap, boolean depthWrite, boolean cull)
     {
         draw(buffer, texture, linear, mipmap, depthWrite, cull, false);
     }
 
-    public static void draw(BuiltBuffer buffer, Texture texture, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
+    public static void draw(MeshData buffer, Texture texture, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
     {
         try
         {
@@ -89,7 +89,7 @@ public class BillboardRenderLayers
         }
     }
 
-    public static void draw(BuiltBuffer buffer, Identifier id, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
+    public static void draw(MeshData buffer, Identifier id, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
     {
         if (id == null)
         {
@@ -98,13 +98,13 @@ public class BillboardRenderLayers
             return;
         }
 
-        VertexFormat format = buffer.getDrawParameters().format();
-        boolean shaded = format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+        VertexFormat format = buffer.drawState().format();
+        boolean shaded = format == DefaultVertexFormat.NEW_ENTITY
             || (BBSRendering.isIrisLoaded() && IrisFormPipelines.isEntityFormat(format));
-        boolean quads = buffer.getDrawParameters().mode() == VertexFormat.DrawMode.QUADS;
+        boolean quads = buffer.drawState().mode() == VertexFormat.DrawMode.QUADS;
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
-        RenderSetup.Builder setup = RenderSetup.builder(pipeline(shaded, depthWrite, cull, quads, glow))
-            .texture("Sampler0", id, () -> RenderSystem.getSamplerCache().get(
+        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline(shaded, depthWrite, cull, quads, glow))
+            .withTexture("Sampler0", id, () -> RenderSystem.getSamplerCache().get(
                 AddressMode.REPEAT, AddressMode.REPEAT, filter, filter, mipmap));
 
         if (shaded)
@@ -112,6 +112,6 @@ public class BillboardRenderLayers
             setup.useLightmap().useOverlay();
         }
 
-        RenderLayer.of("bbs_billboard", setup.build()).draw(buffer);
+        RenderType.create("bbs_billboard", setup.createRenderSetup()).draw(buffer);
     }
 }

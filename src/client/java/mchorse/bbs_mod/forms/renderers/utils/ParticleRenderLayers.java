@@ -6,12 +6,10 @@ import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -21,6 +19,8 @@ import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -46,11 +46,11 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.TRANSLUCENT_PARTICLE;
 
-                builder = RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_SNIPPET)
-                    .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_FOG_SNIPPET)
+                    .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, VertexFormat.DrawMode.TRIANGLES)
+                    .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.DrawMode.TRIANGLES)
                     .withSampler("Sampler0")
                     .withSampler("Sampler2")
                     .withBlend(BlendFunction.TRANSLUCENT)
@@ -62,11 +62,11 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.ENTITY_TRANSLUCENT;
 
-                builder = RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-                    .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+                    .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.TRIANGLES)
+                    .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.TRIANGLES)
                     .withSampler("Sampler0")
                     .withSampler("Sampler1")
                     .withSampler("Sampler2")
@@ -81,8 +81,8 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.GUI_TEXTURED;
 
-                builder = RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-                    .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particle_glow"))
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+                    .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_glow"))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
                     .withVertexFormat(source.getVertexFormat(), VertexFormat.DrawMode.TRIANGLES)
@@ -96,8 +96,8 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.GUI_TEXTURED;
 
-                builder = RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-                    .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particle_ui"))
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+                    .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_ui"))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
                     .withVertexFormat(source.getVertexFormat(), VertexFormat.DrawMode.TRIANGLES)
@@ -120,29 +120,29 @@ public class ParticleRenderLayers
         return PIPELINES[index];
     }
 
-    public static void draw(BuiltBuffer buffer, Texture texture)
+    public static void draw(MeshData buffer, Texture texture)
     {
         draw(buffer, texture, false, true);
     }
 
-    public static void drawGlow(BuiltBuffer buffer, Texture texture)
+    public static void drawGlow(MeshData buffer, Texture texture)
     {
         draw(buffer, texture, true, false);
     }
 
-    public static void draw(BuiltBuffer buffer, Texture texture, boolean glow)
+    public static void draw(MeshData buffer, Texture texture, boolean glow)
     {
         draw(buffer, texture, glow, !glow);
     }
 
-    public static void draw(BuiltBuffer buffer, Texture texture, boolean glow, boolean depthWrite)
+    public static void draw(MeshData buffer, Texture texture, boolean glow, boolean depthWrite)
     {
         if (buffer == null)
         {
             return;
         }
 
-        if (buffer.getDrawParameters() == null || buffer.getDrawParameters().vertexCount() == 0)
+        if (buffer.drawState() == null || buffer.drawState().vertexCount() == 0)
         {
             buffer.close();
 
@@ -158,19 +158,19 @@ public class ParticleRenderLayers
             return;
         }
 
-        VertexFormat format = buffer.getDrawParameters().format();
+        VertexFormat format = buffer.drawState().format();
         int type;
 
         if (glow)
         {
             type = TYPE_GLOW;
         }
-        else if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+        else if (format == DefaultVertexFormat.NEW_ENTITY
             || (BBSRendering.isIrisLoaded() && IrisFormPipelines.isEntityFormat(format)))
         {
             type = TYPE_SHADED;
         }
-        else if (format == VertexFormats.POSITION_TEXTURE_COLOR_LIGHT)
+        else if (format == DefaultVertexFormat.PARTICLE)
         {
             type = TYPE_LIT;
         }
@@ -183,24 +183,24 @@ public class ParticleRenderLayers
         boolean mipmap = texture != null && texture.isReallyMipmap();
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
 
-        RenderSetup.Builder setup = RenderSetup.builder(pipeline(type, depthWrite))
-            .texture("Sampler0", id, () -> RenderSystem.getSamplerCache().get(
+        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline(type, depthWrite))
+            .withTexture("Sampler0", id, () -> RenderSystem.getSamplerCache().get(
                 AddressMode.REPEAT, AddressMode.REPEAT, filter, filter, mipmap));
 
         if (type == TYPE_LIT)
         {
-            setup.useLightmap().translucent();
+            setup.useLightmap().sortOnUpload();
         }
         else if (type == TYPE_SHADED)
         {
-            setup.useLightmap().useOverlay().translucent();
+            setup.useLightmap().useOverlay().sortOnUpload();
         }
 
         /* RenderLayer owns the buffer and binds texture views, samplers and uniform buffers.
          * A raw glBindTexture/glUseProgram does not configure a vanilla render pass. */
         try
         {
-            RenderLayer.of("bbs_particle", setup.build()).draw(buffer);
+            RenderType.create("bbs_particle", setup.createRenderSetup()).draw(buffer);
         }
         finally
         {

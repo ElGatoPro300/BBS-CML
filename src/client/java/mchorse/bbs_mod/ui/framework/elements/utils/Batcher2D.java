@@ -17,22 +17,17 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.BlitRenderState;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.gui.render.state.TexturedQuadGuiElementRenderState;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fStack;
@@ -45,6 +40,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.List;
@@ -69,54 +68,54 @@ public class Batcher2D
         guiColorBuilder("gui_color_triangle_fan", VertexFormat.DrawMode.TRIANGLE_FAN).build()
     );
 
-    private static RenderLayer guiQuadsLayer;
-    private static RenderLayer guiTrianglesLayer;
-    private static RenderLayer guiTriangleFanLayer;
+    private static RenderType guiQuadsLayer;
+    private static RenderType guiTrianglesLayer;
+    private static RenderType guiTriangleFanLayer;
 
     private static FontRenderer fontRenderer = new FontRenderer();
     private static FontRenderer vanillaFontRenderer = new FontRenderer();
 
-    private DrawContext context;
+    private GuiGraphics context;
     private FontRenderer font;
 
-    private static RenderPipeline.Builder guiColorBuilder(String name, VertexFormat.DrawMode mode)
+    private static RenderPipeline.Builder guiColorBuilder(String name, VertexFormat.Mode mode)
     {
-        return RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/" + name))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, mode)
+        return RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/" + name))
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, mode)
             .withBlend(BLEND)
             .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
             .withCull(false);
     }
 
-    private static RenderLayer layer(RenderPipeline pipeline, String name, RenderLayer cached)
+    private static RenderType layer(RenderPipeline pipeline, String name, RenderType cached)
     {
         if (cached != null)
         {
             return cached;
         }
 
-        return RenderLayer.of(BBSMod.MOD_ID + "_" + name, RenderSetup.builder(pipeline).translucent().build());
+        return RenderType.create(BBSMod.MOD_ID + "_" + name, RenderSetup.builder(pipeline).sortOnUpload().createRenderSetup());
     }
 
-    private static RenderLayer getQuadsLayer()
+    private static RenderType getQuadsLayer()
     {
         return guiQuadsLayer = layer(GUI_QUADS, "gui_color_quads", guiQuadsLayer);
     }
 
-    private static RenderLayer getTrianglesLayer()
+    private static RenderType getTrianglesLayer()
     {
         return guiTrianglesLayer = layer(GUI_TRIANGLES, "gui_color_triangles", guiTrianglesLayer);
     }
 
-    private static RenderLayer getTriangleFanLayer()
+    private static RenderType getTriangleFanLayer()
     {
         return guiTriangleFanLayer = layer(GUI_TRIANGLE_FAN, "gui_color_triangle_fan", guiTriangleFanLayer);
     }
 
-    private static void flush(BufferBuilder builder, RenderLayer renderLayer)
+    private static void flush(BufferBuilder builder, RenderType renderLayer)
     {
-        BuiltBuffer built = builder.endNullable();
+        MeshData built = builder.build();
 
         if (built != null)
         {
@@ -131,9 +130,9 @@ public class Batcher2D
         CustomFontManager.ensureLoaded();
         RtlFontManager.ensureLoaded();
 
-        TextRenderer custom = CustomFontManager.getCustomRenderer();
+        Font custom = CustomFontManager.getCustomRenderer();
 
-        fontRenderer.setRenderer(custom != null ? custom : MinecraftClient.getInstance().textRenderer);
+        fontRenderer.setRenderer(custom != null ? custom : Minecraft.getInstance().font);
 
         return fontRenderer;
     }
@@ -144,23 +143,23 @@ public class Batcher2D
      */
     public static FontRenderer getVanillaTextRenderer()
     {
-        vanillaFontRenderer.setRenderer(MinecraftClient.getInstance().textRenderer);
+        vanillaFontRenderer.setRenderer(Minecraft.getInstance().font);
 
         return vanillaFontRenderer;
     }
 
-    public Batcher2D(DrawContext context)
+    public Batcher2D(GuiGraphics context)
     {
         this.context = context;
         this.font = Batcher2D.getDefaultTextRenderer();
     }
 
-    public DrawContext getContext()
+    public GuiGraphics getContext()
     {
         return this.context;
     }
 
-    public void setContext(DrawContext context)
+    public void setContext(GuiGraphics context)
     {
         this.context = context;
     }
@@ -172,23 +171,23 @@ public class Batcher2D
             return;
         }
 
-        ScreenRect scissor = this.context.scissorStack.peekLast();
-        ScreenRect bounds = mesh.computeBounds(scissor);
+        ScreenRectangle scissor = this.context.scissorStack.peek();
+        ScreenRectangle bounds = mesh.computeBounds(scissor);
 
         if (bounds == null)
         {
             return;
         }
 
-        this.context.state.addSimpleElement(new GuiQuadMesh.State(
-            RenderPipelines.GUI, TextureSetup.empty(),
+        this.context.guiRenderState.submitGuiElement(new GuiQuadMesh.State(
+            RenderPipelines.GUI, TextureSetup.noTexture(),
             mesh.xs(), mesh.ys(), mesh.colors(), mesh.count(),
             scissor, bounds));
     }
 
     public void newRootLayer()
     {
-        this.context.createNewRootLayer();
+        this.context.nextStratum();
     }
 
     public FontRenderer getFont()
@@ -198,7 +197,7 @@ public class Batcher2D
 
     private Matrix3x2fc matrix()
     {
-        return this.context.getMatrices();
+        return this.context.pose();
     }
 
     /* Screen space clipping */
@@ -215,7 +214,7 @@ public class Batcher2D
 
     public void clip(int x, int y, int w, int h, int sw, int sh)
     {
-        Matrix3x2fStack matrices = this.context.getMatrices();
+        Matrix3x2fStack matrices = this.context.pose();
 
         matrices.pushMatrix();
         matrices.identity();
@@ -278,10 +277,10 @@ public class Batcher2D
         GuiQuadMesh mesh = new GuiQuadMesh();
         Matrix3x2fc matrix = this.matrix();
 
-        mesh.vertex(matrix, x1 - nx, y1 - ny).color(color);
-        mesh.vertex(matrix, x1 + nx, y1 + ny).color(color);
-        mesh.vertex(matrix, x2 + nx, y2 + ny).color(color);
-        mesh.vertex(matrix, x2 - nx, y2 - ny).color(color);
+        mesh.addVertexWith2DPose(matrix, x1 - nx, y1 - ny).setColor(color);
+        mesh.addVertexWith2DPose(matrix, x1 + nx, y1 + ny).setColor(color);
+        mesh.addVertexWith2DPose(matrix, x2 + nx, y2 + ny).setColor(color);
+        mesh.addVertexWith2DPose(matrix, x2 - nx, y2 - ny).setColor(color);
 
         this.drawQuadMesh(mesh);
     }
@@ -313,10 +312,10 @@ public class Batcher2D
 
     public void fillRect(VertexConsumer builder, Matrix3x2fc matrix, float x, float y, float w, float h, int color1, int color2, int color3, int color4)
     {
-        builder.vertex(matrix, x, y).color(color1);
-        builder.vertex(matrix, x, y + h).color(color3);
-        builder.vertex(matrix, x + w, y + h).color(color4);
-        builder.vertex(matrix, x + w, y).color(color2);
+        builder.addVertexWith2DPose(matrix, x, y).setColor(color1);
+        builder.addVertexWith2DPose(matrix, x, y + h).setColor(color3);
+        builder.addVertexWith2DPose(matrix, x + w, y + h).setColor(color4);
+        builder.addVertexWith2DPose(matrix, x + w, y).setColor(color2);
     }
 
     public void bevelBox(int x1, int y1, int x2, int y2, int fill, boolean shadow, boolean border)
@@ -514,7 +513,7 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.drawTexture(RenderPipelines.GUI_TEXTURED, id,
+        this.context.blit(RenderPipelines.GUI_TEXTURED, id,
             (int) x, (int) y, u1, v1, (int) w, (int) h,
             (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
     }
@@ -526,15 +525,15 @@ public class Batcher2D
             return;
         }
 
-        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
-        TexturedQuadGuiElementRenderState state = new TexturedQuadGuiElementRenderState(RenderPipelines.GUI_TEXTURED,
-            setup, new Matrix3x2f(this.context.getMatrices()), (int) x, (int) y, (int) (x + w), (int) (y + h),
-            u1 / textureW, u2 / textureW, v1 / textureH, v2 / textureH, color, this.context.scissorStack.peekLast());
+        BlitRenderState state = new BlitRenderState(RenderPipelines.GUI_TEXTURED,
+            setup, new Matrix3x2f(this.context.pose()), (int) x, (int) y, (int) (x + w), (int) (y + h),
+            u1 / textureW, u2 / textureW, v1 / textureH, v2 / textureH, color, this.context.scissorStack.peek());
 
         if (state.bounds() != null)
         {
-            this.context.state.addSimpleElement(state);
+            this.context.guiRenderState.submitGuiElement(state);
         }
     }
 
@@ -568,19 +567,19 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.drawTexture(RenderPipelines.GUI_TEXTURED, id,
+        this.context.blit(RenderPipelines.GUI_TEXTURED, id,
             (int) x, (int) y, u1, v1, (int) w, (int) h,
             (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
     }
 
     private void fillTexturedBox(BufferBuilder builder, Matrix3x2fc matrix, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        builder.vertex(matrix, x, y + h).texture(u1 / (float) textureW, v2 / (float) textureH).color(color);
-        builder.vertex(matrix, x + w, y + h).texture(u2 / (float) textureW, v2 / (float) textureH).color(color);
-        builder.vertex(matrix, x + w, y).texture(u2 / (float) textureW, v1 / (float) textureH).color(color);
-        builder.vertex(matrix, x, y + h).texture(u1 / (float) textureW, v2 / (float) textureH).color(color);
-        builder.vertex(matrix, x + w, y).texture(u2 / (float) textureW, v1 / (float) textureH).color(color);
-        builder.vertex(matrix, x, y).texture(u1 / (float) textureW, v1 / (float) textureH).color(color);
+        builder.addVertexWith2DPose(matrix, x, y + h).setUv(u1 / (float) textureW, v2 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x + w, y + h).setUv(u2 / (float) textureW, v2 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x + w, y).setUv(u2 / (float) textureW, v1 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x, y + h).setUv(u1 / (float) textureW, v2 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x + w, y).setUv(u2 / (float) textureW, v1 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x, y).setUv(u1 / (float) textureW, v1 / (float) textureH).setColor(color);
     }
 
     /* Repeatable textured box */
@@ -657,7 +656,7 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.drawText(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
+        this.context.drawString(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     /* Text helpers */
@@ -744,7 +743,7 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.drawText(font.getRenderer(), label, (int) x, (int) y, color, shadow);
+        this.context.drawString(font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     public void drawPickerPreview(GpuTextureView texture, int index, int highlightColor, int x, int y, int w, int h)
@@ -754,14 +753,14 @@ public class Batcher2D
             return;
         }
 
-        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
-        PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.getMatrices(),
-            x, y, w, h, index, highlightColor, this.context.scissorStack.peekLast());
+        PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.pose(),
+            x, y, w, h, index, highlightColor, this.context.scissorStack.peek());
 
         if (state.bounds() != null)
         {
-            this.context.state.addSimpleElement(state);
+            this.context.guiRenderState.submitGuiElement(state);
         }
     }
 

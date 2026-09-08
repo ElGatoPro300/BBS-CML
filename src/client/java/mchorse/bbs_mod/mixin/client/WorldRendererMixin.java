@@ -3,20 +3,20 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.option.CloudRenderMode;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.DefaultFramebufferSet;
-import net.minecraft.client.render.FrameGraphBuilder;
-import net.minecraft.client.render.FramePass;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.util.memory.ObjectAllocator;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LevelTargetBundle;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
+import com.mojang.blaze3d.framegraph.FramePass;
+import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 
 import org.lwjgl.opengl.GL11;
 
@@ -26,21 +26,21 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(WorldRenderer.class)
+@Mixin(LevelRenderer.class)
 public class WorldRendererMixin
 {
     @Shadow
-    private DefaultFramebufferSet framebufferSet;
+    private LevelTargetBundle targets;
 
-    @Inject(method = "renderSky", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "addSkyPass", at = @At("HEAD"), cancellable = true, require = 0)
     public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, GpuBufferSlice fogBuffer, CallbackInfo info)
     {
         if (BBSRendering.isChromaSkyEnabled())
         {
-            FramePass pass = frameGraphBuilder.createPass("sky");
+            FramePass pass = frameGraphBuilder.addPass("sky");
 
-            this.framebufferSet.mainFramebuffer = pass.transfer(this.framebufferSet.mainFramebuffer);
-            pass.setRenderer(() -> {
+            this.targets.main = pass.readsAndWrites(this.targets.main);
+            pass.executes(() -> {
                 Color color = Color.rgb(BBSRendering.getChromaSkyColor());
 
                 GL11.glClearColor(color.r, color.g, color.b, 1F);
@@ -51,8 +51,8 @@ public class WorldRendererMixin
         }
     }
 
-    @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, CloudRenderMode cloudRenderMode, Vec3d cameraPos, long tick, float tickDelta, int color, float cloudHeight, CallbackInfo info)
+    @Inject(method = "addCloudsPass", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, CloudStatus cloudRenderMode, Vec3 cameraPos, long tick, float tickDelta, int color, float cloudHeight, CallbackInfo info)
     {
         if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
         {
@@ -60,7 +60,7 @@ public class WorldRendererMixin
         }
     }
 
-    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "addWeatherPass", at = @At("HEAD"), cancellable = true, require = 0)
     public void onRenderWeather(FrameGraphBuilder frameGraphBuilder, GpuBufferSlice fogBuffer, CallbackInfo info)
     {
         if (BBSRendering.shouldHideChromaTerrain())
@@ -69,8 +69,8 @@ public class WorldRendererMixin
         }
     }
 
-    @Inject(method = "render", at = @At("HEAD"))
-    public void onCaptureWorldMatrices(ObjectAllocator allocator, RenderTickCounter tickCounter, boolean renderBlockOutline,
+    @Inject(method = "renderLevel", at = @At("HEAD"))
+    public void onCaptureWorldMatrices(GraphicsResourceAllocator allocator, DeltaTracker tickCounter, boolean renderBlockOutline,
         Camera camera, Matrix4f positionMatrix, Matrix4f basicProjectionMatrix, Matrix4f projectionMatrix,
         GpuBufferSlice fogBuffer, Vector4f fogColor, boolean renderSky, CallbackInfo info)
     {
@@ -79,13 +79,13 @@ public class WorldRendererMixin
         BBSRendering.projection.set(basicProjectionMatrix);
     }
 
-    @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")
+    @Inject(at = @At("RETURN"), method = "initOutline")
     private void onLoadEntityOutlineShader(CallbackInfo info)
     {
         BBSRendering.resizeExtraFramebuffers();
     }
 
-    @Inject(at = @At("RETURN"), method = "onResized")
+    @Inject(at = @At("RETURN"), method = "resize")
     private void onResized(int width, int height, CallbackInfo info)
     {
         BBSRendering.resizeExtraFramebuffers();

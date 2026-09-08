@@ -2,10 +2,10 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.render.special.BbsFormGuiElementRenderer;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.GuiRenderer;
-import net.minecraft.client.gui.render.SpecialGuiElementRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,12 +18,12 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public class GuiRendererMixin
 {
     @ModifyVariable(method = "<init>", at = @At("HEAD"), argsOnly = true)
-    private static List<SpecialGuiElementRenderer<?>> bbs$addBbsRenderers(List<SpecialGuiElementRenderer<?>> original)
+    private static List<PictureInPictureRenderer<?>> bbs$addBbsRenderers(List<PictureInPictureRenderer<?>> original)
     {
-        VertexConsumerProvider.Immediate immediate =
-            MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+        MultiBufferSource.BufferSource immediate =
+            Minecraft.getInstance().renderBuffers().bufferSource();
 
-        List<SpecialGuiElementRenderer<?>> list = new ArrayList<>(original);
+        List<PictureInPictureRenderer<?>> list = new ArrayList<>(original);
 
         list.add(new BbsFormGuiElementRenderer(immediate));
 

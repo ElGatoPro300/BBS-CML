@@ -15,15 +15,14 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ScissorState;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.ScissorState;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -282,21 +281,21 @@ public final class FormUIPreviewCache
 
         ensureScratchFramebuffer(renderW, renderH);
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         int[] viewport = new int[4];
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-        MatrixStack matrices = new MatrixStack();
+        PoseStack matrices = new PoseStack();
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         context.batcher.flush();
 
         ScissorState renderTypeScissor = RenderSystem.getScissorStateForRenderTypeDraws();
-        boolean renderTypeScissorWasEnabled = renderTypeScissor != null && renderTypeScissor.isEnabled();
-        int prevRx = renderTypeScissorWasEnabled ? renderTypeScissor.getX() : 0;
-        int prevRy = renderTypeScissorWasEnabled ? renderTypeScissor.getY() : 0;
-        int prevRw = renderTypeScissorWasEnabled ? renderTypeScissor.getWidth() : 0;
-        int prevRh = renderTypeScissorWasEnabled ? renderTypeScissor.getHeight() : 0;
+        boolean renderTypeScissorWasEnabled = renderTypeScissor != null && renderTypeScissor.enabled();
+        int prevRx = renderTypeScissorWasEnabled ? renderTypeScissor.x() : 0;
+        int prevRy = renderTypeScissorWasEnabled ? renderTypeScissor.y() : 0;
+        int prevRw = renderTypeScissorWasEnabled ? renderTypeScissor.width() : 0;
+        int prevRh = renderTypeScissorWasEnabled ? renderTypeScissor.height() : 0;
 
         if (scissorWasEnabled)
         {
@@ -308,9 +307,9 @@ public final class FormUIPreviewCache
             RenderSystem.disableScissorForRenderTypeDraws();
         }
 
-        matrices.push();
-        matrices.peek().getPositionMatrix().identity();
-        matrices.peek().getNormalMatrix().identity();
+        matrices.pushPose();
+        matrices.last().pose().identity();
+        matrices.last().normal().identity();
 
         scratchFramebuffer.bind();
         scratchFramebuffer.applyClear();
@@ -339,9 +338,9 @@ public final class FormUIPreviewCache
 
         scratchFramebuffer.unbind();
 
-        matrices.pop();
+        matrices.popPose();
 
-        if (client != null && client.getFramebuffer() != null)
+        if (client != null && client.getMainRenderTarget() != null)
         {
             /* Do not clear — wiping the main FB mid-UI causes white wash / text corruption. */
             BBSRendering.ensureMainFramebuffer();

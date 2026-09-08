@@ -30,15 +30,15 @@ public class UIItemDropActionClip extends UIActionClip<ItemDropActionClip>
     {
         super.registerUI();
 
-        this.posX = new UITrackpad((v) -> this.editor.editMultiple(this.clip.posX, (posX) -> posX.set(v)));
-        this.posY = new UITrackpad((v) -> this.editor.editMultiple(this.clip.posY, (posY) -> posY.set(v)));
-        this.posZ = new UITrackpad((v) -> this.editor.editMultiple(this.clip.posZ, (posZ) -> posZ.set(v)));
-        this.velocityX = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityX, (velocityX) -> velocityX.set(v.floatValue())));
-        this.velocityY = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityY, (velocityY) -> velocityY.set(v.floatValue())));
-        this.velocityZ = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityZ, (velocityZ) -> velocityZ.set(v.floatValue())));
-        this.relative = new UIToggle(UIKeys.CAMERA_PANELS_RELATIVE, (v) -> this.editor.editMultiple(this.clip.relative, (relative) -> relative.set(v.getValue())));
-        this.trajectoryPreview = new UIToggle(UIKeys.ACTIONS_ITEM_TRAJECTORY_PREVIEW, (v) -> this.editor.editMultiple(this.clip.trajectoryPreview, (trajectoryPreview) -> trajectoryPreview.set(v.getValue())));
-        this.itemStack = new UIItemStack((stack) -> this.editor.editMultiple(this.clip.itemStack, (itemStack) -> itemStack.set(stack)));
+        this.posX = new UITrackpad((v) -> this.editor.editMultiple(this.clip.posX, (val) -> val.set(v)));
+        this.posY = new UITrackpad((v) -> this.editor.editMultiple(this.clip.posY, (val) -> val.set(v)));
+        this.posZ = new UITrackpad((v) -> this.editor.editMultiple(this.clip.posZ, (val) -> val.set(v)));
+        this.velocityX = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityX, (val) -> val.set(v.floatValue())));
+        this.velocityY = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityY, (val) -> val.set(v.floatValue())));
+        this.velocityZ = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityZ, (val) -> val.set(v.floatValue())));
+        this.relative = new UIToggle(UIKeys.CAMERA_PANELS_RELATIVE, (v) -> this.editor.editMultiple(this.clip.relative, (val) -> val.set(v.getValue())));
+        this.trajectoryPreview = new UIToggle(UIKeys.ACTIONS_ITEM_TRAJECTORY_PREVIEW, (v) -> this.editor.editMultiple(this.clip.trajectoryPreview, (val) -> val.set(v.getValue())));
+        this.itemStack = new UIItemStack((stack) -> this.editor.editMultiple(this.clip.itemStack, (val) -> val.set(stack)));
     }
 
     @Override

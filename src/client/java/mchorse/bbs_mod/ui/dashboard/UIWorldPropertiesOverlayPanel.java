@@ -16,8 +16,8 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 /**
  * Legacy World Properties overlay. The main-menu World button now opens
@@ -185,8 +185,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
     private void syncFromWorld()
     {
-        ClientWorld world = MinecraftClient.getInstance().world;
-        long timeOfDay = world == null ? 6000L : world.getTimeOfDay() % 24000L;
+        ClientLevel world = Minecraft.getInstance().level;
+        long timeOfDay = world == null ? 6000L : world.getDayTime() % 24000L;
 
         if (timeOfDay < 0L)
         {

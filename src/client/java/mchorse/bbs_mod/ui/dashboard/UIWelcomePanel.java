@@ -22,12 +22,10 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix3x2fStack;
 
@@ -628,10 +626,10 @@ public class UIWelcomePanel extends UIElement
         batcher.box(x2 - thickness, y1, x2, y2, color);
     }
 
-    private void drawPlayerHead(DrawContext drawContext, Identifier skinTexture, int x, int y, int size)
+    private void drawPlayerHead(GuiGraphics drawContext, Identifier skinTexture, int x, int y, int size)
     {
-        drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
-        drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.blit(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.blit(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
     }
 
     @Override
@@ -654,7 +652,7 @@ public class UIWelcomePanel extends UIElement
             context.mouseY = (int) (origMouseY / scale);
         }
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = context.batcher.getContext().pose();
         matrices.pushMatrix();
 
         if (scale < 1.0F && scale > 0.0F)
@@ -704,15 +702,15 @@ public class UIWelcomePanel extends UIElement
                 logo.width, logo.height);
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        String username = mc.player != null ? mc.player.getGameProfile().name() : mc.getSession().getUsername();
+        Minecraft mc = Minecraft.getInstance();
+        String username = mc.player != null ? mc.player.getGameProfile().name() : mc.getUser().getName();
         Identifier skinTexture = null;
 
         if (mc.player != null)
         {
             try
             {
-                skinTexture = mc.getSkinProvider().supplySkinTextures(mc.player.getGameProfile(), true).get().body().id();
+                skinTexture = mc.getSkinManager().createLookup(mc.player.getGameProfile(), true).get().body().id();
             }
             catch (Exception e)
             {}
@@ -735,7 +733,7 @@ public class UIWelcomePanel extends UIElement
         float drawX = (realX / titleScale) - (totalW / 2.0F);
         float drawY = greetRealY / titleScale;
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = context.batcher.getContext().pose();
         matrices.pushMatrix();
         matrices.scale(titleScale, titleScale);
 
@@ -782,7 +780,7 @@ public class UIWelcomePanel extends UIElement
         float titleX = (vMx / titleScale) - (titleW / 2F);
         float titleY = (vY + 24) / titleScale;
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = context.batcher.getContext().pose();
         matrices.pushMatrix();
         matrices.scale(titleScale, titleScale);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
@@ -842,7 +840,7 @@ public class UIWelcomePanel extends UIElement
         float titleX = (vMx / titleScale) - (titleW / 2F);
         float titleY = (vY + 24) / titleScale;
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = context.batcher.getContext().pose();
         matrices.pushMatrix();
         matrices.scale(titleScale, titleScale);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
@@ -1051,7 +1049,7 @@ public class UIWelcomePanel extends UIElement
         if (w >= 18 && hdrH >= 5)
         {
             float scale = isLarge ? 0.55F : 0.38F;
-            Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+            Matrix3x2fStack matrices = batcher.getContext().pose();
             matrices.pushMatrix();
             matrices.scale(scale, scale);
             batcher.textShadow(title.get(), (x + 3) / scale, (y + (isLarge ? 2.5F : 1.5F)) / scale, 0xFFE0E0E0);
@@ -1117,7 +1115,7 @@ public class UIWelcomePanel extends UIElement
             if (tabW >= 16)
             {
                 float scale = isLarge ? 0.50F : 0.35F;
-                Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+                Matrix3x2fStack matrices = batcher.getContext().pose();
                 matrices.pushMatrix();
                 matrices.scale(scale, scale);
                 batcher.textShadow(tabs[i].get(), (tx + 3) / scale, (y + (isLarge ? 2.5F : 1.5F)) / scale, isActive ? 0xFFFFFFFF : 0xFF7A7A85);

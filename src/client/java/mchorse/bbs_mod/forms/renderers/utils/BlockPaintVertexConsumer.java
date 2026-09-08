@@ -3,7 +3,7 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.render.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 public class BlockPaintVertexConsumer extends RecolorVertexConsumer
 {
@@ -13,7 +13,7 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
     }
 
     @Override
-    public VertexConsumer color(int red, int green, int blue, int alpha)
+    public VertexConsumer setColor(int red, int green, int blue, int alpha)
     {
         Color vertex = new Color(red / 255F, green / 255F, blue / 255F, alpha / 255F);
 
@@ -29,11 +29,11 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
         blue = MathUtils.clamp((int) (vertex.b * 255F), 0, 255);
         alpha = MathUtils.clamp((int) (vertex.a * 255F), 0, 255);
 
-        return this.consumer.color(red, green, blue, alpha);
+        return this.consumer.setColor(red, green, blue, alpha);
     }
 
     @Override
-    public VertexConsumer color(float red, float green, float blue, float alpha)
+    public VertexConsumer setColor(float red, float green, float blue, float alpha)
     {
         Color vertex = new Color(red, green, blue, alpha);
 
@@ -44,6 +44,6 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
             FormColorEffects.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
         }
 
-        return this.consumer.color(vertex.r, vertex.g, vertex.b, vertex.a);
+        return this.consumer.setColor(vertex.r, vertex.g, vertex.b, vertex.a);
     }
 }

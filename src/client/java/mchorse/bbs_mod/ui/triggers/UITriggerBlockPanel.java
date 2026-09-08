@@ -29,12 +29,11 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -42,6 +41,7 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -1059,14 +1059,14 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        Camera camera = mc.gameRenderer.getCamera();
-        Vec3d pos = camera.getCameraPos();
+        Minecraft mc = Minecraft.getInstance();
+        Camera camera = mc.gameRenderer.getMainCamera();
+        Vec3 pos = camera.position();
 
         Vector3f mouseDirection = CameraUtils.getMouseDirection(
-            mc.gameRenderer.getBasicProjectionMatrix(mc.options.getFov().getValue().floatValue()),
+            mc.gameRenderer.getProjectionMatrix(mc.options.fov().get().floatValue()),
             context.matrices().peek().getPositionMatrix(),
-            (int) mc.mouse.getX(), (int) mc.mouse.getY(), 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()
+            (int) mc.mouseHandler.xpos(), (int) mc.mouseHandler.ypos(), 0, 0, mc.getWindow().getScreenWidth(), mc.getWindow().getScreenHeight()
         );
 
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), mouseDirection);
@@ -1104,7 +1104,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         GlStateManager._disableBlend();
     }
 
-    private void renderBox(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)
+    private void renderBox(PoseStack stack, TriggerBlockEntity entity, float r, float g, float b)
     {
         BlockPos bp = entity.getPos();
         Vector3f p1 = entity.pos1.get();
@@ -1128,9 +1128,9 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         else Draw.renderBox(stack, x, y, z, w, h, d, r, g, b);
     }
 
-    private void renderRegionBox(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)
+    private void renderRegionBox(PoseStack stack, TriggerBlockEntity entity, float r, float g, float b)
     {
-        Box box = entity.getRegionBox();
+        AABB box = entity.getRegionBox();
         Draw.renderBox(stack, box.minX, box.minY, box.minZ, box.maxX - box.minX, box.maxY - box.minY, box.maxZ - box.minZ, r, g, b);
     }
 

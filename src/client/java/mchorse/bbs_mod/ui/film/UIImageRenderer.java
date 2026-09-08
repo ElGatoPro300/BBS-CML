@@ -11,11 +11,9 @@ import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
@@ -26,6 +24,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.Collections;
@@ -76,8 +75,8 @@ public class UIImageRenderer
                     break;
             }
 
-            RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.POSITION_TEX_COLOR_SNIPPET)
-                .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/image_overlay_" + mode))
+            RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+                .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/image_overlay_" + mode))
                 .withBlend(blend)
                 .withCull(false);
 
@@ -94,7 +93,7 @@ public class UIImageRenderer
             return;
         }
 
-        Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = batcher.getContext().pose();
 
         for (ImageOverlay overlay : images)
         {
@@ -201,20 +200,20 @@ public class UIImageRenderer
         renderImages(batcher, Collections.singletonList(overlay), width, height);
     }
 
-    public static void renderImages(MatrixStack stack, Batcher2D batcher, List<ImageOverlay> images)
+    public static void renderImages(PoseStack stack, Batcher2D batcher, List<ImageOverlay> images)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int width = mc.getWindow().getScaledWidth();
-        int height = mc.getWindow().getScaledHeight();
+        Minecraft mc = Minecraft.getInstance();
+        int width = mc.getWindow().getGuiScaledWidth();
+        int height = mc.getWindow().getGuiScaledHeight();
 
         renderImages(batcher, images, width, height);
     }
 
-    public static void renderImage(MatrixStack stack, Batcher2D batcher, ImageOverlay overlay)
+    public static void renderImage(PoseStack stack, Batcher2D batcher, ImageOverlay overlay)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int width = mc.getWindow().getScaledWidth();
-        int height = mc.getWindow().getScaledHeight();
+        Minecraft mc = Minecraft.getInstance();
+        int width = mc.getWindow().getGuiScaledWidth();
+        int height = mc.getWindow().getGuiScaledHeight();
 
         renderImage(batcher, overlay, width, height);
     }

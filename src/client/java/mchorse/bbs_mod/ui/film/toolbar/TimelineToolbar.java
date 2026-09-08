@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import TimelineToolbarDock;
+
 /**
  * The toolbar bar itself. Displays a row or column of section buttons
  * anchored to an edge of a timeline panel. Each section shows an icon and,

@@ -37,21 +37,21 @@ public class UIAngleModule extends UISection
 
         this.editor = editor;
 
-        this.yaw = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().yaw = v.floatValue()));
+        this.yaw = new UITrackpad((v) -> BaseValue.edit(this.angle, (val) -> val.get().yaw = v.floatValue()));
         this.yaw.tooltip(UIKeys.CAMERA_PANELS_YAW);
 
-        this.pitch = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().pitch = v.floatValue()));
+        this.pitch = new UITrackpad((v) -> BaseValue.edit(this.angle, (val) -> val.get().pitch = v.floatValue()));
         this.pitch.tooltip(UIKeys.CAMERA_PANELS_PITCH);
 
-        this.roll = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().roll = v.floatValue()));
+        this.roll = new UITrackpad((v) -> BaseValue.edit(this.angle, (val) -> val.get().roll = v.floatValue()));
         this.roll.tooltip(UIKeys.CAMERA_PANELS_ROLL);
 
-        this.fov = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().fov = v.floatValue()));
+        this.fov = new UITrackpad((v) -> BaseValue.edit(this.angle, (val) -> val.get().fov = v.floatValue()));
         this.fov.tooltip(UIKeys.CAMERA_PANELS_FOV);
 
         if (includeDistance)
         {
-            this.distance = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().distance = v.floatValue()));
+            this.distance = new UITrackpad((v) -> BaseValue.edit(this.angle, (val) -> val.get().distance = v.floatValue()));
             this.distance.tooltip(UIKeys.CAMERA_PANELS_DISTANCE);
             this.fields.add(this.yaw, this.pitch, this.roll, this.fov, this.distance);
         }

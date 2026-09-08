@@ -10,9 +10,8 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.Pair;
 
-import net.minecraft.client.texture.GlTexture;
-
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
@@ -83,7 +82,7 @@ public class StencilFormFramebuffer
             return;
         }
 
-        this.framebuffer = BBSModClient.getFramebuffers().getFramebuffer(id, (framebuffer) ->
+        this.framebuffer = BBSModClient.getFramebuffers().getFramebuffer(id, (fb) ->
         {
             Texture texture = new Texture();
 
@@ -151,9 +150,9 @@ public class StencilFormFramebuffer
         this.drawFbo = GL30.glGenFramebuffers();
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.drawFbo);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
-            ((GlTexture) this.colorTexture).getGlId(), 0);
+            ((GlTexture) this.colorTexture).glId(), 0);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D,
-            ((GlTexture) this.depthTexture).getGlId(), 0);
+            ((GlTexture) this.depthTexture).glId(), 0);
         GL30.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
         GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
         GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
@@ -221,7 +220,7 @@ public class StencilFormFramebuffer
             this.readFbo = GL30.glGenFramebuffers();
         }
 
-        int glId = ((GlTexture) this.colorTexture).getGlId();
+        int glId = ((GlTexture) this.colorTexture).glId();
         int previousReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
 
         try (MemoryStack stack = MemoryStack.stackPush())

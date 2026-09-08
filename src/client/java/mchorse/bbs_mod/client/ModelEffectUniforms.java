@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.client;
 
-import net.minecraft.client.gl.ShaderProgram;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.opengl.GlProgram;
 
 import org.lwjgl.BufferUtils;
 
@@ -18,7 +18,7 @@ public final class ModelEffectUniforms
     private record Field(int offset, String type) {}
 
     private static final Map<String, Field> FIELDS = new HashMap<>();
-    private static final Map<ShaderProgram, ByteBuffer> VALUES = new WeakHashMap<>();
+    private static final Map<GlProgram, ByteBuffer> VALUES = new WeakHashMap<>();
 
     public static final int SIZE = 1264;
 
@@ -87,9 +87,9 @@ public final class ModelEffectUniforms
         FIELDS.put("PaintMultiplyDarken", new Field(1252, "float"));
     }
 
-    public static ShaderProgram register(ShaderProgram program)
+    public static GlProgram register(GlProgram program)
     {
-        if (program != null && program != ShaderProgram.INVALID)
+        if (program != null && program != GlProgram.INVALID_PROGRAM)
         {
             VALUES.computeIfAbsent(program, ignored -> createDefaults());
         }
@@ -127,17 +127,17 @@ public final class ModelEffectUniforms
         return data;
     }
 
-    public static boolean contains(ShaderProgram program, String name)
+    public static boolean contains(GlProgram program, String name)
     {
         return VALUES.containsKey(program) && FIELDS.containsKey(name);
     }
 
-    public static float value(ShaderProgram program, String name)
+    public static float value(GlProgram program, String name)
     {
         return contains(program, name) ? VALUES.get(program).getFloat(FIELDS.get(name).offset) : 0F;
     }
 
-    public static boolean set(ShaderProgram program, String name, float... values)
+    public static boolean set(GlProgram program, String name, float... values)
     {
         if (!contains(program, name))
         {
@@ -162,12 +162,12 @@ public final class ModelEffectUniforms
         return true;
     }
 
-    public static boolean set(ShaderProgram program, String name, Matrix4f matrix)
+    public static boolean set(GlProgram program, String name, Matrix4f matrix)
     {
         return set(program, name, matrix.get(new float[16]));
     }
 
-    public static boolean set(ShaderProgram program, String name, Matrix3f matrix)
+    public static boolean set(GlProgram program, String name, Matrix3f matrix)
     {
         float[] packed = matrix.get(new float[9]);
         float[] padded = new float[12];
@@ -180,7 +180,7 @@ public final class ModelEffectUniforms
         return set(program, name, padded);
     }
 
-    public static ByteBuffer data(ShaderProgram program)
+    public static ByteBuffer data(GlProgram program)
     {
         return VALUES.get(program).duplicate();
     }

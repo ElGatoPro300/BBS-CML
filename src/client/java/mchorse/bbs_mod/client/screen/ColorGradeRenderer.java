@@ -7,12 +7,13 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -633,18 +634,18 @@ public class ColorGradeRenderer
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        net.minecraft.client.gl.Framebuffer fb = BBSRendering.getPaintOverlaySourceFramebuffer();
+        Minecraft mc = Minecraft.getInstance();
+        RenderTarget fb = BBSRendering.getPaintOverlaySourceFramebuffer();
 
         if (fb == null)
         {
-            fb = mc.getFramebuffer();
+            fb = mc.getMainRenderTarget();
         }
 
-        int fbW = fb.textureWidth;
-        int fbH = fb.textureHeight;
+        int fbW = fb.width;
+        int fbH = fb.height;
 
-        int sourceId = ((GlTexture) fb.getColorAttachment()).getGlId();
+        int sourceId = ((GlTexture) fb.getColorTexture()).glId();
 
         if (captureFbo == -1)
         {
@@ -930,7 +931,7 @@ public class ColorGradeRenderer
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -942,8 +943,8 @@ public class ColorGradeRenderer
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
 
-        AbstractTexture atlas = mc.getTextureManager().getTexture(Identifier.of("minecraft", "textures/atlas/blocks.png"));
-        int textureId = atlas == null ? 0 : ((GlTexture) atlas.getGlTexture()).getGlId();
+        AbstractTexture atlas = mc.getTextureManager().getTexture(Identifier.fromNamespaceAndPath("minecraft", "textures/atlas/blocks.png"));
+        int textureId = atlas == null ? 0 : ((GlTexture) atlas.getTexture()).glId();
 
         if (textureId != 0)
         {

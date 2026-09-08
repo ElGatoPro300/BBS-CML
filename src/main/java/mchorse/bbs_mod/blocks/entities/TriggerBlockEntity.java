@@ -13,20 +13,20 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.triggers.Trigger;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.command.permission.PermissionPredicate;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 
 import org.joml.Vector3f;
 
@@ -102,12 +102,12 @@ public class TriggerBlockEntity extends BlockEntity
         super(BBSMod.TRIGGER_BLOCK_ENTITY, pos, state);
     }
 
-    public void trigger(ServerPlayerEntity player, boolean rightClick)
+    public void trigger(ServerPlayer player, boolean rightClick)
     {
         this.trigger(player, rightClick ? this.right.getList() : this.left.getList());
     }
 
-    public void trigger(ServerPlayerEntity player, List<Trigger> triggers)
+    public void trigger(ServerPlayer player, List<Trigger> triggers)
     {
         for (Trigger trigger : triggers)
         {
@@ -121,7 +121,7 @@ public class TriggerBlockEntity extends BlockEntity
                 {
                     try
                     {
-                        player.getEntityWorld().getServer().getCommandManager().parseAndExecute(player.getCommandSource().withPermissions(PermissionPredicate.ALL), cmd);
+                        player.level().getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(PermissionSet.ALL_PERMISSIONS), cmd);
                     }
                     catch (Exception e)
                     {
@@ -145,15 +145,15 @@ public class TriggerBlockEntity extends BlockEntity
                 
                 BlockPos pos = new BlockPos(x, y, z);
                 
-                if (this.world.isChunkLoaded(pos))
+                if (this.level.hasChunkAt(pos))
                 {
-                    BlockEntity be = this.world.getBlockEntity(pos);
+                    BlockEntity be = this.level.getBlockEntity(pos);
                     
                     if (be instanceof ModelBlockEntity modelBlock)
                     {
                         modelBlock.getProperties().setForm(FormUtils.copy(form));
-                        modelBlock.markDirty();
-                        this.world.updateListeners(pos, this.world.getBlockState(pos), this.world.getBlockState(pos), 3);
+                        modelBlock.setChanged();
+                        this.level.sendBlockUpdated(pos, this.level.getBlockState(pos), this.level.getBlockState(pos), 3);
                     }
                 }
             }
@@ -170,9 +170,9 @@ public class TriggerBlockEntity extends BlockEntity
         }
     }
     
-    public static void tick(World world, BlockPos pos, BlockState state, TriggerBlockEntity blockEntity)
+    public static void tick(Level world, BlockPos pos, BlockState state, TriggerBlockEntity blockEntity)
     {
-        if (!world.isClient() && blockEntity.region.get())
+        if (!world.isClientSide() && blockEntity.region.get())
         {
             blockEntity.tickRegion();
         }
@@ -180,17 +180,17 @@ public class TriggerBlockEntity extends BlockEntity
         TriggerBlockEntityUpdateCallback.EVENT.invoker().update(blockEntity);
     }
 
-    public Box getRegionBox()
+    public AABB getRegionBox()
     {
-        return this.getRegionBox(this.pos.getX(), this.pos.getY(), this.pos.getZ());
+        return this.getRegionBox(this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ());
     }
 
-    public Box getRegionBoxRelative()
+    public AABB getRegionBoxRelative()
     {
         return this.getRegionBox(0, 0, 0);
     }
 
-    public Box getRegionBox(double x, double y, double z)
+    public AABB getRegionBox(double x, double y, double z)
     {
         Vector3f offset = this.regionOffset.get();
         Vector3f size = this.regionSize.get();
@@ -204,7 +204,7 @@ public class TriggerBlockEntity extends BlockEntity
         double maxY = offset.y + 0.5 + size.y / 2.0 + expansion;
         double maxZ = offset.z + 0.5 + size.z / 2.0 + expansion;
 
-        return new Box(
+        return new AABB(
             x + minX, y + minY, z + minZ,
             x + maxX, y + maxY, z + maxZ
         );
@@ -212,14 +212,14 @@ public class TriggerBlockEntity extends BlockEntity
 
     private void tickRegion()
     {
-        Box box = this.getRegionBox();
-        List<ServerPlayerEntity> players = this.world.getEntitiesByClass(ServerPlayerEntity.class, box, (p) -> true);
+        AABB box = this.getRegionBox();
+        List<ServerPlayer> players = this.level.getEntitiesOfClass(ServerPlayer.class, box, (p) -> true);
         Set<UUID> currentPlayers = new HashSet<>();
-        long time = this.world.getTime();
+        long time = this.level.getGameTime();
 
-        for (ServerPlayerEntity player : players)
+        for (ServerPlayer player : players)
         {
-            UUID uuid = player.getUuid();
+            UUID uuid = player.getUUID();
             currentPlayers.add(uuid);
 
             boolean isNew = !this.playersInRegion.contains(uuid);
@@ -241,7 +241,7 @@ public class TriggerBlockEntity extends BlockEntity
         {
             if (!currentPlayers.contains(uuid))
             {
-                ServerPlayerEntity player = (ServerPlayerEntity) this.world.getPlayerByUuid(uuid);
+                ServerPlayer player = (ServerPlayer) this.level.getPlayerByUUID(uuid);
 
                 if (player != null)
                 {
@@ -256,11 +256,11 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    protected void readData(ReadView view)
+    protected void loadAdditional(ValueInput view)
     {
-        super.readData(view);
+        super.loadAdditional(view);
 
-        NbtCompound nbt = view.read("TriggerData", NbtCompound.CODEC).orElse(new NbtCompound());
+        CompoundTag nbt = view.read("TriggerData", CompoundTag.CODEC).orElse(new CompoundTag());
 
         if (nbt.contains("Left")) this.left.fromData(DataStorageUtils.fromNbt(nbt.get("Left")));
         if (nbt.contains("Right")) this.right.fromData(DataStorageUtils.fromNbt(nbt.get("Right")));
@@ -277,11 +277,11 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    protected void writeData(WriteView view)
+    protected void saveAdditional(ValueOutput view)
     {
-        super.writeData(view);
+        super.saveAdditional(view);
 
-        NbtCompound nbt = new NbtCompound();
+        CompoundTag nbt = new CompoundTag();
 
         DataStorageUtils.writeToNbtCompound(nbt, "Left", this.left.toData());
         DataStorageUtils.writeToNbtCompound(nbt, "Right", this.right.toData());
@@ -296,19 +296,19 @@ public class TriggerBlockEntity extends BlockEntity
         DataStorageUtils.writeToNbtCompound(nbt, "RegionOffset", this.regionOffset.toData());
         DataStorageUtils.writeToNbtCompound(nbt, "RegionSize", this.regionSize.toData());
 
-        view.put("TriggerData", NbtCompound.CODEC, nbt);
+        view.store("TriggerData", CompoundTag.CODEC, nbt);
     }
 
     @Nullable
     @Override
-    public Packet<ClientPlayPacketListener> toUpdatePacket()
+    public Packet<ClientGamePacketListener> getUpdatePacket()
     {
-        return BlockEntityUpdateS2CPacket.create(this);
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup)
+    public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup)
     {
-        return this.createNbt(registryLookup);
+        return this.saveWithoutMetadata(registryLookup);
     }
 }

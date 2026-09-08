@@ -3,6 +3,7 @@ package mchorse.bbs_mod.cubic.render;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSUniform;
+import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -15,17 +16,16 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.renderer.LightTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
@@ -38,17 +38,17 @@ import com.mojang.blaze3d.vertex.VertexFormat;
  */
 public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
-    private final ShaderProgram shader;
+    private final GlProgram shader;
     private final Link defaultTexture;
     private final Matrix4f rootInverse;
     private int currentGroupLight;
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, GlProgram shader, Link defaultTexture)
     {
         this(light, overlay, stencilMap, shapeKeys, shader, defaultTexture, null);
     }
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture, Matrix4f rootInverse)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, GlProgram shader, Link defaultTexture, Matrix4f rootInverse)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
@@ -58,7 +58,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
     {
         if (group.cubes.isEmpty() && group.meshes.isEmpty())
         {
@@ -95,7 +95,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         return false;
     }
 
-    private void drawGroup(MatrixStack stack, ModelGroup group, Model model, Link texture, float alpha)
+    private void drawGroup(PoseStack stack, ModelGroup group, Model model, Link texture, float alpha)
     {
         if (texture != null)
         {
@@ -168,7 +168,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         {
             float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
             int baseU = groupLight & '\uffff';
-            int u = (int) Lerps.lerp(baseU, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, glowLightT);
+            int u = (int) Lerps.lerp(baseU, LightTexture.FULL_BLOCK, glowLightT);
             int v = groupLight >> 16 & '\uffff';
 
             groupLight = u | v << 16;
@@ -180,7 +180,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         else
         {
-            int u = (int) Lerps.lerp(groupLight & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
+            int u = (int) Lerps.lerp(groupLight & '\uffff', LightTexture.FULL_BLOCK, MathUtils.clamp(group.lighting, 0F, 1F));
             int v = groupLight >> 16 & '\uffff';
 
             groupLight = u | v << 16;
@@ -192,7 +192,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(this.r, this.g, this.b, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.NEW_ENTITY);
 
         ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
@@ -203,7 +203,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             BBSUniform.set(this.shader, "ColorModulator", r, g, b, a);
 
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
-            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
+            BufferRenderer.drawWithGlobalProgram(groupBuilder.buildOrThrow());
             BBSRendering.unbindProgram();
         }
         catch (IllegalStateException e)
@@ -219,10 +219,10 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
     }
 
     @Override
-    protected void writeVertex(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    protected void writeVertex(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
     {
         this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
-        stack.peek().getPositionMatrix().transform(this.vertex);
+        stack.last().pose().transform(this.vertex);
 
         float vr = 1F;
         float vg = 1F;
@@ -237,8 +237,8 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             va = group.color.a;
         }
 
-        builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(
+        builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z)
+            .setColor(
                 MathUtils.clamp(vr, 0F, 1F),
                 MathUtils.clamp(vg, 0F, 1F),
                 MathUtils.clamp(vb, 0F, 1F),
@@ -249,13 +249,13 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         if (this.stencilMap != null)
         {
-            builder.light(this.currentGroupLight, 0);
+            builder.setUv2(this.currentGroupLight, 0);
         }
         else
         {
-            builder.light(this.currentGroupLight & '\uffff', this.currentGroupLight >> 16 & '\uffff');
+            builder.setUv2(this.currentGroupLight & '\uffff', this.currentGroupLight >> 16 & '\uffff');
         }
 
-        builder.normal(normal.x, normal.y, normal.z);
+        builder.setNormal(normal.x, normal.y, normal.z);
     }
 }

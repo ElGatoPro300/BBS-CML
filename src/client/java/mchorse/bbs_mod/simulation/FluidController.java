@@ -21,10 +21,10 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -75,7 +75,7 @@ public class FluidController
 
         List<FluidSample> samples = new ArrayList<>();
 
-        World world = entity.getWorld();
+        Level world = entity.getWorld();
 
         if (world != null)
         {
@@ -86,13 +86,13 @@ public class FluidController
             double minY = surfaceCenter.y - 2.0;
             double maxY = surfaceCenter.y + 2.0;
 
-            Box box = new Box(minX, minY, minZ, maxX, maxY, maxZ);
+            AABB box = new AABB(minX, minY, minZ, maxX, maxY, maxZ);
             Entity mcEntity = entity instanceof MCEntity ? ((MCEntity) entity).getMcEntity() : null;
-            List<Entity> entities = world.getOtherEntities(mcEntity, box);
+            List<Entity> entities = world.getEntities(mcEntity, box);
 
             for (Entity e : entities)
             {
-                samples.add(new FluidSample(new Vec3d(e.getX(), e.getY(), e.getZ()), 0.1));
+                samples.add(new FluidSample(new Vec3(e.getX(), e.getY(), e.getZ()), 0.1));
             }
         }
 
@@ -143,7 +143,7 @@ public class FluidController
                         Matrix4f boneMatrix = new Matrix4f(entityMatrix).mul(entry.matrix());
                         Vector3f t = boneMatrix.getTranslation(new Vector3f());
 
-                        samples.add(new FluidSample(new Vec3d(t.x, t.y, t.z), 0.1));
+                        samples.add(new FluidSample(new Vec3(t.x, t.y, t.z), 0.1));
                     }
                 }
             }
@@ -151,7 +151,7 @@ public class FluidController
 
         for (FluidSample sample : samples)
         {
-            Vec3d p = sample.pos;
+            Vec3 p = sample.pos;
             Vector3f local = inverseSurface.transformPosition((float) p.x, (float) p.y, (float) p.z, new Vector3f());
             
             sample.localPos = local;
@@ -234,7 +234,7 @@ public class FluidController
             }
 
             Vector3f pos = new Vector3f(0, 0, 0).mulPosition(transform);
-            samples.add(new FluidSample(new Vec3d(pos.x, pos.y, pos.z), 0.5));
+            samples.add(new FluidSample(new Vec3(pos.x, pos.y, pos.z), 0.5));
             
             return;
         }
@@ -282,7 +282,7 @@ public class FluidController
                         for (Vector3f p : points)
                         {
                             p.mulPosition(boneMatrix);
-                            samples.add(new FluidSample(new Vec3d(p.x, p.y, p.z), 0.1));
+                            samples.add(new FluidSample(new Vec3(p.x, p.y, p.z), 0.1));
                         }
                     }
                 }
@@ -341,7 +341,7 @@ public class FluidController
                     
                     if (finalPos.lengthSquared() > 0F)
                     {
-                        samples.add(new FluidSample(new Vec3d(finalPos.x, finalPos.y, finalPos.z), 0.1D));
+                        samples.add(new FluidSample(new Vec3(finalPos.x, finalPos.y, finalPos.z), 0.1D));
                     }
                 }
             }
@@ -369,7 +369,7 @@ public class FluidController
         for (Vector3f corner : corners)
         {
             corner.mulPosition(transform);
-            samples.add(new FluidSample(new Vec3d(corner.x, corner.y, corner.z), 0.1));
+            samples.add(new FluidSample(new Vec3(corner.x, corner.y, corner.z), 0.1));
         }
 
         /* 6 Face Centers */
@@ -385,17 +385,17 @@ public class FluidController
         for (Vector3f center : centers)
         {
             center.mulPosition(transform);
-            samples.add(new FluidSample(new Vec3d(center.x, center.y, center.z), 0.1));
+            samples.add(new FluidSample(new Vec3(center.x, center.y, center.z), 0.1));
         }
     }
 
     public static class FluidSample
     {
-        public final Vec3d pos;
+        public final Vec3 pos;
         public final double radius;
         public Vector3f localPos;
 
-        public FluidSample(Vec3d pos, double radius)
+        public FluidSample(Vec3 pos, double radius)
         {
             this.pos = pos;
             this.radius = radius;

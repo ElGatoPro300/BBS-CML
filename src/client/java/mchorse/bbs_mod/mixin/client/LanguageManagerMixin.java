@@ -2,7 +2,7 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.BBSModClient;
 
-import net.minecraft.client.resource.language.LanguageManager;
+import net.minecraft.client.resources.language.LanguageManager;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

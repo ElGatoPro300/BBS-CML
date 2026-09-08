@@ -5,11 +5,11 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.BlockStateComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.BlockItemStateProperties;
 
 import org.joml.Matrix3x2fStack;
 
@@ -22,7 +22,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
     public LightFormRenderer(LightForm form)
     {
         super(form);
-        this.stack = new ItemStack(Registries.ITEM.get(Identifier.of("minecraft", "light")));
+        this.stack = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("minecraft", "light")));
     }
 
     @Override
@@ -41,7 +41,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
 
         if (!stack.isEmpty())
         {
-            stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("level", Integer.toString(level))));
+            stack.set(DataComponents.BLOCK_STATE, new BlockItemStateProperties(Map.of("level", Integer.toString(level))));
         }
 
         if (stack.isEmpty())
@@ -50,7 +50,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         }
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = context.batcher.getContext().pose();
 
         float cellW = x2 - x1;
         float cellH = y2 - y1;
@@ -63,8 +63,8 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         matrices.scale(scale, scale);
 
         consumers.setUI(true);
-        context.batcher.getContext().drawItem(stack, -8, -8);
-        context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, -8, -8);
+        context.batcher.getContext().renderItem(stack, -8, -8);
+        context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), stack, -8, -8);
         consumers.setUI(false);
         matrices.popMatrix();
     }

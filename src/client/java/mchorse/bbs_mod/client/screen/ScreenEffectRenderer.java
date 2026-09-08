@@ -27,11 +27,10 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Matrix3x2fStack;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
 
@@ -70,7 +69,7 @@ public class ScreenEffectRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
 
-        Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = batcher.getContext().pose();
         int effectIndex = 0;
         int letterboxIndex = 0;
         int grainIndex = 0;
@@ -167,12 +166,12 @@ public class ScreenEffectRenderer
             }
             else if (hotOrder == nextOrder)
             {
-                UIHotbarRenderer.renderHotbar(new MatrixStack(), batcher, hotbars.get(hotbarIndex), 0, 0, screenW, screenH);
+                UIHotbarRenderer.renderHotbar(new PoseStack(), batcher, hotbars.get(hotbarIndex), 0, 0, screenW, screenH);
                 hotbarIndex += 1;
             }
             else if (bosOrder == nextOrder)
             {
-                UIBossBarRenderer.renderBossBar(new MatrixStack(), batcher, bossBars.get(bossBarIndex), 0, 0, screenW, screenH);
+                UIBossBarRenderer.renderBossBar(new PoseStack(), batcher, bossBars.get(bossBarIndex), 0, 0, screenW, screenH);
                 bossBarIndex += 1;
             }
             else if (letOrder == nextOrder)
@@ -287,7 +286,7 @@ public class ScreenEffectRenderer
 
         if (transformed)
         {
-            Matrix3x2fStack stack = batcher.getContext().getMatrices();
+            Matrix3x2fStack stack = batcher.getContext().pose();
 
             stack.pushMatrix();
             stack.translate(effect.offsetX * screenW, effect.offsetY * screenH);
@@ -347,7 +346,7 @@ public class ScreenEffectRenderer
 
         if (transformed)
         {
-            Matrix3x2fStack stack = batcher.getContext().getMatrices();
+            Matrix3x2fStack stack = batcher.getContext().pose();
 
             stack.pushMatrix();
             stack.translate(effect.offsetX * screenW, effect.offsetY * screenH);

@@ -5,14 +5,14 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.ui.UIKeys;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,8 +55,8 @@ public final class MobCaptureAreaScanner
 
     public static Map<String, TypeBucket> scan(double size, boolean includeHeight, boolean capturePlayers)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
 
         if (player == null)
         {
@@ -94,9 +94,9 @@ public final class MobCaptureAreaScanner
     public static Map<String, TypeBucket> scan(double size, double originX, double originY, double originZ, boolean includeHeight, boolean capturePlayers)
     {
         Map<String, TypeBucket> buckets = new LinkedHashMap<>();
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
-        ClientWorld world = mc.world;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        ClientLevel world = mc.level;
 
         if (player == null || world == null || size <= 0D)
         {
@@ -105,26 +105,26 @@ public final class MobCaptureAreaScanner
 
         double radius = size;
         double radiusSq = radius * radius;
-        int bottom = world.getBottomY();
-        int top = bottom + world.getDimension().logicalHeight();
-        Box box;
+        int bottom = world.getMinY();
+        int top = bottom + world.dimensionType().logicalHeight();
+        AABB box;
 
         if (includeHeight)
         {
-            box = new Box(
+            box = new AABB(
                 originX - radius, originY - radius, originZ - radius,
                 originX + radius, originY + radius, originZ + radius
             );
         }
         else
         {
-            box = new Box(
+            box = new AABB(
                 originX - radius, bottom, originZ - radius,
                 originX + radius, top, originZ + radius
             );
         }
 
-        for (Entity entity : world.getOtherEntities(player, box, (entity) -> canScan(entity, player, capturePlayers)))
+        for (Entity entity : world.getEntities(player, box, (entity) -> canScan(entity, player, capturePlayers)))
         {
             if (distanceSq(entity, originX, originY, originZ, includeHeight) > radiusSq)
             {
@@ -138,12 +138,12 @@ public final class MobCaptureAreaScanner
                 continue;
             }
 
-            String typeId = Registries.ENTITY_TYPE.getId(entity.getType()).toString();
+            String typeId = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
             TypeBucket bucket = buckets.get(typeId);
 
             if (bucket == null)
             {
-                Text name = entity.getType().getName();
+                Component name = entity.getType().getDescription();
 
                 bucket = new TypeBucket(typeId, name.getString());
                 buckets.put(typeId, bucket);
@@ -181,7 +181,7 @@ public final class MobCaptureAreaScanner
         return sortedBuckets;
     }
 
-    private static boolean canScan(Entity entity, ClientPlayerEntity player, boolean capturePlayers)
+    private static boolean canScan(Entity entity, LocalPlayer player, boolean capturePlayers)
     {
         /* Film ActorEntity bodies are already replays — capturing them creates
          * phantom "actor" entries with leftover nametag/shadow at the death spot. */
@@ -190,7 +190,7 @@ public final class MobCaptureAreaScanner
             return false;
         }
 
-        return !(entity instanceof PlayerEntity) || capturePlayers;
+        return !(entity instanceof Player) || capturePlayers;
     }
 
     public static double horizontalDistanceSq(Entity entity, double originX, double originZ)
@@ -226,7 +226,7 @@ public final class MobCaptureAreaScanner
         return (int) Math.round(Math.sqrt(horizontalDistanceSq(entity, originX, originZ)));
     }
 
-    public static int getDistanceBlocks(Entity entity, ClientPlayerEntity player)
+    public static int getDistanceBlocks(Entity entity, LocalPlayer player)
     {
         if (player == null)
         {
@@ -255,7 +255,7 @@ public final class MobCaptureAreaScanner
         return getEntityLabel(entity, index, originX, 0D, originZ, false);
     }
 
-    public static String getEntityLabel(Entity entity, int index, ClientPlayerEntity player)
+    public static String getEntityLabel(Entity entity, int index, LocalPlayer player)
     {
         if (player == null)
         {

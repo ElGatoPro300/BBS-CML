@@ -23,7 +23,7 @@ import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix3f;
@@ -2084,9 +2084,9 @@ public class UIPropTransform extends UITransform
          * being held! */
         GLFW.glfwGetCursorPos(Window.getWindow(), CURSOR_X, CURSOR_Y);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int w = mc.getWindow().getWidth();
-        int h = mc.getWindow().getHeight();
+        Minecraft mc = Minecraft.getInstance();
+        int w = mc.getWindow().getScreenWidth();
+        int h = mc.getWindow().getScreenHeight();
 
         double rawX = CURSOR_X[0];
         double rawY = CURSOR_Y[0];
@@ -2100,8 +2100,8 @@ public class UIPropTransform extends UITransform
         boolean wrappedRight = false;
         boolean wrappedTop = false;
         boolean wrappedBottom = false;
-        int cursorX = (int) mc.mouse.getX();
-        int cursorY = (int) mc.mouse.getY();
+        int cursorX = (int) mc.mouseHandler.xpos();
+        int cursorY = (int) mc.mouseHandler.ypos();
         int prevLastX = this.lastX;
         int prevLastY = this.lastY;
         boolean rayDragAppliedBeforeWarp = false;
@@ -2410,14 +2410,14 @@ public class UIPropTransform extends UITransform
     {
         int menuW = context.menu.width;
 
-        return menuW <= 0 ? 1D : MinecraftClient.getInstance().getWindow().getWidth() / (double) menuW;
+        return menuW <= 0 ? 1D : Minecraft.getInstance().getWindow().getScreenWidth() / (double) menuW;
     }
 
     private static double uiScaleY(UIContext context)
     {
         int menuH = context.menu.height;
 
-        return menuH <= 0 ? 1D : MinecraftClient.getInstance().getWindow().getHeight() / (double) menuH;
+        return menuH <= 0 ? 1D : Minecraft.getInstance().getWindow().getScreenHeight() / (double) menuH;
     }
 
     private void updateRayDragMouse(UIContext context)

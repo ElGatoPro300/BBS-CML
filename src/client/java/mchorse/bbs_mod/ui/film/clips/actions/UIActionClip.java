@@ -21,7 +21,7 @@ public abstract class UIActionClip <T extends ActionClip> extends UIClip<T>
     {
         super.registerUI();
 
-        this.frequency = new UITrackpad((v) -> this.editor.editMultiple(this.clip.frequency, (frequency) -> frequency.set(v.intValue())));
+        this.frequency = new UITrackpad((v) -> this.editor.editMultiple(this.clip.frequency, (val) -> val.set(v.intValue())));
         this.frequency.limit(0).integer();
     }
 

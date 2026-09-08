@@ -5,7 +5,7 @@ import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.renderer.LightTexture;
 
 /**
  * Client-side packing of form lighting into Minecraft lightmap coordinates.
@@ -22,7 +22,7 @@ public final class FormLightingRender
         int u = packedLight & '\uffff';
         int v = packedLight >> 16 & '\uffff';
 
-        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
+        u = (int) Lerps.lerp(u, LightTexture.FULL_BLOCK, lf);
 
         return u | v << 16;
     }
@@ -32,7 +32,7 @@ public final class FormLightingRender
      * <p>
      * When {@code truncate} is true, uses discrete Minecraft light levels 0–15.
      * When false, maps the float level through the same continuous lightmap range as
-     * brightness 0–1 ({@code 0}…{@link LightmapTextureManager#MAX_BLOCK_LIGHT_COORDINATE}),
+     * brightness 0–1 ({@code 0}…{@link LightTexture#FULL_BLOCK}),
      * so intermediate values (e.g. {@code 7.5}) are not snapped to whole levels.
      */
     public static int packFixedLevel(float level, boolean truncate)
@@ -43,14 +43,14 @@ public final class FormLightingRender
         {
             int i = Math.round(clamped);
 
-            return LightmapTextureManager.pack(i, i);
+            return LightTexture.pack(i, i);
         }
 
         /* Continuous absolute lighting — same UV span as brightness 0–1, both channels.
          * model.vsh samples with minecraft_sample_lightmap (filtered), so fractional
          * coordinates blend between adjacent MC light levels. */
         float t = clamped / 15F;
-        int coord = Math.round(Lerps.lerp(0F, (float) LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, t));
+        int coord = Math.round(Lerps.lerp(0F, (float) LightTexture.FULL_BLOCK, t));
 
         return coord | coord << 16;
     }

@@ -7,10 +7,10 @@ import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -52,18 +52,18 @@ public class KeyboardInputMixin
             boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
             boolean sprint = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL);
 
-            input.playerInput = new PlayerInput(forward, back, left, right, jump, sneak, sprint);
+            input.keyPresses = new Input(forward, back, left, right, jump, sneak, sprint);
 
-            MinecraftClient.getInstance().options.jumpKey.setPressed(jump);
-            MinecraftClient.getInstance().options.sneakKey.setPressed(sneak);
+            Minecraft.getInstance().options.keyJump.setDown(jump);
+            Minecraft.getInstance().options.keyShift.setDown(sneak);
 
-            if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.shouldSlowDown())
+            if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.isMovingSlowly())
             {
                 sidewaysVal *= 0.3F;
                 forwardVal *= 0.3F;
             }
 
-            input.movementVector = new Vec2f(sidewaysVal, forwardVal).normalize();
+            input.moveVector = new Vec2(sidewaysVal, forwardVal).normalized();
 
             UIFilmController controller = filmPanel.getController();
             boolean moving = forwardVal != 0F || sidewaysVal != 0F;

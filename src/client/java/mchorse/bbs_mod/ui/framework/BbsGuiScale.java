@@ -2,14 +2,14 @@ package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.BBSSettings;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RawProjectionMatrix;
-import net.minecraft.client.util.Window;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 /**
@@ -19,7 +19,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 public final class BbsGuiScale
 {
     private static boolean restoringGameScale;
-    private static RawProjectionMatrix bbsGuiProjection;
+    private static PerspectiveProjectionMatrixBuffer bbsGuiProjection;
 
     private BbsGuiScale()
     {}
@@ -36,11 +36,11 @@ public final class BbsGuiScale
 
     public static int getGameScaleFactor()
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         Window window = mc.getWindow();
         final int[] scale = { 1 };
 
-        restoringGameScale(() -> scale[0] = window.getScaleFactor());
+        restoringGameScale(() -> scale[0] = window.getGuiScale());
 
         return scale[0];
     }
@@ -54,9 +54,9 @@ public final class BbsGuiScale
 
         if (scale <= 0F)
         {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
 
-            return mc == null || mc.getWindow() == null ? 1D : mc.getWindow().getScaleFactor();
+            return mc == null || mc.getWindow() == null ? 1D : mc.getWindow().getGuiScale();
         }
 
         return scale;
@@ -64,18 +64,18 @@ public final class BbsGuiScale
 
     public static int getScaledWidth()
     {
-        Window window = MinecraftClient.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         double factor = getFactor();
 
-        return scaledSize(window.getFramebufferWidth(), factor <= 0 ? window.getScaleFactor() : factor);
+        return scaledSize(window.getWidth(), factor <= 0 ? window.getGuiScale() : factor);
     }
 
     public static int getScaledHeight()
     {
-        Window window = MinecraftClient.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         double factor = getFactor();
 
-        return scaledSize(window.getFramebufferHeight(), factor <= 0 ? window.getScaleFactor() : factor);
+        return scaledSize(window.getHeight(), factor <= 0 ? window.getGuiScale() : factor);
     }
 
     public static void resizeMenu(UIBaseMenu menu)
@@ -117,7 +117,7 @@ public final class BbsGuiScale
      */
     public static void withBbsWindowScale(Runnable draw)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         Window window = mc.getWindow();
         int saved = getGameScaleFactor();
         boolean linked = isLinkedToGame();
@@ -127,19 +127,19 @@ public final class BbsGuiScale
         {
             if (!linked)
             {
-                window.setScaleFactor(targetScale);
+                window.setGuiScale(targetScale);
             }
 
-            int sw = window.getScaledWidth();
-            int sh = window.getScaledHeight();
+            int sw = window.getGuiScaledWidth();
+            int sh = window.getGuiScaledHeight();
 
             if (bbsGuiProjection == null)
             {
-                bbsGuiProjection = new RawProjectionMatrix("bbs_gui");
+                bbsGuiProjection = new PerspectiveProjectionMatrixBuffer("bbs_gui");
             }
 
             RenderSystem.backupProjectionMatrix();
-            RenderSystem.setProjectionMatrix(bbsGuiProjection.set(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000)), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(bbsGuiProjection.getBuffer(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000)), ProjectionType.ORTHOGRAPHIC);
 
             /* GameRenderer's GUI pass leaves modelView at z=-11000; with ortho
              * -1000..3000 that clips every vertex. Identity matches HUD overlays. */
@@ -161,7 +161,7 @@ public final class BbsGuiScale
         {
             if (!linked)
             {
-                restoringGameScale(() -> window.setScaleFactor(saved));
+                restoringGameScale(() -> window.setGuiScale(saved));
             }
 
             RenderSystem.restoreProjectionMatrix();
@@ -175,7 +175,7 @@ public final class BbsGuiScale
             return (int) mouse;
         }
 
-        Window window = MinecraftClient.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         double bbs = getFactor();
 
         if (bbs <= 0D)
@@ -183,7 +183,7 @@ public final class BbsGuiScale
             return (int) mouse;
         }
 
-        return (int) (mouse * window.getScaleFactor() / bbs);
+        return (int) (mouse * window.getGuiScale() / bbs);
     }
 
     private static int scaledSize(int framebuffer, double factor)

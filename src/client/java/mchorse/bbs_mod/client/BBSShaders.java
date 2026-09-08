@@ -3,12 +3,12 @@ package mchorse.bbs_mod.client;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
@@ -40,111 +40,112 @@ public class BBSShaders
 
     public static void setup()
     {
-        modelPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/model"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/model"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/model"))
+        modelPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/model"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/model"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/model"))
             .withSampler("Sampler0")
             .withSampler("Sampler1")
             .withSampler("Sampler2")
             .withSampler("Sampler3")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
-        multiLinkPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/multilink"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/multilink"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/multilink"))
+        multiLinkPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/multilink"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/multilink"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/multilink"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .withSampler("Sampler3")
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
 
-        subtitlesPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/subtitles"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/subtitles"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/subtitles"))
+        subtitlesPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/subtitles"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/subtitles"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/subtitles"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
 
-        imageOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/image_overlay"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"))
+        imageOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/image_overlay"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/image_overlay"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/image_overlay"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
 
-        pickerBillboardPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/picker_billboard"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"))
+        pickerBillboardPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_billboard"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
-        pickerBillboardNoShadingPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/picker_billboard_no_shading"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard_no_shading"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard_no_shading"))
+        pickerBillboardNoShadingPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_billboard_no_shading"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard_no_shading"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard_no_shading"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_LIGHT_COLOR, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_LIGHTMAP_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
 
-        pickerParticlesPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/picker_particles"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"))
+        pickerParticlesPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_particles"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_particles"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_particles"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_LIGHT, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, VertexFormat.DrawMode.QUADS)
             .build());
 
-        pickerModelsPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/picker_models"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/picker_models"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/picker_models"))
+        pickerModelsPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_models"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_models"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_models"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
         blockPaintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.BLOCK_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/block_paint_overlay"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/block_paint_overlay"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_paint_overlay"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_paint_overlay"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
-        flatPaintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/flat_paint_overlay"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"))
+        flatPaintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/flat_paint_overlay"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_paint_overlay"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_paint_overlay"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
         blockGlowOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.BLOCK_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/block_glow_overlay"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/block_glow_overlay"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/block_glow_overlay"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/block_glow_overlay"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_glow_overlay"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_glow_overlay"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
         blockColorTintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.BLOCK_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/block_color_tint_overlay"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/block_color_tint_overlay"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
-        flatColorTintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/flat_color_tint_overlay"))
-            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
-            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
+        flatColorTintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/flat_color_tint_overlay"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
             .withSampler("Sampler0")
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .build());
 
         for (Runnable runnable : LOADERS)
@@ -153,11 +154,11 @@ public class BBSShaders
         }
     }
 
-    public static ShaderProgram getModel()
+    public static GlProgram getModel()
     {
-        ShaderProgram program = ModelEffectPass.program(false);
+        GlProgram program = ModelEffectPass.program(false);
 
-        if (program == null || program == ShaderProgram.INVALID)
+        if (program == null || program == GlProgram.INVALID_PROGRAM)
         {
             return BBSRendering.getEntityTranslucentProgram();
         }
@@ -165,62 +166,62 @@ public class BBSShaders
         return program;
     }
 
-    public static ShaderProgram getMultilinkProgram()
+    public static GlProgram getMultilinkProgram()
     {
         return BBSRendering.getProgram(multiLinkPipeline);
     }
 
-    public static ShaderProgram getSubtitlesProgram()
+    public static GlProgram getSubtitlesProgram()
     {
         return BBSRendering.getProgram(subtitlesPipeline);
     }
 
-    public static ShaderProgram getImageOverlayProgram()
+    public static GlProgram getImageOverlayProgram()
     {
         return BBSRendering.getProgram(imageOverlayPipeline);
     }
 
-    public static ShaderProgram getPickerBillboardProgram()
+    public static GlProgram getPickerBillboardProgram()
     {
         return ModelEffectPass.program("picker_billboard");
     }
 
-    public static ShaderProgram getPickerBillboardNoShadingProgram()
+    public static GlProgram getPickerBillboardNoShadingProgram()
     {
         return ModelEffectPass.program("picker_billboard_no_shading");
     }
 
-    public static ShaderProgram getPickerParticlesProgram()
+    public static GlProgram getPickerParticlesProgram()
     {
         return ModelEffectPass.program("picker_particles");
     }
 
-    public static ShaderProgram getPickerModelsProgram()
+    public static GlProgram getPickerModelsProgram()
     {
         return ModelEffectPass.program(true);
     }
 
-    public static ShaderProgram getBlockPaintOverlayProgram()
+    public static GlProgram getBlockPaintOverlayProgram()
     {
         return ModelEffectPass.program("block_paint_overlay");
     }
 
-    public static ShaderProgram getFlatPaintOverlayProgram()
+    public static GlProgram getFlatPaintOverlayProgram()
     {
         return ModelEffectPass.program("flat_paint_overlay");
     }
 
-    public static ShaderProgram getBlockGlowOverlayProgram()
+    public static GlProgram getBlockGlowOverlayProgram()
     {
         return ModelEffectPass.program("block_glow_overlay");
     }
 
-    public static ShaderProgram getBlockColorTintOverlayProgram()
+    public static GlProgram getBlockColorTintOverlayProgram()
     {
         return ModelEffectPass.program("block_color_tint_overlay");
     }
 
-    public static ShaderProgram getFlatColorTintOverlayProgram()
+    public static GlProgram getFlatColorTintOverlayProgram()
     {
         return ModelEffectPass.program("flat_color_tint_overlay");
     }

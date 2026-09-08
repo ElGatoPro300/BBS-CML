@@ -7,8 +7,8 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemDisplayContext;
 
 public class ItemForm extends Form
 {
@@ -32,6 +32,6 @@ public class ItemForm extends Form
     @Override
     protected String getDefaultDisplayName()
     {
-        return Registries.ITEM.getId(this.stack.get().getItem()).toString();
+        return BuiltInRegistries.ITEM.getKey(this.stack.get().getItem()).toString();
     }
 }

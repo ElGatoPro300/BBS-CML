@@ -41,11 +41,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -1287,14 +1282,14 @@ public class UIAudioEditorPanel extends UISidebarDashboardPanel
                         boolean isFolder = id.endsWith("/");
                         Icon icon = isFolder || id.equals(PARENT_FOLDER_ENTRY) ? Icons.FOLDER : Icons.SOUND;
                         
-                        context.batcher.getContext().getMatrices().pushMatrix();
-                        context.batcher.getContext().getMatrices().translate((float) iconX, (float) iconY);
-                        context.batcher.getContext().getMatrices().scale(2F, 2F);
-                        context.batcher.getContext().getMatrices().translate((float) -iconX, (float) -iconY);
+                        context.batcher.getContext().pose().pushMatrix();
+                        context.batcher.getContext().pose().translate((float) iconX, (float) iconY);
+                        context.batcher.getContext().pose().scale(2F, 2F);
+                        context.batcher.getContext().pose().translate((float) -iconX, (float) -iconY);
                         
                         context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
                         
-                        context.batcher.getContext().getMatrices().popMatrix();
+                        context.batcher.getContext().pose().popMatrix();
 
                         String label = id;
                         if (id.startsWith(AUDIO_PREFIX))

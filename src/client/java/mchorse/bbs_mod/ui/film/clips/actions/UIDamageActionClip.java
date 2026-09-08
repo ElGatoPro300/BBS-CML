@@ -20,7 +20,7 @@ public class UIDamageActionClip extends UIActionClip<DamageActionClip>
     {
         super.registerUI();
 
-        this.damage = new UITrackpad((v) -> this.editor.editMultiple(this.clip.damage, (damage) -> damage.set(v.floatValue())));
+        this.damage = new UITrackpad((v) -> this.editor.editMultiple(this.clip.damage, (val) -> val.set(v.floatValue())));
         this.damage.limit(0F);
     }
 

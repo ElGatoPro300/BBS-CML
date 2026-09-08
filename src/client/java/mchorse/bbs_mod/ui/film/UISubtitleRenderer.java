@@ -14,17 +14,17 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -60,8 +60,8 @@ public class UISubtitleRenderer
             return;
         }
 
-        ShaderProgram program = BBSShaders.getSubtitlesProgram();
-        Supplier<ShaderProgram> supplier = () -> program;
+        GlProgram program = BBSShaders.getSubtitlesProgram();
+        Supplier<GlProgram> supplier = () -> program;
 
         /* Text-atlas FBO applyClear() shrinks glViewport; beginWrite(false) alone may not
          * restore it (same class of bug as UIFilmController stencil picking). Save so
@@ -76,7 +76,7 @@ public class UISubtitleRenderer
         Texture texture = framebuffer.getMainTexture();
         Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
         FontRenderer font = Batcher2D.getVanillaTextRenderer();
-        TextRenderer vanilla = MinecraftClient.getInstance().textRenderer;
+        Font vanilla = Minecraft.getInstance().font;
 
         /*
          * After ColorGrade raw-GL, the first textured Minecraft draw repairs Sampler0
@@ -115,10 +115,10 @@ public class UISubtitleRenderer
 
             for (String string : strings)
             {
-                w = Math.max(w, vanilla.getWidth(string.trim()));
+                w = Math.max(w, vanilla.width(string.trim()));
             }
 
-            h = (strings.size() - 1) * subtitle.lineHeight + vanilla.fontHeight - 2;
+            h = (strings.size() - 1) * subtitle.lineHeight + vanilla.lineHeight - 2;
 
             int fw = (int) ((w + 10) * scale);
             int fh = (int) ((h + 10) * scale);
@@ -143,13 +143,13 @@ public class UISubtitleRenderer
             {
                 string = string.trim();
 
-                int xx = 5 + (int) ((w - vanilla.getWidth(string)) / 2);
+                int xx = 5 + (int) ((w - vanilla.width(string)) / 2);
 
                 if (Colors.getA(subtitle.backgroundColor) > 0)
                 {
                     float offset = subtitle.backgroundOffset;
-                    int tw = vanilla.getWidth(string);
-                    int th = vanilla.fontHeight - 2;
+                    int tw = vanilla.width(string);
+                    int th = vanilla.lineHeight - 2;
 
                     batcher.box(xx - offset, yy - offset, xx + tw + offset - 1, yy + th + offset, Colors.mulA(subtitle.backgroundColor, alpha));
                     batcher.text(font, string, xx, (int) yy, Colors.setA(subColor, 1F), subtitle.textShadow);
@@ -171,7 +171,7 @@ public class UISubtitleRenderer
 
             BBSRendering.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
 
-            Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+            Matrix3x2fStack matrices = batcher.getContext().pose();
 
             matrices.pushMatrix();
             matrices.translate(x, y);
@@ -203,20 +203,20 @@ public class UISubtitleRenderer
         renderSubtitles(batcher, Collections.singletonList(subtitle), width, height);
     }
 
-    public static void renderSubtitles(MatrixStack stack, Batcher2D batcher, List<Subtitle> subtitles)
+    public static void renderSubtitles(PoseStack stack, Batcher2D batcher, List<Subtitle> subtitles)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int width = mc.getWindow().getScaledWidth();
-        int height = mc.getWindow().getScaledHeight();
+        Minecraft mc = Minecraft.getInstance();
+        int width = mc.getWindow().getGuiScaledWidth();
+        int height = mc.getWindow().getGuiScaledHeight();
 
         renderSubtitles(batcher, subtitles, width, height);
     }
 
-    public static void renderSubtitle(MatrixStack stack, Batcher2D batcher, Subtitle subtitle)
+    public static void renderSubtitle(PoseStack stack, Batcher2D batcher, Subtitle subtitle)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int width = mc.getWindow().getScaledWidth();
-        int height = mc.getWindow().getScaledHeight();
+        Minecraft mc = Minecraft.getInstance();
+        int width = mc.getWindow().getGuiScaledWidth();
+        int height = mc.getWindow().getGuiScaledHeight();
 
         renderSubtitle(batcher, subtitle, width, height);
     }
