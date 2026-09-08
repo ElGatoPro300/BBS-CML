@@ -275,12 +275,4 @@ public interface IEntity
     {
         return this.getMountTarget() != null;
     }
-
-    public default void setRotationOverride(float pitch, float prevPitch, float headYaw, float prevHeadYaw, float bodyYaw, float prevBodyYaw, float yaw, float prevYaw)
-    {
-    }
-
-    public default void clearRotationOverride()
-    {
-    }
 }

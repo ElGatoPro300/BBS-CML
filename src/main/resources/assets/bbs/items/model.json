@@ -1,5 +1,4 @@
 {
-    "oversized_in_gui": true,
     "model": {
         "type": "minecraft:special",
         "base": "minecraft:block",
