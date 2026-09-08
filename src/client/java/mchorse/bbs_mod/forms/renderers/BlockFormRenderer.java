@@ -115,17 +115,28 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         GlowSettings glowSettings = this.form.glowSettings.get();
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
-
-        if (glowIntensity < 0F)
-        {
-            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow);
-        }
-
         Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean blockEntityVisual = this.isBlockEntityVisual();
+        final Color uiNegativeGlowTint;
+
+        /* Match world path: atlas negative glow via ColorModulator; BE via resolveBlockEntityColor. */
+        if (glowIntensity < 0F && !blockEntityVisual)
+        {
+            float factor = Math.max(0F, 1F + glowIntensity);
+
+            uiNegativeGlowTint = new Color(factor, factor, factor, 1F);
+        }
+        else
+        {
+            uiNegativeGlowTint = null;
+        }
 
         CustomVertexConsumerProvider.clearRunnables();
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            this.applyBlockMainPassHijackLayer(layer, uiNegativeGlowTint);
+        });
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
@@ -136,6 +147,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         this.renderRepeatedBlocks(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false, true, false, false, false);
 
         consumers.draw();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         CustomVertexConsumerProvider.clearRunnables();
 
         boolean runPaintOverlay = this.shouldRunBlockPaintOverlay(blockEntityVisual, this.form.paintSettings.get(), positivePaint);
@@ -265,11 +277,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
             boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
             final EffectTransform deferredGlowTransform = hasGlowTransform ? glowTransform.copy() : null;
-
-            if (glowIntensity < 0F)
-            {
-                FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
-            }
+            /* BlockForm atlas / cutout / BER paths often ignore or overwrite vertex RGB (esp.
+             * non-cube models). Negative glow must use ColorModulator with and without shaders —
+             * do not bake into `color` here (would double-darken when ColorModulator applies).
+             * BE tint gets its own bake in resolveBlockEntityColor. */
+            boolean negativeGlow = !context.isPicking() && !shadowPass && glowIntensity < 0F;
 
             boolean localPreview = context.isLocalPreview();
             boolean noshadingDefer = !localPreview
@@ -306,12 +318,22 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 blockShaderTint = new Color(1F, 1F, 1F, color.a);
                 FormColorEffects.blendFormGlowBrighten(blockShaderTint, glowSettings, legacyGlow);
             }
+            else if (negativeGlow && !blockEntityVisual)
+            {
+                /* Atlas / cutout models: darken via ColorModulator (vertex RGB is unreliable on
+                 * non-cube layers). Entity-visual BER uses resolveBlockEntityColor instead —
+                 * sharing this factor would double-darken when BER also setShaderColor(beTint). */
+                float factor = Math.max(0F, 1F + glowIntensity);
+
+                blockShaderTint = new Color(factor, factor, factor, 1F);
+            }
             else
             {
                 blockShaderTint = null;
             }
 
-            if (blockEntityVisual && blockShaderTint != null)
+            /* Positive Iris emission only — never treat negative ColorModulator as BE emission. */
+            if (blockEntityVisual && glowBakedInMainPass && blockShaderTint != null)
             {
                 this.blockMainPassGlowEmission = blockShaderTint.copy();
             }
@@ -375,6 +397,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         {
                             RenderSystem.enableBlend();
                             RenderSystem.defaultBlendFunc();
+                            /* Same as Structure soft: never leave a leftover ColorModulator. */
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                         }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
@@ -562,7 +586,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (shaderTint != null)
         {
-            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+            /* RGB carries Iris emission (glow bake) or negative-glow darken factor. Alpha must
+             * stay 1 — soft/form opacity is already in the vertex recolor. Matching StructureForm
+             * soft bloom; using shaderTint.a here squared opacity and caused a sudden darkening
+             * when glow > 0. */
+            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, 1F);
+        }
+        else
+        {
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 
@@ -1191,6 +1223,16 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         if (!runPaintOverlay && paintSettings != null && paintSettings.resolveIntensity(legacyPaint) != 0F)
         {
             FormColorEffects.applyPaintBlend(tint, paintSettings, legacyPaint);
+        }
+
+        GlowSettings glowSettings = this.form.glowSettings.get();
+        Color legacyGlow = this.form.glowingColor.get();
+
+        /* Negative glow must land in BER ColorModulator / recolor — atlas vertex bake never
+         * reaches sign/chest/bed meshes (non-cube entity visuals). */
+        if (glowSettings.resolveIntensity(legacyGlow) < 0F)
+        {
+            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
         }
 
         this.form.applyFormOpacity(tint);

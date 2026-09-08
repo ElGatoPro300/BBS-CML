@@ -602,7 +602,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         if (shaderTint != null)
         {
-            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+            /* RGB carries Iris emission (glow bake). Alpha must stay 1 — soft/form opacity is
+             * already in the white vertex recolor (same as BlockForm / StructureForm soft bloom). */
+            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, 1F);
         }
     }
 
