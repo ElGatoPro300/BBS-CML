@@ -39,6 +39,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 
@@ -788,10 +789,10 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         if (darken)
         {
             RenderSystem.blendFuncSeparate(
-                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_COLOR,
-                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO,
-                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_ALPHA,
-                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO
+                GlStateManager.SrcFactor.DST_COLOR,
+                GlStateManager.DstFactor.ZERO,
+                GlStateManager.SrcFactor.DST_ALPHA,
+                GlStateManager.DstFactor.ZERO
             );
         }
         else
