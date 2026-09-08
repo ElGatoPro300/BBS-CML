@@ -24,4 +24,5 @@ mutable field net/minecraft/client/input/Input movementVector Lnet/minecraft/uti
 
 accessible field net/minecraft/client/render/GameRenderer guiRenderer Lnet/minecraft/client/gui/render/GuiRenderer;
 accessible field net/minecraft/client/render/GameRenderer guiState Lnet/minecraft/client/gui/render/state/GuiRenderState;
-accessible field net/minecraft/client/render/GameRenderer fogRenderer Lnet/minecraft/client/render/fog/FogRenderer;
+accessible field net/minecraft/client/render/GameRenderer fogRenderer Lnet/minecraft/client/render/fog/FogRenderer;
+accessible field net/minecraft/client/gl/RenderPipelines POSITION_TEX_COLOR_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;

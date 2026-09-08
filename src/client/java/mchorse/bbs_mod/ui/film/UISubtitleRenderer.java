@@ -18,14 +18,13 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
 
+import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -54,19 +53,15 @@ public class UISubtitleRenderer
         });
     }
 
-    public static void renderSubtitles(MatrixStack stack, Batcher2D batcher, List<Subtitle> subtitles)
+    public static void renderSubtitles(Batcher2D batcher, List<Subtitle> subtitles, int width, int height)
     {
-        if (subtitles.isEmpty())
+        if (subtitles == null || subtitles.isEmpty())
         {
             return;
         }
 
         ShaderProgram program = BBSShaders.getSubtitlesProgram();
         Supplier<ShaderProgram> supplier = () -> program;
-
-        net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
-        int width = fb.textureWidth;
-        int height = fb.textureHeight;
 
         /* Text-atlas FBO applyClear() shrinks glViewport; beginWrite(false) alone may not
          * restore it (same class of bug as UIFilmController stencil picking). Save so
@@ -76,9 +71,6 @@ public class UISubtitleRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
 
         RenderSystem.backupProjectionMatrix();
-
-        width /= 2;
-        height /= 2;
 
         Framebuffer framebuffer = getTextFramebuffer();
         Texture texture = framebuffer.getMainTexture();
@@ -179,42 +171,19 @@ public class UISubtitleRenderer
 
             BBSRendering.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
 
-            stack.push();
-            stack.translate(x, y, 0);
+            Matrix3x2fStack matrices = batcher.getContext().getMatrices();
 
-            /* Rotate around the subtitle anchor in XYZ (same contract as Image overlays). */
-            if (subtitle.rotationX != 0F)
-            {
-                stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(subtitle.rotationX));
-            }
-
-            if (subtitle.rotationY != 0F)
-            {
-                stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(subtitle.rotationY));
-            }
+            matrices.pushMatrix();
+            matrices.translate(x, y);
 
             if (subtitle.rotation != 0F)
             {
-                stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(subtitle.rotation));
+                matrices.rotate((float) Math.toRadians(subtitle.rotation));
             }
 
-            if (program != null)
-            {
-                BBSUniform.set(program, "Blur", subtitle.shadow, subtitle.shadowOpaque ? 1F : 0F);
-                BBSUniform.set(program, "TextureSize", (float) texture.width, (float) texture.height);
-            }
+            batcher.texturedBox(texture, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height);
 
-            BBSRendering.enableBlend();
-            BBSRendering.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-
-            batcher.texturedBox(() -> BBSShaders.subtitlesPipeline, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
-
-            stack.pop();
-        }
-
-        if (program != null)
-        {
-            BBSUniform.set(program, "Blur", 0F, 0F);
+            matrices.popMatrix();
         }
 
         RenderSystem.restoreProjectionMatrix();
@@ -224,13 +193,31 @@ public class UISubtitleRenderer
         BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
     }
 
-    public static void renderSubtitle(MatrixStack stack, Batcher2D batcher, Subtitle subtitle)
+    public static void renderSubtitle(Batcher2D batcher, Subtitle subtitle, int width, int height)
     {
         if (subtitle == null)
         {
             return;
         }
 
-        renderSubtitles(stack, batcher, Collections.singletonList(subtitle));
+        renderSubtitles(batcher, Collections.singletonList(subtitle), width, height);
+    }
+
+    public static void renderSubtitles(MatrixStack stack, Batcher2D batcher, List<Subtitle> subtitles)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int width = mc.getWindow().getScaledWidth();
+        int height = mc.getWindow().getScaledHeight();
+
+        renderSubtitles(batcher, subtitles, width, height);
+    }
+
+    public static void renderSubtitle(MatrixStack stack, Batcher2D batcher, Subtitle subtitle)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int width = mc.getWindow().getScaledWidth();
+        int height = mc.getWindow().getScaledHeight();
+
+        renderSubtitle(batcher, subtitle, width, height);
     }
 }
