@@ -46,7 +46,7 @@ import java.util.Map;
 public class ArmorRenderer
 {
     private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
-    private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/elytra.png");
+    private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/equipment/wings/elytra.png");
     /** Outward shell — avoids coplanar z-fight with armor in film/world cameras (044b2f4a6). */
     private static final float TRIM_OUTER_SCALE = 1.005F;
     /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
@@ -86,9 +86,7 @@ public class ArmorRenderer
             if (type == ArmorType.CHEST && this.elytraModel != null)
             {
                 matrices.push();
-                /* Position Elytra at shoulder height and scale to fit back properly like Minecraft Vanilla */
-                matrices.translate(0F, -1.5F, 0.125F);
-                matrices.scale(2F, 2F, 2F);
+                matrices.translate(0F, 0F, 0.125F);
 
                 this.elytraModel.leftWing.originX = 5.0F;
                 this.elytraModel.leftWing.originY = 0.0F;
@@ -102,8 +100,8 @@ public class ArmorRenderer
                 float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
 
                 this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
-                this.elytraModel.leftWing.yaw = MathHelper.lerp(flyProgress, -0.015F, -0.1F);
-                this.elytraModel.leftWing.roll = MathHelper.lerp(flyProgress, -0.29F, -1.55F);
+                this.elytraModel.leftWing.yaw = MathHelper.lerp(flyProgress, 0F, -0.1F);
+                this.elytraModel.leftWing.roll = MathHelper.lerp(flyProgress, -0.2617994F, -1.55F);
                 this.elytraModel.rightWing.pitch = this.elytraModel.leftWing.pitch;
                 this.elytraModel.rightWing.yaw = -this.elytraModel.leftWing.yaw;
                 this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
