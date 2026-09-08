@@ -18,14 +18,11 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
-
-import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -93,11 +90,6 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
 
                 try
                 {
-                    if (mode == ModelTransformationMode.GUI)
-                    {
-                        DiffuseLighting.method_34742();
-                    }
-
                     int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
 
                     FormUtilsClient.render(form, new FormRenderingContext()
@@ -108,7 +100,6 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        DiffuseLighting.disableGuiDepthLighting();
                         BBSRendering.restoreAfterGuiItemForm();
                     }
                     else
