@@ -8,25 +8,23 @@ import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
-import mchorse.bbs_mod.items.GunZoom;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.LivingEntity;
 
-import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
-import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin
@@ -41,8 +39,10 @@ public class GameRendererMixin
      * This injection cancels bobbing when camera controller takes over
      */
     @Inject(method = "bobView", at = @At("HEAD"), cancellable = true)
-    public void onBob(PoseStack matrices, float tickDelta, CallbackInfo ci)
+    public void onBob(CameraRenderState cameraRenderState, PoseStack matrices, CallbackInfo ci)
     {
+        Minecraft mc = Minecraft.getInstance();
+        float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         Films.FirstPersonBobbingSample sample = BBSModClient.getFilms().getFirstPersonBobbingSample(tickDelta);
 
         if (sample != null)
@@ -108,36 +108,11 @@ public class GameRendererMixin
     }
 
     /**
-     * This injection replaces the camera FOV when camera controller takes over
-     */
-    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    public void onGetFov(CallbackInfoReturnable<Float> info)
-    {
-        GunZoom gunZoom = BBSModClient.getGunZoom();
-
-        if (gunZoom != null)
-        {
-            info.setReturnValue(gunZoom.getFOV(info.getReturnValue()));
-
-            return;
-        }
-
-        CameraController controller = BBSModClient.getCameraController();
-
-        if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
-        {
-            info.setReturnValue((float) controller.getFOV());
-        }
-    }
-
-    /**
      * Replaces vanilla camera roll with the active BBS film/editor roll, while still
-     * applying vanilla hurt/death tilt from the camera entity. Cancelling the whole
-     * method previously removed damage shake during first-person film playback whenever
-     * a camera controller (e.g. film editor runner) was active.
+     * applying vanilla hurt/death tilt from the camera entity.
      */
     @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
-    public void onTiltViewWhenHurt(PoseStack matrices, float tickDelta, CallbackInfo info)
+    public void onTiltViewWhenHurt(CameraRenderState cameraRenderState, PoseStack matrices, CallbackInfo info)
     {
         CameraController controller = BBSModClient.getCameraController();
 
@@ -148,25 +123,26 @@ public class GameRendererMixin
 
         matrices.mulPose(Axis.ZP.rotationDegrees(controller.getRoll()));
 
-        Minecraft client = Minecraft.getInstance();
+        CameraEntityRenderState entityRenderState = cameraRenderState.entityRenderState;
 
-        if (client.getCameraEntity() instanceof LivingEntity livingEntity)
+        if (entityRenderState != null && entityRenderState.isLiving)
         {
-            float f = livingEntity.hurtTime - tickDelta;
+            float f = entityRenderState.hurtTime;
 
-            if (livingEntity.isDeadOrDying())
+            if (entityRenderState.isDeadOrDying)
             {
-                float deathTilt = Math.min(livingEntity.deathTime + tickDelta, 20.0F);
+                float deathTilt = Math.min(entityRenderState.deathTime, 20.0F);
 
                 matrices.mulPose(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (deathTilt + 200.0F)));
             }
 
-            if (f >= 0.0F && livingEntity.hurtDuration > 0)
+            if (f >= 0.0F && entityRenderState.hurtDuration > 0)
             {
-                f /= livingEntity.hurtDuration;
+                f /= (float) entityRenderState.hurtDuration;
                 f = Mth.sin(f * f * f * f * (float) Math.PI);
 
-                float tiltYaw = livingEntity.getHurtDir();
+                float tiltYaw = entityRenderState.hurtDir;
+                Minecraft client = Minecraft.getInstance();
                 float strength = (float) (-f * 14.0 * client.options.damageTiltStrength().get());
 
                 matrices.mulPose(Axis.YP.rotationDegrees(-tiltYaw));
@@ -179,7 +155,7 @@ public class GameRendererMixin
     }
 
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
-    public void onRenderHand(float tickDelta, boolean sleeping, Matrix4f positionMatrix, CallbackInfo info)
+    public void onRenderHand(CameraRenderState cameraRenderState, float tickDelta, Matrix4fc positionMatrix, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 
@@ -197,12 +173,11 @@ public class GameRendererMixin
 
     /**
      * Flush Iris-deferred paint overlays after the world has been composited but before
-     * AAA Particles pastes a cleared depth buffer and draws Effekseer (same GETFIELD point
-     * as AAA's {@code beforeRenderHand}, earlier {@code order} so we run first).
+     * AAA Particles pastes a cleared depth buffer and draws Effekseer.
      */
     @Inject(
         method = "renderLevel",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderItemInHand(FZLorg/joml/Matrix4f;)V"),
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderItemInHand(Lnet/minecraft/client/renderer/state/level/CameraRenderState;FLorg/joml/Matrix4fc;)V"),
         order = 900
     )
     private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)

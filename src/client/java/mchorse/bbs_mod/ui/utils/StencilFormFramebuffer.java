@@ -114,9 +114,9 @@ public class StencilFormFramebuffer
 
             renderbuffer.resize(2, 2);
 
-            framebuffer.deleteTextures().attach(texture, GL30.GL_COLOR_ATTACHMENT0);
-            framebuffer.attach(renderbuffer);
-            framebuffer.unbind();
+            fb.deleteTextures().attach(texture, GL30.GL_COLOR_ATTACHMENT0);
+            fb.attach(renderbuffer);
+            fb.unbind();
         });
     }
 
@@ -157,12 +157,13 @@ public class StencilFormFramebuffer
         this.releaseGpuTargets();
 
         this.colorTexture = RenderSystem.getDevice().createTexture("bbs_stencil_color",
-            GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_SRC,
+            GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_SRC | GpuTexture.USAGE_COPY_DST,
             TextureFormat.RGBA8, w, h, 1, 1);
         this.colorView = RenderSystem.getDevice().createTextureView(this.colorTexture);
 
         this.depthTexture = RenderSystem.getDevice().createTexture("bbs_stencil_depth",
-            GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.DEPTH32, w, h, 1, 1);
+            GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
+            TextureFormat.DEPTH32, w, h, 1, 1);
         this.depthView = RenderSystem.getDevice().createTextureView(this.depthTexture);
 
         int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);

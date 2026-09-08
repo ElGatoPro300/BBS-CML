@@ -3,14 +3,15 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.Camera;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LevelTargetBundle;
+import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.phys.Vec3;
 
-import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -33,7 +34,7 @@ public class WorldRendererMixin
     private LevelTargetBundle targets;
 
     @Inject(method = "addSkyPass", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, GpuBufferSlice fogBuffer, CallbackInfo info)
+    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, CameraRenderState camera, GpuBufferSlice fogBuffer, CallbackInfo info)
     {
         if (BBSRendering.isChromaSkyEnabled())
         {
@@ -52,7 +53,7 @@ public class WorldRendererMixin
     }
 
     @Inject(method = "addCloudsPass", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, CloudStatus cloudRenderMode, Vec3 cameraPos, long tick, float tickDelta, int color, float cloudHeight, CallbackInfo info)
+    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, CloudStatus cloudRenderMode, Vec3 cameraPos, long tick, float tickDelta, int color, float cloudHeight, int cloudDistance, CallbackInfo info)
     {
         if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
         {
@@ -70,13 +71,29 @@ public class WorldRendererMixin
     }
 
     @Inject(method = "renderLevel", at = @At("HEAD"))
-    public void onCaptureWorldMatrices(GraphicsResourceAllocator allocator, DeltaTracker tickCounter, boolean renderBlockOutline,
-        Camera camera, Matrix4f positionMatrix, Matrix4f basicProjectionMatrix, Matrix4f projectionMatrix,
-        GpuBufferSlice fogBuffer, Vector4f fogColor, boolean renderSky, CallbackInfo info)
+    public void onCaptureWorldMatrices(
+        GraphicsResourceAllocator allocator,
+        DeltaTracker tickCounter,
+        boolean renderBlockOutline,
+        CameraRenderState camera,
+        Matrix4fc projectionMatrix,
+        GpuBufferSlice fogBuffer,
+        Vector4f fogColor,
+        boolean renderSky,
+        ChunkSectionsToRender chunkSectionsToRender,
+        CallbackInfo info
+    )
     {
         /* The frustum projection omits camera effects. Rendering must match the terrain projection. */
-        BBSRendering.camera.set(positionMatrix);
-        BBSRendering.projection.set(basicProjectionMatrix);
+        if (camera != null && camera.viewRotationMatrix != null)
+        {
+            BBSRendering.camera.set(camera.viewRotationMatrix);
+        }
+
+        if (projectionMatrix != null)
+        {
+            BBSRendering.projection.set(projectionMatrix);
+        }
     }
 
     @Inject(at = @At("RETURN"), method = "initOutline")

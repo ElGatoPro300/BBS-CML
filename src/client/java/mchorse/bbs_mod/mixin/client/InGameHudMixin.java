@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Gui.class)
 public class InGameHudMixin
 {
-    @Inject(method = "render", at = @At(value = "HEAD"), cancellable = true)
+    @Inject(method = "extractRenderState", at = @At(value = "HEAD"), cancellable = true)
     public void render(GuiGraphicsExtractor drawContext, DeltaTracker tickCounter, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
@@ -36,7 +36,7 @@ public class InGameHudMixin
         BBSRendering.prepareHudRenderState();
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
     public void onRenderEnd(GuiGraphicsExtractor drawContext, DeltaTracker tickCounter, CallbackInfo info)
     {
         BBSRendering.onRenderBeforeScreen();
