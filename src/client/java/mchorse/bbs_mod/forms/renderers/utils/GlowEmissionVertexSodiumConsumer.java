@@ -22,6 +22,12 @@ public class GlowEmissionVertexSodiumConsumer extends GlowEmissionVertexConsumer
     }
 
     @Override
+    public boolean canUseIntrinsics()
+    {
+        return this.consumer instanceof VertexBufferWriter writer && writer.canUseIntrinsics();
+    }
+
+    @Override
     public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
@@ -57,6 +63,23 @@ public class GlowEmissionVertexSodiumConsumer extends GlowEmissionVertexConsumer
         try
         {
             return super.color(red, green, blue, alpha);
+        }
+        finally
+        {
+            emissionColor = saved;
+        }
+    }
+
+    @Override
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        Color saved = emissionColor;
+
+        emissionColor = null;
+
+        try
+        {
+            super.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         }
         finally
         {

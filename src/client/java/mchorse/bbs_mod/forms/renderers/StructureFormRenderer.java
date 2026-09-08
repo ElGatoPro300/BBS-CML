@@ -161,7 +161,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
 
-        if (glowIntensity < 0F)
+        if (glowIntensity < 0F && !FormColorEffects.wantsNegativeGlowOverlay(glowSettings, legacyGlow))
         {
             FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
         }
@@ -169,46 +169,51 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral;
         Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
-        boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
+        boolean runPaintOverlay = FormColorEffects.wantsPaintOverlay(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean positiveGlow = glowIntensity > 0F;
-        Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(tint, resolvedPaint);
+        boolean negativeGlowMasked = FormColorEffects.wantsNegativeGlowOverlay(glowSettings, legacyGlow);
+        Color mainPassPaint = FormColorEffects.defersNegativePaintToOverlay(this.form.paintSettings.get(), this.form.paintColor.get())
+            ? null
+            : resolvedPaint;
+        Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(tint, mainPassPaint);
+        Color vaoTint = tint.copy();
 
         IModelVAO vao = this.getVao();
 
-            if (vao != null)
-            {
-                GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-                ShaderProgram shader = BBSShaders.getModel();
+        if (vao != null)
+        {
+            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+            ShaderProgram shader = BBSShaders.getModel();
 
-                gameRenderer.getLightmapTextureManager().enable();
-                gameRenderer.getOverlayTexture().setupOverlayColor();
+            gameRenderer.getLightmapTextureManager().enable();
+            gameRenderer.getOverlayTexture().setupOverlayColor();
 
-                RenderSystem.setShader(() -> shader);
-                RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShader(() -> shader);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
 
             boolean needBlendUI = tint.a < 0.999F || this.data.hasTranslucentLayer();
 
-                if (needBlendUI)
-                {
-                    RenderSystem.enableBlend();
-                    RenderSystem.defaultBlendFunc();
-                }
-                else
-                {
-                    RenderSystem.disableBlend();
-                }
+            if (needBlendUI)
+            {
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+            }
+            else
+            {
+                RenderSystem.disableBlend();
+            }
 
-                RenderSystem.enableCull();
+            RenderSystem.enableCull();
 
-            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+            this.overlayRenderer.prepareVaoPaintForMainPass(mainPassPaint);
+            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, negativeGlowMasked ? 0F : glowIntensity);
 
-                try
-                {
-                    ModelVAORenderer.render(shader, vao, matrices, tint.r, tint.g, tint.b, tint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-                }
-                finally
-                {
+            try
+            {
+                ModelVAORenderer.render(shader, vao, matrices, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+            }
+            finally
+            {
                 this.overlayRenderer.clearVaoColorTint();
                 this.overlayRenderer.clearVaoPaint();
                 this.overlayRenderer.clearVaoGlow();
@@ -241,7 +246,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 gameRenderer.getOverlayTexture().teardownOverlayColor();
                 RenderSystem.disableBlend();
 
-                if (positivePaint)
+                if (runPaintOverlay)
                 {
                     EffectTransform paintTransform = this.form.paintSettings.get().transform;
                     this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
@@ -252,7 +257,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
 
-                if (positiveGlow)
+                if (positiveGlow || negativeGlowMasked)
                 {
                     this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.DEFAULT_UV, false, BBSRendering.isIrisShadersEnabled(), null, (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
@@ -330,18 +335,23 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             PaintSettings paintSettings = this.form.paintSettings.get();
             Color legacyPaint = this.form.paintColor.get();
             Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
-            boolean positivePaint = !picking && !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+            boolean runPaintOverlay = !picking && !shadowPass && FormColorEffects.wantsPaintOverlay(paintSettings, legacyPaint);
             boolean applyColorTint = colorTransformWanted && !picking && !shadowPass;
-            Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(mainTint3D, resolvedPaint);
+            Color mainPassPaint = FormColorEffects.defersNegativePaintToOverlay(paintSettings, legacyPaint)
+                ? null
+                : resolvedPaint;
+            Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(mainTint3D, mainPassPaint);
             Color vaoTint = mainTint3D.copy();
             Function<VertexConsumer, VertexConsumer> layerRecolor = mainRecolor;
+
             /* Same contract as BlockForm/ItemForm: bake emission during Iris world (incl. soft
              * post-deferred flush). Post-composite additive glow overlays never bloom.
              * Structure still draws the additive glow overlay whenever glow is positive — Iris
              * VAO solids ignore ColorModulator, so baking alone is not enough for visible glow. */
             boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
+            boolean negativeGlowMasked = !picking && !shadowPass && FormColorEffects.wantsNegativeGlowOverlay(glowSettings, legacyGlow);
 
-            if (glowIntensity < 0F)
+            if (glowIntensity < 0F && !negativeGlowMasked)
             {
                 FormColorEffects.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow);
                 FormColorEffects.blendFormGlowBrighten(vaoTint, glowSettings, legacyGlow);
@@ -352,7 +362,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                  * Base emission on a neutral white base so form color tint does not distort bloom. */
                 vaoTint = new Color(1F, 1F, 1F, mainTint3D.a);
                 FormColorEffects.blendFormGlowBrighten(vaoTint, glowSettings, legacyGlow);
-                layerRecolor = this.getMainConsumer(new Color(1F, 1F, 1F, mainTint3D.a), resolvedPaint);
+                layerRecolor = this.getMainConsumer(new Color(1F, 1F, 1F, mainTint3D.a), mainPassPaint);
             }
 
             boolean shaders = BBSRendering.isIrisShadersEnabled();
@@ -362,6 +372,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             final Color softGlowShaderTint = (glowBakedInMainPass && shaders && BBSRendering.isRenderingWorld())
                 ? vaoTint.copy()
                 : null;
+            /* Iris world solids draw with entity_translucent (no PaintColor uniforms). Uniform
+             * negative paint must bake into VAO tint — same idea as negative glow on vaoTint.
+             * BBS model.fsh (no shaders / UI) still uses prepareVaoPaintForMainPass. */
+            boolean irisEntityVao = shaders && BBSRendering.isRenderingWorld();
+            boolean bakeNegativePaintIntoVaoTint = irisEntityVao
+                && mainPassPaint != null
+                && mainPassPaint.a < 0F;
+
+            if (bakeNegativePaintIntoVaoTint)
+            {
+                FormColorEffects.applyPaintBlend(vaoTint, paintSettings, legacyPaint);
+            }
 
             if (vao != null)
             {
@@ -393,15 +415,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
                         Matrix4f sortRootMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
                         Color mainTintSnapshot = mainTint3D.copy();
-
-                        /* Soft Structure draws entity_translucent — same Iris discard floor as
-                         * ModelForm (~28/255). Ease only the ultra-low band; squared-alpha
-                         * vanish near ~82/255 is fixed in RecolorVertexSodiumConsumer. */
-                        if (mainTintSnapshot.a > 0.001F && mainTintSnapshot.a < BBSRendering.TRANSLUCENT_ALPHA_DISCARD_REF)
-                        {
-                            mainTintSnapshot.a = BBSRendering.easeDeferredModelAlpha(mainTintSnapshot.a);
-                        }
-
                         Color formColor3DSnapshot = formColor3D.copy();
                         Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
                         PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
@@ -409,21 +422,20 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         int overlaySnapshot = context.overlay;
                         boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(mainTint3D.a);
                         boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(mainTint3D.a);
-                        boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
+                        boolean positiveGlowSnapshot = (positiveGlow && !glowSettings.resolvePaintOnly()) || negativeGlowMasked;
                         float glowIntensitySnapshot = glowIntensity;
                         GlowSettings glowSettingsSnapshot = glowSettings;
                         Color legacyGlowSnapshot = legacyGlow;
-                        boolean positivePaintSnapshot = positivePaint;
+                        boolean positivePaintSnapshot = runPaintOverlay;
                         boolean applyColorTintSnapshot = applyColorTint;
                         boolean beTintSnapshot = !irisWorldPaintDeferral;
                         IModelVAO vaoSnapshot = vao;
                         boolean shadersSnapshot = shaders;
                         Color softGlowShaderTintSnapshot = softGlowShaderTint == null ? null : softGlowShaderTint.copy();
-                        /* Neutral white vertices + ColorModulator emission (BlockForm soft bloom).
-                         * Opacity stays in vertices; ColorModulator.a = 1 (no Sodium opacity²). */
+                        /* Neutral white vertices + ColorModulator emission (BlockForm soft bloom). */
                         Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = softGlowShaderTintSnapshot != null
-                            ? this.getMainConsumer(new Color(1F, 1F, 1F, mainTintSnapshot.a), resolvedPaintSnapshot)
-                            : this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
+                            ? this.getMainConsumer(new Color(1F, 1F, 1F, mainTintSnapshot.a), mainPassPaint == null ? null : mainPassPaint.copy())
+                            : this.getMainConsumer(mainTintSnapshot, mainPassPaint == null ? null : mainPassPaint.copy());
                         RenderInfo sortInfo = this.calculateRenderInfo(context, false);
                         List<BlockEntry> softBlocks = new ArrayList<>(this.data.getBlocks());
 
@@ -519,11 +531,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                             RenderSystem.enableBlend();
                             RenderSystem.defaultBlendFunc();
 
-                            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-                            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+                            this.overlayRenderer.prepareVaoPaintForMainPass(bakeNegativePaintIntoVaoTint ? null : mainPassPaint);
+                            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, negativeGlowMasked ? 0F : glowIntensity);
 
                             try
                             {
+                                /* Brighten stays in VAO vertex color — Iris entity gbuffer often ignores
+                                 * setShaderColor on raw VAO draws (ColorModulator alone washes solids). */
                                 ModelVAORenderer.render(shader, vao, context.stack, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, light, context.overlay);
                             }
                             finally
@@ -583,13 +597,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
                 }
 
-                if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
+                if ((!softPostDeferred && !noshadingDefer && runPaintOverlay) || (softPostDeferred && submitIrisOverlays && runPaintOverlay))
                 {
                     EffectTransform paintTransform = paintSettings.transform;
                     this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                 }
 
-                if ((!softPostDeferred && !noshadingDefer && positiveGlow) || (softPostDeferred && submitIrisOverlays && positiveGlow))
+                if ((!softPostDeferred && !noshadingDefer && (positiveGlow || negativeGlowMasked)) || (softPostDeferred && submitIrisOverlays && (positiveGlow || negativeGlowMasked)))
                 {
                     if (irisWorldPaintDeferral)
                     {
@@ -1494,7 +1508,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             /* Always force ColorModulator.a = 1 in shadow (even without shaderTint / when
              * isRenderingWorld is false). Leftover modulator alpha × recolor opacity squares
-             * leaf Bayer dither vs solid VAO. */
+             * leaf Bayer dither vs solid VAO. Negative paint uses BlockPaint recolor — same rule. */
             final Color tint = shaderTint;
 
             CustomVertexConsumerProvider.hijackVertexFormat((l) ->

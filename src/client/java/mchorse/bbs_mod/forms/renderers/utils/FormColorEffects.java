@@ -130,6 +130,101 @@ public class FormColorEffects
     }
 
     /**
+     * Paint overlay (spatial mask) for positive tint, or negative darken when a paint transform
+     * is active — same contract as ModelForm {@code PaintColor.a < 0} + {@code PaintEffect} mask.
+     * Uniform negative paint without a transform still bakes into the main pass.
+     */
+    public static boolean wantsPaintOverlay(PaintSettings paintSettings, Color legacyPaint)
+    {
+        if (paintSettings == null)
+        {
+            return false;
+        }
+
+        float intensity = paintSettings.resolveIntensity(legacyPaint);
+
+        if (intensity > 0F)
+        {
+            return true;
+        }
+
+        return intensity < 0F && paintSettings.transform != null && paintSettings.transform.isActive();
+    }
+
+    /**
+     * True when negative paint must stay off the main/BER bake because the masked overlay owns it.
+     */
+    public static boolean defersNegativePaintToOverlay(PaintSettings paintSettings, Color legacyPaint)
+    {
+        if (paintSettings == null)
+        {
+            return false;
+        }
+
+        return paintSettings.resolveIntensity(legacyPaint) < 0F
+            && paintSettings.transform != null
+            && paintSettings.transform.isActive();
+    }
+
+    /**
+     * Negative glow with an active spatial transform uses a multiply darken overlay
+     * (ModelForm GlowEffect mask). Uniform negative glow stays on the main pass.
+     */
+    public static boolean wantsNegativeGlowOverlay(GlowSettings glow, Color legacyGlow)
+    {
+        if (glow == null)
+        {
+            return false;
+        }
+
+        float intensity = glow.resolveIntensity(legacyGlow);
+
+        if (intensity >= 0F || glow.resolvePaintOnly())
+        {
+            return false;
+        }
+
+        EffectTransform transform = resolveGlowEffectTransform(glow, legacyGlow);
+
+        return transform != null && transform.isActive();
+    }
+
+    /**
+     * Positive paint: RGB + strength×formAlpha in {@code a}.
+     * Negative paint: RGB = darken factor, {@code a} = form opacity (multiply-mask coverage).
+     */
+    public static Color resolvePaintOverlayDrawColor(Color resolvedPaint, float formAlpha)
+    {
+        if (resolvedPaint == null)
+        {
+            return new Color(1F, 1F, 1F, formAlpha);
+        }
+
+        if (resolvedPaint.a < 0F)
+        {
+            float factor = Math.max(0F, 1F + resolvedPaint.a);
+
+            return new Color(factor, factor, factor, formAlpha);
+        }
+
+        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
+
+        paintOverlay.a *= formAlpha;
+
+        return paintOverlay;
+    }
+
+    /**
+     * Multiply-darken overlay color for masked negative glow (RGB = factor, a = form opacity).
+     */
+    public static Color resolveNegativeGlowDarkenOverlayColor(float glowIntensity, float formAlpha)
+    {
+        float factor = Math.max(0F, 1F + glowIntensity);
+
+        return new Color(factor, factor, factor, formAlpha);
+    }
+
+    /**
      * True when Color should use a spatial mask / FormColorTint overlay instead of baking
      * into vertex color — same rules as ModelFormRenderer.canApplyColorTransformMask, without
      * requiring a ModelInstance.

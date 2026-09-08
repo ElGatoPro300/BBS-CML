@@ -115,34 +115,52 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         GlowSettings glowSettings = this.form.glowSettings.get();
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
+        boolean blockEntityVisual = this.isBlockEntityVisual();
+        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+        boolean uiGlowMasked = glowIntensity < 0F && hasGlowTransform && !glowSettings.resolvePaintOnly();
+        final Color uiNegativeGlowTint;
 
-        if (glowIntensity < 0F)
+        /* Match world path: atlas negative glow via ColorModulator; BE via resolveBlockEntityColor.
+         * Masked negative glow uses the overlay pass instead. */
+        if (glowIntensity < 0F && !blockEntityVisual && !uiGlowMasked)
         {
-            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow);
+            float factor = Math.max(0F, 1F + glowIntensity);
+
+            uiNegativeGlowTint = new Color(factor, factor, factor, 1F);
+        }
+        else
+        {
+            uiNegativeGlowTint = null;
         }
 
-        Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
-        boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
-        boolean blockEntityVisual = this.isBlockEntityVisual();
-
         CustomVertexConsumerProvider.clearRunnables();
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            this.applyBlockMainPassHijackLayer(layer, uiNegativeGlowTint);
+        });
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
         RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
 
-        consumers.setSubstitute(this.getBlockMainConsumer(set, resolvedPaint));
+        Color mainPassPaint = FormColorEffects.defersNegativePaintToOverlay(this.form.paintSettings.get(), this.form.paintColor.get())
+            ? null
+            : resolvedPaint;
+
+        consumers.setSubstitute(this.getBlockMainConsumer(set, mainPassPaint));
         consumers.setUI(true);
         this.renderRepeatedBlocks(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false, true, false, false, false);
 
         consumers.draw();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         CustomVertexConsumerProvider.clearRunnables();
 
-        boolean runPaintOverlay = this.shouldRunBlockPaintOverlay(blockEntityVisual, this.form.paintSettings.get(), positivePaint);
+        boolean runPaintOverlay = FormColorEffects.wantsPaintOverlay(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean runColorTintOverlay = this.shouldRunBlockColorTintOverlay(blockEntityVisual, storedFormColor);
-        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
-        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-        boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(glowIntensity > 0F && !glowSettings.resolvePaintOnly());
+        boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(
+            (glowIntensity > 0F && !glowSettings.resolvePaintOnly()) || uiGlowMasked);
 
         if (runColorTintOverlay)
         {
@@ -260,16 +278,19 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             boolean blockEntityVisual = this.isBlockEntityVisual();
             EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
             boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-            boolean runPaintOverlay = this.shouldRunBlockPaintOverlay(blockEntityVisual, paintSettings, positivePaint);
+            boolean runPaintOverlay = !context.isPicking() && !shadowPass && FormColorEffects.wantsPaintOverlay(paintSettings, legacyPaint);
             boolean runColorTintOverlay = this.shouldRunBlockColorTintOverlay(blockEntityVisual, storedFormColor);
             boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
             boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
             final EffectTransform deferredGlowTransform = hasGlowTransform ? glowTransform.copy() : null;
-
-            if (glowIntensity < 0F)
-            {
-                FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
-            }
+            /* BlockForm atlas / cutout / BER paths often ignore or overwrite vertex RGB (esp.
+             * non-cube models). Negative glow must use ColorModulator with and without shaders —
+             * do not bake into `color` here (would double-darken when ColorModulator applies).
+             * BE tint gets its own bake in resolveBlockEntityColor. Masked negative glow uses
+             * the multiply darken overlay instead (same as ModelForm GlowEffect mask). */
+            boolean negativeGlow = !context.isPicking() && !shadowPass && glowIntensity < 0F;
+            boolean negativeGlowMasked = negativeGlow && hasGlowTransform && !glowSettings.resolvePaintOnly();
+            boolean negativeGlowUniform = negativeGlow && !negativeGlowMasked;
 
             boolean localPreview = context.isLocalPreview();
             boolean noshadingDefer = !localPreview
@@ -282,7 +303,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
                 && !noshadingDefer;
             boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
-            boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass);
+            boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(
+                (positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass) || negativeGlowMasked);
             final Color blockRecolorSource;
 
             if (glowBakedInMainPass)
@@ -294,7 +316,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 blockRecolorSource = color;
             }
 
-            final Function<VertexConsumer, VertexConsumer> blockMainRecolor = this.getBlockMainConsumer(blockRecolorSource, resolvedPaint);
+            /* Negative paint with an active transform is owned by the overlay — do not bake. */
+            Color mainPassPaint = FormColorEffects.defersNegativePaintToOverlay(paintSettings, legacyPaint)
+                ? null
+                : resolvedPaint;
+            final Function<VertexConsumer, VertexConsumer> blockMainRecolor = this.getBlockMainConsumer(blockRecolorSource, mainPassPaint);
             final Color blockShaderTint;
 
             if (glowBakedInMainPass && BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
@@ -306,12 +332,22 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 blockShaderTint = new Color(1F, 1F, 1F, color.a);
                 FormColorEffects.blendFormGlowBrighten(blockShaderTint, glowSettings, legacyGlow);
             }
+            else if (negativeGlowUniform && !blockEntityVisual)
+            {
+                /* Atlas / cutout models: darken via ColorModulator (vertex RGB is unreliable on
+                 * non-cube layers). Entity-visual BER uses resolveBlockEntityColor instead —
+                 * sharing this factor would double-darken when BER also setShaderColor(beTint). */
+                float factor = Math.max(0F, 1F + glowIntensity);
+
+                blockShaderTint = new Color(factor, factor, factor, 1F);
+            }
             else
             {
                 blockShaderTint = null;
             }
 
-            if (blockEntityVisual && blockShaderTint != null)
+            /* Positive Iris emission only — never treat negative ColorModulator as BE emission. */
+            if (blockEntityVisual && glowBakedInMainPass && blockShaderTint != null)
             {
                 this.blockMainPassGlowEmission = blockShaderTint.copy();
             }
@@ -375,6 +411,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         {
                             RenderSystem.enableBlend();
                             RenderSystem.defaultBlendFunc();
+                            /* Same as Structure soft: never leave a leftover ColorModulator. */
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                         }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
@@ -461,6 +499,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 {
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
+                        /* Recolor already has form opacity; leftover ColorModulator.a would square
+                         * Bayer dither (same as soft Structure leaves / negative paint). */
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                         ShaderOpacityPatch.uploadShadowFormUniform();
                     });
                 }
@@ -559,7 +600,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (shaderTint != null)
         {
-            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+            /* RGB carries Iris emission (glow bake) or negative-glow darken factor. Alpha must
+             * stay 1 — soft/form opacity is already in the vertex recolor. Matching StructureForm
+             * soft bloom; using shaderTint.a here squared opacity and caused a sudden darkening
+             * when glow > 0. */
+            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, 1F);
+        }
+        else
+        {
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 
@@ -1170,8 +1219,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         Color storedFormColor = this.form.color.get();
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
-        boolean blockEntityVisual = this.isBlockEntityVisual();
-        boolean runPaintOverlay = this.shouldRunBlockPaintOverlay(blockEntityVisual, paintSettings, FormColorEffects.hasPositivePaint(paintSettings, legacyPaint));
         Color tint;
 
         if (this.shouldUseEntityVisualColorTintOverlay(storedFormColor))
@@ -1184,10 +1231,27 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         /* Uniform and masked paint on entity-visual blocks use the BER paint overlay pass
-         * (block atlas overlays corrupt sign/chest atlases). Do not also bake paint into BE tint. */
-        if (!runPaintOverlay && paintSettings != null && paintSettings.resolveIntensity(legacyPaint) != 0F)
+         * (block atlas overlays corrupt sign/chest atlases). Do not also bake paint into BE tint.
+         * Negative paint with an active transform is owned by the multiply darken overlay. */
+        if (!FormColorEffects.wantsPaintOverlay(paintSettings, legacyPaint)
+            && paintSettings != null
+            && paintSettings.resolveIntensity(legacyPaint) != 0F)
         {
             FormColorEffects.applyPaintBlend(tint, paintSettings, legacyPaint);
+        }
+
+        GlowSettings glowSettings = this.form.glowSettings.get();
+        Color legacyGlow = this.form.glowingColor.get();
+        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+        boolean glowMasked = glowTransform != null && glowTransform.isActive();
+
+        /* Negative glow must land in BER ColorModulator / recolor — atlas vertex bake never
+         * reaches sign/chest/bed meshes (non-cube entity visuals). Masked negative glow uses
+         * the overlay instead so color transforms are respected. */
+        if (glowIntensity < 0F && !glowMasked)
+        {
+            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
         }
 
         this.form.applyFormOpacity(tint);
@@ -1618,9 +1682,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
         Matrix4f exactStack = new Matrix4f(stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
-        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
-
-        paintOverlay.a *= alpha;
+        Color paintOverlay = this.resolvePaintOverlayDrawColor(resolvedPaint, alpha);
+        boolean multiplyDarken = resolvedPaint != null && resolvedPaint.a < 0F;
 
         ModelVAORenderer.submitPaintOverlay(false, () ->
         {
@@ -1636,7 +1699,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             try
             {
-                this.renderPaintOverlayPass(null, overlayStack, overlayConsumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha);
+                this.renderPaintOverlayPass(null, overlayStack, overlayConsumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha, multiplyDarken);
             }
             finally
             {
@@ -1646,6 +1709,31 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         });
     }
 
+    /**
+     * Positive paint: RGB + strength*formAlpha in {@code a}.
+     * Negative paint: RGB = darken factor, {@code a} = form opacity (multiply-mask coverage).
+     */
+    private Color resolvePaintOverlayDrawColor(Color resolvedPaint, float alpha)
+    {
+        if (resolvedPaint == null)
+        {
+            return new Color(1F, 1F, 1F, alpha);
+        }
+
+        if (resolvedPaint.a < 0F)
+        {
+            float factor = Math.max(0F, 1F + resolvedPaint.a);
+
+            return new Color(factor, factor, factor, alpha);
+        }
+
+        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
+
+        paintOverlay.a *= alpha;
+
+        return paintOverlay;
+    }
+
     private void renderPaintOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color resolvedPaint, float alpha, int overlay, boolean ui, EffectTransform transform)
     {
         this.renderPaintOverlay(context, stack, consumers, resolvedPaint, alpha, overlay, ui, transform, null, null, 0F);
@@ -1653,19 +1741,23 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderPaintOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color resolvedPaint, float alpha, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
-        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
+        Color paintOverlay = this.resolvePaintOverlayDrawColor(resolvedPaint, alpha);
+        boolean multiplyDarken = resolvedPaint != null && resolvedPaint.a < 0F;
 
-        paintOverlay.a *= alpha;
-
-        this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha);
+        this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha, multiplyDarken);
     }
 
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform)
     {
-        this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, null, null, 0F, 1F);
+        this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, null, null, 0F, 1F, false);
     }
 
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
+    {
+        this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha, false);
+    }
+
+    private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, boolean multiplyDarken)
     {
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
         boolean entityVisual = this.shouldUseEntityVisualPaintOverlay();
@@ -1677,6 +1769,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         final EffectTransform maskTransform = paintTransform;
+        final boolean darken = multiplyDarken;
         boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
@@ -1684,16 +1777,30 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         {
             if (entityVisual)
             {
-                BlockEffectOverlayUniforms.configurePaintOverlayRenderStateEntityVisual(formRootInverse, maskTransform, true, glowSettings, legacyGlow, glowIntensity, alpha);
+                BlockEffectOverlayUniforms.configurePaintOverlayRenderStateEntityVisual(formRootInverse, maskTransform, true, glowSettings, legacyGlow, glowIntensity, alpha, darken);
             }
             else
             {
-                BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, maskTransform, true, glowSettings, legacyGlow, glowIntensity, alpha);
+                BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, maskTransform, true, glowSettings, legacyGlow, glowIntensity, alpha, 0.5F, true, darken);
             }
         });
 
         RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        if (darken)
+        {
+            RenderSystem.blendFuncSeparate(
+                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_COLOR,
+                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO,
+                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_ALPHA,
+                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO
+            );
+        }
+        else
+        {
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
+
         RenderSystem.depthMask(false);
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
@@ -1767,6 +1874,23 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderGlowOverlayMasked(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, EffectTransform glowTransform)
     {
+        if (glowIntensity < 0F)
+        {
+            /* Negative glow + spatial mask: multiply darken (ModelForm GlowEffect), not additive bloom. */
+            float factor = Math.max(0F, 1F + glowIntensity);
+            Color darken = new Color(factor, factor, factor, alpha);
+            EffectTransform mask = glowTransform;
+
+            if (mask == null)
+            {
+                mask = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+            }
+
+            this.renderPaintOverlayPass(context, stack, consumers, darken, overlay, ui, mask, null, null, 0F, alpha, true);
+
+            return;
+        }
+
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
         EffectTransform resolvedTransform = glowTransform;

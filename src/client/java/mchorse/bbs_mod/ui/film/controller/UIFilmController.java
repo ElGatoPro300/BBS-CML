@@ -58,6 +58,7 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.ui.utils.context.ContextAction;
 import mchorse.bbs_mod.ui.utils.keys.KeyAction;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.CollectionUtils;
@@ -920,6 +921,10 @@ public class UIFilmController extends UIElement
             return;
         }
 
+        List<String> recordedGroups = this.recordingGroups;
+        int recordedFromTick = this.recordingTick;
+        BaseType recordedOld = this.recordingOld;
+
         this.recording = false;
         this.recordingGroups = null;
         this.recordingKeyframesPrepared = false;
@@ -947,8 +952,8 @@ public class UIFilmController extends UIElement
 
         /* Soft restore — SEEK goTo would re-fire swipe / break / drops while
          * walking back from the end of the take to the start tick. */
-        this.suppressClientActionsAtTick = this.recordingTick;
-        this.panel.setCursor(this.recordingTick, false);
+        this.suppressClientActionsAtTick = recordedFromTick;
+        this.panel.setCursor(recordedFromTick, false);
 
         if (this.panel.getRunner().isRunning())
         {
@@ -962,21 +967,27 @@ public class UIFilmController extends UIElement
             /* Capture already added replays during setup — refresh once so they show up. */
             MinecraftClient.getInstance().execute(this::refreshEntities);
 
+            this.recordingOld = null;
+
             return;
         }
 
         Replay replay = this.getReplay();
 
-        if (replay != null && this.recordingOld != null)
+        if (replay != null && recordedOld != null)
         {
             for (KeyframeChannel<?> channel : replay.keyframes.getChannels())
             {
                 channel.simplify();
             }
 
+            /* After simplify: plant position holds one tick before the first new-take key
+             * when it differs from the pre-record timeline (avoids long XYZ lerps). */
+            replay.keyframes.sealPositionRecordingCut(recordedFromTick, recordedOld, recordedGroups);
+
             BaseType newData = replay.keyframes.toData();
 
-            replay.keyframes.fromData(this.recordingOld);
+            replay.keyframes.fromData(recordedOld);
             replay.keyframes.preNotify();
             replay.keyframes.fromData(newData);
             replay.keyframes.postNotify();
@@ -1499,7 +1510,8 @@ public class UIFilmController extends UIElement
 
             menu.action(this.getOrbitModeIcon(0), UIKeys.FILM_REPLAY_ORBIT_CAMERA, this.pov == CAMERA_MODE_CAMERA, () -> this.setPov(0));
             menu.action(this.getOrbitModeIcon(1), UIKeys.FILM_REPLAY_ORBIT_FREE, this.pov == CAMERA_MODE_FREE, () -> this.setPov(1));
-            menu.action(this.getOrbitModeIcon(2), UIKeys.FILM_REPLAY_ORBIT_ORBIT, this.pov == CAMERA_MODE_ORBIT, () -> this.setPov(2));
+            menu.action(this.getOrbitModeIcon(2), UIKeys.FILM_REPLAY_ORBIT_ORBIT, this.pov == CAMERA_MODE_ORBIT, () -> this.setPov(2))
+                .children(new ContextAction(Icons.REFRESH, UIKeys.FILM_REPLAY_ORBIT_RESET, this.orbit::reset));
             menu.action(this.getOrbitModeIcon(3), UIKeys.FILM_REPLAY_ORBIT_FIRST_PERSON, this.pov == CAMERA_MODE_FIRST_PERSON, () -> this.setPov(3));
             menu.action(this.getOrbitModeIcon(4), UIKeys.FILM_REPLAY_ORBIT_THIRD_PERSON_BACK, this.pov == CAMERA_MODE_THIRD_PERSON_BACK, () -> this.setPov(4));
             menu.action(this.getOrbitModeIcon(5), UIKeys.FILM_REPLAY_ORBIT_THIRD_PERSON_FRONT, this.pov == CAMERA_MODE_THIRD_PERSON_FRONT, () -> this.setPov(5));
@@ -1628,7 +1640,11 @@ public class UIFilmController extends UIElement
                 int index = replays.indexOf(replay);
 
                 keyframes.record(this.getTick(), this.getCurrentEntity(), groups);
-                RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
+
+                if (ReplayKeyframes.wantsVanillaPoseActions(groups))
+                {
+                    RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
+                }
             });
         }
     }
@@ -1735,6 +1751,10 @@ public class UIFilmController extends UIElement
     /**
      * Freeze existing timeline pose at the capture start (skip empty channels so
      * from-scratch takes are not seeded with 0°/south), then clear from that tick.
+     * Position is cleared only here; the XYZ hard cut is applied when stopping via
+     * {@link ReplayKeyframes#sealPositionRecordingCut}.
+     * All-groups also drops {@code ridden} links from {@code T} on other replays that
+     * point at this rider, so stale mount links do not keep the actor sitting.
      */
     private void prepareRecordingKeyframes()
     {
@@ -1747,7 +1767,31 @@ public class UIFilmController extends UIElement
 
         if (replay != null)
         {
-            replay.keyframes.bridgeRecordingFrom(this.recordingTick, this.recordingGroups);
+            IEntity live = this.controlled != null ? this.controlled : this.getCurrentEntity();
+
+            replay.keyframes.bridgeRecordingFrom(this.recordingTick, this.recordingGroups, live);
+
+            if (ReplayKeyframes.wantsVanillaPoseActions(this.recordingGroups))
+            {
+                Film film = this.panel.getData();
+
+                if (film != null)
+                {
+                    List<Replay> replays = film.replays.getList();
+                    int riderIndex = replays.indexOf(replay);
+
+                    if (riderIndex >= 0)
+                    {
+                        for (Replay other : replays)
+                        {
+                            if (other != null && other != replay)
+                            {
+                                other.keyframes.removeRiddenLinksFrom(this.recordingTick, riderIndex);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         this.recordingKeyframesPrepared = true;
@@ -2224,7 +2268,9 @@ public class UIFilmController extends UIElement
     public Pair<String, TransformOrientation> getBone()
     {
         /* Pose gizmos belong to the replay timeline; hide them while another
-         * tab (e.g. camera clips) is active in the same tab group. */
+         * tab (e.g. camera clips) is active in the same tab group. Also null when
+         * the keyframe properties form was detached for a timeline switch — selection
+         * may remain on the dope sheet, but gizmos must not show. */
         if (this.panel.replayEditor == null || !this.panel.replayEditor.isVisible())
         {
             return null;

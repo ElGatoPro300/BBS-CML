@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
@@ -10,7 +11,7 @@ import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 import org.lwjgl.system.MemoryStack;
 
 /**
- * Sodium path: {@link mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin} multiplies
+ * Sodium path: {@link ColorAttributeMixin} multiplies
  * {@link #newColor} when packing via {@link #push}. Vanilla {@code color}/{@code vertex}
  * already multiply in {@link RecolorVertexConsumer} — clear {@code newColor} for those
  * calls so Sodium 0.5.x BufferBuilder (1.20.4) does not square form opacity (vanish near
@@ -65,7 +66,6 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
             newPaintColor = savedPaint;
         }
     }
-
     @Override
     public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
     {

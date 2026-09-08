@@ -42,12 +42,16 @@ public class OrbitFilmCameraController implements ICameraController
     private static final float MIN_DISTANCE = 0.5F;
     private static final float DEFAULT_ORBIT_DISTANCE = 3F;
     private static final float SCROLL_STEP = 0.5F;
+    /** Ignore sub-threshold mouse motion so a plain click does not nudge the camera. */
+    private static final int DRAG_ACTIVATE_PX = 3;
 
     private UIFilmController controller;
 
     public boolean enabled;
 
     private int dragging = -1;
+    /** Accumulated |dx|+|dy| while waiting to treat the press as a real drag. */
+    private int dragSlop;
     public Vector2f rotation = new Vector2f();
     private float roll;
     private Vector2i last = new Vector2i();
@@ -124,6 +128,7 @@ public class OrbitFilmCameraController implements ICameraController
 
         this.center = button == 2 && Window.isKeyPressed(Keys.FLIGHT_ORBIT.getMainKey());
         this.dragging = button;
+        this.dragSlop = 0;
         this.last.set(context.mouseX, context.mouseY);
 
         if (this.center)
@@ -151,6 +156,7 @@ public class OrbitFilmCameraController implements ICameraController
         }
 
         this.dragging = -1;
+        this.dragSlop = 0;
         this.center = false;
     }
 
@@ -217,18 +223,31 @@ public class OrbitFilmCameraController implements ICameraController
 
         int x = context.mouseX;
         int y = context.mouseY;
+        int dx = x - this.last.x;
+        int dy = y - this.last.y;
+
+        /* Click vs drag: absorb tiny motion (and click-frame coordinate jitter) so a
+         * stationary press does not rotate toward the nearest viewport corner. */
+        if (this.dragSlop < DRAG_ACTIVATE_PX)
+        {
+            this.dragSlop += Math.abs(dx) + Math.abs(dy);
+            this.last.set(x, y);
+
+            return;
+        }
+
         float angleSpeed = this.controller.panel.dashboard.orbit.getAngleSpeed();
 
         if (this.dragging == 0 || this.dragging == 2)
         {
             this.rotation.add(
-                -(y - this.last.y) * angleSpeed,
-                -(x - this.last.x) * angleSpeed
+                -dy * angleSpeed,
+                -dx * angleSpeed
             );
         }
         else if (this.dragging == 1)
         {
-            this.roll += (x - this.last.x) * angleSpeed;
+            this.roll += dx * angleSpeed;
         }
 
         this.last.set(x, y);
@@ -648,9 +667,11 @@ public class OrbitFilmCameraController implements ICameraController
     {
         this.position.set(0F, 0F, -DEFAULT_ORBIT_DISTANCE);
         this.distance = DEFAULT_ORBIT_DISTANCE;
+        this.offsetY = 0F;
         this.rotation.set(0F, Math.PI);
         this.roll = 0F;
         this.dragging = -1;
+        this.dragSlop = 0;
         this.center = false;
         this.animating = false;
         this.animProgress = 0F;

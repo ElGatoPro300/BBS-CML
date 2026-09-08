@@ -314,7 +314,12 @@ public class Color
         {
             Color color = (Color) obj;
 
-            return color.getARGBColor() == this.getARGBColor()
+            /* Compare float channels directly. getARGBColor() clamps alpha to [0,1], which
+             * made limb paint intensity (Color.a in [-1,1]) look equal to 0 and drop on save. */
+            return Float.compare(this.r, color.r) == 0
+                && Float.compare(this.g, color.g) == 0
+                && Float.compare(this.b, color.b) == 0
+                && Float.compare(this.a, color.a) == 0
                 && Float.compare(this.brightness, color.brightness) == 0
                 && Float.compare(this.contrast, color.contrast) == 0
                 && Float.compare(this.hue, color.hue) == 0
@@ -332,7 +337,7 @@ public class Color
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.getARGBColor(), this.brightness, this.contrast, this.hue, this.saturation, this.transform, this.brightnessTransform, this.contrastTransform, this.hueTransform, this.saturationTransform);
+        return Objects.hash(this.r, this.g, this.b, this.a, this.brightness, this.contrast, this.hue, this.saturation, this.transform, this.brightnessTransform, this.contrastTransform, this.hueTransform, this.saturationTransform);
     }
 
     @Override
