@@ -1,7 +1,9 @@
 package mchorse.bbs_mod.ui.framework.elements.input.multilink;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -18,11 +20,15 @@ import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.FilteredLink;
 
-import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import org.joml.Matrix3x2fStack;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class UIMultiLinkEditor extends UICanvasEditor
 {
@@ -225,9 +231,56 @@ public class UIMultiLinkEditor extends UICanvasEditor
                     context.batcher.box(area.x, area.y, area.ex(), area.ey(), Colors.setA(Colors.RED, 0.25F));
                 }
 
-                // RenderSystem.setShaderTexture(3, context.render.getTextures().getTexture(Icons.ATLAS).id);
+                if (needsMultLinkShader)
+                {
+                    ShaderProgram shader = BBSShaders.getMultilinkProgram();
 
-                context.batcher.texturedBox(texture.id, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                    if (shader != null)
+                    {
+                        context.batcher.flush();
+
+                        BBSRendering.bindProgram(shader);
+                        BBSUniform.set(shader, "Size", (float) ow, (float) oh);
+                        BBSUniform.set(shader, "Filters", (float) child.pixelate, child.erase ? 1F : 0F, 0F, 0F);
+                        BBSUniform.set(shader, "Sampler0", 0);
+                        BBSUniform.set(shader, "Sampler3", 3);
+
+                        Texture atlas = context.render.getTextures().getTexture(Icons.ATLAS);
+
+                        if (atlas != null)
+                        {
+                            atlas.bind(3);
+                        }
+
+                        texture.bind(0);
+
+                        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+                        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+
+                        builder.vertex(matrices, (float) area.x, (float) area.ey()).texture(0F, 1F).color(child.color);
+                        builder.vertex(matrices, (float) area.ex(), (float) area.ey()).texture(1F, 1F).color(child.color);
+                        builder.vertex(matrices, (float) area.ex(), (float) area.y).texture(1F, 0F).color(child.color);
+                        builder.vertex(matrices, (float) area.x, (float) area.y).texture(0F, 0F).color(child.color);
+
+                        BufferRenderer.drawWithGlobalProgram(builder.end());
+                        BBSRendering.unbindProgram();
+
+                        if (atlas != null)
+                        {
+                            atlas.unbind(3);
+                        }
+
+                        texture.unbind(0);
+                    }
+                    else
+                    {
+                        context.batcher.texturedBox(texture, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                    }
+                }
+                else
+                {
+                    context.batcher.texturedBox(texture, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
+                }
             }
         }
     }

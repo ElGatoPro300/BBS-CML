@@ -39,6 +39,6 @@ public class SolidColorLineRenderer implements ILineRenderer
     @Override
     public void render(VertexConsumer builder, Matrix3x2fc matrix, LinePoint point)
     {
-        builder.vertex(matrix, point.x, point.y).color(this.color.r, this.color.g, this.color.b, this.color.a);
+        builder.vertex(matrix, point.x, point.y).color(this.color.getARGBColor());
     }
 }

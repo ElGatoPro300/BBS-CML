@@ -56,6 +56,7 @@ public class BBSShaders
             .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/multilink"))
             .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/multilink"))
             .withSampler("Sampler0")
+            .withSampler("Sampler3")
             .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
 
