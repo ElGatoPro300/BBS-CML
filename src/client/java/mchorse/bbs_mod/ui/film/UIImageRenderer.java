@@ -1,61 +1,100 @@
 package mchorse.bbs_mod.ui.film;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.Identifier;
 
+import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.platform.DestFactor;
+import com.mojang.blaze3d.platform.SourceFactor;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 public class UIImageRenderer
 {
     private static final Quad uvQuad = new Quad();
     private static final Matrix4f matrix = new Matrix4f();
+    private static final RenderPipeline[] PIPELINES = new RenderPipeline[9];
 
-    public static void renderImages(MatrixStack stack, Batcher2D batcher, List<ImageOverlay> images)
+    private static RenderPipeline getPipeline(int blendMode)
     {
-        if (images.isEmpty())
+        int mode = Math.max(0, Math.min(8, blendMode));
+
+        if (PIPELINES[mode] == null)
+        {
+            BlendFunction blend;
+
+            switch (mode)
+            {
+                case 1: /* Multiply: dst * src */
+                    blend = new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE);
+                    break;
+                case 2: /* Screen: 1 - (1-src)*(1-dst) */
+                    blend = new BlendFunction(SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    break;
+                case 3: /* Add / Linear Dodge: src + dst */
+                    blend = new BlendFunction(SourceFactor.ONE, DestFactor.ONE, SourceFactor.ONE, DestFactor.ONE);
+                    break;
+                case 4: /* Saturation */
+                    blend = new BlendFunction(SourceFactor.SRC_COLOR, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    break;
+                case 5: /* Incrustation (Silhouette Luma) */
+                    blend = new BlendFunction(SourceFactor.ZERO, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.ZERO, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    break;
+                case 6: /* Exclusion */
+                    blend = new BlendFunction(SourceFactor.ONE_MINUS_DST_COLOR, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    break;
+                case 7: /* Overlay */
+                    blend = new BlendFunction(SourceFactor.DST_COLOR, DestFactor.SRC_COLOR, SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    break;
+                case 8: /* Color Dodge */
+                    blend = new BlendFunction(SourceFactor.SRC_COLOR, DestFactor.ONE, SourceFactor.SRC_ALPHA, DestFactor.ONE);
+                    break;
+                default:
+                    blend = BlendFunction.TRANSLUCENT;
+                    break;
+            }
+
+            RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.POSITION_TEX_COLOR_SNIPPET)
+                .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/image_overlay_" + mode))
+                .withBlend(blend)
+                .withCull(false);
+
+            PIPELINES[mode] = RenderPipelines.register(builder.build());
+        }
+
+        return PIPELINES[mode];
+    }
+
+    public static void renderImages(Batcher2D batcher, List<ImageOverlay> images, int width, int height)
+    {
+        if (images == null || images.isEmpty())
         {
             return;
         }
 
-        net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
-        int width = fb.textureWidth / 2;
-        int height = fb.textureHeight / 2;
-        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType savedProjType = RenderSystem.getProjectionType();
-        /* X/Y rotations move quad corners into Z. The old ±100 near/far clipped
-         * those sides as angle increased; size the depth range for screen-scale quads. */
-        float zExtent = Math.max(1000F, Math.max(width, height) * 8F);
-        Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -zExtent, zExtent);
-
-        RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
-        RenderSystem.disableCull();
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+        Matrix3x2fStack matrices = batcher.getContext().getMatrices();
 
         for (ImageOverlay overlay : images)
         {
@@ -94,105 +133,90 @@ public class UIImageRenderer
                 drawColor.a *= alphaFactor;
 
                 int color = drawColor.getARGBColor();
+
+                if (Colors.getA(color) <= 0F)
+                {
+                    color = Colors.opaque(color);
+                }
+
                 float drawX = -fw * overlay.anchorX;
                 float drawY = -fh * overlay.anchorY;
 
-                stack.push();
-                stack.translate(x, y, 0);
+                matrices.pushMatrix();
+                matrices.translate(x, y);
 
-                /* Rotate around the image anchor in XYZ. Legacy "rotation" is Z
-                 * (in-plane); rotationX/Y are additive and default to 0 for old films. */
+                if (overlay.rotation != 0F)
+                {
+                    matrices.rotate((float) Math.toRadians(overlay.rotation));
+                }
+
                 if (overlay.rotationX != 0F)
                 {
-                    stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(overlay.rotationX));
+                    matrices.scale(1F, (float) Math.cos(Math.toRadians(overlay.rotationX)));
                 }
 
                 if (overlay.rotationY != 0F)
                 {
-                    stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(overlay.rotationY));
-                }
-
-                if (overlay.rotation != 0F)
-                {
-                    stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(overlay.rotation));
+                    matrices.scale((float) Math.cos(Math.toRadians(overlay.rotationY)), 1F);
                 }
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
 
-                ShaderProgram program = BBSShaders.getImageOverlayProgram();
+                RenderPipeline pipeline = getPipeline(overlay.blendMode);
+                Identifier id = AdoptedTexture.identifier(texture);
 
-                if (program != null)
+                if (id != null)
                 {
-                    GlUniform blendModeUniform = program.getUniform("BlendMode");
-
-                    if (blendModeUniform != null)
-                    {
-                        blendModeUniform.set(overlay.blendMode);
-                    }
+                    batcher.getContext().drawTexture(
+                        pipeline,
+                        id,
+                        (int) drawX,
+                        (int) drawY,
+                        uv[0],
+                        uv[1],
+                        (int) fw,
+                        (int) fh,
+                        (int) (uv[2] - uv[0]),
+                        (int) (uv[3] - uv[1]),
+                        texture.width,
+                        texture.height,
+                        color
+                    );
                 }
 
-                Supplier<ShaderProgram> supplier = program != null ? () -> program : () ->
-                {
-                    RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-
-                    return RenderSystem.getShader();
-                };
-
-                if (overlay.blendMode != 0)
-                {
-                    batcher.flushDraw();
-                    switch (overlay.blendMode)
-                    {
-                        case 1: /* Multiply — (1 - a*(1-src))*dst = a*src*dst + (1-a)*dst */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
-                            break;
-                        case 2: /* Screen — 1-(1-src)*(1-dst), smoothly fades to dst with alpha */
-                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
-                            break;
-                        case 3: /* Add / Linear Dodge — src+dst */
-                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
-                            break;
-                        case 4: /* Saturation — modulates dest saturation via src color channels */
-                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
-                            break;
-                        case 5: /* Incrustation (Silhouette Luma) — bright src punches hole in dest */
-                            RenderSystem.blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
-                            break;
-                        case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
-                            RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
-                            break;
-                        case 7: /* Overlay / Vivid Multiply — 2*src*dst (white doubles/brightens, 50% gray neutral, black darkens) */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
-                            break;
-                        case 8: /* Color Dodge — src*src + dst */
-                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
-                            break;
-                    }
-                }
-                batcher.texturedBox(program, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
-                if (overlay.blendMode != 0)
-                {
-                    batcher.flushDraw();
-                    RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
-                }
                 texture.setFilterMipmap(false, false);
 
-                stack.pop();
+                matrices.popMatrix();
             });
         }
-
-        RenderSystem.setProjectionMatrix(cache, savedProjType);
-        RenderSystem.enableCull();
     }
 
-    public static void renderImage(MatrixStack stack, Batcher2D batcher, ImageOverlay overlay)
+    public static void renderImage(Batcher2D batcher, ImageOverlay overlay, int width, int height)
     {
         if (overlay == null)
         {
             return;
         }
 
-        renderImages(stack, batcher, Collections.singletonList(overlay));
+        renderImages(batcher, Collections.singletonList(overlay), width, height);
+    }
+
+    public static void renderImages(MatrixStack stack, Batcher2D batcher, List<ImageOverlay> images)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int width = mc.getWindow().getScaledWidth();
+        int height = mc.getWindow().getScaledHeight();
+
+        renderImages(batcher, images, width, height);
+    }
+
+    public static void renderImage(MatrixStack stack, Batcher2D batcher, ImageOverlay overlay)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int width = mc.getWindow().getScaledWidth();
+        int height = mc.getWindow().getScaledHeight();
+
+        renderImage(batcher, overlay, width, height);
     }
 
     private static float[] computeUV(ImageOverlay overlay, Texture texture)
