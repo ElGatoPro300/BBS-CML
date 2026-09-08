@@ -107,15 +107,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             ? null
             : resolvedPaint;
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+        DiffuseLighting.enableGuiDepthLighting();
 
         ModelTransformationMode mode = this.form.modelTransform.get();
 
         consumers.setSubstitute(this.getMainConsumer(set, mainPassPaint));
         consumers.setUI(true);
-        this.renderItem(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mode, false, null);
+        this.renderItem(null, matrices, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mode, false, null);
         consumers.draw();
 
         if (colorTransformWanted)
