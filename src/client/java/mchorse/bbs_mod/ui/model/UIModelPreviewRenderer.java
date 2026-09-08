@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.model;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.forms.forms.ModelForm;
@@ -11,7 +12,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
 import net.minecraft.client.Minecraft;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix4f;

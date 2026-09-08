@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.audio;
 
+import mchorse.bbs_mod.audio.ColorCode;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -11,8 +12,6 @@ import org.lwjgl.opengl.GL13;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import mchorse.bbs_mod.audio.ColorCode;
 
 public class Waveform
 {

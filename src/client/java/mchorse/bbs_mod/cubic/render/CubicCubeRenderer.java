@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.cubic.render;
 
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelData;
@@ -12,8 +13,6 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
-
-import mchorse.bbs_mod.client.renderer.LightTexture;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;

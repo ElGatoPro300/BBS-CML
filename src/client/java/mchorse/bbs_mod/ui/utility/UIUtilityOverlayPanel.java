@@ -31,8 +31,6 @@ import mchorse.bbs_mod.utils.resources.CDNAssetSyncService;
 
 import net.minecraft.client.Minecraft;
 
-import net.minecraft.client.Minecraft;
-
 import com.mojang.blaze3d.platform.Window;
 
 import java.io.File;

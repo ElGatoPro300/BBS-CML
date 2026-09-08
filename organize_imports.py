@@ -33,16 +33,57 @@ IMPORT_GROUPS = [
 # If these are found as FQNs in code, they will NOT be simplified.
 # If they are already imported, they will be kept in imports.
 WHITELIST = [
+    # Camera
     "mchorse.bbs_mod.camera.Camera",
+    "net.minecraft.client.Camera",
     "net.minecraft.client.render.Camera",
+
+    # Window
     "mchorse.bbs_mod.graphics.window.Window",
     "net.minecraft.client.util.Window",
+    "com.mojang.blaze3d.platform.Window",
+
+    # Framebuffer / RenderTarget
     "mchorse.bbs_mod.graphics.Framebuffer",
     "net.minecraft.client.gl.Framebuffer",
+    "com.mojang.blaze3d.pipeline.RenderTarget",
+
+    # Color
     "mchorse.bbs_mod.utils.colors.Color",
     "java.awt.Color",
+
+    # Pose / EntityPose
+    "mchorse.bbs_mod.utils.pose.Pose",
+    "net.minecraft.world.entity.Pose",
+    "net.minecraft.entity.EntityPose",
+
+    # AABB / Box
+    "mchorse.bbs_mod.utils.AABB",
+    "net.minecraft.world.phys.AABB",
+    "net.minecraft.util.math.Box",
+
+    # Font
+    "mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer",
+    "net.minecraft.client.gui.Font",
+    "java.awt.Font",
+
+    # Axis
+    "mchorse.bbs_mod.utils.Axis",
+    "com.mojang.math.Axis",
+
+    # Random
     "java.util.Random",
+    "net.minecraft.util.RandomSource",
+
+    # Matrix / Vector math
+    "org.joml.Matrix4f",
+    "com.mojang.math.Matrix4f",
+    "org.joml.Vector3f",
+    "com.mojang.math.Vector3f",
+
+    # Common
     "net.minecraftforge.common.MinecraftForge",
+
     # Iris API / Core conflicts
     "net.irisshaders.iris.api.v0.Iris",
     "net.irisshaders.iris.Iris",
@@ -145,6 +186,13 @@ def process_file(filepath):
         
         body = "".join(body_lines)
         
+        # Track imported simple class names to prevent duplicate single-type imports
+        imported_classes = {}
+        for imp in imports:
+            cleaned = imp.replace("import ", "").strip()
+            cname = cleaned.split('.')[-1]
+            imported_classes[cname] = cleaned
+
         # 2. Find and replace FQNs in the body
         def replace_fqn(match):
             string_literal = match.group(1)
@@ -158,6 +206,12 @@ def process_file(filepath):
                 return fqn
             
             class_name = fqn.split('.')[-1]
+
+            # If this simple class name is already imported from another package, do not simplify or import
+            if class_name in imported_classes and imported_classes[class_name] != fqn:
+                return fqn
+
+            imported_classes[class_name] = fqn
             imports.append(f"import {fqn}")
             return class_name
 

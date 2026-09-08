@@ -5,7 +5,11 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
+import mchorse.bbs_mod.data.DataStorageUtils;
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -16,7 +20,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.special.SpecialModelRenderer;
 import net.minecraft.core.BlockPos;
@@ -158,8 +161,8 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
         var world = Minecraft.getInstance().level;
         if (world != null)
         {
-            mchorse.bbs_mod.data.types.BaseType baseType = mchorse.bbs_mod.data.DataStorageUtils.readFromNbtCompound(nbt, "Properties");
-            if (baseType instanceof mchorse.bbs_mod.data.types.MapType mapType)
+            BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
+            if (baseType instanceof MapType mapType)
             {
                 entity.getProperties().fromData(mapType, world.registryAccess());
             }

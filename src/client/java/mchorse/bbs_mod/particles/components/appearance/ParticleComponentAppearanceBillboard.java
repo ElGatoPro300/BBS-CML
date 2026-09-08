@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.particles.components.appearance;
 
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
@@ -18,7 +19,6 @@ import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.renderer.LevelRenderer;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import net.minecraft.core.BlockPos;
 
 import org.joml.Matrix4f;
