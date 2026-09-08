@@ -18,6 +18,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
@@ -94,20 +95,20 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                        RenderSystem.setupGui3DDiffuseLighting(a, b);
+                        DiffuseLighting.method_34742();
                     }
 
-                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+
                     FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
                         .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
                 finally
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
+                        DiffuseLighting.disableGuiDepthLighting();
                         BBSRendering.restoreAfterGuiItemForm();
                     }
                     else
