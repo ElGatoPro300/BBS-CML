@@ -25,6 +25,7 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -395,10 +396,10 @@ public class StructureFormOverlayRenderer
         if (darken)
         {
             RenderSystem.blendFuncSeparate(
-                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_COLOR,
-                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO,
-                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_ALPHA,
-                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO
+                GlStateManager.SrcFactor.DST_COLOR,
+                GlStateManager.DstFactor.ZERO,
+                GlStateManager.SrcFactor.DST_ALPHA,
+                GlStateManager.DstFactor.ZERO
             );
         }
         else
