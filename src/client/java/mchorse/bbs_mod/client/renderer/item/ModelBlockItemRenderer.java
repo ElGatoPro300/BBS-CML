@@ -15,7 +15,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.LoadedEntityModels;
@@ -27,8 +26,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
-
-import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.MapCodec;
@@ -90,11 +87,6 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 try
                 {
-                    if (mode == ModelTransformationMode.GUI)
-                    {
-                        DiffuseLighting.method_34742();
-                    }
-
                     int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
 
                     FormUtilsClient.render(form, new FormRenderingContext()
@@ -105,7 +97,6 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        DiffuseLighting.disableGuiDepthLighting();
                         BBSRendering.restoreAfterGuiItemForm();
                     }
                     else
