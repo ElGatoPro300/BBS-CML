@@ -106,12 +106,13 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
                 {
                     if (mode == ItemDisplayContext.GUI)
                     {
-                        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
+                        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
                     }
 
-                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
+                    int renderLight = mode == ItemDisplayContext.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+
                     FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
                         .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
                 finally

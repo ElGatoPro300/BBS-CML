@@ -17,13 +17,10 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -100,18 +97,19 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                 {
                     if (mode == ItemDisplayContext.GUI)
                     {
-                        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
+                        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
                     }
 
+                    int renderLight = mode == ItemDisplayContext.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+
                     FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
                         .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
                 finally
                 {
                     if (mode == ItemDisplayContext.GUI)
                     {
-                        /* Re-enable GUI lights — disable left hotbar widgets / later slots dark. */
                         MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
                         BBSRendering.restoreAfterGuiItemForm();
                     }
