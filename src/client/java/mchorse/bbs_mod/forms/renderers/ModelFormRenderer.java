@@ -378,7 +378,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             else
             {
                 poseTransform.color.mul(value.color);
-                poseTransform.paintColor.lerp(value.paintColor, value.paintColor.a);
+                /* Do not use paintColor.a as the lerp factor — negative intensity (darken)
+                 * would extrapolate RGB and flip alpha positive. Active paint replaces. */
+                if (value.paintColor.a != 0F)
+                {
+                    poseTransform.paintColor.copy(value.paintColor);
+                }
                 poseTransform.glowingColor.lerp(value.glowingColor, Math.abs(value.glowIntensity));
                 poseTransform.glowIntensity = Lerps.lerp(poseTransform.glowIntensity, value.glowIntensity, Math.abs(value.glowIntensity));
                 poseTransform.glowRadius = Lerps.lerp(poseTransform.glowRadius, value.glowRadius, Math.abs(value.glowRadius) > 0F ? Math.abs(value.glowRadius) : 1F);
@@ -734,6 +739,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         boolean localPreview = ui || (renderContext != null && renderContext.isLocalPreview());
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
+        boolean hasPositivePaint = this.hasPositivePaint(model, paintStrength);
         boolean bbsModelShader = this.usesBbsModelShader(model);
         Color storedFormColor = this.form.color.get();
         boolean hasBoneColorGrade = this.hasAnyBoneColorGrade(model);
@@ -829,10 +835,21 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         boolean hasGlowTransform = (glowEffectTransform != null && glowEffectTransform.isActive()) || this.hasAnyBoneGlowTransform(model);
         boolean glowHasSpatialMask = hasGlowTransform;
 
-        /* Paint stays on the Iris frame-end overlay (keeps pack body shadows with Noshading off).
+        /* Positive paint stays on the Iris frame-end overlay (keeps pack body shadows).
+         * Negative paint (darken) must stay on the live/main path — Iris entity shaders ignore
+         * PaintColor uniforms, so limb darkening is baked into vertex tint (same as Billboard).
          * Do not redraw soft+paint with model.fsh on the Iris post-deferred path — wrong MVP
          * made actors fully invisible. Overlay outAlpha already multiplies form vertex alpha. */
-        boolean deferPaintToOverlay = model.supportsBbsModelShaderEffects() && paintActive && irisWorldPaintDeferral && !deferTranslucentModel;
+        boolean deferPaintToOverlay = model.supportsBbsModelShaderEffects() && hasPositivePaint && irisWorldPaintDeferral && !deferTranslucentModel;
+        /* Negative form paint is baked into vertex tint (Iris entity shaders have no PaintColor).
+         * Positive form paint uses uniforms / Iris overlay. */
+        float mainPassPaintStrength = (paintStrength > 0F && !deferPaintToOverlay) ? paintStrength : 0F;
+
+        if (paintStrength < 0F)
+        {
+            FormColorEffects.applyPaintBlend(color, paintColor, paintStrength);
+        }
+
         boolean shaderOverlay = model.supportsBbsModelShaderEffects() && irisWorldPaintDeferral && (syncedGlow || glowHasSpatialMask) && !paintActive && !deferTranslucentModel;
 
         /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
@@ -1100,7 +1117,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
             else if (paintActive)
             {
-                ModelVAORenderer.setPaint(paintColor.r, paintColor.g, paintColor.b, paintStrength);
+                ModelVAORenderer.setPaint(paintColor.r, paintColor.g, paintColor.b, mainPassPaintStrength);
             }
             else
             {
@@ -1126,10 +1143,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     Color paintSnapshot = paintColor.copy();
                     Pose poseSnapshot = this.getPose().copy();
                     float transitionSnapshot = transition;
-                    float paintStrengthSnapshot = paintStrength;
+                    float paintStrengthSnapshot = mainPassPaintStrength;
                     /* Iris soft mesh ignores PaintColor; only apply in-mesh when this draw is
                      * BBS (e.g. grade) and paint is not already a frame-end overlay. */
-                    boolean paintInDeferredMeshSnapshot = paintActive && !deferPaintToOverlay;
+                    boolean paintInDeferredMeshSnapshot = mainPassPaintStrength > 0F && !deferPaintToOverlay;
                     boolean stripGlowSnapshot = stripMainPassGlow || shapeKeyPositiveOverlay;
                     boolean hasGlowSnapshot = hasGlow;
                     boolean glowDeferredSnapshot = glowDeferredToOverlay;
@@ -1346,8 +1363,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     Color softPaintSnapshot = paintColor.copy();
                     Pose softPoseSnapshot = this.getPose().copy();
                     float softTransitionSnapshot = transition;
-                    float softPaintStrengthSnapshot = paintStrength;
-                    boolean softPaintInMesh = paintActive && !deferPaintToOverlay;
+                    float softPaintStrengthSnapshot = mainPassPaintStrength;
+                    boolean softPaintInMesh = mainPassPaintStrength > 0F && !deferPaintToOverlay;
                     boolean softStripGlow = stripMainPassGlow || shapeKeyPositiveOverlay;
                     boolean softHasGlow = hasGlow;
                     boolean softGlowDeferred = glowDeferredToOverlay;
@@ -3284,6 +3301,49 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         return this.hasBonePaint(model);
+    }
+
+    /**
+     * Positive paint (tint/override) is deferred to the Iris overlay. Negative paint is darkened
+     * via vertex bake on the live pass instead.
+     */
+    private boolean hasPositivePaint(ModelInstance model, float formPaintStrength)
+    {
+        if (formPaintStrength > 0F)
+        {
+            return true;
+        }
+
+        return this.hasPositiveBonePaint(model);
+    }
+
+    private boolean hasPositiveBonePaint(ModelInstance model)
+    {
+        if (model != null && model.getModel() != null)
+        {
+            if (model.model instanceof BOBJModel bobj)
+            {
+                for (BOBJBone bone : bobj.getArmature().orderedBones)
+                {
+                    if (bone.paintColor != null && bone.paintColor.a > 0F)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            for (ModelGroup group : model.getModel().getAllGroups())
+            {
+                if (group.paintColor != null && group.paintColor.a > 0F)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private boolean hasBonePaint(ModelInstance model)

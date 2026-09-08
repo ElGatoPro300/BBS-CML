@@ -672,6 +672,14 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
+            /* Bone / gizmo picks must win over orbit drag. Starting orbit first made
+             * orbit POV swallow every left-click so limbs could not be selected (unlike
+             * free/camera POV or an Orbit clip). Empty-space clicks still orbit below. */
+            if (this.panel.replayEditor.clickViewport(context, area))
+            {
+                return true;
+            }
+
             if (this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
                 && !this.panel.getController().orbit.isAnimating()
                 && this.panel.getController().orbit.canStart(context) >= 0)
@@ -681,7 +689,7 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
-            return this.panel.replayEditor.clickViewport(context, area);
+            return false;
         }
 
         return super.subMouseClicked(context);
@@ -705,7 +713,10 @@ public class UIFilmPreview extends UIElement
         {
             this.panel.getController().orbit.stop();
         }
-        else if (!this.panel.isFlying())
+
+        /* Always end gizmo drags when not flying — previously skipped while orbit POV
+         * was active, so handle drags started after the pick-first fix never finished. */
+        if (!this.panel.isFlying())
         {
             this.panel.replayEditor.stopGizmoDrag();
         }

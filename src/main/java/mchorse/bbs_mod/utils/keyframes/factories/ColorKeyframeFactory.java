@@ -19,6 +19,11 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
      * Still read once for migration into traditional {@code color.a}; no longer written.
      */
     public static final String BLEND_A = "blend_a";
+    /**
+     * Unclamped alpha channel (pose limb paint intensity can be negative). ARGB bytes cannot
+     * store values outside {@code [0, 1]}.
+     */
+    public static final String FLOAT_A = "a";
 
     private Color i = new Color();
 
@@ -45,6 +50,12 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
                 color.g = Lerps.lerp(1F, color.g, intensity);
                 color.b = Lerps.lerp(1F, color.b, intensity);
                 color.a = opacityA <= 0.001F ? 1F : opacityA;
+            }
+
+            /* Pose paint / any Color.a that cannot fit in an ARGB byte. */
+            if (map.has(FLOAT_A))
+            {
+                color.a = map.getFloat(FLOAT_A);
             }
 
             if (map.has("transform"))
@@ -85,11 +96,26 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
     @Override
     public BaseType toData(Color value)
     {
-        if (value.needsMapSerialization())
+        boolean outOfByteAlpha = value.a < 0F || value.a > 1F;
+
+        if (value.needsMapSerialization() || outOfByteAlpha)
         {
             MapType map = new MapType();
 
-            map.putInt("color", value.getARGBColor());
+            if (outOfByteAlpha)
+            {
+                int r = (int) (MathUtils.clamp(value.r, 0F, 1F) * 255F);
+                int g = (int) (MathUtils.clamp(value.g, 0F, 1F) * 255F);
+                int b = (int) (MathUtils.clamp(value.b, 0F, 1F) * 255F);
+
+                /* Opaque RGB placeholder — real intensity is FLOAT_A (may be negative). */
+                map.putInt("color", 0xFF000000 | (r << 16) | (g << 8) | b);
+                map.putFloat(FLOAT_A, value.a);
+            }
+            else
+            {
+                map.putInt("color", value.getARGBColor());
+            }
 
             if (value.hasActiveTransform())
             {
