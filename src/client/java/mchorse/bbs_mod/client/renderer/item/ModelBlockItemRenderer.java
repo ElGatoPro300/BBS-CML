@@ -28,7 +28,9 @@ import net.minecraft.storage.NbtReadView;
 import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.math.BlockPos;
 
+import org.joml.Vector3f;
 import org.joml.Vector3fc;
+import org.lwjgl.opengl.GL11;
 
 import com.mojang.serialization.MapCodec;
 
@@ -69,6 +71,21 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
     @Override
     public void collectVertices(Consumer<Vector3fc> consumer)
     {
+        float minX = -0.5F;
+        float maxX = 1.5F;
+        float minY = 0F;
+        float maxY = 2.5F;
+        float minZ = -0.5F;
+        float maxZ = 1.5F;
+
+        consumer.accept(new Vector3f(minX, minY, minZ));
+        consumer.accept(new Vector3f(maxX, minY, minZ));
+        consumer.accept(new Vector3f(minX, maxY, minZ));
+        consumer.accept(new Vector3f(maxX, maxY, minZ));
+        consumer.accept(new Vector3f(minX, minY, maxZ));
+        consumer.accept(new Vector3f(maxX, minY, maxZ));
+        consumer.accept(new Vector3f(minX, maxY, maxZ));
+        consumer.accept(new Vector3f(maxX, maxY, maxZ));
     }
 
     @Override
@@ -97,6 +114,8 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                 {
                     if (mode == ItemDisplayContext.GUI)
                     {
+                        BBSRendering.depthMask(true);
+                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
                         MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
                     }
 
@@ -112,6 +131,8 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                     {
                         MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
                         BBSRendering.restoreAfterGuiItemForm();
+                        BBSRendering.depthMask(true);
+                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
                     }
                     else
                     {
