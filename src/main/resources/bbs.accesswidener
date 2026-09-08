@@ -20,4 +20,8 @@ accessible method net/minecraft/client/particle/Particle isAlive ()Z
 accessible field net/minecraft/client/util/math/MatrixStack stack Ljava/util/List;
 
 accessible field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
-mutable field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
+mutable field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
+
+accessible field net/minecraft/client/render/GameRenderer guiRenderer Lnet/minecraft/client/gui/render/GuiRenderer;
+accessible field net/minecraft/client/render/GameRenderer guiState Lnet/minecraft/client/gui/render/state/GuiRenderState;
+accessible field net/minecraft/client/render/GameRenderer fogRenderer Lnet/minecraft/client/render/fog/FogRenderer;

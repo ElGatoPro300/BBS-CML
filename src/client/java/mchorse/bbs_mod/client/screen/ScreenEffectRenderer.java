@@ -17,6 +17,7 @@ import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
 import mchorse.bbs_mod.camera.clips.screen.LetterboxClip;
 import mchorse.bbs_mod.camera.clips.screen.LetterboxEffect;
 import mchorse.bbs_mod.camera.clips.screen.ScreenNodeEffect;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
 import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
 import mchorse.bbs_mod.ui.film.UIImageRenderer;
@@ -189,6 +190,8 @@ public class ScreenEffectRenderer
             pendingShaderEffects.clear();
             pendingGrainEffects.clear();
         }
+
+        BBSRendering.flushGuiRenderState();
 
         effects.clear();
         letterboxEffects.clear();

@@ -3,10 +3,13 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
+
+import org.joml.Matrix3x2fStack;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 
@@ -72,14 +75,6 @@ public class UIBossBarRenderer
         int barY = anchorY + textBlockHeight + (hasText ? TEXT_GAP : 0);
         float blockCenterX = x + displayWidth / 2F;
 
-        batcher.flush();
-        stack.push();
-
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(false);
-        GL11.glEnable(GL11.GL_BLEND);
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-
         DrawContext context = batcher.getContext();
 
         context.fill(x, barY, x + displayWidth, barY + displayHeight, 0xFFFFFFFF);
@@ -98,30 +93,24 @@ public class UIBossBarRenderer
             int textColor = applyAlpha(bossBar.textColor, alpha);
             float textCenterX = textX + textWidth / 2F;
             float textCenterY = textY + fontHeight / 2F;
+            Matrix3x2fStack matrices = context.getMatrices();
 
             if (textScale != 1F)
             {
-                stack.push();
-                stack.translate(textCenterX, textCenterY, 0F);
-                stack.scale(textScale, textScale, 1F);
-                stack.translate(-textCenterX, -textCenterY, 0F);
+                matrices.pushMatrix();
+                matrices.translate(textCenterX, textCenterY);
+                matrices.scale(textScale, textScale);
+                matrices.translate(-textCenterX, -textCenterY);
             }
 
             batcher.text(bossBar.text, textX, textY, textColor, true);
 
             if (textScale != 1F)
             {
-                stack.pop();
+                matrices.popMatrix();
             }
         }
-
-        GL11.glDisable(GL11.GL_BLEND);
-
-        stack.pop();
-        batcher.flush();
     }
-
-    /* TODO 1.21.11: RenderSystem.setShaderColor removed */
 
     private static float getResolutionScale(int width, int height)
     {

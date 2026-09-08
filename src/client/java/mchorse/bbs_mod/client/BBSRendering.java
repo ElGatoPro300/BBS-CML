@@ -81,6 +81,7 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.fog.FogRenderer;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.util.Window;
@@ -794,28 +795,38 @@ public class BBSRendering
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
-            DrawContext drawContext = new DrawContext(mc, new GuiRenderState(), mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
-            Batcher2D batcher = new Batcher2D(drawContext);
-            Window window = mc.getWindow();
-            Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+            if (mc.gameRenderer != null && mc.gameRenderer.guiState != null)
+            {
+                mc.gameRenderer.guiState.clear();
+                DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+                Batcher2D batcher = new Batcher2D(drawContext);
+                Window window = mc.getWindow();
+                Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
 
-            VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-            VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
+                VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+                VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
-            ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                flushGuiRenderState();
+            }
         }
 
         if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
-            DrawContext drawContext = new DrawContext(mc, new GuiRenderState(), mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
-            Batcher2D batcher = new Batcher2D(drawContext);
-            Window window = mc.getWindow();
-            Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+            if (mc.gameRenderer != null && mc.gameRenderer.guiState != null)
+            {
+                mc.gameRenderer.guiState.clear();
+                DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+                Batcher2D batcher = new Batcher2D(drawContext);
+                Window window = mc.getWindow();
+                Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
 
-            VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-            VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
+                VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+                VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
-            ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                flushGuiRenderState();
+            }
         }
 
         if (!customSize)
@@ -832,33 +843,49 @@ public class BBSRendering
         {
             if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
             {
-                DrawContext drawContext = new DrawContext(mc, new GuiRenderState(), mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
-                Batcher2D offscreenBatcher = new Batcher2D(drawContext);
-
-                Window window = mc.getWindow();
-                Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-
-                if (panel.getData() != null && panel.getData().camera != null)
+                if (mc.gameRenderer != null && mc.gameRenderer.guiState != null)
                 {
-                    CameraClipContext context = panel.getRunner().getContext();
+                    mc.gameRenderer.guiState.clear();
+                    DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+                    Batcher2D offscreenBatcher = new Batcher2D(drawContext);
 
-                    context.clipData.clear();
-                    context.clips = panel.getData().camera;
-                    context.setup(panel.getCursor(), panel.getRunner().isRunning() ? mc.getRenderTickCounter().getTickProgress(false) : 0F);
+                    Window window = mc.getWindow();
+                    Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
 
-                    for (Clip clip : panel.getData().camera.getClips(panel.getCursor()))
+                    if (panel.getData() != null && panel.getData().camera != null)
                     {
-                        context.apply(clip, panel.getRunner().getPosition());
+                        CameraClipContext context = panel.getRunner().getContext();
+
+                        context.clipData.clear();
+                        context.clips = panel.getData().camera;
+                        context.setup(panel.getCursor(), panel.getRunner().isRunning() ? mc.getRenderTickCounter().getTickProgress(false) : 0F);
+
+                        for (Clip clip : panel.getData().camera.getClips(panel.getCursor()))
+                        {
+                            context.apply(clip, panel.getRunner().getPosition());
+                        }
+
+                        VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
+
+                        ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
+                        flushGuiRenderState();
                     }
-
-                    VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
-
-                    ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
                 }
             }
         }
 
         renderingWorld = false;
+    }
+
+    public static void flushGuiRenderState()
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.guiRenderer != null && mc.gameRenderer.guiState != null && mc.gameRenderer.fogRenderer != null)
+        {
+            mc.gameRenderer.guiRenderer.render(mc.gameRenderer.fogRenderer.getFogBuffer(FogRenderer.FogType.NONE));
+            mc.gameRenderer.guiState.clear();
+        }
     }
 
     private static void updateCloudRenderMode(MinecraftClient mc)

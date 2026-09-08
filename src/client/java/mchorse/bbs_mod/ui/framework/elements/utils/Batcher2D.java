@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.PickerPreviewRenderState;
@@ -608,6 +609,14 @@ public class Batcher2D
 
     public void flushDraw()
     {
+        if (BBSRendering.renderingWorld)
+        {
+            BBSRendering.flushGuiRenderState();
+        }
+        else
+        {
+            this.newRootLayer();
+        }
     }
 
     public void text(String label, float x, float y)
