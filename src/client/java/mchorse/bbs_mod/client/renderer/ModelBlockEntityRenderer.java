@@ -31,6 +31,7 @@ import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
@@ -47,9 +48,13 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.ColorHelper;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.chunk.Chunk;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -61,8 +66,6 @@ import org.lwjgl.opengl.GL11;
 
 public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockEntity, ModelBlockEntityRenderState>
 {
-    private static final EntityRenderState SHADOW_RENDER_STATE = new EntityRenderState();
-
     public static void renderShadow(VertexConsumerProvider provider, MatrixStack matrices, float tickDelta, double x, double y, double z, float tx, float ty, float tz)
     {
         renderShadow(provider, matrices, tickDelta, x, y, z, tx, ty, tz, 0.5F, 0.5F, 1F);
@@ -74,53 +77,176 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     }
 
     /**
-     * Vanilla ground blob. Minecraft only exposes a single radius, so non-uniform size is
-     * done by scaling the matrix (same idea as Iris caster scale in {@code BaseFilmController}).
-     *
-     * {@code x/y/z} is the entity sample point used for ground projection and height fade —
-     * keep {@code y} at feet / ground. Lift the drawn PNG with {@code ty} (and shift with
-     * {@code tx}/{@code tz}) so artistic Y offset floats the blob instead of washing it out.
+     * Vanilla ground-projected entity shadow renderer.
+     * Searches blocks beneath (x, y, z), projects shadow quads onto top block surfaces,
+     * and applies height-based distance fading and brightness attenuation.
      */
     public static void renderShadow(VertexConsumerProvider provider, MatrixStack matrices, float tickDelta, double x, double y, double z, float tx, float ty, float tz, float radiusX, float radiusZ, float opacity)
     {
-        ClientWorld world = MinecraftClient.getInstance().world;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientWorld world = mc.world;
 
-        if (world == null)
+        if (world == null || !mc.options.getEntityShadows().getValue() || opacity <= 0F)
         {
             return;
         }
 
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        double distance = camera != null && camera.getCameraPos() != null ? camera.getCameraPos().squaredDistanceTo(x, y, z) : 0D;
+        Camera camera = mc.gameRenderer.getCamera();
+        double distance = camera != null && camera.getCameraPos() != null
+            ? camera.getCameraPos().squaredDistanceTo(x, y, z)
+            : 0D;
 
-        opacity = (float) ((1D - distance / 256D) * opacity);
+        float shadowOpacity = (float) ((1D - distance / 256D) * opacity);
 
-        if (opacity <= 0F)
+        if (shadowOpacity <= 0F)
         {
             return;
         }
 
-        float baseRadius = 0.5F;
-        float scaleX = Math.max(0.001F, radiusX / baseRadius);
-        float scaleZ = Math.max(0.001F, radiusZ / baseRadius);
+        float maxRadius = Math.min(Math.max(radiusX, radiusZ), 32F);
 
-        SHADOW_RENDER_STATE.x = x;
-        SHADOW_RENDER_STATE.y = y;
-        SHADOW_RENDER_STATE.z = z;
+        if (maxRadius <= 0F)
+        {
+            return;
+        }
+
+        int minX = MathHelper.floor(x - radiusX);
+        int maxX = MathHelper.floor(x + radiusX);
+        int minZ = MathHelper.floor(z - radiusZ);
+        int maxZ = MathHelper.floor(z + radiusZ);
+
+        float heightLimit = Math.min(shadowOpacity / 0.5F - 1F, maxRadius);
+        int minY = MathHelper.floor(y - heightLimit);
+        int maxY = MathHelper.floor(y);
+
+        if (minY > maxY)
+        {
+            return;
+        }
 
         matrices.push();
         matrices.translate(tx, ty, tz);
-        matrices.scale(scaleX, 1F, scaleZ);
-
-        VertexConsumer consumer = provider.getBuffer(RenderLayers.entityShadow(Identifier.ofVanilla("textures/misc/shadow.png")));
         Matrix4f mat = matrices.peek().getPositionMatrix();
+        VertexConsumer consumer = provider.getBuffer(RenderLayers.entityShadow(Identifier.ofVanilla("textures/misc/shadow.png")));
 
-        consumer.vertex(mat, -baseRadius, 0.01F, -baseRadius).color(1F, 1F, 1F, opacity).texture(0F, 0F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
-        consumer.vertex(mat, -baseRadius, 0.01F, baseRadius).color(1F, 1F, 1F, opacity).texture(0F, 1F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
-        consumer.vertex(mat, baseRadius, 0.01F, baseRadius).color(1F, 1F, 1F, opacity).texture(1F, 1F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
-        consumer.vertex(mat, baseRadius, 0.01F, -baseRadius).color(1F, 1F, 1F, opacity).texture(1F, 0F).overlay(OverlayTexture.DEFAULT_UV).light(15728880).normal(0F, 1F, 0F);
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        Vector3f posVec = new Vector3f();
+
+        for (int bz = minZ; bz <= maxZ; bz++)
+        {
+            for (int bx = minX; bx <= maxX; bx++)
+            {
+                mutable.set(bx, 0, bz);
+                Chunk chunk = world.getChunk(mutable);
+
+                if (chunk == null)
+                {
+                    continue;
+                }
+
+                for (int by = minY; by <= maxY; by++)
+                {
+                    mutable.setY(by);
+                    renderShadowPiece(world, chunk, mutable, x, y, z, radiusX, radiusZ, shadowOpacity, mat, consumer, posVec);
+                }
+            }
+        }
 
         matrices.pop();
+    }
+
+    private static void renderShadowPiece(
+        ClientWorld world,
+        Chunk chunk,
+        BlockPos.Mutable pos,
+        double entityX,
+        double entityY,
+        double entityZ,
+        float radiusX,
+        float radiusZ,
+        float shadowOpacity,
+        Matrix4f mat,
+        VertexConsumer consumer,
+        Vector3f posVec
+    )
+    {
+        float yDiff = (float) (entityY - (double) pos.getY());
+        float heightFade = shadowOpacity - yDiff * 0.5F;
+
+        if (heightFade <= 0F)
+        {
+            return;
+        }
+
+        BlockPos downPos = pos.down();
+        BlockState blockState = chunk.getBlockState(downPos);
+
+        if (blockState.getRenderType() == BlockRenderType.INVISIBLE)
+        {
+            return;
+        }
+
+        int light = world.getLightLevel(pos);
+
+        if (light <= 3)
+        {
+            return;
+        }
+
+        if (!blockState.isFullCube(world, downPos))
+        {
+            return;
+        }
+
+        VoxelShape shape = blockState.getOutlineShape(world, downPos);
+
+        if (shape.isEmpty())
+        {
+            return;
+        }
+
+        float brightness = LightmapTextureManager.getBrightness(world.getDimension(), light);
+        float alpha = MathHelper.clamp(heightFade * 0.5F * brightness, 0F, 1F);
+
+        if (alpha <= 0F)
+        {
+            return;
+        }
+
+        Box box = shape.getBoundingBox();
+        float minRelX = (float) ((double) pos.getX() + box.minX - entityX);
+        float maxRelX = (float) ((double) pos.getX() + box.maxX - entityX);
+        float relY = (float) ((double) pos.getY() + box.minY - entityY) + 0.015F;
+        float minRelZ = (float) ((double) pos.getZ() + box.minZ - entityZ);
+        float maxRelZ = (float) ((double) pos.getZ() + box.maxZ - entityZ);
+
+        float u0 = -minRelX / 2F / radiusX + 0.5F;
+        float u1 = -maxRelX / 2F / radiusX + 0.5F;
+        float v0 = -minRelZ / 2F / radiusZ + 0.5F;
+        float v1 = -maxRelZ / 2F / radiusZ + 0.5F;
+
+        int color = ColorHelper.getWhite(alpha);
+
+        drawShadowVertex(mat, consumer, color, minRelX, relY, minRelZ, u0, v0, posVec);
+        drawShadowVertex(mat, consumer, color, minRelX, relY, maxRelZ, u0, v1, posVec);
+        drawShadowVertex(mat, consumer, color, maxRelX, relY, maxRelZ, u1, v1, posVec);
+        drawShadowVertex(mat, consumer, color, maxRelX, relY, minRelZ, u1, v0, posVec);
+    }
+
+    private static void drawShadowVertex(
+        Matrix4f mat,
+        VertexConsumer consumer,
+        int color,
+        float x,
+        float y,
+        float z,
+        float u,
+        float v,
+        Vector3f posVec
+    )
+    {
+        mat.transformPosition(x, y, z, posVec);
+        consumer.vertex(posVec.x, posVec.y, posVec.z, color, u, v, OverlayTexture.DEFAULT_UV, 15728880, 0F, 1F, 0F);
     }
 
     private static float getHeadYaw(float constraint, float yawDelta, float travel)
@@ -170,37 +296,6 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         }
 
         state.form = form;
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        if (state.shadow && !BBSRendering.isIrisShadowPass() && entity.getWorld() != null && mc.options.getEntityShadows().getValue())
-        {
-            BlockPos pos = entity.getPos();
-            BlockPos downPos = pos.down();
-            BlockState downState = entity.getWorld().getBlockState(downPos);
-
-            if (downState.getRenderType() != BlockRenderType.INVISIBLE)
-            {
-                VoxelShape shape = downState.getOutlineShape(entity.getWorld(), downPos);
-
-                if (!shape.isEmpty())
-                {
-                    double dist = cameraPosition.squaredDistanceTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
-                    float alpha = (float) Math.max(0D, (1D - dist / 256D) * state.shadowOpacity);
-
-                    if (alpha > 0F)
-                    {
-                        state.shadowPieces.add(new EntityRenderState.ShadowPiece(
-                            state.transform.translate.x,
-                            state.transform.translate.y,
-                            state.transform.translate.z,
-                            shape,
-                            alpha
-                        ));
-                    }
-                }
-            }
-        }
     }
 
     @Override
@@ -302,11 +397,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.pop();
 
         /* Vanilla ground blob only — Iris mesh shadows come from the form draw above / shadow mixin. */
-        if (state.shadow && !state.shadowPieces.isEmpty())
-        {
-            queue.submitShadowPieces(matrices, state.shadowRadius, state.shadowPieces);
-        }
-        else if (properties.isShadow() && !BBSRendering.isIrisShadowPass())
+        if (properties.isShadow() && !BBSRendering.isIrisShadowPass())
         {
             float tx = 0.5F + transform.translate.x;
             float ty = transform.translate.y;
