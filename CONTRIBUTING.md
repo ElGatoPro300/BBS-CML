@@ -1,4 +1,4 @@
-# Contribution rules (BBS CML edition)
+# Contribution rules (BBS CML)
 
 If you'd like to submit new features or changes to the BBS CML edition repository or submit a PR (pull request) to this repository, please carefully read following document. The failure to adhere to this document will result in immediate rejection of the features, commits or PR.
 

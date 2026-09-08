@@ -128,6 +128,17 @@ public class GuiQuadMesh implements VertexConsumer
     }
 
     @Override
+    public VertexConsumer color(float red, float green, float blue, float alpha)
+    {
+        int r = Math.max(0, Math.min(255, (int) (red * 255.0F)));
+        int g = Math.max(0, Math.min(255, (int) (green * 255.0F)));
+        int b = Math.max(0, Math.min(255, (int) (blue * 255.0F)));
+        int a = Math.max(0, Math.min(255, (int) (alpha * 255.0F)));
+
+        return this.color((a << 24) | (r << 16) | (g << 8) | b);
+    }
+
+    @Override
     public VertexConsumer texture(float u, float v)
     {
         return this;

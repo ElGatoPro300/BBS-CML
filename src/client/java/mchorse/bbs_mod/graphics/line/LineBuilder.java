@@ -1,17 +1,9 @@
 package mchorse.bbs_mod.graphics.line;
 
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import org.joml.Matrix3x2fc;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +74,37 @@ public class LineBuilder <T>
 
     public void render(Batcher2D batcher2D, ILineRenderer<T> renderer)
     {
-        /* TODO 1.21.11: disable debug line rendering */
+        List<List<LinePoint<T>>> build = this.build();
+
+        if (build.isEmpty())
+        {
+            return;
+        }
+
+        GuiQuadMesh mesh = new GuiQuadMesh();
+        Matrix3x2fc matrix = batcher2D.getContext().getMatrices();
+
+        for (List<LinePoint<T>> points : build)
+        {
+            int size = points.size();
+
+            if (size < 4)
+            {
+                continue;
+            }
+
+            for (int i = 0; i + 3 < size; i += 2)
+            {
+                renderer.render(mesh, matrix, points.get(i));
+                renderer.render(mesh, matrix, points.get(i + 1));
+                renderer.render(mesh, matrix, points.get(i + 3));
+                renderer.render(mesh, matrix, points.get(i + 2));
+            }
+        }
+
+        if (!mesh.isEmpty())
+        {
+            batcher2D.drawQuadMesh(mesh);
+        }
     }
 }

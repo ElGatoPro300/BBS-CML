@@ -540,18 +540,23 @@ public class Batcher2D
 
     public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
+        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH, false);
+    }
+
+    public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH, boolean linear)
+    {
+        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH, linear);
     }
 
     @Deprecated
     public void texturedBox(Supplier<RenderPipeline> shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
+        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH, false);
     }
 
-    private void drawAdoptedGlTexture(int glId, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    private void drawAdoptedGlTexture(int glId, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH, boolean linear)
     {
-        Identifier id = AdoptedTexture.identifier(glId, textureW, textureH, true);
+        Identifier id = AdoptedTexture.identifier(glId, textureW, textureH, linear);
 
         if (id == null)
         {
