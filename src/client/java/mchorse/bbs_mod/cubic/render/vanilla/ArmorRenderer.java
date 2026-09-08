@@ -17,6 +17,7 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexConsumers;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
+import net.minecraft.client.render.entity.model.EquipmentModelData;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
@@ -50,17 +51,20 @@ public class ArmorRenderer
     private static final float TRIM_OUTER_SCALE = 1.005F;
     /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
     private static final float TRIM_INNER_SCALE = 0.995F;
-    private final BipedEntityModel innerModel;
-    private final BipedEntityModel outerModel;
+    private final EquipmentModelData<BipedEntityModel> armorModels;
     private final ElytraEntityModel elytraModel;
     private final SpriteAtlasTexture armorTrimsAtlas;
 
-    public ArmorRenderer(BipedEntityModel innerModel, BipedEntityModel outerModel, ElytraEntityModel elytraModel, SpriteAtlasTexture armorTrimsAtlas)
+    public ArmorRenderer(EquipmentModelData<BipedEntityModel> armorModels, ElytraEntityModel elytraModel, SpriteAtlasTexture armorTrimsAtlas)
     {
-        this.innerModel = innerModel;
-        this.outerModel = outerModel;
+        this.armorModels = armorModels;
         this.elytraModel = elytraModel;
         this.armorTrimsAtlas = armorTrimsAtlas;
+    }
+
+    public ArmorRenderer(BipedEntityModel innerModel, BipedEntityModel outerModel, ElytraEntityModel elytraModel, SpriteAtlasTexture armorTrimsAtlas)
+    {
+        this(new EquipmentModelData<>(outerModel, outerModel, innerModel, outerModel), elytraModel, armorTrimsAtlas);
     }
 
     public void renderArmorSlot(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light)
@@ -259,7 +263,7 @@ public class ArmorRenderer
 
     private BipedEntityModel getModel(EquipmentSlot slot)
     {
-        return this.usesInnerModel(slot) ? this.innerModel : this.outerModel;
+        return this.armorModels.getModelData(slot);
     }
 
     private boolean usesInnerModel(EquipmentSlot slot)
