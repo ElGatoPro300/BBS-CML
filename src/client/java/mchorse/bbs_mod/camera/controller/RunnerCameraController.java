@@ -83,8 +83,8 @@ public class RunnerCameraController extends CameraWorkCameraController
             /* kms */
             boolean free = this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_FREE;
 
-            /* Always pass the camera so fisheye FOV overscan reaches GameRenderer.getFov;
-             * free mode only skips writing position/rotation back. */
+            /* Free camera mode evaluates clips for audio and timeline effects,
+             * but skips writing transform and FOV back to preserve the user's view. */
             this.apply(camera, this.ticks, this.context.playing ? transition : 0F, !free);
         }
 
