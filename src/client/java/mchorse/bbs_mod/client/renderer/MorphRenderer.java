@@ -25,6 +25,8 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
+import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
@@ -36,7 +38,7 @@ public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, PlayerEntityRenderState playerState, float g, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -95,32 +97,46 @@ public class MorphRenderer
 
                 int overlay = OverlayTexture.DEFAULT_UV;
 
+                float bodyYaw = playerState.bodyYaw;
+                float pitch = playerState.pitch;
+                float headYaw = playerState.bodyYaw + playerState.relativeHeadYaw;
+                float yaw = headYaw;
+
                 matrixStack.push();
                 matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                FormRenderingContext morphContext = new FormRenderingContext()
-                    .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+                morph.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
 
-                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
-                if (!worldPass)
+                try
                 {
-                    morphContext.inUI();
+                    FormRenderingContext morphContext = new FormRenderingContext()
+                        .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+                    /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                    if (!worldPass)
+                    {
+                        morphContext.inUI();
+                    }
+
+                    FormUtilsClient.render(morph.getForm(), morphContext);
+
+                    if (morph.entity.getFireTicks() > 0)
+                    {
+                        MorphFireRenderer.render(
+                            matrixStack,
+                            (VertexConsumerProvider) null,
+                            morph.entity,
+                            morph.getForm(),
+                            g,
+                            MinecraftClient.getInstance().gameRenderer.getCamera(),
+                            false
+                        );
+                    }
                 }
-
-                FormUtilsClient.render(morph.getForm(), morphContext);
-
-                if (morph.entity.getFireTicks() > 0)
+                finally
                 {
-                    MorphFireRenderer.render(
-                        matrixStack,
-                        (VertexConsumerProvider) null,
-                        morph.entity,
-                        morph.getForm(),
-                        g,
-                        MinecraftClient.getInstance().gameRenderer.getCamera(),
-                        false
-                    );
+                    morph.entity.clearRotationOverride();
                 }
 
                 matrixStack.pop();
@@ -170,7 +186,7 @@ public class MorphRenderer
         return dataA != null && dataA.equals(dataB);
     }
 
-    public static boolean renderLivingEntity(LivingEntity livingEntity, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
+    public static boolean renderLivingEntity(LivingEntity livingEntity, LivingEntityRenderState livingState, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
     {
         if (!(livingEntity instanceof ISelectorOwnerProvider))
         {
@@ -187,24 +203,38 @@ public class MorphRenderer
         {
             GlStateManager._enableDepthTest();
 
+            float bodyYaw = livingState.bodyYaw;
+            float pitch = livingState.pitch;
+            float headYaw = livingState.bodyYaw + livingState.relativeHeadYaw;
+            float yaw = headYaw;
+
             matrixStack.push();
             matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-            FormUtilsClient.render(form, new FormRenderingContext()
-                .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
-                .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+            owner.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
 
-            if (owner.entity.getFireTicks() > 0)
+            try
             {
-                MorphFireRenderer.render(
-                    matrixStack,
-                    vertexConsumerProvider,
-                    owner.entity,
-                    form,
-                    g,
-                    MinecraftClient.getInstance().gameRenderer.getCamera(),
-                    false
-                );
+                FormUtilsClient.render(form, new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
+                if (owner.entity.getFireTicks() > 0)
+                {
+                    MorphFireRenderer.render(
+                        matrixStack,
+                        vertexConsumerProvider,
+                        owner.entity,
+                        form,
+                        g,
+                        MinecraftClient.getInstance().gameRenderer.getCamera(),
+                        false
+                    );
+                }
+            }
+            finally
+            {
+                owner.entity.clearRotationOverride();
             }
 
             matrixStack.pop();

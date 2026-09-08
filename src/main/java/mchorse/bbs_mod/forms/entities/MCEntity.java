@@ -34,6 +34,16 @@ public class MCEntity implements IEntity
     private float fallFlyingTicks;
     private float prevFallFlyingTicks;
 
+    private boolean hasRotationOverride;
+    private float overridePitch;
+    private float overridePrevPitch;
+    private float overrideHeadYaw;
+    private float overridePrevHeadYaw;
+    private float overrideBodyYaw;
+    private float overridePrevBodyYaw;
+    private float overrideYaw;
+    private float overridePrevYaw;
+
     public MCEntity(Entity mcEntity)
     {
         this.mcEntity = mcEntity;
@@ -399,14 +409,44 @@ public class MCEntity implements IEntity
     }
 
     @Override
+    public void setRotationOverride(float pitch, float prevPitch, float headYaw, float prevHeadYaw, float bodyYaw, float prevBodyYaw, float yaw, float prevYaw)
+    {
+        this.hasRotationOverride = true;
+        this.overridePitch = pitch;
+        this.overridePrevPitch = prevPitch;
+        this.overrideHeadYaw = headYaw;
+        this.overridePrevHeadYaw = prevHeadYaw;
+        this.overrideBodyYaw = bodyYaw;
+        this.overridePrevBodyYaw = prevBodyYaw;
+        this.overrideYaw = yaw;
+        this.overridePrevYaw = prevYaw;
+    }
+
+    @Override
+    public void clearRotationOverride()
+    {
+        this.hasRotationOverride = false;
+    }
+
+    @Override
     public float getYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overrideYaw;
+        }
+
         return this.mcEntity.getYaw();
     }
 
     @Override
     public float getPrevYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overridePrevYaw;
+        }
+
         return this.mcEntity.lastYaw;
     }
 
@@ -425,6 +465,11 @@ public class MCEntity implements IEntity
     @Override
     public float getHeadYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overrideHeadYaw;
+        }
+
         if (this.mcEntity instanceof LivingEntity living)
         {
             return living.getHeadYaw();
@@ -436,6 +481,11 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevHeadYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overridePrevHeadYaw;
+        }
+
         if (this.mcEntity instanceof LivingEntity living)
         {
             return living.lastHeadYaw;
@@ -462,12 +512,22 @@ public class MCEntity implements IEntity
     @Override
     public float getPitch()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overridePitch;
+        }
+
         return this.mcEntity.getPitch();
     }
 
     @Override
     public float getPrevPitch()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overridePrevPitch;
+        }
+
         return this.mcEntity.lastPitch;
     }
 
@@ -486,6 +546,11 @@ public class MCEntity implements IEntity
     @Override
     public float getBodyYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overrideBodyYaw;
+        }
+
         if (this.mcEntity instanceof LivingEntity living)
         {
             return living.bodyYaw;
@@ -497,6 +562,11 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevBodyYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overridePrevBodyYaw;
+        }
+
         if (this.mcEntity instanceof LivingEntity living)
         {
             return living.lastBodyYaw;
@@ -508,6 +578,11 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevPrevBodyYaw()
     {
+        if (this.hasRotationOverride)
+        {
+            return this.overridePrevBodyYaw;
+        }
+
         return this.prevPrevBodyYaw;
     }
 

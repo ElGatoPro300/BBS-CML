@@ -39,7 +39,7 @@ public class PlayerEntityRendererRenderMixin
                         ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true)
                         : 1F;
 
-                    if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, playerState.bodyYaw, tickDelta, matrixStack, renderCommandQueue, state.light))
+                    if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, playerState, tickDelta, matrixStack, renderCommandQueue, state.light))
                     {
                         info.cancel();
                     }

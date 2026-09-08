@@ -52,13 +52,11 @@ public class EntityRenderDispatcherMixin
             int u = OverlayTexture.getU(whiteOverlayProgress);
             int v = OverlayTexture.getV(livingEntity.hurtTime > 0 || livingEntity.deathTime > 0);
             int o = u | (v << 16);
-
-            float yaw = livingState.bodyYaw;
             CustomVertexConsumerProvider vcp = FormUtilsClient.getProvider();
             int light = livingState.light;
             float tickDelta = 0F;
 
-            if (MorphRenderer.renderLivingEntity(livingEntity, yaw, tickDelta, matrices, vcp, light, o))
+            if (MorphRenderer.renderLivingEntity(livingEntity, livingState, tickDelta, matrices, vcp, light, o))
             {
                 return;
             }
