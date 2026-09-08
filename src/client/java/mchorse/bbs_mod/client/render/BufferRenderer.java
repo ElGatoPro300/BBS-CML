@@ -1,10 +1,13 @@
-package net.minecraft.client.render;
+package mchorse.bbs_mod.client.render;
 
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderSetup;
+import net.minecraft.client.render.VertexFormats;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
