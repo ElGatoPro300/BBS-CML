@@ -30,9 +30,10 @@ import net.minecraft.util.math.BlockPos;
 
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
-import org.lwjgl.opengl.GL11;
 
 import com.mojang.serialization.MapCodec;
+
+import org.lwjgl.opengl.GL11;
 
 import java.util.HashMap;
 import java.util.Iterator;
