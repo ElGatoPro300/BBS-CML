@@ -80,8 +80,29 @@ public final class BlockEffectOverlayUniforms
 
     private static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas)
     {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, bindBlockAtlas, false);
+    }
+
+    /**
+     * @param multiplyDarken when true, DST_COLOR darken for negative paint/glow masks (ModelForm parity).
+     */
+    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas, boolean multiplyDarken)
+    {
         BBSRendering.enableBlend();
-        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        if (multiplyDarken)
+        {
+            BBSRendering.blendFuncSeparate(
+                GL11.GL_DST_COLOR,
+                GL11.GL_ZERO,
+                GL11.GL_DST_ALPHA,
+                GL11.GL_ZERO
+            );
+        }
+        else
+        {
+            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
@@ -92,6 +113,7 @@ public final class BlockEffectOverlayUniforms
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
             uploadFlatOverlayFog(program, rootInverse);
+            bindPaintMultiplyDarken(program, multiplyDarken);
         }
 
         if (bindBlockAtlas)
@@ -100,6 +122,16 @@ public final class BlockEffectOverlayUniforms
         }
 
         BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    private static void bindPaintMultiplyDarken(ShaderProgram shader, boolean multiplyDarken)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        BBSUniform.set(shader, "PaintMultiplyDarken", multiplyDarken ? 1F : 0F);
     }
 
     public static void configureGlowOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale)
@@ -157,8 +189,26 @@ public final class BlockEffectOverlayUniforms
      */
     public static void configurePaintOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float sizeX, float sizeY, float sizeZ)
     {
+        configurePaintOverlayRenderStateStructure(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, sizeX, sizeY, sizeZ, false);
+    }
+
+    public static void configurePaintOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float sizeX, float sizeY, float sizeZ, boolean multiplyDarken)
+    {
         BBSRendering.enableBlend();
-        BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        if (multiplyDarken)
+        {
+            BBSRendering.blendFuncSeparate(
+                GL11.GL_DST_COLOR,
+                GL11.GL_ZERO,
+                GL11.GL_DST_ALPHA,
+                GL11.GL_ZERO
+            );
+        }
+        else
+        {
+            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
@@ -169,6 +219,7 @@ public final class BlockEffectOverlayUniforms
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
             uploadFlatOverlayFog(program, rootInverse);
+            bindPaintMultiplyDarken(program, multiplyDarken);
         }
 
         BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
@@ -276,7 +327,12 @@ public final class BlockEffectOverlayUniforms
 
     public static void configurePaintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, false);
+        configurePaintOverlayRenderStateEntityVisual(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, false);
+    }
+
+    public static void configurePaintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, boolean multiplyDarken)
+    {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, false, multiplyDarken);
     }
 
     public static void configureGlowOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale)

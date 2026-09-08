@@ -84,6 +84,7 @@ public final class ModelEffectUniforms
         FIELDS.put("GlowScale", new Field(1224, "float"));
         FIELDS.put("GlowOverlayColor", new Field(1232, "vec4"));
         FIELDS.put("ColorMaskFalloff", new Field(1248, "float"));
+        FIELDS.put("PaintMultiplyDarken", new Field(1252, "float"));
     }
 
     public static ShaderProgram register(ShaderProgram program)

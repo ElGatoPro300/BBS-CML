@@ -105,12 +105,32 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         float effectivePaintStrength = this.resolveEffectivePaintStrength(group);
         float effectiveGlowStrength = this.resolveEffectiveGlowStrength(group);
+        float r = this.r;
+        float g = this.g;
+        float b = this.b;
+        float a = alpha;
+        float paintUniformStrength = effectivePaintStrength;
+
+        if (group.paintColor != null && group.paintColor.a < 0F
+            && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isPaintPass())
+        {
+            Color baked = new Color().set(r, g, b, a);
+
+            FormColorEffects.applyPaintBlend(baked, group.paintColor, group.paintColor.a);
+            r = baked.r;
+            g = baked.g;
+            b = baked.b;
+            a = baked.a;
+            paintUniformStrength = ModelVAORenderer.getBasePaintStrength() > 0F
+                ? ModelVAORenderer.getBasePaintStrength()
+                : 0F;
+        }
 
         ModelVAORenderer.setGroupPaint(
             this.resolveEffectivePaintR(group),
             this.resolveEffectivePaintG(group),
             this.resolveEffectivePaintB(group),
-            effectivePaintStrength
+            paintUniformStrength
         );
         ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
         ModelVAORenderer.setGroupGlowing(
@@ -123,11 +143,6 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.setGroupFormColorGrade(group.color);
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);
-
-        float r = this.r;
-        float g = this.g;
-        float b = this.b;
-        float a = alpha;
 
         boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
 

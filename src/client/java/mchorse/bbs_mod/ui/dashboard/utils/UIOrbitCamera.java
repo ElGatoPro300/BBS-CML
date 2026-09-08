@@ -53,7 +53,7 @@ public class UIOrbitCamera implements IUIElement
 
         Area area = this.viewportArea.get();
 
-        return area != null && area.isInside(context);
+        return area == null || area.isInside(context);
     }
 
     @Override

@@ -104,14 +104,7 @@ public class UIDashboard extends UIBaseMenu
             {
                 this.orbit.setFovRoll(panel.supportsRollFOVControl());
 
-                if (BBSSettings.editorOrbitRestrictToViewport.get())
-                {
-                    this.orbitUI.setViewportArea(panel::getFlightViewportArea);
-                }
-                else
-                {
-                    this.orbitUI.setViewportArea(null);
-                }
+                this.orbitUI.setViewportArea(() -> BBSSettings.editorOrbitRestrictToViewport.get() ? panel.getFlightViewportArea() : null);
             }
             else
             {
