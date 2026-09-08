@@ -930,7 +930,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
         {
             BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-            manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create()));
+            manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create(entry.state.getRenderingSeed(entry.pos))));
         }
     }
 
@@ -1235,7 +1235,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-        manager.renderBlock(state, pos, view, stack, vc, true, manager.getModel(state).getParts(Random.create()));
+        manager.renderBlock(state, pos, view, stack, vc, true, manager.getModel(state).getParts(Random.create(state.getRenderingSeed(pos))));
     }
 
     /**
@@ -1330,7 +1330,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 else
                 {
                     BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-                    manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create()));
+                    manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create(entry.state.getRenderingSeed(entry.pos))));
                 }
             }
 
@@ -1512,7 +1512,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
                 {
                     BlockRenderManager manager = MinecraftClient.getInstance().getBlockRenderManager();
-                    manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create()));
+                    manager.renderBlock(entry.state, entry.pos, info.view, stack, vc, true, manager.getModel(entry.state).getParts(Random.create(entry.state.getRenderingSeed(entry.pos))));
                 }
 
                 stack.pop();
