@@ -66,6 +66,13 @@ public final class ModelEffectPass
         return PROGRAMS.containsKey(program);
     }
 
+    public static boolean isPickingProgram(ShaderProgram program)
+    {
+        String name = PROGRAMS.get(program);
+
+        return name != null && name.startsWith("picker_");
+    }
+
     private static <T> T custom(Supplier<T> draw)
     {
         return BBSRendering.isIrisLoaded() ? IrisCustomPass.run(draw) : draw.get();

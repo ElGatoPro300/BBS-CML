@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -18,6 +19,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RawProjectionMatrix;
@@ -41,6 +43,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -701,41 +704,46 @@ public class Gizmo
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-
-        context.batcher.flush();
-
-        MatrixStackUtils.cacheMatrices();
-        RenderSystem.backupProjectionMatrix();
-        RenderSystem.setProjectionMatrix(this.rawProjection.set(projection), ProjectionType.ORTHOGRAPHIC);
-
-        /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional
-         * scales like 1.5 up to 2, which offset/stretched the gizmo viewport and could push vy/vh
-         * negative (GL_INVALID_VALUE). Same fix as UIModelRenderer#setupViewport. */
         float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
         float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
-        int vx = (int) (area.x * rx);
-        int vy = (int) (mc.getWindow().getHeight() - (area.y + area.h) * ry);
-        int vw = (int) (area.w * rx);
-        int vh = (int) (area.h * ry);
+        int width = Math.max(1, (int) Math.ceil(area.w * rx * size));
+        int height = Math.max(1, (int) Math.ceil(area.h * ry * size));
+        ModelPreviewRenderer preview = context.render.acquireFormPreview();
+        int[] viewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
+        boolean clipped = scissor.isEnabled();
+        int sx = scissor.getX(), sy = scissor.getY(), sw = scissor.getWidth(), sh = scissor.getHeight();
+        RenderSystem.disableScissorForRenderTypeDraws();
 
-        GlStateManager._viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+        try
+        {
+            preview.begin(width, height, projection);
+            MatrixStack stack = new MatrixStack();
+            MatrixStackUtils.multiply(stack, this.lastGizmoMatrix);
+            this.render(stack);
+        }
+        finally
+        {
+            preview.end();
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
+            GlStateManager._viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+            if (clipped)
+            {
+                RenderSystem.enableScissorForRenderTypeDraws(sx, sy, sw, sh);
+            }
+        }
 
-        MatrixStack stack = new MatrixStack();
-
-        MatrixStackUtils.multiply(stack, this.lastGizmoMatrix);
-
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        this.render(stack);
-        GlStateManager._depthMask(true);
-        GlStateManager._enableDepthTest();
+        /* Queue the visual after the film image instead of drawing behind deferred GUI quads. */
+        context.batcher.newRootLayer();
+        context.batcher.texturedBox(preview.getColorView(), Colors.WHITE, area.x, area.y, area.w, area.h,
+            0, height, width, 0, width, height);
+        context.batcher.newRootLayer();
         this.renderDragReadout(context, projection, area);
-
-        GlStateManager._viewport(0, 0, mc.getWindow().getFramebufferWidth(), mc.getWindow().getFramebufferHeight());
-        RenderSystem.restoreProjectionMatrix();
-        MatrixStackUtils.restoreMatrices();
-        GlStateManager._depthFunc(GL11.GL_ALWAYS);
     }
 
     private void renderDragReadout(UIContext context, Matrix4f projection, Area area)

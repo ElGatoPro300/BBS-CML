@@ -7166,7 +7166,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (!BBSRendering.isIrisShadowPass())
         {
-            this.lastProjection.set(BBSRendering.camera);
+            this.lastProjection.set(BBSRendering.projection);
             MatrixStack ms = context.matrices();
             if (ms != null)
             {

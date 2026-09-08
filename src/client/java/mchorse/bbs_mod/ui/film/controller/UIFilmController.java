@@ -1968,7 +1968,8 @@ public class UIFilmController extends UIElement
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        // RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
+        /* Picking runs during GUI drawing, after the world projection has been replaced. */
+        BBSRendering.setProjectionMatrix(this.panel.lastProjection, ProjectionType.PERSPECTIVE);
 
         /* Render the stencil.
          * Without Iris, FilmControllerContext uses an empty (camera-relative) stack and
@@ -2486,7 +2487,7 @@ public class UIFilmController extends UIElement
             }
 
             int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
-            int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
+            int y = mainTexture.height - 1 - (int) ((context.mouseY() - viewport.y) / (float) viewport.h * mainTexture.height);
 
             this.stencil.pick(x, y);
             this.stencil.unbind(this.stencilMap);

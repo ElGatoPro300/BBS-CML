@@ -1818,6 +1818,34 @@ public class ModelVAORenderer
             return;
         }
 
+        if (ModelEffectPass.isPickingProgram(shader) && modelVAO instanceof ModelVAO mesh)
+        {
+            ModelVAOData data = mesh.getData();
+
+            if (data == null || data.vertices().length == 0)
+            {
+                return;
+            }
+
+            /* Retained meshes need an explicit pass to bind picking uniforms and attachments. */
+            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
+                VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+            for (int i = 0; i < data.vertices().length / 3; i++)
+            {
+                int position = i * 3;
+                int uv = i * 2;
+                builder.vertex(data.vertices()[position], data.vertices()[position + 1], data.vertices()[position + 2])
+                    .color(r, g, b, a).texture(data.texCoords()[uv], data.texCoords()[uv + 1])
+                    .overlay(overlay).light(0)
+                    .normal(data.normals()[position], data.normals()[position + 1], data.normals()[position + 2]);
+            }
+
+            setupUniforms(stack, shader);
+            ModelEffectPass.drawBound(builder.end(), null, false);
+            return;
+        }
+
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
