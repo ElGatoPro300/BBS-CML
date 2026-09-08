@@ -1,43 +1,64 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
+import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.interps.Lerps;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
- * Shape-key CPU geometry is submitted one model group per call so each group's texture and
- * vertex color are resolved before its buffer is handed to the model layer.
- * <p>
- * Positions and normals are written already transformed by the render stack; the model layer
- * supplies the active camera transform when it submits the built buffer.
+ * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
+ * per-bone texture crossfade uniforms match the group that was just meshed.
+ *
+ * Positions and normals are written already transformed by the render stack. Uniforms must use
+ * {@link ModelVAORenderer#setupUniformsCpuPretransformed} so {@code ModelViewMat} / {@code NormalMat}
+ * are not applied a second time (second ModelView hides composites; second NormalMat inverts lighting).
  */
 public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
-    private final RenderPipeline pipeline;
+    private final ShaderProgram shader;
     private final Link defaultTexture;
+    private final Matrix4f rootInverse;
+    private int currentGroupLight;
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, RenderPipeline pipeline, Link defaultTexture)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
+    {
+        this(light, overlay, stencilMap, shapeKeys, shader, defaultTexture, null);
+    }
+
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture, Matrix4f rootInverse)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
-        this.pipeline = pipeline;
+        this.shader = shader;
         this.defaultTexture = defaultTexture;
+        this.rootInverse = rootInverse;
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
     {
         if (group.cubes.isEmpty() && group.meshes.isEmpty())
         {
@@ -46,7 +67,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         CubicGroupTextureBlend textureBlend = CubicGroupTextureBlend.resolve(group, this.defaultTexture);
 
-        if (textureBlend != null && textureBlend.isPartial())
+        if (textureBlend != null && textureBlend.isPartial() && !CubicGroupTextureBlend.supportsShader(this.shader))
         {
             float fromA = this.a * (1F - textureBlend.blend);
             float toA = this.a * textureBlend.blend;
@@ -59,7 +80,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         else
         {
-            CubicGroupTextureBlend.bindForDraw(this.pipeline, textureBlend, this.defaultTexture);
+            CubicGroupTextureBlend.bindForDraw(this.shader, textureBlend, this.defaultTexture);
 
             try
             {
@@ -74,7 +95,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         return false;
     }
 
-    private void drawGroup(PoseStack stack, ModelGroup group, Model model, Link texture, float alpha)
+    private void drawGroup(MatrixStack stack, ModelGroup group, Model model, Link texture, float alpha)
     {
         if (texture != null)
         {
@@ -84,17 +105,32 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         float effectivePaintStrength = this.resolveEffectivePaintStrength(group);
         float effectiveGlowStrength = this.resolveEffectiveGlowStrength(group);
+        float r = this.r;
+        float g = this.g;
+        float b = this.b;
+        float a = alpha;
+        float paintUniformStrength = effectivePaintStrength;
 
-        if (ModelVAORenderer.isSuppressShapeKeyMainPassGlow() && effectiveGlowStrength > 0F)
+        if (group.paintColor != null && group.paintColor.a < 0F
+            && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isPaintPass())
         {
-            effectiveGlowStrength = 0F;
+            Color baked = new Color().set(r, g, b, a);
+
+            FormColorEffects.applyPaintBlend(baked, group.paintColor, group.paintColor.a);
+            r = baked.r;
+            g = baked.g;
+            b = baked.b;
+            a = baked.a;
+            paintUniformStrength = ModelVAORenderer.getBasePaintStrength() > 0F
+                ? ModelVAORenderer.getBasePaintStrength()
+                : 0F;
         }
 
         ModelVAORenderer.setGroupPaint(
             this.resolveEffectivePaintR(group),
             this.resolveEffectivePaintG(group),
             this.resolveEffectivePaintB(group),
-            effectivePaintStrength
+            paintUniformStrength
         );
         ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
         ModelVAORenderer.setGroupGlowing(
@@ -108,29 +144,118 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);
 
-        float cr = this.r;
-        float cg = this.g;
-        float cb = this.b;
+        boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
+
+        if (!ModelVAORenderer.isGlowingUniformActive())
+        {
+            if (effectiveGlowStrength != 0F && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
+            {
+                Color groupColor = new Color().set(r, g, b, a);
+                Color glowColor = new Color().set(this.resolveEffectiveGlowR(group), this.resolveEffectiveGlowG(group), this.resolveEffectiveGlowB(group), 1F);
+
+                FormColorEffects.blendBrighten(groupColor, glowColor, effectiveGlowStrength);
+
+                r = groupColor.r;
+                g = groupColor.g;
+                b = groupColor.b;
+                a = groupColor.a;
+            }
+        }
+
+        int groupLight = this.light;
+
+        if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass() && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
+        {
+            float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
+            int baseU = groupLight & '\uffff';
+            int u = (int) Lerps.lerp(baseU, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, glowLightT);
+            int v = groupLight >> 16 & '\uffff';
+
+            groupLight = u | v << 16;
+        }
+
+        if (this.stencilMap != null)
+        {
+            groupLight = this.stencilMap.increment ? group.index : 0;
+        }
+        else
+        {
+            int u = (int) Lerps.lerp(groupLight & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
+            int v = groupLight >> 16 & '\uffff';
+
+            groupLight = u | v << 16;
+        }
+
+        this.currentGroupLight = groupLight;
+
+        float savedA = this.a;
+
+        this.setColor(this.r, this.g, this.b, alpha);
+
+        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+        ModelVAORenderer.beginCpuGeometry(this.shader);
+        super.renderGroup(groupBuilder, stack, group, model);
+
+        try
+        {
+            BBSRendering.bindProgram(this.shader);
+            BBSUniform.set(this.shader, "ColorModulator", r, g, b, a);
+
+            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
+            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
+            BBSRendering.unbindProgram();
+        }
+        catch (IllegalStateException e)
+        {
+            /* Empty or invalid buffer */
+        }
+        finally
+        {
+            BBSUniform.set(this.shader, "ColorModulator", 1F, 1F, 1F, 1F);
+        }
+
+        this.setColor(this.r, this.g, this.b, savedA);
+    }
+
+    @Override
+    protected void writeVertex(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    {
+        this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
+        stack.peek().getPositionMatrix().transform(this.vertex);
+
+        float vr = 1F;
+        float vg = 1F;
+        float vb = 1F;
+        float va = 1F;
 
         if (!group.color.hasActiveTransform())
         {
-            cr *= group.color.r;
-            cg *= group.color.g;
-            cb *= group.color.b;
-            alpha *= group.color.a;
+            vr = group.color.r;
+            vg = group.color.g;
+            vb = group.color.b;
+            va = group.color.a;
         }
 
-        this.setColor(cr, cg, cb, alpha);
+        builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
+            .color(
+                MathUtils.clamp(vr, 0F, 1F),
+                MathUtils.clamp(vg, 0F, 1F),
+                MathUtils.clamp(vb, 0F, 1F),
+                MathUtils.clamp(va, 0F, 1F)
+            )
+            .texture(vertex.uv.x, vertex.uv.y)
+            .overlay(this.overlay);
 
-        BufferBuilder groupBuilder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, this.pipeline.getVertexFormat());
-
-        super.renderGroup(groupBuilder, stack, group, model);
-
-        MeshData built = groupBuilder.build();
-
-        if (built != null)
+        if (this.stencilMap != null)
         {
-            built.close();
+            builder.light(this.currentGroupLight, 0);
         }
+        else
+        {
+            builder.light(this.currentGroupLight & '\uffff', this.currentGroupLight >> 16 & '\uffff');
+        }
+
+        builder.normal(normal.x, normal.y, normal.z);
     }
 }

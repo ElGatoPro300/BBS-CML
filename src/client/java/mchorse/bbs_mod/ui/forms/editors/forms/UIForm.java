@@ -41,7 +41,7 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
     {
         super(Direction.LEFT);
 
-        this.keys().register(Keys.FILM_CONTROLLER_CYCLE_EDITORS, this::cyclePanels);
+        this.keys().register(Keys.FILM_CONTROLLER_CYCLE_EDITORS, this::cyclePanels).allowShift();
     }
 
     @Override
@@ -132,6 +132,7 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
 
         matrix = matrix == null ? null : new Matrix4f(matrix);
         matrix = GizmoMatrixUtils.applyOrientationSpace(matrix, orientation);
+        matrix = GizmoMatrixUtils.normalizeBasis(matrix);
 
         return matrix == null ? Matrices.EMPTY_4F : matrix;
     }

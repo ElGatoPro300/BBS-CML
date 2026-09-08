@@ -4,6 +4,8 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
 import mchorse.bbs_mod.camera.clips.converters.IClipConverter;
+import mchorse.bbs_mod.camera.clips.misc.AudioClip;
+import mchorse.bbs_mod.camera.clips.misc.VideoClip;
 import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -15,6 +17,8 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.settings.values.IValueListener;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.audio.UIAudioRecorder;
@@ -142,8 +146,10 @@ public class UIClips extends UIElement
     private List<Clip> otherClips = Collections.emptyList();
     private Set<Integer> snappingPoints = new HashSet<>();
     private List<Vector3i> grabbedData = new ArrayList<>();
+    private List<Integer> grabbedOffsets = new ArrayList<>();
     /** Grab-start tick/layer/duration for {@link #otherClips} (ripple resize). */
     private List<Vector3i> otherClipData = new ArrayList<>();
+    private List<Integer> otherOffsets = new ArrayList<>();
 
     private UICopyPasteController copyPasteController;
 
@@ -249,6 +255,7 @@ public class UIClips extends UIElement
                 menu.action(Icons.SHIFT_TO, UIKeys.CAMERA_TIMELINE_CONTEXT_SHIFT_DURATION, this::shiftDurationToCursor);
             }
 
+            menu.action(Icons.MAXIMIZE, UIKeys.CAMERA_TIMELINE_CONTEXT_MAXIMIZE, this::resetView);
             menu.action(Icons.EXCHANGE, UIKeys.CAMERA_TIMELINE_CONTEXT_REORGANIZE, () -> this.clips.sortLayers());
 
             if (hasSelected)
@@ -967,6 +974,12 @@ public class UIClips extends UIElement
         {
             int duration = clips.calculateDuration();
 
+            /* Guard against absurd spans from corrupted tick/duration data. */
+            if (duration > Clip.MAX_DURATION_TICKS * 10)
+            {
+                duration = Clip.MAX_DURATION_TICKS * 10;
+            }
+
             if (duration > 0)
             {
                 this.scale.view(0, duration);
@@ -1111,6 +1124,14 @@ public class UIClips extends UIElement
     public void toolbarDeselectAll()
     {
         this.pickClip(null);
+    }
+
+    /**
+     * Toolbar action: reset horizontal view scale to fit all clips in the timeline.
+     */
+    public void toolbarResetView()
+    {
+        this.resetView();
     }
 
     /**
@@ -1660,6 +1681,9 @@ public class UIClips extends UIElement
                 this.otherClips = new ArrayList<>(this.clips.get());
                 this.otherClips.removeIf(this.grabbedClips::contains);
                 this.otherClipData.clear();
+                this.otherOffsets.clear();
+                this.grabbedData.clear();
+                this.grabbedOffsets.clear();
                 this.snappingPoints.clear();
                 this.snappingPoints.add(this.delegate.getCursor());
 
@@ -1675,6 +1699,7 @@ public class UIClips extends UIElement
 
                     start = MathUtils.clamp(start, 0, max);
                     end = MathUtils.clamp(end, mult, max);
+                    end = this.capRulerEnd(start, end, mult);
 
                     for (int j = start; j <= end; j += mult)
                     {
@@ -1689,6 +1714,7 @@ public class UIClips extends UIElement
                 for (Clip otherClip : this.otherClips)
                 {
                     this.otherClipData.add(new Vector3i(otherClip.tick.get(), otherClip.layer.get(), otherClip.duration.get()));
+                    this.otherOffsets.add(this.getClipOffset(otherClip));
                     this.snappingPoints.add(otherClip.tick.get());
                     this.snappingPoints.add(otherClip.tick.get() + otherClip.duration.get());
                 }
@@ -1698,6 +1724,7 @@ public class UIClips extends UIElement
                 for (Clip selectedClip : this.getClipsFromSelection())
                 {
                     this.grabbedData.add(new Vector3i(selectedClip.tick.get(), selectedClip.layer.get(), selectedClip.duration.get()));
+                    this.grabbedOffsets.add(this.getClipOffset(selectedClip));
                 }
 
                 return true;
@@ -1811,12 +1838,15 @@ public class UIClips extends UIElement
 
     private void resetStates()
     {
+        this.submitGrabbedUndo();
+
         if (this.selecting)
         {
             this.pickLastSelectedClip();
         }
 
         this.grabMode = 0;
+        this.canGrab = false;
         this.grabbing = false;
         this.selecting = false;
         this.scrubbing = false;
@@ -1827,7 +1857,9 @@ public class UIClips extends UIElement
         this.otherClips = Collections.emptyList();
         this.snappingPoints.clear();
         this.grabbedData.clear();
+        this.grabbedOffsets.clear();
         this.otherClipData.clear();
+        this.otherOffsets.clear();
 
         this.vertical.dragging = false;
     }
@@ -2109,16 +2141,229 @@ public class UIClips extends UIElement
         return a.layer.get().equals(b.layer.get());
     }
 
+    private int getClipOffset(Clip clip)
+    {
+        if (clip instanceof AudioClip audio)
+        {
+            return audio.offset.get();
+        }
+        else if (clip instanceof VideoClip video)
+        {
+            return video.offset.get();
+        }
+
+        return 0;
+    }
+
+    private void setClipOffset(Clip clip, int offset, boolean direct)
+    {
+        if (clip instanceof AudioClip audio)
+        {
+            if (direct)
+            {
+                audio.offset.setDirect(offset);
+            }
+            else
+            {
+                audio.offset.set(offset);
+            }
+        }
+        else if (clip instanceof VideoClip video)
+        {
+            if (direct)
+            {
+                video.offset.setDirect(offset);
+            }
+            else
+            {
+                video.offset.set(offset);
+            }
+        }
+    }
+
+    private ValueInt getClipOffsetValue(Clip clip)
+    {
+        if (clip instanceof AudioClip audio)
+        {
+            return audio.offset;
+        }
+        else if (clip instanceof VideoClip video)
+        {
+            return video.offset;
+        }
+
+        return null;
+    }
+
     private void setClipData(Clip clip, int newTick, int newLayer, int newDuration)
     {
         if (clip.tick.get() != newTick && clip.duration.get() != newDuration)
         {
-            clip.shiftLeft(newTick);
+            clip.shiftLeft(newTick, this.canGrab);
         }
 
-        clip.tick.set(newTick);
-        clip.duration.set(newDuration);
-        clip.layer.set(newLayer);
+        if (this.canGrab)
+        {
+            clip.tick.setDirect(newTick);
+            clip.duration.setDirect(newDuration);
+            clip.layer.setDirect(newLayer);
+        }
+        else
+        {
+            clip.tick.set(newTick);
+            clip.duration.set(newDuration);
+            clip.layer.set(newLayer);
+        }
+    }
+
+    private void submitGrabbedUndo()
+    {
+        if (!this.canGrab || this.grabbedClips.isEmpty())
+        {
+            return;
+        }
+
+        boolean hasChanges = false;
+        List<Clip> changedClips = new ArrayList<>();
+        List<Vector3i> initialDataList = new ArrayList<>();
+        List<Integer> initialOffsetsList = new ArrayList<>();
+        List<Vector3i> finalDataList = new ArrayList<>();
+        List<Integer> finalOffsetsList = new ArrayList<>();
+
+        /* Check grabbed clips */
+        for (int i = 0; i < this.grabbedClips.size() && i < this.grabbedData.size(); i++)
+        {
+            Clip clip = this.grabbedClips.get(i);
+            Vector3i initial = this.grabbedData.get(i);
+            int initialOffset = i < this.grabbedOffsets.size() ? this.grabbedOffsets.get(i) : this.getClipOffset(clip);
+            int currentOffset = this.getClipOffset(clip);
+
+            if (initial.x() != clip.tick.get() || initial.y() != clip.layer.get()
+                || initial.z() != clip.duration.get() || initialOffset != currentOffset)
+            {
+                hasChanges = true;
+                changedClips.add(clip);
+                initialDataList.add(initial);
+                initialOffsetsList.add(initialOffset);
+                finalDataList.add(new Vector3i(clip.tick.get(), clip.layer.get(), clip.duration.get()));
+                finalOffsetsList.add(currentOffset);
+            }
+        }
+
+        /* Check other clips (e.g. ripple resize) */
+        for (int i = 0; i < this.otherClips.size() && i < this.otherClipData.size(); i++)
+        {
+            Clip clip = this.otherClips.get(i);
+            Vector3i initial = this.otherClipData.get(i);
+            int initialOffset = i < this.otherOffsets.size() ? this.otherOffsets.get(i) : this.getClipOffset(clip);
+            int currentOffset = this.getClipOffset(clip);
+
+            if (initial.x() != clip.tick.get() || initial.y() != clip.layer.get()
+                || initial.z() != clip.duration.get() || initialOffset != currentOffset)
+            {
+                hasChanges = true;
+                changedClips.add(clip);
+                initialDataList.add(initial);
+                initialOffsetsList.add(initialOffset);
+                finalDataList.add(new Vector3i(clip.tick.get(), clip.layer.get(), clip.duration.get()));
+                finalOffsetsList.add(currentOffset);
+            }
+        }
+
+        if (!hasChanges)
+        {
+            return;
+        }
+
+        /* 1. Temporarily revert all changed clips to initial values directly */
+        for (int i = 0; i < changedClips.size(); i++)
+        {
+            Clip clip = changedClips.get(i);
+            Vector3i initial = initialDataList.get(i);
+            int initialOffset = initialOffsetsList.get(i);
+
+            clip.tick.setDirect(initial.x());
+            clip.layer.setDirect(initial.y());
+            clip.duration.setDirect(initial.z());
+            this.setClipOffset(clip, initialOffset, true);
+        }
+
+        /* 2. Fire preNotify(FLAG_UNMERGEABLE) on all properties that actually changed */
+        for (int i = 0; i < changedClips.size(); i++)
+        {
+            Clip clip = changedClips.get(i);
+            Vector3i initial = initialDataList.get(i);
+            Vector3i finalData = finalDataList.get(i);
+            int initialOffset = initialOffsetsList.get(i);
+            int finalOffset = finalOffsetsList.get(i);
+
+            if (initial.x() != finalData.x())
+            {
+                clip.tick.preNotify(IValueListener.FLAG_UNMERGEABLE);
+            }
+            if (initial.y() != finalData.y())
+            {
+                clip.layer.preNotify(IValueListener.FLAG_UNMERGEABLE);
+            }
+            if (initial.z() != finalData.z())
+            {
+                clip.duration.preNotify(IValueListener.FLAG_UNMERGEABLE);
+            }
+            if (initialOffset != finalOffset)
+            {
+                ValueInt offsetValue = this.getClipOffsetValue(clip);
+
+                if (offsetValue != null)
+                {
+                    offsetValue.preNotify(IValueListener.FLAG_UNMERGEABLE);
+                }
+            }
+        }
+
+        /* 3. Set all changed clips to their final values directly */
+        for (int i = 0; i < changedClips.size(); i++)
+        {
+            Clip clip = changedClips.get(i);
+            Vector3i finalData = finalDataList.get(i);
+            int finalOffset = finalOffsetsList.get(i);
+
+            clip.tick.setDirect(finalData.x());
+            clip.layer.setDirect(finalData.y());
+            clip.duration.setDirect(finalData.z());
+            this.setClipOffset(clip, finalOffset, true);
+        }
+
+        /* 4. Fire postNotify(FLAG_UNMERGEABLE) on all properties that actually changed */
+        for (int i = 0; i < changedClips.size(); i++)
+        {
+            Clip clip = changedClips.get(i);
+            Vector3i initial = initialDataList.get(i);
+            Vector3i finalData = finalDataList.get(i);
+            int initialOffset = initialOffsetsList.get(i);
+            int finalOffset = finalOffsetsList.get(i);
+
+            if (initial.x() != finalData.x())
+            {
+                clip.tick.postNotify(IValueListener.FLAG_UNMERGEABLE);
+            }
+            if (initial.y() != finalData.y())
+            {
+                clip.layer.postNotify(IValueListener.FLAG_UNMERGEABLE);
+            }
+            if (initial.z() != finalData.z())
+            {
+                clip.duration.postNotify(IValueListener.FLAG_UNMERGEABLE);
+            }
+            if (initialOffset != finalOffset)
+            {
+                ValueInt offsetValue = this.getClipOffsetValue(clip);
+
+                if (offsetValue != null)
+                {
+                    offsetValue.postNotify(IValueListener.FLAG_UNMERGEABLE);
+                }
+            }
+        }
     }
 
     private int snap(int tick)
@@ -2281,7 +2526,7 @@ public class UIClips extends UIElement
 
         batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xee0b0d12);
         batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + RULER_HEIGHT, 0xff111115);
-        batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x44ffffff);
+        batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x22ffffff);
 
         batcher.clip(this.vertical.area, context);
 
@@ -2367,6 +2612,30 @@ public class UIClips extends UIElement
     }
 
     /**
+     * Keep ruler / snap loops bounded to roughly screen-width iterations.
+     * Huge clip durations used to set the view span to billions of ticks and hang here.
+     */
+    private int capRulerEnd(int start, int end, int mult)
+    {
+        if (mult <= 0)
+        {
+            return start;
+        }
+
+        int maxMarkers = Math.max(this.area.w * 2, 512) + 2;
+        long span = (long) end - (long) start;
+
+        if (span / mult > maxMarkers)
+        {
+            long capped = (long) start + (long) mult * maxMarkers;
+
+            return capped > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) capped;
+        }
+
+        return end;
+    }
+
+    /**
      * Render tick markers that help orient within camera work.
      */
     private void renderTickMarkers(UIContext context, int y, int h)
@@ -2383,12 +2652,13 @@ public class UIClips extends UIElement
 
         start = MathUtils.clamp(start, 0, max);
         end = MathUtils.clamp(end, mult, max);
+        end = this.capRulerEnd(start, end, mult);
 
         for (int j = start; j <= end; j += mult)
         {
             int xx = this.toGraphX(j);
             boolean majorTick = j % major == 0;
-            int lineColor = majorTick ? 0x44ffffff : 0x18ffffff;
+            int lineColor = majorTick ? 0x1cffffff : 0x0affffff;
             int tickBottom = this.area.y + RULER_HEIGHT;
             int tickHeight = majorTick ? 8 : 4;
 

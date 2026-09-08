@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.bridge;
 
-import net.minecraft.world.entity.Entity;
+import net.minecraft.entity.Entity;
 
 public interface IEntityRenderState {
     void bbs$setEntity(Entity entity);

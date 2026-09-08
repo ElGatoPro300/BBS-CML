@@ -1,26 +1,26 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemUsageContext;
+import net.minecraft.util.ActionResult;
 
 public class StructurePickerItem extends Item
 {
-    public StructurePickerItem(Properties settings)
+    public StructurePickerItem(Settings settings)
     {
         super(settings);
     }
 
     @Override
-    public boolean isFoil(ItemStack stack)
+    public boolean hasGlint(ItemStack stack)
     {
         return true;
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext context)
+    public ActionResult useOnBlock(ItemUsageContext context)
     {
-        return InteractionResult.SUCCESS;
+        return ActionResult.SUCCESS;
     }
 }

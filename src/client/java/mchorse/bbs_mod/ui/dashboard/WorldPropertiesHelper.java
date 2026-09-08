@@ -10,6 +10,8 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.rule.GameRule;
+import net.minecraft.world.rule.GameRules;
 
 import java.util.function.IntConsumer;
 
@@ -53,6 +55,40 @@ public class WorldPropertiesHelper
         clientTimeOverride = -1L;
     }
 
+    public static boolean isGammaOverrideEnabled()
+    {
+        return gammaOverride >= 0D;
+    }
+
+    public static void setGammaOverrideEnabled(boolean enabled)
+    {
+        if (BBSSettings.worldGammaOverride != null)
+        {
+            BBSSettings.worldGammaOverride.set(enabled);
+        }
+
+        if (enabled)
+        {
+            double percent = BBSSettings.worldGammaPercent != null ? BBSSettings.worldGammaPercent.get() : 100D;
+
+            setGammaPercent(percent);
+        }
+        else
+        {
+            clearGammaOverride();
+        }
+    }
+
+    public static void clearGammaOverride()
+    {
+        gammaOverride = -1D;
+
+        if (BBSSettings.worldGammaOverride != null)
+        {
+            BBSSettings.worldGammaOverride.set(false);
+        }
+    }
+
     public static void setGammaPercent(double percent)
     {
         gammaOverride = Math.max(0D, percent) / 100D;
@@ -60,6 +96,11 @@ public class WorldPropertiesHelper
         if (BBSSettings.worldGammaPercent != null)
         {
             BBSSettings.worldGammaPercent.set(percent);
+        }
+
+        if (BBSSettings.worldGammaOverride != null)
+        {
+            BBSSettings.worldGammaOverride.set(true);
         }
     }
 
@@ -146,12 +187,83 @@ public class WorldPropertiesHelper
         sendSilentCommand("time set " + time);
     }
 
+    @SuppressWarnings("unchecked")
+    private static GameRule<Boolean> findBooleanRule(GameRules rules, String key)
+    {
+        String normalized = key.toLowerCase().replace("_", "");
+
+        if (normalized.equals("dodaylightcycle"))
+        {
+            return GameRules.ADVANCE_TIME;
+        }
+
+        if (normalized.equals("doweathercycle"))
+        {
+            return GameRules.ADVANCE_WEATHER;
+        }
+
+        if (normalized.equals("domobspawning"))
+        {
+            return GameRules.DO_MOB_SPAWNING;
+        }
+
+        for (GameRule<?> rule : (Iterable<GameRule<?>>) rules.streamRules()::iterator)
+        {
+            if (rule.getValueClass() == Boolean.class)
+            {
+                String rulePath = rule.getId().getPath().toLowerCase().replace("_", "");
+
+                if (rulePath.equals(normalized))
+                {
+                    return (GameRule<Boolean>) rule;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public static void setGamerule(String key, boolean value)
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
 
-        sendSilentCommand("gamerule " + key + " " + value);
+        if (server != null)
+        {
+            server.execute(() ->
+            {
+                ServerWorld world = server.getOverworld();
+
+                if (world != null)
+                {
+                    GameRule<Boolean> rule = findBooleanRule(world.getGameRules(), key);
+
+                    if (rule != null)
+                    {
+                        world.getGameRules().setValue(rule, value, server);
+                    }
+                }
+            });
+
+            return;
+        }
+
+        String commandKey = key;
+
+        if (key.equals("doDaylightCycle"))
+        {
+            commandKey = "advance_time";
+        }
+        else if (key.equals("doWeatherCycle"))
+        {
+            commandKey = "advance_weather";
+        }
+        else if (key.equals("doMobSpawning"))
+        {
+            commandKey = "spawn_mobs";
+        }
+
+        sendSilentCommand("gamerule " + commandKey + " " + value);
     }
 
     public static void setWeatherClear()
@@ -237,6 +349,28 @@ public class WorldPropertiesHelper
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
+
+        if (server != null)
+        {
+            ServerWorld world = server.getOverworld();
+
+            if (world != null)
+            {
+                try
+                {
+                    GameRule<Boolean> rule = findBooleanRule(world.getGameRules(), key);
+
+                    if (rule != null)
+                    {
+                        return world.getGameRules().getValue(rule);
+                    }
+                }
+                catch (Exception e)
+                {
+                    return fallback;
+                }
+            }
+        }
 
         return fallback;
     }

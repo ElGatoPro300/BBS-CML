@@ -140,6 +140,7 @@ public class ColorClip extends CameraClip
 
         if (this.effect.hasOverlay || this.effect.hasGrade)
         {
+            this.effect.renderOrder = context.applied;
             getEffects(context).add(this.effect);
         }
     }

@@ -3,8 +3,10 @@ package mchorse.bbs_mod.ui.framework.elements.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.GuiQuadMesh;
+import mchorse.bbs_mod.graphics.PickerPreviewRenderState;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.text.RtlAwtTextRenderer;
@@ -21,6 +23,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.ScreenRect;
 import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.gui.render.state.TexturedQuadGuiElementRenderState;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.RenderLayer;
@@ -31,12 +34,17 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.TextureSetup;
 import net.minecraft.util.Identifier;
 
+import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix3x2fc;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.AddressMode;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.List;
@@ -245,6 +253,37 @@ public class Batcher2D
     public void box(float x1, float y1, float x2, float y2, int color)
     {
         this.box(x1, y1, x2 - x1, y2 - y1, color, color, color, color);
+    }
+
+    public void line(int x1, int y1, int x2, int y2, float width, int color)
+    {
+        this.line((float) x1, (float) y1, (float) x2, (float) y2, width, color);
+    }
+
+    public void line(float x1, float y1, float x2, float y2, float width, int color)
+    {
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+
+        if (len <= 0F)
+        {
+            return;
+        }
+
+        float half = width / 2F;
+        float nx = -dy / len * half;
+        float ny = dx / len * half;
+
+        GuiQuadMesh mesh = new GuiQuadMesh();
+        Matrix3x2fc matrix = this.matrix();
+
+        mesh.vertex(matrix, x1 - nx, y1 - ny).color(color);
+        mesh.vertex(matrix, x1 + nx, y1 + ny).color(color);
+        mesh.vertex(matrix, x2 + nx, y2 + ny).color(color);
+        mesh.vertex(matrix, x2 - nx, y2 - ny).color(color);
+
+        this.drawQuadMesh(mesh);
     }
 
     public void box(float x, float y, float w, float h, int color1, int color2, int color3, int color4)
@@ -480,6 +519,25 @@ public class Batcher2D
             (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
     }
 
+    public void texturedBox(GpuTextureView texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        if (texture == null || texture.isClosed() || textureW <= 0 || textureH <= 0 || w <= 0F || h <= 0F)
+        {
+            return;
+        }
+
+        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+        TexturedQuadGuiElementRenderState state = new TexturedQuadGuiElementRenderState(RenderPipelines.GUI_TEXTURED,
+            setup, new Matrix3x2f(this.context.getMatrices()), (int) x, (int) y, (int) (x + w), (int) (y + h),
+            u1 / textureW, u2 / textureW, v1 / textureH, v2 / textureH, color, this.context.scissorStack.peekLast());
+
+        if (state.bounds() != null)
+        {
+            this.context.state.addSimpleElement(state);
+        }
+    }
+
     public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
         this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
@@ -551,6 +609,14 @@ public class Batcher2D
 
     public void flushDraw()
     {
+        if (BBSRendering.renderingWorld)
+        {
+            BBSRendering.flushGuiRenderState();
+        }
+        else
+        {
+            this.newRootLayer();
+        }
     }
 
     public void text(String label, float x, float y)
@@ -676,8 +742,22 @@ public class Batcher2D
         this.context.drawText(font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
-    public void drawPickerPreview(int textureId, int index, int highlightColor, int x, int y, int w, int h, int texW, int texH)
+    public void drawPickerPreview(GpuTextureView texture, int index, int highlightColor, int x, int y, int w, int h)
     {
+        if (texture == null || texture.isClosed() || index <= 0 || w <= 0 || h <= 0)
+        {
+            return;
+        }
+
+        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+        PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.getMatrices(),
+            x, y, w, h, index, highlightColor, this.context.scissorStack.peekLast());
+
+        if (state.bounds() != null)
+        {
+            this.context.state.addSimpleElement(state);
+        }
     }
 
     public void flush()

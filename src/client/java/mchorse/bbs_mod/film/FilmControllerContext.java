@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.film;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
@@ -14,16 +15,15 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 
-import Film;
 import io.netty.util.collection.IntObjectMap;
 
 public class FilmControllerContext
@@ -35,8 +35,8 @@ public class FilmControllerContext
     public Replay replay;
     public Film film;
     public Camera camera;
-    public PoseStack stack;
-    public MultiBufferSource consumers;
+    public MatrixStack stack;
+    public VertexConsumerProvider consumers;
     public StencilMap map;
 
     public float transition;
@@ -123,20 +123,31 @@ public class FilmControllerContext
         this.entities = entities;
         this.entity = entity;
         this.replay = replay;
-        this.camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        this.stack = context.matrices();
-        if (this.stack == null)
+        this.camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+
+        if (context.matrices() == null)
         {
-            this.stack = new PoseStack();
+            this.stack = new MatrixStack();
             MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
+        else if (!BBSRendering.isIrisShadersEnabled())
+        {
+            /* Match WorldRenderer entity pass: empty MatrixStack, then camera-relative
+             * entity transform only. View rotation stays in ModelViewMat / BBSRendering.camera. */
+            this.stack = new MatrixStack();
+        }
+        else
+        {
+            this.stack = context.matrices();
+        }
+
         this.consumers = context.consumers();
-        this.transition = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        this.transition = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false);
 
         return this;
     }
 
-    public FilmControllerContext setup(IntObjectMap<IEntity> entities, IEntity entity, Replay replay, Camera camera, PoseStack stack, MultiBufferSource consumers, float transition)
+    public FilmControllerContext setup(IntObjectMap<IEntity> entities, IEntity entity, Replay replay, Camera camera, MatrixStack stack, VertexConsumerProvider consumers, float transition)
     {
         this.reset();
 

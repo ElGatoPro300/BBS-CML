@@ -71,7 +71,7 @@ public class UIKeyframeClip extends UIClip<KeyframeClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_KEYFRAMES), this.edit).marginTop(12));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_KEYFRAMES, this.edit));
     }
 
     @Override

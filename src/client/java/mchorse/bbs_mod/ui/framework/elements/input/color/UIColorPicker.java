@@ -285,6 +285,11 @@ public class UIColorPicker extends UIElement
 
     public void setColor(int color)
     {
+        if (this.dragging >= 0)
+        {
+            return;
+        }
+
         this.setValue(color);
         this.updateField();
     }
@@ -292,8 +297,22 @@ public class UIColorPicker extends UIElement
     public void setValue(int color)
     {
         this.color.set(color, this.editAlpha);
+
+        float prevH = this.hsv.r;
+        float prevS = this.hsv.g;
+
         Colors.RGBtoHSV(this.hsv, this.color.r, this.color.g, this.color.b);
         this.hsv.a = this.color.a;
+
+        if (this.color.r == this.color.g && this.color.g == this.color.b)
+        {
+            this.hsv.r = prevH;
+
+            if (this.color.r == 0F)
+            {
+                this.hsv.g = prevS;
+            }
+        }
     }
 
     private void refreshFieldsFromColor()
@@ -360,8 +379,21 @@ public class UIColorPicker extends UIElement
                 this.color.b = t;
             }
 
+            float prevH = this.hsv.r;
+            float prevS = this.hsv.g;
+
             Colors.RGBtoHSV(this.hsv, this.color.r, this.color.g, this.color.b);
             this.hsv.a = this.color.a;
+
+            if (this.color.r == this.color.g && this.color.g == this.color.b)
+            {
+                this.hsv.r = prevH;
+
+                if (this.color.r == 0F)
+                {
+                    this.hsv.g = prevS;
+                }
+            }
         }
         else if (this.mode == ColorMode.HSV)
         {

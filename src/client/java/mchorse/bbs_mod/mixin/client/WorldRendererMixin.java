@@ -1,19 +1,22 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.culling.Frustum;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.DefaultFramebufferSet;
+import net.minecraft.client.render.FrameGraphBuilder;
+import net.minecraft.client.render.FramePass;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.util.memory.ObjectAllocator;
+import net.minecraft.util.math.Vec3d;
 
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 
 import org.lwjgl.opengl.GL11;
 
@@ -22,87 +25,69 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/* Fog class removed in 1.21.11 */
-
-
-
-
-
-@Mixin(LevelRenderer.class)
+@Mixin(WorldRenderer.class)
 public class WorldRendererMixin
 {
-/*
     @Shadow
-    public Framebuffer entityOutlinesFramebuffer;
-*/
+    private DefaultFramebufferSet framebufferSet;
 
-    /* renderSky injectors disabled — Fog class removed in 1.21.11 require = 0 keeps them inert */
-
-    /* TODO(1.21.11 render): WorldRenderer#renderLayer was removed by the FrameGraphBuilder/
-     * OrderedRenderCommandQueue terrain rewrite (per-RenderLayer submission is now handled through
-     * renderBlockLayers/SectionRenderState with no simple cancellation point). require = 0 keeps this
-     * injector inert instead of crashing until the chroma-sky-terrain occlusion is re-ported. */
-    @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderLayer(RenderType renderLayer, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, Matrix4f projectionMatrix, CallbackInfo info)
+    @Inject(method = "renderSky", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, GpuBufferSlice fogBuffer, CallbackInfo info)
     {
-        if (BBSRendering.shouldHideChromaTerrain())
+        if (BBSRendering.isChromaSkyEnabled())
         {
-            BBSRendering.onRenderChunkLayer(positionMatrix, projectionMatrix);
+            FramePass pass = frameGraphBuilder.createPass("sky");
+
+            this.framebufferSet.mainFramebuffer = pass.transfer(this.framebufferSet.mainFramebuffer);
+            pass.setRenderer(() -> {
+                Color color = Color.rgb(BBSRendering.getChromaSkyColor());
+
+                GL11.glClearColor(color.r, color.g, color.b, 1F);
+                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+            });
 
             info.cancel();
         }
     }
 
-    @Inject(method = "renderLayer", at = @At("TAIL"), require = 0)
-    public void onRenderChunkLayer(RenderType layer, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, Matrix4f projectionMatrix, CallbackInfo info)
+    @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, CloudRenderMode cloudRenderMode, Vec3d cameraPos, long tick, float tickDelta, int color, float cloudHeight, CallbackInfo info)
     {
-        /* TODO 1.21.11: RenderLayer.getSolid() removed — re-port later */
-        if (false)
+        if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
         {
-            BBSRendering.onRenderChunkLayer(positionMatrix, projectionMatrix);
+            info.cancel();
         }
     }
 
-    @Inject(method = "prepareCullFrustum", at = @At("HEAD"))
-    public void onSetupFrustum(Matrix4f posMatrix, Matrix4f projMatrix, Vec3 pos, CallbackInfoReturnable<Frustum> info)
+    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderWeather(FrameGraphBuilder frameGraphBuilder, GpuBufferSlice fogBuffer, CallbackInfo info)
     {
-        BBSRendering.camera.set(posMatrix);
+        if (BBSRendering.shouldHideChromaTerrain())
+        {
+            info.cancel();
+        }
     }
 
-    @Inject(at = @At("RETURN"), method = "initOutline")
+    @Inject(method = "render", at = @At("HEAD"))
+    public void onCaptureWorldMatrices(ObjectAllocator allocator, RenderTickCounter tickCounter, boolean renderBlockOutline,
+        Camera camera, Matrix4f positionMatrix, Matrix4f basicProjectionMatrix, Matrix4f projectionMatrix,
+        GpuBufferSlice fogBuffer, Vector4f fogColor, boolean renderSky, CallbackInfo info)
+    {
+        /* The frustum projection omits camera effects. Rendering must match the terrain projection. */
+        BBSRendering.camera.set(positionMatrix);
+        BBSRendering.projection.set(basicProjectionMatrix);
+    }
+
+    @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")
     private void onLoadEntityOutlineShader(CallbackInfo info)
     {
         BBSRendering.resizeExtraFramebuffers();
     }
 
-    @Inject(at = @At("RETURN"), method = "resize")
-    private void onResized(CallbackInfo info)
+    @Inject(at = @At("RETURN"), method = "onResized")
+    private void onResized(int width, int height, CallbackInfo info)
     {
-        /*
-        if (this.entityOutlinesFramebuffer == null)
-        {
-            return;
-        }
-        */
-
         BBSRendering.resizeExtraFramebuffers();
-    }
-    
-    /* 1.21.11 MatrixStack keeps a reusable List plus stackDepth; size() is not the
-     * logical depth. isEmpty() is true iff only the identity entry remains. */
-    @Inject(method = "checkPoseStack", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onCheckEmpty(PoseStack matrices, CallbackInfo info)
-    {
-        if (matrices != null)
-        {
-            while (!matrices.isEmpty())
-            {
-                matrices.popPose();
-            }
-        }
-
-        info.cancel();
     }
 }

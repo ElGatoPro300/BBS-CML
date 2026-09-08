@@ -18,19 +18,19 @@ import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
+import net.minecraft.world.World;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -156,26 +156,26 @@ public class StructurePickerClient
 
     public static boolean isActive()
     {
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         if (mc.player == null)
         {
             return false;
         }
 
-        ItemStack stack = mc.player.getMainHandItem();
+        ItemStack stack = mc.player.getMainHandStack();
 
         return stack.getItem() == BBSMod.STRUCTURE_PICKER_ITEM;
     }
 
-    public static InteractionResult onUseBlock(BlockHitResult hitResult, boolean sneaking)
+    public static ActionResult onUseBlock(BlockHitResult hitResult, boolean sneaking)
     {
         if (!StructurePickerClient.isActive())
         {
-            return InteractionResult.PASS;
+            return ActionResult.PASS;
         }
 
-        return InteractionResult.SUCCESS;
+        return ActionResult.SUCCESS;
     }
 
     public static void openPanel()
@@ -184,41 +184,41 @@ public class StructurePickerClient
         UIStructurePickerPanel.open();
     }
 
-    public static InteractionResult onAttackBlock()
+    public static ActionResult onAttackBlock()
     {
         if (!StructurePickerClient.isActive())
         {
-            return InteractionResult.PASS;
+            return ActionResult.PASS;
         }
 
         StructurePickerClient.clearSelection();
 
-        return InteractionResult.SUCCESS;
+        return ActionResult.SUCCESS;
     }
 
-    public static void tick(Minecraft mc)
+    public static void tick(MinecraftClient mc)
     {
-        if (mc.level == null || mc.player == null)
+        if (mc.world == null || mc.player == null)
         {
             StructurePickerClient.clearSelection();
 
             return;
         }
 
-        boolean rightDown = GLFW.glfwGetMouseButton(mc.getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        boolean rightDown = GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
         boolean released = !rightDown && StructurePickerClient.rightMouseDown;
-        boolean leftDown = GLFW.glfwGetMouseButton(mc.getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean leftDown = GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean leftReleased = !leftDown && StructurePickerClient.leftMouseDown;
 
         StructurePickerClient.rightMouseDown = rightDown;
         StructurePickerClient.leftMouseDown = leftDown;
 
-        if (UIStructurePickerPanel.isOpened() || mc.screen != null || !StructurePickerClient.isActive())
+        if (UIStructurePickerPanel.isOpened() || mc.currentScreen != null || !StructurePickerClient.isActive())
         {
             return;
         }
 
-        if (mc.player.isShiftKeyDown())
+        if (mc.player.isSneaking())
         {
             if (released)
             {
@@ -265,12 +265,12 @@ public class StructurePickerClient
         }
     }
 
-    private static void updatePlaneSelection(Minecraft mc)
+    private static void updatePlaneSelection(MinecraftClient mc)
     {
         StructurePickerClient.tryLockPlane(mc);
         StructurePickerClient.ensureSelectionPlane(mc);
 
-        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3d look = mc.player.getRotationVec(1.0F);
         BlockPos target = StructurePickerClient.resolvePlaneTarget(mc, look);
 
         if (target == null)
@@ -280,7 +280,7 @@ public class StructurePickerClient
 
         if (StructurePickerClient.selectionPlane == null)
         {
-            StructurePickerClient.secondCorner = target.immutable();
+            StructurePickerClient.secondCorner = target.toImmutable();
 
             return;
         }
@@ -297,7 +297,7 @@ public class StructurePickerClient
         );
     }
 
-    private static BlockPos resolvePlaneTarget(Minecraft mc, Vec3 look)
+    private static BlockPos resolvePlaneTarget(MinecraftClient mc, Vec3d look)
     {
         BlockPos hovered = StructurePickerClient.resolveTargetBlock(mc);
 
@@ -318,10 +318,10 @@ public class StructurePickerClient
         };
     }
 
-    private static BlockPos raycastHorizontalPlane(Minecraft mc, double planeY)
+    private static BlockPos raycastHorizontalPlane(MinecraftClient mc, double planeY)
     {
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3d eye = mc.player.getEyePos();
+        Vec3d look = mc.player.getRotationVec(1.0F);
 
         if (Math.abs(look.y) < 0.001D)
         {
@@ -335,15 +335,15 @@ public class StructurePickerClient
             return null;
         }
 
-        Vec3 hit = eye.add(look.scale(distance));
+        Vec3d hit = eye.add(look.multiply(distance));
 
-        return BlockPos.containing(hit);
+        return BlockPos.ofFloored(hit);
     }
 
-    private static BlockPos raycastVerticalPlane(Minecraft mc, BlockPos anchor, StructurePickerAxis lockedHorizontal)
+    private static BlockPos raycastVerticalPlane(MinecraftClient mc, BlockPos anchor, StructurePickerAxis lockedHorizontal)
     {
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 dir = mc.player.getViewVector(1.0F);
+        Vec3d eye = mc.player.getEyePos();
+        Vec3d dir = mc.player.getRotationVec(1.0F);
 
         if (lockedHorizontal == StructurePickerAxis.X)
         {
@@ -359,7 +359,7 @@ public class StructurePickerClient
                 return null;
             }
 
-            return BlockPos.containing(eye.add(dir.scale(distance)));
+            return BlockPos.ofFloored(eye.add(dir.multiply(distance)));
         }
 
         if (Math.abs(dir.x) < 0.001D)
@@ -374,24 +374,24 @@ public class StructurePickerClient
             return null;
         }
 
-        return BlockPos.containing(eye.add(dir.scale(distance)));
+        return BlockPos.ofFloored(eye.add(dir.multiply(distance)));
     }
 
-    private static StructurePickerAxis resolveVerticalPlaneAxis(Minecraft mc, Vec3 look)
+    private static StructurePickerAxis resolveVerticalPlaneAxis(MinecraftClient mc, Vec3d look)
     {
         StructurePickerAxis along = StructurePickerClient.resolveLookHorizontalAxis(mc, look);
 
         return along == StructurePickerAxis.X ? StructurePickerAxis.Z : StructurePickerAxis.X;
     }
 
-    private static StructurePickerAxis resolveLookHorizontalAxis(Minecraft mc, Vec3 look)
+    private static StructurePickerAxis resolveLookHorizontalAxis(MinecraftClient mc, Vec3d look)
     {
         if (Math.abs(look.x) >= 0.1D || Math.abs(look.z) >= 0.1D)
         {
             return StructurePickerAxis.pickHorizontal(look);
         }
 
-        float yaw = mc.player.getYRot() * ((float) Math.PI / 180F);
+        float yaw = mc.player.getYaw() * ((float) Math.PI / 180F);
         double facingX = -Math.sin(yaw);
         double facingZ = Math.cos(yaw);
 
@@ -416,9 +416,9 @@ public class StructurePickerClient
         }
     }
 
-    private static void applyPlaneFromLook(Minecraft mc)
+    private static void applyPlaneFromLook(MinecraftClient mc)
     {
-        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3d look = mc.player.getRotationVec(1.0F);
         double absX = Math.abs(look.x);
         double absY = Math.abs(look.y);
         double absZ = Math.abs(look.z);
@@ -434,7 +434,7 @@ public class StructurePickerClient
         }
     }
 
-    private static void ensureSelectionPlane(Minecraft mc)
+    private static void ensureSelectionPlane(MinecraftClient mc)
     {
         if (StructurePickerClient.selectionPlane != null)
         {
@@ -445,11 +445,11 @@ public class StructurePickerClient
 
         if (StructurePickerClient.selectionPlane == StructurePickerPlane.VERTICAL && StructurePickerClient.planeHorizontalAxis == null)
         {
-            StructurePickerClient.planeHorizontalAxis = StructurePickerClient.resolveVerticalPlaneAxis(mc, mc.player.getViewVector(1.0F));
+            StructurePickerClient.planeHorizontalAxis = StructurePickerClient.resolveVerticalPlaneAxis(mc, mc.player.getRotationVec(1.0F));
         }
     }
 
-    private static void tryLockPlane(Minecraft mc)
+    private static void tryLockPlane(MinecraftClient mc)
     {
         if (StructurePickerClient.selectionPlane != null)
         {
@@ -459,7 +459,7 @@ public class StructurePickerClient
         double[] cursorX = new double[1];
         double[] cursorY = new double[1];
 
-        GLFW.glfwGetCursorPos(mc.getWindow().handle(), cursorX, cursorY);
+        GLFW.glfwGetCursorPos(mc.getWindow().getHandle(), cursorX, cursorY);
 
         double dx = cursorX[0] - StructurePickerClient.planeMouseX;
         double dy = cursorY[0] - StructurePickerClient.planeMouseY;
@@ -473,11 +473,11 @@ public class StructurePickerClient
 
         if (StructurePickerClient.selectionPlane == StructurePickerPlane.VERTICAL)
         {
-            StructurePickerClient.planeHorizontalAxis = StructurePickerClient.resolveVerticalPlaneAxis(mc, mc.player.getViewVector(1.0F));
+            StructurePickerClient.planeHorizontalAxis = StructurePickerClient.resolveVerticalPlaneAxis(mc, mc.player.getRotationVec(1.0F));
         }
     }
 
-    private static void updateDepthSelection(Minecraft mc)
+    private static void updateDepthSelection(MinecraftClient mc)
     {
         if (StructurePickerClient.slabMin == null || StructurePickerClient.slabMax == null || StructurePickerClient.selectionPlane == null || StructurePickerClient.depthAxis == null)
         {
@@ -492,7 +492,7 @@ public class StructurePickerClient
         StructurePickerClient.secondCorner = corners[1];
     }
 
-    private static int resolveDepthCoord(Minecraft mc)
+    private static int resolveDepthCoord(MinecraftClient mc)
     {
         BlockPos hit = StructurePickerClient.resolveTargetBlock(mc);
 
@@ -501,16 +501,16 @@ public class StructurePickerClient
             return StructurePickerClient.depthAxis.read(hit);
         }
 
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3d eye = mc.player.getEyePos();
+        Vec3d look = mc.player.getRotationVec(1.0F);
         double reach = StructurePickerClient.getPickerReach(mc);
-        Vec3 end = eye.add(look.scale(reach));
-        AABB box = StructurePickerClient.getDepthRayBox(StructurePickerClient.depthAxis, StructurePickerClient.slabMin, StructurePickerClient.slabMax, reach);
-        Optional<Vec3> intersection = box.clip(eye, end);
+        Vec3d end = eye.add(look.multiply(reach));
+        Box box = StructurePickerClient.getDepthRayBox(StructurePickerClient.depthAxis, StructurePickerClient.slabMin, StructurePickerClient.slabMax, reach);
+        Optional<Vec3d> intersection = box.raycast(eye, end);
 
         if (intersection.isPresent())
         {
-            return StructurePickerClient.depthAxis.read(BlockPos.containing(intersection.get()));
+            return StructurePickerClient.depthAxis.read(BlockPos.ofFloored(intersection.get()));
         }
 
         return Math.min(
@@ -519,20 +519,20 @@ public class StructurePickerClient
         );
     }
 
-    private static AABB getDepthRayBox(StructurePickerAxis axis, BlockPos slabMin, BlockPos slabMax, double margin)
+    private static Box getDepthRayBox(StructurePickerAxis axis, BlockPos slabMin, BlockPos slabMax, double margin)
     {
         BlockPos min = StructurePickerSelection.min(slabMin, slabMax);
         BlockPos max = StructurePickerSelection.max(slabMin, slabMax);
 
         return switch (axis)
         {
-            case X -> new AABB(min.getX() - margin, min.getY(), min.getZ(), max.getX() + margin + 1D, max.getY() + 1D, max.getZ() + 1D);
-            case Y -> new AABB(min.getX(), min.getY() - margin, min.getZ(), max.getX() + 1D, max.getY() + margin + 1D, max.getZ() + 1D);
-            case Z -> new AABB(min.getX(), min.getY(), min.getZ() - margin, max.getX() + 1D, max.getY() + 1D, max.getZ() + margin + 1D);
+            case X -> new Box(min.getX() - margin, min.getY(), min.getZ(), max.getX() + margin + 1D, max.getY() + 1D, max.getZ() + 1D);
+            case Y -> new Box(min.getX(), min.getY() - margin, min.getZ(), max.getX() + 1D, max.getY() + margin + 1D, max.getZ() + 1D);
+            case Z -> new Box(min.getX(), min.getY(), min.getZ() - margin, max.getX() + 1D, max.getY() + 1D, max.getZ() + margin + 1D);
         };
     }
 
-    private static void updateBlockPaint(Minecraft mc)
+    private static void updateBlockPaint(MinecraftClient mc)
     {
         BlockPos hovered = StructurePickerClient.resolveTargetBlock(mc);
 
@@ -553,13 +553,13 @@ public class StructurePickerClient
                 StructurePickerClient.applyBlockPaint(pos);
             }
 
-            StructurePickerClient.lastPaintedBlock = hovered.immutable();
+            StructurePickerClient.lastPaintedBlock = hovered.toImmutable();
 
             return;
         }
 
         StructurePickerClient.applyBlockPaint(hovered);
-        StructurePickerClient.lastPaintedBlock = hovered.immutable();
+        StructurePickerClient.lastPaintedBlock = hovered.toImmutable();
     }
 
     private static void applyBlockPaint(BlockPos pos)
@@ -601,7 +601,7 @@ public class StructurePickerClient
 
         if (dm == 0)
         {
-            line.add(to.immutable());
+            line.add(to.toImmutable());
 
             return line;
         }
@@ -618,7 +618,7 @@ public class StructurePickerClient
         return line;
     }
 
-    private static void handleClick(Minecraft mc)
+    private static void handleClick(MinecraftClient mc)
     {
         if (StructurePickerClient.depthAdjust)
         {
@@ -652,7 +652,7 @@ public class StructurePickerClient
 
         if (StructurePickerClient.selectionPlane == StructurePickerPlane.VERTICAL && StructurePickerClient.planeHorizontalAxis == null)
         {
-            StructurePickerClient.planeHorizontalAxis = StructurePickerClient.resolveVerticalPlaneAxis(mc, mc.player.getViewVector(1.0F));
+            StructurePickerClient.planeHorizontalAxis = StructurePickerClient.resolveVerticalPlaneAxis(mc, mc.player.getRotationVec(1.0F));
         }
 
         StructurePickerClient.secondCorner = StructurePickerClient.selectionPlane.clampSecond(
@@ -671,10 +671,10 @@ public class StructurePickerClient
         }
     }
 
-    private static void beginPlaneSelection(Minecraft mc, BlockPos hovered)
+    private static void beginPlaneSelection(MinecraftClient mc, BlockPos hovered)
     {
-        StructurePickerClient.firstCorner = hovered.immutable();
-        StructurePickerClient.secondCorner = hovered.immutable();
+        StructurePickerClient.firstCorner = hovered.toImmutable();
+        StructurePickerClient.secondCorner = hovered.toImmutable();
         StructurePickerClient.selectionPlane = null;
         StructurePickerClient.planeHorizontalAxis = null;
         StructurePickerClient.depthAdjust = false;
@@ -683,7 +683,7 @@ public class StructurePickerClient
 
         if (StructurePickerClient.mode == StructurePickerMode.TRIANGLE)
         {
-            StructurePickerClient.triangleFacing = mc.player.getDirection();
+            StructurePickerClient.triangleFacing = mc.player.getHorizontalFacing();
         }
         else
         {
@@ -694,7 +694,7 @@ public class StructurePickerClient
         {
             if (StructurePickerClient.lastRaycastHit != null && StructurePickerClient.lastRaycastHit.getType() == HitResult.Type.BLOCK)
             {
-                StructurePickerClient.applyPlaneFromFace(StructurePickerClient.lastRaycastHit.getDirection());
+                StructurePickerClient.applyPlaneFromFace(StructurePickerClient.lastRaycastHit.getSide());
             }
             else
             {
@@ -705,14 +705,14 @@ public class StructurePickerClient
         double[] cursorX = new double[1];
         double[] cursorY = new double[1];
 
-        GLFW.glfwGetCursorPos(mc.getWindow().handle(), cursorX, cursorY);
+        GLFW.glfwGetCursorPos(mc.getWindow().getHandle(), cursorX, cursorY);
         StructurePickerClient.planeMouseX = cursorX[0];
         StructurePickerClient.planeMouseY = cursorY[0];
     }
 
-    private static void beginDepthSelection(Minecraft mc)
+    private static void beginDepthSelection(MinecraftClient mc)
     {
-        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3d look = mc.player.getRotationVec(1.0F);
 
         StructurePickerClient.slabMin = StructurePickerSelection.min(StructurePickerClient.firstCorner, StructurePickerClient.secondCorner);
         StructurePickerClient.slabMax = StructurePickerSelection.max(StructurePickerClient.firstCorner, StructurePickerClient.secondCorner);
@@ -829,7 +829,7 @@ public class StructurePickerClient
         StructurePickerClient.clearInProgress();
     }
 
-    public static Set<BlockPos> getSelectedBlocks(Level world)
+    public static Set<BlockPos> getSelectedBlocks(World world)
     {
         Set<BlockPos> blocks = new LinkedHashSet<>();
 
@@ -843,8 +843,8 @@ public class StructurePickerClient
 
     public static Set<BlockPos> getPreviewBlocks()
     {
-        Minecraft mc = Minecraft.getInstance();
-        Level world = mc.level;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world;
         Set<BlockPos> blocks = new LinkedHashSet<>();
 
         if (world == null)
@@ -865,7 +865,7 @@ public class StructurePickerClient
         return blocks;
     }
 
-    private static void addPreviewBlocks(Set<BlockPos> blocks, Level world, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)
+    private static void addPreviewBlocks(Set<BlockPos> blocks, World world, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)
     {
         for (BlockPos pos : StructurePickerSelection.preview(world, first, second, mode, triangleFacing))
         {
@@ -878,8 +878,8 @@ public class StructurePickerClient
 
     public static void importSelection(boolean toModelBlock)
     {
-        Minecraft mc = Minecraft.getInstance();
-        Level world = mc.level;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world;
 
         if (world == null)
         {
@@ -932,8 +932,8 @@ public class StructurePickerClient
 
     public static void breakSelection()
     {
-        Minecraft mc = Minecraft.getInstance();
-        Level world = mc.level;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world;
 
         if (world == null)
         {
@@ -950,18 +950,18 @@ public class StructurePickerClient
         StructurePickerClient.clearSelection();
     }
 
-    private static void runOnServer(Minecraft mc, Consumer<ServerLevel> task)
+    private static void runOnServer(MinecraftClient mc, Consumer<ServerWorld> task)
     {
-        if (mc.getSingleplayerServer() == null || mc.player == null)
+        if (mc.getServer() == null || mc.player == null)
         {
             return;
         }
 
-        ResourceKey<Level> key = mc.player.level().dimension();
+        RegistryKey<World> key = mc.player.getEntityWorld().getRegistryKey();
 
-        mc.getSingleplayerServer().execute(() ->
+        mc.getServer().execute(() ->
         {
-            ServerLevel serverWorld = mc.getSingleplayerServer().getLevel(key);
+            ServerWorld serverWorld = mc.getServer().getWorld(key);
 
             if (serverWorld != null)
             {
@@ -996,9 +996,9 @@ public class StructurePickerClient
             return;
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        int screenW = mc.getWindow().getGuiScaledWidth();
-        int screenH = mc.getWindow().getGuiScaledHeight();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int screenW = mc.getWindow().getScaledWidth();
+        int screenH = mc.getWindow().getScaledHeight();
         int lineIndex = 0;
 
         if (StructurePickerClient.subtractMode && !StructurePickerClient.hasInProgress())
@@ -1052,22 +1052,22 @@ public class StructurePickerClient
         StructurePickerClient.renderHudLine(batcher, screenW, screenH, lineIndex, text);
     }
 
-    private static double getPickerReach(Minecraft mc)
+    private static double getPickerReach(MinecraftClient mc)
     {
         if (StructurePickerClient.clickOnAir)
         {
-            return mc.player.blockInteractionRange();
+            return mc.player.getBlockInteractionRange();
         }
 
-        return Math.max(mc.player.blockInteractionRange() * REACH_MULTIPLIER, MIN_PICKER_REACH);
+        return Math.max(mc.player.getBlockInteractionRange() * REACH_MULTIPLIER, MIN_PICKER_REACH);
     }
 
-    private static double getAirClickReach(Minecraft mc)
+    private static double getAirClickReach(MinecraftClient mc)
     {
-        return mc.player.blockInteractionRange();
+        return mc.player.getBlockInteractionRange();
     }
 
-    private static BlockPos resolveTargetBlock(Minecraft mc)
+    private static BlockPos resolveTargetBlock(MinecraftClient mc)
     {
         BlockHitResult hit = StructurePickerClient.performRaycast(mc, StructurePickerClient.clickOnAir);
 
@@ -1083,30 +1083,30 @@ public class StructurePickerClient
 
         if (StructurePickerClient.clickOnAir)
         {
-            return BlockPos.containing(hit.getLocation());
+            return BlockPos.ofFloored(hit.getPos());
         }
 
         return null;
     }
 
-    private static BlockHitResult performRaycast(Minecraft mc, boolean allowAir)
+    private static BlockHitResult performRaycast(MinecraftClient mc, boolean allowAir)
     {
         StructurePickerClient.lastRaycastHit = null;
 
-        if (mc.player == null || mc.level == null)
+        if (mc.player == null || mc.world == null)
         {
             return null;
         }
 
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3d eye = mc.player.getEyePos();
+        Vec3d look = mc.player.getRotationVec(1.0F);
         double reach = StructurePickerClient.getPickerReach(mc);
-        Vec3 end = eye.add(look.scale(reach));
-        BlockHitResult hit = mc.level.clip(new ClipContext(
+        Vec3d end = eye.add(look.multiply(reach));
+        BlockHitResult hit = mc.world.raycast(new RaycastContext(
             eye,
             end,
-            ClipContext.Block.OUTLINE,
-            ClipContext.Fluid.NONE,
+            RaycastContext.ShapeType.OUTLINE,
+            RaycastContext.FluidHandling.NONE,
             mc.player
         ));
 
@@ -1120,8 +1120,8 @@ public class StructurePickerClient
         if (allowAir)
         {
             double airReach = StructurePickerClient.getAirClickReach(mc);
-            Vec3 airPoint = eye.add(look.scale(airReach));
-            BlockHitResult airHit = BlockHitResult.miss(airPoint, Direction.getApproximateNearest(look.x, look.y, look.z), BlockPos.containing(airPoint));
+            Vec3d airPoint = eye.add(look.multiply(airReach));
+            BlockHitResult airHit = BlockHitResult.createMissed(airPoint, Direction.getFacing(look.x, look.y, look.z), BlockPos.ofFloored(airPoint));
 
             StructurePickerClient.lastRaycastHit = airHit;
 
@@ -1131,7 +1131,7 @@ public class StructurePickerClient
         return null;
     }
 
-    private static BlockPos raycastTarget(Minecraft mc, boolean allowAir)
+    private static BlockPos raycastTarget(MinecraftClient mc, boolean allowAir)
     {
         BlockHitResult hit = StructurePickerClient.performRaycast(mc, allowAir);
 
@@ -1147,13 +1147,13 @@ public class StructurePickerClient
 
         if (allowAir)
         {
-            return BlockPos.containing(hit.getLocation());
+            return BlockPos.ofFloored(hit.getPos());
         }
 
         return null;
     }
 
-    private static BlockPos raycastBlock(Minecraft mc)
+    private static BlockPos raycastBlock(MinecraftClient mc)
     {
         return StructurePickerClient.raycastTarget(mc, false);
     }

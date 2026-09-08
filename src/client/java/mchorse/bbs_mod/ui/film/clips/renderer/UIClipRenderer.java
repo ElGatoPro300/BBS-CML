@@ -255,11 +255,4 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
 
         return vector;
     }
-
-    @Override
-    public String getDefaultLabel(UIClips clips, T clip)
-    {
-        Link type = clips.getFactory().getType(clip);
-        return UIKeys.C_CLIP.get(type).get();
-    }
 }

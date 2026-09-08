@@ -6,12 +6,12 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIWorldFilmsBrowserPanel;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Renderable;
-import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.narration.NarratableEntry;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.Drawable;
+import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.world.SelectWorldScreen;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class SelectWorldScreenMixin
 {
     @Shadow
-    protected abstract <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T drawableElement);
+    protected abstract <T extends Element & Drawable & Selectable> T addDrawableChild(T drawableElement);
 
     @Unique
     private BBSLogoButtonWidget bbs$selectWorldLogoButton;
@@ -38,6 +38,17 @@ public abstract class SelectWorldScreenMixin
         }
 
         this.bbs$selectWorldLogoButton = null;
+        this.bbs$ensureSelectWorldBbsButton(screen);
+    }
+
+    @Inject(method = "refreshWidgetPositions", at = @At("TAIL"), require = 0)
+    private void bbs$repositionSelectWorldBbsButton(CallbackInfo ci)
+    {
+        if (!((Object) this instanceof SelectWorldScreen screen))
+        {
+            return;
+        }
+
         this.bbs$ensureSelectWorldBbsButton(screen);
     }
 
@@ -66,7 +77,7 @@ public abstract class SelectWorldScreenMixin
     @Unique
     private void bbs$ensureSelectWorldBbsButton(SelectWorldScreen screen)
     {
-        if (Minecraft.getInstance().level != null)
+        if (MinecraftClient.getInstance().world != null)
         {
             return;
         }
@@ -86,7 +97,7 @@ public abstract class SelectWorldScreenMixin
                 UIScreen.open(dashboard);
             });
 
-            this.addRenderableWidget(this.bbs$selectWorldLogoButton);
+            this.addDrawableChild(this.bbs$selectWorldLogoButton);
         }
         else
         {
@@ -105,7 +116,7 @@ public abstract class SelectWorldScreenMixin
             return false;
         }
 
-        for (GuiEventListener element : screen.children())
+        for (Element element : screen.children())
         {
             if (element == this.bbs$selectWorldLogoButton)
             {

@@ -26,6 +26,7 @@ public class ScreenNodeClip extends CameraClip
         ScreenNodeEvaluator evaluator = new ScreenNodeEvaluator(this.graph.get());
 
         evaluator.computeEffect(t, factor, this.effect);
+        this.effect.renderOrder = context.applied;
 
         ScreenNodeEffect.getEffects(context).add(this.effect);
     }

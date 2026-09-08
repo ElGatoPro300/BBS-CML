@@ -7,16 +7,17 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.state.CameraRenderState;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.render.entity.model.EntityModel;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
+import net.minecraft.client.render.state.CameraRenderState;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.World;
 
 import java.util.Map;
 
@@ -32,8 +33,8 @@ public abstract class LivingEntityRendererMixin
     @Shadow
     protected EntityModel<?> model;
 
-    @Inject(method = "submit", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/EntityModel;setAngles(Ljava/lang/Object;)V", ordinal = 0, shift = At.Shift.AFTER))
-    public void onSetAngles(LivingEntityRenderState state, PoseStack matrixStack, SubmitNodeCollector queue, CameraRenderState cameraState, CallbackInfo info)
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/model/EntityModel;setAngles(Ljava/lang/Object;)V", ordinal = 0, shift = At.Shift.AFTER))
+    public void onSetAngles(LivingEntityRenderState state, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, CameraRenderState cameraRenderState, CallbackInfo info)
     {
         Entity entity = ((IEntityRenderState) state).bbs$getEntity();
 
@@ -85,25 +86,25 @@ public abstract class LivingEntityRendererMixin
                         Transform transform = new Transform();
                         float fix = poseTransform.fix;
 
-                        transform.translate.x = value.x;
-                        transform.translate.y = value.y;
-                        transform.translate.z = value.z;
-                        transform.rotate.x = value.xRot;
-                        transform.rotate.y = value.yRot;
-                        transform.rotate.z = value.zRot;
+                        transform.translate.x = value.originX;
+                        transform.translate.y = value.originY;
+                        transform.translate.z = value.originZ;
+                        transform.rotate.x = value.pitch;
+                        transform.rotate.y = value.yaw;
+                        transform.rotate.z = value.roll;
                         transform.scale.x = value.xScale;
                         transform.scale.y = value.yScale;
                         transform.scale.z = value.zScale;
 
-                        value.x += poseTransform.translate.x;
-                        value.y += poseTransform.translate.y;
-                        value.z += poseTransform.translate.z;
-                        value.xRot += poseTransform.rotate.x;
-                        value.yRot += poseTransform.rotate.y;
-                        value.zRot += poseTransform.rotate.z;
-                        value.xScale += poseTransform.scale.x - 1F;
-                        value.yScale += poseTransform.scale.y - 1F;
-                        value.zScale += poseTransform.scale.z - 1F;
+                        value.originX = Lerps.lerp(value.originX, poseTransform.pivot.x, fix);
+                        value.originY = Lerps.lerp(value.originY, poseTransform.pivot.y, fix);
+                        value.originZ = Lerps.lerp(value.originZ, poseTransform.pivot.z, fix);
+                        value.pitch = Lerps.lerp(value.pitch, poseTransform.rotate.x, fix);
+                        value.yaw = Lerps.lerp(value.yaw, poseTransform.rotate.y, fix);
+                        value.roll = Lerps.lerp(value.roll, poseTransform.rotate.z, fix);
+                        value.xScale = Lerps.lerp(value.xScale, poseTransform.scale.x, fix);
+                        value.yScale = Lerps.lerp(value.yScale, poseTransform.scale.y, fix);
+                        value.zScale = Lerps.lerp(value.zScale, poseTransform.scale.z, fix);
 
                         MobFormRenderer.getCache().put(value, transform);
                     }
@@ -112,20 +113,20 @@ public abstract class LivingEntityRendererMixin
         }
     }
 
-    @Inject(method = "submit", at = @At("TAIL"))
-    public void onRenderEnd(LivingEntityRenderState state, PoseStack matrixStack, SubmitNodeCollector queue, CameraRenderState cameraState, CallbackInfo info)
+    @Inject(method = "render", at = @At("TAIL"))
+    public void onRenderEnd(LivingEntityRenderState state, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, CameraRenderState cameraRenderState, CallbackInfo info)
     {
         for (Map.Entry<ModelPart, Transform> entry : MobFormRenderer.getCache().entrySet())
         {
             Transform transform = entry.getValue();
             ModelPart value = entry.getKey();
 
-            value.x = transform.translate.x;
-            value.y = transform.translate.y;
-            value.z = transform.translate.z;
-            value.xRot = transform.rotate.x;
-            value.yRot = transform.rotate.y;
-            value.zRot = transform.rotate.z;
+            value.originX = transform.translate.x;
+            value.originY = transform.translate.y;
+            value.originZ = transform.translate.z;
+            value.pitch = transform.rotate.x;
+            value.yaw = transform.rotate.y;
+            value.roll = transform.rotate.z;
             value.xScale = transform.scale.x;
             value.yScale = transform.scale.y;
             value.zScale = transform.scale.z;

@@ -31,12 +31,9 @@ public class UIInteractBlockActionClip extends UIActionClip<InteractBlockActionC
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_POSITION).marginTop(12));
-        this.panels.add(UI.row(this.hit.x, this.hit.y, this.hit.z));
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_HIT).marginTop(12));
-        this.panels.add(UI.row(this.hit.hitX, this.hit.hitY, this.hit.hitZ));
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_DIRECTION).marginTop(12));
-        this.panels.add(this.hit.direction, this.hit.inside, this.hand);
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_POSITION, UI.row(this.hit.x, this.hit.y, this.hit.z)));
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_HIT, UI.row(this.hit.hitX, this.hit.hitY, this.hit.hitZ)));
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_DIRECTION, this.hit.direction, this.hit.inside, this.hand));
     }
 
     @Override

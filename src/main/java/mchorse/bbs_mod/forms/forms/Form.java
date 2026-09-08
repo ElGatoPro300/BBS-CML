@@ -9,9 +9,11 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
@@ -39,8 +41,9 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributes;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -52,7 +55,7 @@ public abstract class Form extends ValueGroup
     public final ValueBoolean render = new ValueBoolean("render", true);
     public final ValueBoolean animatable = new ValueBoolean("animatable", true);
     public final ValueString trackName = new ValueString("track_name", "");
-    public final ValueFloat lighting = new ValueFloat("lighting", 1F);
+    public final ValueFloat lighting = new ValueFloat("lighting", 0F);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
@@ -100,7 +103,7 @@ public abstract class Form extends ValueGroup
     /* Morphing properties */
     public final ValueFloat hp = new ValueFloat("hp", 20F);
     public final ValueFloat speed = new ValueFloat("movement_speed", 0.1F);
-    public final ValueFloat stepHeight = new ValueFloat("step_height", 0.5F);
+    public final ValueFloat stepHeight = new ValueFloat("step_height", 0.6F);
     /**
      * Default actor-mode film invulnerability when the replay {@code invulnerable}
      * keyframe track is empty. Keyframes on that track override this.
@@ -123,6 +126,12 @@ public abstract class Form extends ValueGroup
 
     /** Runtime texture crossfade between illusion keyframes with bend enabled. */
     public transient TextureBlend illusionTextureBlend;
+
+    /**
+     * Film lighting-track override. When non-null, renderers use this instead of only
+     * {@link #lighting} (supports fixed absolute light levels).
+     */
+    public transient LightingSettings lightingSettings;
 
     private final List<StatePlayer> statePlayers = new ArrayList<>();
 
@@ -339,19 +348,36 @@ public abstract class Form extends ValueGroup
 
         if (hp != 20F)
         {
-            entity.getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
+            entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(hp);
             entity.setHealth(hp);
         }
-        if (speed != 0.1F) entity.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(speed);
-        /* if (stepHeight != 0.5F) entity.setStepHeight(stepHeight); */
+        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(speed);
+        /* setStepHeight() was removed in 1.20.5+; step-up is STEP_HEIGHT attribute now in 1.21.4.
+         * Default matches vanilla living/player step height (0.6). */
+        if (stepHeight != 0.6F)
+        {
+            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
+
+            if (step != null)
+            {
+                step.setBaseValue(stepHeight);
+            }
+        }
     }
 
     public void onDemorph(LivingEntity entity)
     {
-        entity.getAttribute(Attributes.MAX_HEALTH).setBaseValue(20F);
+        entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
-        entity.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.1F);
-        /* entity.setStepHeight(0.5F); */
+        entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(0.1F);
+
+        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
+
+        if (step != null)
+        {
+            /* Vanilla player / living default step height. */
+            step.setBaseValue(0.6D);
+        }
     }
 
     /* ID and display name */
@@ -488,6 +514,17 @@ public abstract class Form extends ValueGroup
 
         if (data instanceof MapType map)
         {
+            /* Legacy lighting was world-influence (1=natural, 0/neg=full bright). */
+            if (!map.getBool("lighting_v2") && map.has("lighting"))
+            {
+                BaseType lightingData = map.get("lighting");
+
+                if (lightingData != null && lightingData.isNumeric())
+                {
+                    this.lighting.set(FormLighting.legacyToBrightness(lightingData.asNumeric().floatValue()));
+                }
+            }
+
             if (map.has("glow"))
             {
                 MapType glowMap = map.getMap("glow");
@@ -645,6 +682,21 @@ public abstract class Form extends ValueGroup
         {
             BBSMod.getForms().appendId(this, map);
             map.remove("opacity");
+
+            /* ShapeForm replaces lighting with a boolean; only rewrite form float lighting. */
+            if (this.get("lighting") instanceof ValueFloat valueFloat)
+            {
+                if (BBSSettings.isSaveAsCompatible())
+                {
+                    /* Older builds expect world-influence lighting and ignore lighting_v2. */
+                    map.putFloat("lighting", FormLighting.brightnessToLegacy(valueFloat.get()));
+                    map.remove("lighting_v2");
+                }
+                else
+                {
+                    map.putBool("lighting_v2", true);
+                }
+            }
         }
 
         return data;

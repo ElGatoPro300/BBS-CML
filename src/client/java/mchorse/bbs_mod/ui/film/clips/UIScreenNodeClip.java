@@ -39,7 +39,7 @@ public class UIScreenNodeClip extends UIClip<ScreenNodeClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_NODE_GRAPH), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_NODE_GRAPH, this.edit));
     }
 
     @Override

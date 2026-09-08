@@ -158,9 +158,9 @@ public class UICurveClip extends UIClip<CurveClip>
         this.edit.keys().register(Keys.FORMS_EDIT, () -> this.edit.clickItself());
     }
 
-    private void addChannel(KeyframeChannel<?> channel, IKey title)
+    private void addChannel(KeyframeChannel<?> channel, IKey title, int color)
     {
-        this.keyframes.view.addSheet(new UIKeyframeSheet(channel.getId(), title, channel.getId().hashCode() & Colors.RGB, false, channel, null));
+        this.keyframes.view.addSheet(new UIKeyframeSheet(channel.getId(), title, color, false, channel, null));
     }
 
     @Override
@@ -168,7 +168,7 @@ public class UICurveClip extends UIClip<CurveClip>
     {
         super.registerPanels();
 
-        this.panels.add(UIClip.label(UIKeys.C_CLIP.get("bbs:curve")).marginTop(12), this.edit);
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:curve"), this.edit));
     }
 
     @Override
@@ -180,13 +180,90 @@ public class UICurveClip extends UIClip<CurveClip>
 
         if (!this.clip.chromaSky.isEmpty())
         {
-            this.addChannel(this.clip.chromaSky, CHROMA_SKY_TITLE);
+            this.addChannel(this.clip.chromaSky, CHROMA_SKY_TITLE, Colors.CYAN);
         }
 
-        for (KeyframeChannel<Double> channel : this.clip.channels.getChannels())
+        List<KeyframeChannel<Double>> channels = new ArrayList<>(this.clip.channels.getChannels());
+
+        channels.sort((a, b) ->
         {
-            this.addChannel(channel, getChannelTitle(channel.getId()));
+            int orderA = getChannelOrder(a.getId());
+            int orderB = getChannelOrder(b.getId());
+
+            if (orderA != orderB)
+            {
+                return Integer.compare(orderA, orderB);
+            }
+
+            return a.getId().compareToIgnoreCase(b.getId());
+        });
+
+        for (KeyframeChannel<Double> channel : channels)
+        {
+            this.addChannel(channel, getChannelTitle(channel.getId()), getChannelColor(channel.getId()));
         }
+    }
+
+    private static int getChannelOrder(String id)
+    {
+        if (ShaderCurves.SUN_ROTATION.equals(id))
+        {
+            return 1;
+        }
+
+        if (ShaderCurves.SUN_PATH_ROTATION.equals(id))
+        {
+            return 2;
+        }
+
+        if (ShaderCurves.BRIGHTNESS.equals(id))
+        {
+            return 3;
+        }
+
+        if (ShaderCurves.WEATHER.equals(id))
+        {
+            return 4;
+        }
+
+        if (ShaderCurves.SHADER_SHADOW_OPACITY.equals(id)
+            || id.equals(CurveClip.SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+        {
+            return 5;
+        }
+
+        return 100;
+    }
+
+    private static int getChannelColor(String id)
+    {
+        if (ShaderCurves.BRIGHTNESS.equals(id))
+        {
+            return 0xd4b23a;
+        }
+
+        if (ShaderCurves.SUN_ROTATION.equals(id))
+        {
+            return 0x3aa0ff;
+        }
+
+        if (ShaderCurves.SUN_PATH_ROTATION.equals(id))
+        {
+            return 0xff7b3a;
+        }
+
+        if (ShaderCurves.WEATHER.equals(id))
+        {
+            return 0x2f8f72;
+        }
+
+        if (ShaderCurves.SHADER_SHADOW_OPACITY.equals(id)
+            || id.equals(CurveClip.SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+        {
+            return 0x6e7888;
+        }
+
+        return id.hashCode() & Colors.RGB;
     }
 
     private static IKey getChannelTitle(String id)

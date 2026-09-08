@@ -8,7 +8,7 @@ import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -178,6 +178,28 @@ public class Animator implements IAnimator
     }
 
     /**
+     * Call before {@link #update} when driving a UI thumbnail with a stationary stub.
+     * Shared form instances are also ticked in-world; without this, {@code prevX}/{@code prevZ}
+     * still hold world coordinates so a stub at the origin looks like a dash and switches
+     * idle → running.
+     */
+    public void syncUIPreviewEntity(IEntity stub)
+    {
+        this.prevX = stub.getX();
+        this.prevZ = stub.getZ();
+        this.prevMY = 0D;
+        this.wasOnGround = true;
+        this.actions.clear();
+
+        if (this.idle != null && this.active != this.idle)
+        {
+            this.lastActive = null;
+            this.active = this.idle;
+            this.idle.resetFade();
+        }
+    }
+
+    /**
      * Update animator. This method is responsible for updating action 
      * pipeline and also change current actions based on entity's state.
      */
@@ -238,7 +260,7 @@ public class Animator implements IAnimator
      */
     protected void controlActions(IEntity target)
     {
-        Vec3 velocity = target.getVelocity();
+        Vec3d velocity = target.getVelocity();
         double dx = target.getX() - this.prevX;
         double dz = target.getZ() - this.prevZ;
         final float threshold = 0.01F;

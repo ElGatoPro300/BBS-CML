@@ -49,7 +49,7 @@ public class UICommandActionClip extends UIActionClip<CommandActionClip>
     protected void registerPanels()
     {
         super.registerPanels();
-        this.panels.add(UI.label(UIKeys.ACTIONS_COMMAND_COMMAND).marginTop(12), this.command);
+        this.panels.add(this.section(UIKeys.ACTIONS_COMMAND_COMMAND, this.command));
     }
 
     @Override

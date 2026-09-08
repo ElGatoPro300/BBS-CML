@@ -4,19 +4,13 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
-import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
-import mchorse.bbs_mod.camera.clips.misc.BossBarState;
+import mchorse.bbs_mod.camera.clips.CameraClipContext;
 import mchorse.bbs_mod.camera.clips.misc.ChromaSkyCurveSettings;
 import mchorse.bbs_mod.camera.clips.misc.CurveClip;
-import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
-import mchorse.bbs_mod.camera.clips.misc.HotbarState;
-import mchorse.bbs_mod.camera.clips.misc.ImageClip;
-import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
-import mchorse.bbs_mod.camera.clips.misc.Subtitle;
-import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
@@ -28,7 +22,9 @@ import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.WorldFilmController;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
@@ -37,6 +33,7 @@ import mchorse.bbs_mod.forms.renderers.utils.BlockPaintVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintVertexSodiumConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexSodiumConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexSodiumConsumer;
@@ -46,11 +43,8 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
-import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
-import mchorse.bbs_mod.ui.film.UIImageRenderer;
-import mchorse.bbs_mod.ui.film.UISubtitleRenderer;
+import mchorse.bbs_mod.ui.framework.BbsGuiScale;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIRenderingContext;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -73,29 +67,46 @@ import mchorse.bbs_mod.utils.sodium.SodiumUtils;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.loader.api.FabricLoader;
 
-import net.minecraft.client.CloudStatus;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.CompiledShaderPipeline;
+import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.WindowFramebuffer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.fog.FogRenderer;
+import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.GlTexture;
+import net.minecraft.client.util.Window;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.pipeline.MainTarget;
-import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
@@ -130,10 +141,11 @@ public class BBSRendering
     private static Method irlShadowBakeIsBaking;
 
     public static final Matrix4f camera = new Matrix4f();
+    public static final Matrix4f projection = new Matrix4f();
 
     /**
      * Iris world rendering multiplies the terrain {@code positionMatrix} into the
-     * {@link PoseStack} before entity transforms.
+     * {@link MatrixStack} before entity transforms.
      * {@link Matrix4f#getTranslation()} on that product no longer equals the
      * camera-relative entity offset, so callers that rebuild world space from
      * translation + camera position must strip the terrain matrix first.
@@ -155,6 +167,7 @@ public class BBSRendering
     private static boolean iris;
     private static boolean sodium;
     private static boolean optifine;
+    private static boolean forceDisableCull;
 
     private static int width;
     private static int height;
@@ -167,14 +180,14 @@ public class BBSRendering
     private static final UIBaseMenu replayHudMenu = new UIBaseMenu() {};
 
     private static boolean toggleFramebuffer;
-    private static RenderTarget framebuffer;
-    private static RenderTarget clientFramebuffer;
+    private static Framebuffer framebuffer;
+    private static Framebuffer clientFramebuffer;
     private static Texture texture;
 
     /** Private read FBO used to snapshot our framebuffer's colour attachment into {@link #texture}. */
     private static int captureReadFramebuffer = -1;
 
-    private static CloudStatus cachedCloudRenderMode;
+    private static CloudRenderMode cachedCloudRenderMode;
     private static boolean cloudsForced;
 
     public static int getMotionBlur()
@@ -293,19 +306,19 @@ public class BBSRendering
      */
     public static void bindMainFramebuffer(boolean clear)
     {
-        RenderTarget fb = Minecraft.getInstance().getMainRenderTarget();
+        Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
 
         RenderSystem.outputColorTextureOverride = null;
         RenderSystem.outputDepthTextureOverride = null;
 
-        if (clear && fb != null && fb.getColorTexture() != null && fb.getDepthTexture() != null)
+        if (clear && fb != null && fb.getColorAttachment() != null && fb.getDepthAttachment() != null)
         {
             RenderSystem.getDevice().createCommandEncoder()
-                .clearColorAndDepthTextures(fb.getColorTexture(), 0, fb.getDepthTexture(), 1.0D);
+                .clearColorAndDepthTextures(fb.getColorAttachment(), 0, fb.getDepthAttachment(), 1.0D);
         }
     }
 
-    public static void bindFramebuffer(RenderTarget fb, boolean clear)
+    public static void bindFramebuffer(Framebuffer fb, boolean clear)
     {
         if (fb == null)
         {
@@ -313,27 +326,27 @@ public class BBSRendering
             return;
         }
 
-        RenderSystem.outputColorTextureOverride = fb.getColorTextureView();
-        RenderSystem.outputDepthTextureOverride = fb.getDepthTextureView();
+        RenderSystem.outputColorTextureOverride = fb.getColorAttachmentView();
+        RenderSystem.outputDepthTextureOverride = fb.getDepthAttachmentView();
 
-        if (clear && fb.getColorTexture() != null && fb.getDepthTexture() != null)
+        if (clear && fb.getColorAttachment() != null && fb.getDepthAttachment() != null)
         {
             RenderSystem.getDevice().createCommandEncoder()
-                .clearColorAndDepthTextures(fb.getColorTexture(), 0, fb.getDepthTexture(), 1.0D);
+                .clearColorAndDepthTextures(fb.getColorAttachment(), 0, fb.getDepthAttachment(), 1.0D);
         }
     }
 
     /**
      * Framebuffer whose color is sampled by ColorGradeOverlay (Iris-lit scene before regrade).
      */
-    public static RenderTarget getPaintOverlaySourceFramebuffer()
+    public static Framebuffer getPaintOverlaySourceFramebuffer()
     {
         if (toggleFramebuffer && framebuffer != null)
         {
             return framebuffer;
         }
 
-        return Minecraft.getInstance().getMainRenderTarget();
+        return MinecraftClient.getInstance().getFramebuffer();
     }
 
     public static boolean isCustomSize()
@@ -381,27 +394,45 @@ public class BBSRendering
     }
 
     /**
+     * After world / film FBO present: re-bind the client framebuffer and reset GUI draw state.
+     * Used when HDR Mod's blit color-transform leaves FBO 0 / blend disabled before Batcher2D.
+     */
+    public static void prepareGuiAfterWorldPresent()
+    {
+        ensureMainFramebuffer();
+        bindMainFramebuffer(false);
+        restoreGuiRenderState();
+        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+    }
+
+    /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     *
+     * Never unbind VAO / ARRAY_BUFFER / ELEMENT_ARRAY_BUFFER here. On AMD (atio6axx)
+     * that leaves Batcher2D's next glDrawElements with a null index path (hard crash)
+     * or silently skips card chrome while form previews still draw through their own VAO.
      */
     public static void restoreGuiRenderState()
     {
         ModelVAORenderer.clearFormColorGrade();
-        GL11.glColorMask(true, true, true, true);
-        GL11.glDepthMask(true);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glDisable(GL11.GL_CULL_FACE);
-        GL11.glDepthFunc(GL11.GL_ALWAYS);
+        /* Keep vanilla's GL state cache synchronized between preview render passes. */
+        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._depthMask(true);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager._disableCull();
+        GlStateManager._depthFunc(GL11.GL_ALWAYS);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
     }
 
     /**
-     * Soft-opacity / glow / equipment can leave depthMask/blend/shader color wrong and poison
-     * later Model Block / Iris shadow draws. Only sanitize leaky state — do not force depth-test
-     * on or rewrite level lights (that changed the post-morph entity pipeline and froze
-     * GPU-skinned / procedural limb motion).
+     * Soft-opacity / glow / form draws can leave depthMask, blend, depth test, lightmap,
+     * or overlay wrong. After model-block forms that also matters for WorldRenderer's later
+     * flush of buffered vanilla entity layers (enchanted armor). Do not rewrite level lights.
      */
     public static void restoreWorldRenderState()
     {
@@ -409,13 +440,106 @@ public class BBSRendering
         GlStateManager._colorMask(true, true, true, true);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        CustomVertexConsumerProvider.clearRunnables();
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            /* In 1.21.11, lightmap & overlay textures are managed via UBOs / shader pipelines automatically */
+        }
+    }
+
+    /**
+     * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
+     * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
+     * Call before {@link InGameHud} and after GUI builtin item forms.
+     */
+    public static void prepareHudRenderState()
+    {
+        restoreWorldRenderState();
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
+        }
+
+        setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /**
+     * After a GUI {@link ItemDisplayContext#GUI} builtin form item: keep subsequent hotbar
+     * slots / widgets on vanilla GUI lighting.
+     */
+    public static void restoreAfterGuiItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        setShaderColor(1F, 1F, 1F, 1F);
+        colorMask(true, true, true, true);
+        depthMask(true);
+        enableBlend();
+        defaultBlendFunc();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
+        }
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        // RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        }
+    }
+
+    /**
+     * Same diffuse choice {@link WorldRenderer} uses before entities:
+     * {@link DiffuseLighting.Type#LEVEL} in level dimensions, otherwise the shared
+     * {@link #setupWorldLevelDiffuseLighting()} basis.
+     * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
+     */
+    public static void setupMatchingWorldDiffuseLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.world != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        }
+    }
+
+    /**
+     * Block/sky lightmap at an entity position, or {@code fallback} when the entity has no world
+     * (pure UI stubs). Used so form editor / model-block previews match F7 world shading.
+     */
+    public static int resolveEntityBlockLight(IEntity entity, int fallback)
+    {
+        if (entity == null || entity.getWorld() == null)
+        {
+            return fallback;
+        }
+
+        BlockPos pos = BlockPos.ofFloored(entity.getX(), entity.getY(), entity.getZ());
+
+        return WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos);
     }
 
     /**
@@ -424,14 +548,14 @@ public class BBSRendering
      */
     public static void prepareVanillaEntityLighting()
     {
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
         if (client == null || client.gameRenderer == null)
         {
             return;
         }
 
-        setupWorldLevelDiffuseLighting();
+        setupMatchingWorldDiffuseLighting();
     }
 
     public static Texture getTexture()
@@ -448,7 +572,7 @@ public class BBSRendering
 
     public static void startTick()
     {
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         /* Client ticks still run while the pause menu is open, but world/block-entity ticks do
          * not — clearing here would empty the set with nothing to refill it, killing model-block
@@ -494,48 +618,48 @@ public class BBSRendering
 
     /* Framebuffers */
 
-    public static RenderTarget getFramebuffer()
+    public static Framebuffer getFramebuffer()
     {
         return framebuffer;
     }
 
     public static void setupFramebuffer()
     {
-        Window window = Minecraft.getInstance().getWindow();
+        Window window = MinecraftClient.getInstance().getWindow();
 
-        framebuffer = new MainTarget(window.getWidth(), window.getHeight());
+        framebuffer = new WindowFramebuffer(window.getFramebufferWidth(), window.getFramebufferHeight());
     }
 
     public static void resizeExtraFramebuffers()
     {
-        Set<RenderTarget> buffers = new HashSet<>();
-        Minecraft mc = Minecraft.getInstance();
+        Set<Framebuffer> buffers = new HashSet<>();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        buffers.add(mc.levelRenderer.entityOutlineTarget());
-        buffers.add(mc.levelRenderer.getTranslucentTarget());
-        buffers.add(mc.levelRenderer.getItemEntityTarget());
-        buffers.add(mc.levelRenderer.getParticlesTarget());
-        buffers.add(mc.levelRenderer.getWeatherTarget());
-        buffers.add(mc.levelRenderer.getCloudsTarget());
+        buffers.add(mc.worldRenderer.getEntityOutlinesFramebuffer());
+        buffers.add(mc.worldRenderer.getTranslucentFramebuffer());
+        buffers.add(mc.worldRenderer.getEntityFramebuffer());
+        buffers.add(mc.worldRenderer.getParticlesFramebuffer());
+        buffers.add(mc.worldRenderer.getWeatherFramebuffer());
+        buffers.add(mc.worldRenderer.getCloudsFramebuffer());
 
-        for (RenderTarget buffer : buffers)
+        for (Framebuffer buffer : buffers)
         {
             resizeFramebuffer(buffer);
         }
     }
 
-    public static void resizeFramebuffer(RenderTarget framebuffer)
+    public static void resizeFramebuffer(Framebuffer framebuffer)
     {
         if (framebuffer == null)
         {
             return;
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        int w = mc.getWindow().getWidth();
-        int h = mc.getWindow().getHeight();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int w = Math.max(2, mc.getWindow().getFramebufferWidth());
+        int h = Math.max(2, mc.getWindow().getFramebufferHeight());
 
-        if (framebuffer.width == w && framebuffer.height == h)
+        if (framebuffer.textureWidth == w && framebuffer.textureHeight == h)
         {
             return;
         }
@@ -550,25 +674,25 @@ public class BBSRendering
             return;
         }
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
         Window window = mc.getWindow();
 
         BBSRendering.toggleFramebuffer = toggleFramebuffer;
 
         if (toggleFramebuffer)
         {
-            int w = mc.getWindow().getWidth();
-            int h = mc.getWindow().getHeight();
+            int w = Math.max(2, mc.getWindow().getFramebufferWidth());
+            int h = Math.max(2, mc.getWindow().getFramebufferHeight());
 
             resizeExtraFramebuffers();
 
-            if (framebuffer.width != w || framebuffer.height != h)
+            if (framebuffer.textureWidth != w || framebuffer.textureHeight != h)
             {
                 framebuffer.resize(w, h);
             }
 
             /* Never overwrite the real window FBO with our video-sized one. */
-            RenderTarget current = mc.getMainRenderTarget();
+            Framebuffer current = mc.getFramebuffer();
 
             if (current != null && current != framebuffer)
             {
@@ -578,11 +702,11 @@ public class BBSRendering
             reassignFramebuffer(framebuffer);
             bindFramebuffer(framebuffer, false);
 
-            mc.levelRenderer.resize(w, h);
+            mc.worldRenderer.onResized(w, h);
         }
         else
         {
-            RenderTarget target = clientFramebuffer != null ? clientFramebuffer : mc.getMainRenderTarget();
+            Framebuffer target = clientFramebuffer != null ? clientFramebuffer : mc.getFramebuffer();
 
             if ((width != 0 || customSize) && framebuffer != null)
             {
@@ -590,26 +714,31 @@ public class BBSRendering
                 framebuffer.blitToScreen();
             }
 
-            /* beginWrite() used to re-bind the window FBO; without this the UI keeps
-             * drawing into the video-resolution buffer and distorts with export size. */
             if (target != null && target != framebuffer)
             {
                 reassignFramebuffer(target);
             }
 
+            /* framebuffer.draw() leaves its color-attachment texture bound on TU0
+             * inside GlStateManager / RenderSystem.shaderTextures[0].  If we don't
+             * clear it, every subsequent draw (chunks, forms, HUD) that queries
+             * getShaderTexture(0) reads a stale id and renders black. */
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
+            
             bindMainFramebuffer(false);
 
-            int realW = window.getWidth();
-            int realH = window.getHeight();
+            int realW = window.getFramebufferWidth();
+            int realH = window.getFramebufferHeight();
 
-            mc.levelRenderer.resize(realW, realH);
+            mc.worldRenderer.onResized(realW, realH);
             resizeExtraFramebuffers();
         }
     }
 
-    private static void reassignFramebuffer(RenderTarget framebuffer)
+    private static void reassignFramebuffer(Framebuffer framebuffer)
     {
-        Minecraft.getInstance().mainRenderTarget = framebuffer;
+        MinecraftClient.getInstance().framebuffer = framebuffer;
     }
 
     /* Rendering */
@@ -621,14 +750,14 @@ public class BBSRendering
             return;
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        BBSModClient.getFilms().startRenderFrame(mc.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+        MinecraftClient mc = MinecraftClient.getInstance();
+        BBSModClient.getFilms().startRenderFrame(mc.getRenderTickCounter().getTickProgress(false));
 
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null)
         {
-            menu.startRenderFrame(mc.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+            menu.startRenderFrame(mc.getRenderTickCounter().getTickProgress(false));
         }
 
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
@@ -637,6 +766,7 @@ public class BBSRendering
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
         renderingWorld = true;
+        ShaderOpacityPatch.onWorldRenderBegin();
         updateCloudRenderMode(mc);
         ModelVAORenderer.clearPaintOverlayQueue();
 
@@ -662,62 +792,119 @@ public class BBSRendering
         ModelVAORenderer.flushPaintOverlayQueue();
         ShaderOpacityPatch.onWorldRenderEnd();
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
-
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
-            /* 1.21.11: DrawContext constructor changed; draw() removed (two-phase GUI) */
-            GuiGraphics drawContext = new GuiGraphics(mc, new GuiRenderState(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-            Batcher2D batcher = new Batcher2D(drawContext);
-            Window window = mc.getWindow();
-            Area area = new Area(0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight());
+            if (mc.gameRenderer != null && mc.gameRenderer.guiState != null)
+            {
+                BbsGuiScale.withBbsWindowScale(() ->
+                {
+                    Window window = mc.getWindow();
+                    int sw = window.getScaledWidth();
+                    int sh = window.getScaledHeight();
+                    Area area = new Area(0, 0, sw, sh);
 
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
-            VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+                    mc.gameRenderer.guiState.clear();
+                    DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, sw, sh);
+                    Batcher2D batcher = new Batcher2D(drawContext);
 
-            ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
+                    VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+
+                    ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                    flushGuiRenderState();
+                });
+            }
         }
 
         if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
-            GuiGraphics drawContext = new GuiGraphics(mc, new GuiRenderState(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-            Batcher2D batcher = new Batcher2D(drawContext);
-            Window window = mc.getWindow();
+            if (mc.gameRenderer != null && mc.gameRenderer.guiState != null)
+            {
+                BbsGuiScale.withBbsWindowScale(() ->
+                {
+                    Window window = mc.getWindow();
+                    int sw = window.getScaledWidth();
+                    int sh = window.getScaledHeight();
+                    Area area = new Area(0, 0, sw, sh);
 
-            renderHudOverlays(batcher, controller.getContext(), window.getGuiScaledWidth(), window.getGuiScaledHeight());
+                    mc.gameRenderer.guiState.clear();
+                    DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, sw, sh);
+                    Batcher2D batcher = new Batcher2D(drawContext);
+
+                    VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+
+                    ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                    flushGuiRenderState();
+                });
+            }
         }
 
         if (!customSize)
         {
             renderingWorld = false;
+            /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
+             * HUD (hotbar) and the pause menu draw next and would go dark without this. */
+            prepareHudRenderState();
 
             return;
         }
 
         if (currentMenu instanceof UIDashboard dashboard)
         {
-            if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.getData() != null)
+            if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
             {
-                GuiGraphics drawContext = new GuiGraphics(mc, new GuiRenderState(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-                Batcher2D offscreenBatcher = new Batcher2D(drawContext);
+                if (mc.gameRenderer != null && mc.gameRenderer.guiState != null)
+                {
+                    BbsGuiScale.withBbsWindowScale(() ->
+                    {
+                        Window window = mc.getWindow();
+                        int sw = window.getScaledWidth();
+                        int sh = window.getScaledHeight();
+                        Area fullScreen = new Area(0, 0, sw, sh);
 
-                Window window = mc.getWindow();
-                Area fullScreen = new Area(0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight());
+                        if (panel.getData() != null && panel.getData().camera != null)
+                        {
+                            mc.gameRenderer.guiState.clear();
+                            DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, sw, sh);
+                            Batcher2D offscreenBatcher = new Batcher2D(drawContext);
 
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
-                VideoRenderer.renderClips(new PoseStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getGuiScaledWidth(), window.getGuiScaledHeight(), false);
+                            CameraClipContext context = panel.getRunner().getContext();
 
-                ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getGuiScaledWidth(), window.getGuiScaledHeight());
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
+                            context.clipData.clear();
+                            context.clips = panel.getData().camera;
+                            context.setup(panel.getCursor(), panel.getRunner().isRunning() ? mc.getRenderTickCounter().getTickProgress(false) : 0F);
+
+                            for (Clip clip : panel.getData().camera.getClips(panel.getCursor()))
+                            {
+                                context.apply(clip, panel.getRunner().getPosition());
+                            }
+
+                            VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, sw, sh, false);
+
+                            ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
+                            flushGuiRenderState();
+                        }
+                    });
+                }
             }
         }
 
         renderingWorld = false;
     }
 
-    private static void updateCloudRenderMode(Minecraft mc)
+    public static void flushGuiRenderState()
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.guiRenderer != null && mc.gameRenderer.guiState != null && mc.gameRenderer.fogRenderer != null)
+        {
+            mc.gameRenderer.guiRenderer.render(mc.gameRenderer.fogRenderer.getFogBuffer(FogRenderer.FogType.NONE));
+            mc.gameRenderer.guiState.clear();
+        }
+    }
+
+    private static void updateCloudRenderMode(MinecraftClient mc)
     {
         boolean shouldHideClouds = isChromaSkyEnabled() && !isChromaSkyClouds();
 
@@ -725,20 +912,20 @@ public class BBSRendering
         {
             if (!cloudsForced)
             {
-                cachedCloudRenderMode = mc.options.cloudStatus().get();
+                cachedCloudRenderMode = mc.options.getCloudRenderMode().getValue();
                 cloudsForced = true;
             }
 
-            if (mc.options.cloudStatus().get() != CloudStatus.OFF)
+            if (mc.options.getCloudRenderMode().getValue() != CloudRenderMode.OFF)
             {
-                mc.options.cloudStatus().set(CloudStatus.OFF);
+                mc.options.getCloudRenderMode().setValue(CloudRenderMode.OFF);
             }
         }
         else if (cloudsForced)
         {
             if (cachedCloudRenderMode != null)
             {
-                mc.options.cloudStatus().set(cachedCloudRenderMode);
+                mc.options.getCloudRenderMode().setValue(cachedCloudRenderMode);
             }
 
             cloudsForced = false;
@@ -753,8 +940,8 @@ public class BBSRendering
         if (customSize)
         {
             Texture texture = getTexture();
-            int w = framebuffer.width;
-            int h = framebuffer.height;
+            int w = framebuffer.textureWidth;
+            int h = framebuffer.textureHeight;
 
             /* Snapshot the world that just rendered into our reassigned WindowFramebuffer into the BBS texture
              * that the film preview blits and the VideoRecorder reads back.
@@ -776,7 +963,7 @@ public class BBSRendering
             }
 
             int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-            int sourceId = ((GlTexture) framebuffer.getColorTexture()).glId();
+            int sourceId = ((GlTexture) framebuffer.getColorAttachment()).getGlId();
 
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, captureReadFramebuffer);
             GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, sourceId, 0);
@@ -791,9 +978,14 @@ public class BBSRendering
 
 
         toggleFramebuffer(false);
+
+        if (HdrModCompat.isHdrPresentationActive())
+        {
+            prepareGuiAfterWorldPresent();
+        }
     }
 
-    public static void onRenderChunkLayer(PoseStack stack)
+    public static void onRenderChunkLayer(MatrixStack stack)
     {
         /* Fabric WorldRenderEvents.AFTER_ENTITIES already drives renderCoolStuff.
          * Legacy chunk-layer injection path is inert under 1.21.11 FrameGraph terrain. */
@@ -803,7 +995,7 @@ public class BBSRendering
     {
     }
 
-    public static void renderHud(GuiGraphics drawContext, float tickDelta)
+    public static void renderHud(DrawContext drawContext, float tickDelta)
     {
         Batcher2D batcher2D = new Batcher2D(drawContext);
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
@@ -836,13 +1028,26 @@ public class BBSRendering
         }
     }
 
-    private static void renderSelectedReplayHud(GuiGraphics drawContext, Batcher2D batcher2D, int yOffset)
+    private static void renderSelectedReplayHud(DrawContext drawContext, Batcher2D batcher2D, int yOffset)
     {
         Replay replay = BBSModClient.getSelectedReplay();
 
         if (replay == null)
         {
             return;
+        }
+
+        /* P toggles visibility, but the HUD must only show while a film session is active. */
+        UIDashboard dashboard = BBSModClient.getDashboard();
+
+        if (dashboard != null)
+        {
+            UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+
+            if (filmPanel == null || !filmPanel.hasActiveFilmSession())
+            {
+                return;
+            }
         }
 
         Form form = replay.form.get();
@@ -884,10 +1089,10 @@ public class BBSRendering
 
         if (hasForm)
         {
-            Minecraft mc = Minecraft.getInstance();
+            MinecraftClient mc = MinecraftClient.getInstance();
             Window window = mc.getWindow();
 
-            replayHudMenu.resize(window.getGuiScaledWidth(), window.getGuiScaledHeight());
+            replayHudMenu.resize(window.getScaledWidth(), window.getScaledHeight());
             replayHudMenu.context.setup(new UIRenderingContext(drawContext));
 
             int modelX1 = contentX;
@@ -933,7 +1138,7 @@ public class BBSRendering
     private static int getReplayHudX(int margin, int totalW)
     {
         int position = BBSSettings.editorReplayHudPosition.get();
-        int screenW = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        int screenW = MinecraftClient.getInstance().getWindow().getScaledWidth();
         boolean right = position == 1 || position == 3;
 
         return right ? screenW - margin - totalW : margin;
@@ -942,7 +1147,7 @@ public class BBSRendering
     private static int getReplayHudY(int margin, int boxH)
     {
         int position = BBSSettings.editorReplayHudPosition.get();
-        int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        int screenH = MinecraftClient.getInstance().getWindow().getScaledHeight();
         boolean bottom = position == 2 || position == 3;
         int extraTopLeft = position == 0 ? 12 : 0;
 
@@ -951,7 +1156,7 @@ public class BBSRendering
 
     public static void renderCoolStuff(WorldRenderContext worldRenderContext)
     {
-        if (Minecraft.getInstance().screen instanceof UIScreen screen)
+        if (MinecraftClient.getInstance().currentScreen instanceof UIScreen screen)
         {
             screen.renderInWorld(worldRenderContext);
         }
@@ -997,9 +1202,6 @@ public class BBSRendering
     /**
      * True when Iris would discard/mis-composite very low form opacity; queue a BBS redraw
      * after compositing. Slight opacity (e.g. {@code #e7}/{@code #fc}) stays on Iris.
-     * When the Complementary/BSL opacity patch is active, never take this BBS handoff —
-     * translucency stays on Iris and is flushed post-deferred after VL clouds (smooth
-     * fade through {@code #1c}/28 with lighting and render depth intact).
      */
     public static boolean needsIrisTranslucentModelDeferral(float alpha)
     {
@@ -1008,19 +1210,15 @@ public class BBSRendering
             return false;
         }
 
-        if (ShaderOpacityPatch.isActive())
-        {
-            return false;
-        }
-
         return alpha < TRANSLUCENT_ALPHA_DISCARD_REF;
     }
 
     /**
-     * Opt-in Opacity-track "No shading": redraw this soft form on the BBS deferred queue
-     * after paint overlays (paint visible through soft; pack body sun shadows lost).
-     * When off, soft forms stay on Iris post-deferred (body shadows kept; paint clipped).
-     * Still applies when the Complementary/BSL opacity patch is active.
+     * Opt-in "No shading": redraw this form on the BBS deferred queue
+     * after Iris composite.
+     * When off, forms stay on Iris live pipeline with pack shaders and lighting.
+     * When on, forms are deferred and drawn with vanilla/BBS shader (no pack lighting/shadows).
+     * Controlled by {@link BBSSettings#noshadingOpaqueForms} (default true).
      */
     public static boolean needsIrisNoshadingOpacityDeferral(float alpha, boolean noshadingOpacity)
     {
@@ -1029,7 +1227,9 @@ public class BBSRendering
             return false;
         }
 
-        return alpha > 0.001F && alpha < 0.999F;
+        boolean allowOpaque = BBSSettings.noshadingOpaqueForms == null || BBSSettings.noshadingOpaqueForms.get();
+
+        return alpha > 0.001F && (allowOpaque || alpha < 0.999F);
     }
 
     /**
@@ -1304,7 +1504,7 @@ public class BBSRendering
 
     private static Double getCurveValue(String key)
     {
-        if (!Minecraft.getInstance().isSameThread())
+        if (!MinecraftClient.getInstance().isOnThread())
         {
             return null;
         }
@@ -1501,7 +1701,14 @@ public class BBSRendering
 
     public static Double getBrightness()
     {
-        return getCurveValue(ShaderCurves.BRIGHTNESS);
+        Double v = getCurveValue(ShaderCurves.BRIGHTNESS);
+
+        if (v != null)
+        {
+            return Math.max(0D, v) / 100D;
+        }
+
+        return null;
     }
 
     public static Double getWeather()
@@ -1587,64 +1794,223 @@ public class BBSRendering
         return getColorConsumer(Color.white());
     }
 
-    private static void renderHudOverlays(Batcher2D batcher, ClipContext context, int width, int height)
+    public static void enableBlend()
     {
-        List<Subtitle> subtitles = SubtitleClip.getSubtitles(context);
-        List<HotbarState> hotbars = HotbarClip.getHotbars(context);
-        List<ImageOverlay> images = ImageClip.getImages(context);
-        List<BossBarState> bossBars = BossBarClip.getBossBars(context);
+        GlStateManager._enableBlend();
+    }
 
-        if (subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty())
+    public static void disableBlend()
+    {
+        GlStateManager._disableBlend();
+    }
+
+    public static void defaultBlendFunc()
+    {
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+    }
+
+    public static void blendFunc(int src, int dst)
+    {
+        GlStateManager._blendFuncSeparate(src, dst, GL11.GL_ONE, GL11.GL_ZERO);
+    }
+
+    public static void enableCull()
+    {
+        GlStateManager._enableCull();
+    }
+
+    public static void disableCull()
+    {
+        GlStateManager._disableCull();
+    }
+
+    public static void forceDisableCull(boolean force)
+    {
+        forceDisableCull = force;
+
+        if (force)
         {
-            return;
+            GlStateManager._disableCull();
+        }
+    }
+
+    public static boolean isCullForcedDisabled()
+    {
+        return forceDisableCull;
+    }
+
+    public static void enableDepthTest()
+    {
+        GlStateManager._enableDepthTest();
+    }
+
+    public static void disableDepthTest()
+    {
+        GlStateManager._disableDepthTest();
+    }
+
+    public static void depthFunc(int func)
+    {
+        GlStateManager._depthFunc(func);
+    }
+
+    public static void depthMask(boolean mask)
+    {
+        GlStateManager._depthMask(mask);
+    }
+
+    public static ShaderProgram getProgram(RenderPipeline pipeline)
+    {
+        if (pipeline == null)
+        {
+            return null;
         }
 
-        /* Safety net: Subtitle's text FBO can shrink glViewport; restore after the pass. */
-        int[] prevViewport = new int[4];
-
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-
-        /* 1.21.11: batcher.getContext().getMatrices() returns Matrix3x2fStack; use new MatrixStack() */
-        PoseStack matrices = new PoseStack();
-        int subtitleIndex = 0;
-        int hotbarIndex = 0;
-        int imageIndex = 0;
-        int bossBarIndex = 0;
-
-        while (subtitleIndex < subtitles.size() || hotbarIndex < hotbars.size() || imageIndex < images.size() || bossBarIndex < bossBars.size())
+        try
         {
-            int subtitleOrder = subtitleIndex < subtitles.size() ? subtitles.get(subtitleIndex).renderOrder : Integer.MAX_VALUE;
-            int hotbarOrder = hotbarIndex < hotbars.size() ? hotbars.get(hotbarIndex).renderOrder : Integer.MAX_VALUE;
-            int imageOrder = imageIndex < images.size() ? images.get(imageIndex).renderOrder : Integer.MAX_VALUE;
-            int bossBarOrder = bossBarIndex < bossBars.size() ? bossBars.get(bossBarIndex).renderOrder : Integer.MAX_VALUE;
-            int nextOrder = Math.min(Math.min(subtitleOrder, hotbarOrder), Math.min(imageOrder, bossBarOrder));
-
-            /* Draw lowest renderOrder first so higher timeline layers end up on top. */
-            if (subtitleOrder == nextOrder)
+            CompiledRenderPipeline compiled = RenderSystem.getDevice().precompilePipeline(pipeline);
+            if (compiled instanceof CompiledShaderPipeline shaderPipeline)
             {
-                UISubtitleRenderer.renderSubtitle(matrices, batcher, subtitles.get(subtitleIndex));
-                subtitleIndex += 1;
-            }
-            else if (hotbarOrder == nextOrder)
-            {
-                UIHotbarRenderer.renderHotbar(matrices, batcher, hotbars.get(hotbarIndex), 0, 0, width, height);
-                hotbarIndex += 1;
-            }
-            else if (imageOrder == nextOrder)
-            {
-                UIImageRenderer.renderImage(matrices, batcher, images.get(imageIndex));
-                imageIndex += 1;
-            }
-            else
-            {
-                UIBossBarRenderer.renderBossBar(matrices, batcher, bossBars.get(bossBarIndex), 0, 0, width, height);
-                bossBarIndex += 1;
+                return shaderPipeline.program();
             }
         }
+        catch (Exception e)
+        {
+            System.err.println("[BBSRendering] Failed to compile pipeline " + (pipeline != null ? pipeline.getLocation() : "null") + ": " + e.getMessage());
+            e.printStackTrace();
+        }
 
-        bossBars.clear();
-        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        return null;
+    }
+
+    public static ShaderProgram getEntityTranslucentProgram()
+    {
+        return getProgram(RenderPipelines.ENTITY_TRANSLUCENT);
+    }
+
+    public static ShaderProgram getPositionTexColorProgram()
+    {
+        return getProgram(RenderPipelines.GUI_TEXTURED);
+    }
+
+    public static ShaderProgram getGuiProgram()
+    {
+        return getProgram(RenderPipelines.GUI);
+    }
+
+    public static ShaderProgram getParticleProgram()
+    {
+        return getProgram(RenderPipelines.TRANSLUCENT_PARTICLE);
+    }
+
+    public static void setupEntityInUiLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.getDiffuseLighting() != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+        }
+    }
+
+    public static void setupLevelLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.getDiffuseLighting() != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        }
+    }
+
+    public static void colorMask(boolean red, boolean green, boolean blue, boolean alpha)
+    {
+        GlStateManager._colorMask(red, green, blue, alpha);
+    }
+
+    public static void setShaderColor(float r, float g, float b, float a)
+    {
+        /* In 1.21.11 color modulation is handled per-layer or via uniform buffers */
+    }
+
+    public static void bindProgram(ShaderProgram program)
+    {
+        ModelEffectPass.bound(program);
+
+        if (program != null && program != ShaderProgram.INVALID && program.getGlRef() > 0)
+        {
+            GL20.glUseProgram(program.getGlRef());
+        }
+    }
+
+    public static void unbindProgram()
+    {
+        ModelEffectPass.bound(null);
+        GL20.glUseProgram(0);
+    }
+
+    public static int getBoundTexture()
+    {
+        return GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+    }
+
+    public static void blendFuncSeparate(int srcRgb, int dstRgb, int srcAlpha, int dstAlpha)
+    {
+        GlStateManager._blendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+    }
+
+    public static void enableScissor(int x, int y, int w, int h)
+    {
+        GlStateManager._enableScissorTest();
+        GlStateManager._scissorBox(x, y, w, h);
+        RenderSystem.enableScissorForRenderTypeDraws(x, y, w, h);
+    }
+
+    public static void disableScissor()
+    {
+        GlStateManager._disableScissorTest();
+        RenderSystem.disableScissorForRenderTypeDraws();
+    }
+
+    public static void setProjectionMatrix(Matrix4f matrix, ProjectionType type)
+    {
+        if (matrix != null)
+        {
+            projection.set(matrix);
+        }
+
+        if (RenderSystem.getDynamicUniforms() != null && matrix != null)
+        {
+            GpuBufferSlice slice = RenderSystem.getDynamicUniforms().write(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
+            RenderSystem.setProjectionMatrix(slice, type);
+        }
+    }
+
+    public static Matrix4f getProjectionMatrix()
+    {
+        return projection;
+    }
+
+    public static int getTextureGlId(Identifier id)
+    {
+        AbstractTexture texture = MinecraftClient.getInstance().getTextureManager().getTexture(id);
+
+        if (texture != null && texture.getGlTexture() instanceof GlTexture glTexture)
+        {
+            return glTexture.getGlId();
+        }
+
+        return 0;
+    }
+
+    public static void bindTexture(Identifier id)
+    {
+        int glId = getTextureGlId(id);
+
+        if (glId > 0)
+        {
+            GlStateManager._bindTexture(glId);
+        }
     }
 }
+

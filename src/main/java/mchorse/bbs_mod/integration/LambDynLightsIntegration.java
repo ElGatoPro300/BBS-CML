@@ -3,14 +3,17 @@ package mchorse.bbs_mod.integration;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.entity.GunProjectileEntity;
+import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.morphing.Morph;
 
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.block.BlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Identifier;
 
 import com.mojang.serialization.MapCodec;
 
@@ -23,14 +26,14 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
 {
     private static final BBSModEntityLuminance LUMINANCE_PROVIDER = new BBSModEntityLuminance();
     private static final EntityLuminance.Type TYPE = EntityLuminance.Type.register(
-        Identifier.fromNamespaceAndPath("bbs_mod", "form_light"),
+        Identifier.of("bbs_mod", "form_light"),
         MapCodec.unit(LUMINANCE_PROVIDER)
     );
 
     @Override
     public void onInitializeDynamicLights(DynamicLightsContext context)
     {
-        context.entityLightSourceManager().onRegisterEvent().register(Identifier.fromNamespaceAndPath("bbs_mod", "dynamic_lights"), registerContext ->
+        context.entityLightSourceManager().onRegisterEvent().register(Identifier.of("bbs_mod", "dynamic_lights"), registerContext ->
         {
             registerContext.register(BBSMod.ACTOR_ENTITY, LUMINANCE_PROVIDER);
             registerContext.register(BBSMod.GUN_PROJECTILE_ENTITY, LUMINANCE_PROVIDER);
@@ -57,7 +60,7 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
             {
                 return getLightLevelFromForm(projectile.getForm());
             }
-            else if (entity instanceof Player player)
+            else if (entity instanceof PlayerEntity player)
             {
                 Morph morph = Morph.getMorph(player);
 
@@ -73,28 +76,41 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
 
     private static int getLightLevelFromForm(Form form)
     {
-        if (!(form instanceof LightForm lightForm))
+        if (form instanceof LightForm lightForm)
         {
-            return 0;
+            if (!lightForm.enabled.get())
+            {
+                return 0;
+            }
+
+            int level = lightForm.level.get();
+
+            if (level < 0)
+            {
+                level = 0;
+            }
+            else if (level > 15)
+            {
+                level = 15;
+            }
+
+            return level;
         }
 
-        if (!lightForm.enabled.get())
+        if (form instanceof BlockForm blockForm)
         {
-            return 0;
+            StructureLightSettings sl = blockForm.structureLight.get();
+            boolean enabled = (sl != null) ? sl.enabled : blockForm.emitLight.get();
+            int intensity = (sl != null) ? sl.intensity : blockForm.lightIntensity.get();
+            BlockState state = blockForm.blockState.get();
+
+            if (enabled && state != null && state.getLuminance() > 0)
+            {
+                return Math.max(0, Math.min(15, Math.min(state.getLuminance(), intensity)));
+            }
         }
 
-        int level = lightForm.level.get();
-
-        if (level < 0)
-        {
-            level = 0;
-        }
-        else if (level > 15)
-        {
-            level = 15;
-        }
-
-        return level;
+        return 0;
     }
 }
 

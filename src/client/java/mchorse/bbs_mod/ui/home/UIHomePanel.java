@@ -649,7 +649,12 @@ public class UIHomePanel extends UIDashboardPanel
 
                     if (pixels != null)
                     {
-                        /* TODO 1.21.11: RenderSystem.recordRenderCall was removed */
+                        MinecraftClient.getInstance().execute(() ->
+                        {
+                            Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
+
+                            BBSModClient.getTextures().textures.put(link, texture);
+                        });
                     }
                 }
             }

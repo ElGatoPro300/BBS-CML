@@ -29,7 +29,7 @@ public class UIDollyZoomClip extends UIClip<DollyZoomClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:dolly_zoom")), this.focus).marginTop(12));
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:dolly_zoom"), this.focus));
     }
 
     @Override

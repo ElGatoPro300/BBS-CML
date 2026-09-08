@@ -20,12 +20,12 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.items.UIBlockPickerModeOverlayPanel;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 public class BlockPickerClient
 {
@@ -70,7 +70,7 @@ public class BlockPickerClient
             return;
         }
 
-        Level world = Minecraft.getInstance().level;
+        World world = MinecraftClient.getInstance().world;
 
         if (world == null)
         {
@@ -91,7 +91,7 @@ public class BlockPickerClient
             return;
         }
 
-        if (state.is(BBSMod.MODEL_BLOCK))
+        if (state.isOf(BBSMod.MODEL_BLOCK))
         {
             return;
         }
@@ -127,8 +127,8 @@ public class BlockPickerClient
 
     public static void openInGameOverlay(UIOverlayPanel panel, int width, int height)
     {
-        Minecraft client = Minecraft.getInstance();
-        Screen returnScreen = client.screen;
+        MinecraftClient client = MinecraftClient.getInstance();
+        Screen returnScreen = client.currentScreen;
 
         panel.onClose((event) ->
         {

@@ -7,9 +7,10 @@ import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.KeyboardInput;
-import net.minecraft.world.phys.Vec2;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.KeyboardInput;
+import net.minecraft.util.PlayerInput;
+import net.minecraft.util.math.Vec2f;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -35,7 +36,8 @@ public class KeyboardInputMixin
             menu instanceof UIDashboard dashboard &&
             dashboard.getPanels().panel instanceof UIFilmPanel filmPanel &&
             filmPanel.getController().isControlling()
-        ) {
+        )
+        {
             KeyboardInput input = (KeyboardInput) (Object) this;
 
             boolean forward = Window.isKeyPressed(GLFW.GLFW_KEY_W);
@@ -43,25 +45,28 @@ public class KeyboardInputMixin
             boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
             boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
 
-            float fMul = getMovementMultiplier(forward, back);
-            float sMul = getMovementMultiplier(left, right);
-            Vec2 movement = new Vec2(sMul, fMul).normalized();
+            float forwardVal = getMovementMultiplier(forward, back);
+            float sidewaysVal = getMovementMultiplier(left, right);
 
             boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
             boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
+            boolean sprint = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL);
 
-            Minecraft.getInstance().options.keyJump.setDown(jump);
-            Minecraft.getInstance().options.keyShift.setDown(sneak);
+            input.playerInput = new PlayerInput(forward, back, left, right, jump, sneak, sprint);
 
-            if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.isMovingSlowly())
+            MinecraftClient.getInstance().options.jumpKey.setPressed(jump);
+            MinecraftClient.getInstance().options.sneakKey.setPressed(sneak);
+
+            if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.shouldSlowDown())
             {
-                movement = new Vec2(movement.x * 0.3F, movement.y * 0.3F);
+                sidewaysVal *= 0.3F;
+                forwardVal *= 0.3F;
             }
 
-            input.moveVector = movement;
+            input.movementVector = new Vec2f(sidewaysVal, forwardVal).normalize();
 
             UIFilmController controller = filmPanel.getController();
-            boolean moving = movement.x != 0F || movement.y != 0F;
+            boolean moving = forwardVal != 0F || sidewaysVal != 0F;
 
             controller.dampenActorControlDrift(moving);
         }

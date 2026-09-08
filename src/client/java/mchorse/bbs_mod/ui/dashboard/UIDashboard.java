@@ -104,14 +104,7 @@ public class UIDashboard extends UIBaseMenu
             {
                 this.orbit.setFovRoll(panel.supportsRollFOVControl());
 
-                if (BBSSettings.editorOrbitRestrictToViewport.get())
-                {
-                    this.orbitUI.setViewportArea(panel::getFlightViewportArea);
-                }
-                else
-                {
-                    this.orbitUI.setViewportArea(null);
-                }
+                this.orbitUI.setViewportArea(() -> BBSSettings.editorOrbitRestrictToViewport.get() ? panel.getFlightViewportArea() : null);
             }
             else
             {
@@ -142,7 +135,7 @@ public class UIDashboard extends UIBaseMenu
         this.getRoot().add(this.orbitKeysUI);
         this.getRoot().add(this.chalkboard);
 
-        if (!BBSSettings.welcomePanelAcceptedBeta1.get())
+        if (!BBSSettings.welcomePanelSeen21.get())
         {
             UIWelcomePanel welcome = new UIWelcomePanel();
             welcome.full(this.getRoot());
@@ -152,7 +145,7 @@ public class UIDashboard extends UIBaseMenu
         /* Register keys */
         IKey category = UIKeys.DASHBOARD_CATEGORY;
 
-        this.main.keys().register(Keys.CYCLE_PANELS, this::cyclePanels).category(category);
+        this.main.keys().register(Keys.CYCLE_PANELS, this::cyclePanels).allowShift().category(category);
         this.overlay.keys().register(Keys.TOGGLE_VISIBILITY, () ->
         {
             if (this.panels.panel.canToggleVisibility())

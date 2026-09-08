@@ -12,11 +12,24 @@ import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class UIButton extends UIClickable<UIButton> implements ITextColoring
 {
+    private static final int MIN_HEIGHT = 20;
+    private static final int LINE_HEIGHT = 12;
+    private static final int VERTICAL_PADDING = 8;
+
+    /**
+     * Max wrapped label lines before the last line is ellipsized.
+     * Adjustable if clip/panel layouts need a taller or shorter cap later.
+     */
+    public static int MAX_LABEL_LINES = 3;
+
     public IKey label;
 
     public int textColor = Colors.WHITE;
@@ -27,13 +40,18 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
     public boolean background = true;
 
     private Supplier<Icon> leadingIcon;
+    private boolean wrapping = true;
+    private List<String> wrappedLines;
+    private String lastWrappedText;
+    private int lastWrapWidth = -1;
+    private int wrappedHeight = MIN_HEIGHT;
 
     public UIButton(IKey label, Consumer<UIButton> callback)
     {
         super(callback);
 
         this.label = label;
-        this.h(20);
+        this.h(MIN_HEIGHT);
     }
 
     public UIButton color(int color)
@@ -76,6 +94,32 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
         return this;
     }
 
+    public UIButton label(IKey label)
+    {
+        this.label = label;
+        this.invalidateWrappedLabel();
+
+        return this;
+    }
+
+    /**
+     * Wrap long labels onto multiple lines (up to {@link #MAX_LABEL_LINES})
+     * and grow the button height instead of truncating with a single-line ellipsis.
+     * Enabled by default for narrow panels such as the film clip inspector.
+     */
+    public UIButton wrapping()
+    {
+        return this.wrapping(true);
+    }
+
+    public UIButton wrapping(boolean wrapping)
+    {
+        this.wrapping = wrapping;
+        this.invalidateWrappedLabel();
+
+        return this;
+    }
+
     @Override
     public void setColor(int color, boolean shadow)
     {
@@ -90,22 +134,98 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
     }
 
     @Override
+    public void resize()
+    {
+        super.resize();
+
+        this.invalidateWrappedLabel();
+    }
+
+    private void invalidateWrappedLabel()
+    {
+        this.wrappedLines = null;
+        this.lastWrappedText = null;
+        this.lastWrapWidth = -1;
+    }
+
+    private void ensureWrappedLabel(FontRenderer font, int maxWidth)
+    {
+        String text = this.label == null ? "" : this.label.get();
+
+        if (this.wrappedLines != null && text.equals(this.lastWrappedText) && maxWidth == this.lastWrapWidth)
+        {
+            return;
+        }
+
+        List<String> lines;
+
+        if (text.isEmpty() || maxWidth <= 0)
+        {
+            lines = Collections.emptyList();
+        }
+        else if (this.wrapping)
+        {
+            lines = this.limitWrappedLines(font, font.wrap(text, maxWidth), maxWidth);
+        }
+        else
+        {
+            lines = Collections.singletonList(font.limitToWidth(text, maxWidth));
+        }
+
+        int lineCount = Math.max(1, lines.isEmpty() ? 1 : lines.size());
+        int textHeight = lineCount * LINE_HEIGHT - (LINE_HEIGHT - font.getHeight());
+        int height = Math.max(MIN_HEIGHT, textHeight + VERTICAL_PADDING);
+
+        if (height != this.wrappedHeight)
+        {
+            this.wrappedHeight = height;
+            this.h(height);
+
+            UIElement container = this.getParentContainer();
+
+            if (container != null)
+            {
+                /* Parent resize clears caches via resize(); restore lines afterward. */
+                container.resize();
+            }
+        }
+
+        this.wrappedLines = lines;
+        this.lastWrappedText = text;
+        this.lastWrapWidth = maxWidth;
+    }
+
+    private List<String> limitWrappedLines(FontRenderer font, List<String> lines, int maxWidth)
+    {
+        int maxLines = Math.max(1, MAX_LABEL_LINES);
+
+        if (lines.size() <= maxLines)
+        {
+            return lines;
+        }
+
+        List<String> limited = new ArrayList<>(lines.subList(0, maxLines));
+
+        limited.set(maxLines - 1, font.limitToWidth(limited.get(maxLines - 1), maxWidth));
+
+        return limited;
+    }
+
+    @Override
     protected void renderSkin(UIContext context)
     {
+        FontRenderer font = context.batcher.getFont();
+        Icon icon = this.leadingIcon == null ? null : this.leadingIcon.get();
+        int iconPad = icon == null ? 0 : icon.w + 4;
+
+        this.ensureWrappedLabel(font, Math.max(0, this.area.w - 6 - iconPad));
+
         IUIStyleProvider theme = UIThemeManager.getActiveTheme();
 
         if (theme != null && theme.renderButtonSkin(context, this))
         {
             return;
         }
-
-        FontRenderer font = context.batcher.getFont();
-        Icon icon = this.leadingIcon == null ? null : this.leadingIcon.get();
-        int iconPad = icon == null ? 0 : icon.w + 4;
-        String label = font.limitToWidth(this.label.get(), Math.max(0, this.area.w - 6 - iconPad));
-        int contentLeft = this.area.x + iconPad;
-        int tx = contentLeft + Math.max(0, (this.area.ex() - contentLeft - font.getWidth(label)) / 2);
-        int ty = this.area.my(font.getHeight());
 
         if (this.background)
         {
@@ -165,7 +285,20 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
             context.batcher.icon(icon, Colors.WHITE, this.area.x + 2 + icon.w / 2, this.area.my(), 0.5F, 0.5F);
         }
 
-        context.batcher.text(label, tx, ty, this.textColor, this.textShadow);
+        if (this.wrappedLines != null && !this.wrappedLines.isEmpty())
+        {
+            int contentLeft = this.area.x + iconPad;
+            int textHeight = this.wrappedLines.size() * LINE_HEIGHT - (LINE_HEIGHT - font.getHeight());
+            int textY = this.area.my() - textHeight / 2;
+
+            for (String line : this.wrappedLines)
+            {
+                int tx = contentLeft + Math.max(0, (this.area.ex() - contentLeft - font.getWidth(line)) / 2);
+
+                context.batcher.text(line, tx, textY, this.textColor, this.textShadow);
+                textY += LINE_HEIGHT;
+            }
+        }
 
         this.renderLockedArea(context);
     }

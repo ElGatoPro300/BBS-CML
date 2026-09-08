@@ -34,6 +34,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.ICursor;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoThicknessContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.forms.IUIFormList;
@@ -151,6 +152,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     public UIIcon gizmoCombined;
     public UIIcon gizmoTop;
     public UIIcon gizmoVisualSize;
+    public UIIcon gizmoThickness;
     public UIIcon gizmoTranslateSpeed;
 
     private final Map<String, UIIcon> gizmoButtonMap = new HashMap<>();
@@ -240,7 +242,13 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.forms = new UIElement();
         this.forms.relative(this).x(20).w(treeWidth).minW(140).h(1F);
 
-        this.formsList = new UIForms((l) -> this.pickForm(l.get(0)));
+        this.formsList = new UIForms((l) ->
+        {
+            if (!l.isEmpty())
+            {
+                this.pickForm(l.get(0));
+            }
+        });
         this.formsList.setReorderCallback(this::refillState);
         this.formsList.relative(this.forms).w(1F).h(0.5F);
         this.formsList.context(this::createFormContextMenu);
@@ -389,6 +397,15 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         });
         this.gizmoVisualSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
 
+        this.gizmoThickness = new UIIcon(Icons.LINE, (b) ->
+        {
+            if (this.getContext() != null)
+            {
+                this.getContext().replaceContextMenu(new UIGizmoThicknessContextMenu());
+            }
+        });
+        this.gizmoThickness.tooltip(UIKeys.FILM_GIZMO_THICKNESS);
+
         this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
         {
             if (this.getContext() != null)
@@ -406,6 +423,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.COMBINED, this.gizmoCombined);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.TOP, this.gizmoTop);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.SIZE, this.gizmoVisualSize);
+        this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.THICKNESS, this.gizmoThickness);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.TRANSLATE_SPEED, this.gizmoTranslateSpeed);
 
         UIRenderable toolbarBackground = new UIRenderable((context) ->
@@ -670,39 +688,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
      *  amount. */
     private static Matrix4f normalizeOriginBasis(Matrix4f matrix)
     {
-        if (matrix == null)
-        {
-            return null;
-        }
-
-        Vector3f x = new Vector3f();
-        Vector3f y = new Vector3f();
-        Vector3f z = new Vector3f();
-
-        matrix.getColumn(0, x);
-        matrix.getColumn(1, y);
-        matrix.getColumn(2, z);
-
-        if (x.lengthSquared() < 1.0E-12F || y.lengthSquared() < 1.0E-12F)
-        {
-            return matrix;
-        }
-
-        x.normalize();
-        y.normalize();
-
-        /* Rebuild Z (and re-square Y) from a cross product so the basis is orthogonal and
-         * always right-handed, even if the source matrix was mirrored. */
-        z.set(x).cross(y).normalize();
-        y.set(z).cross(x).normalize();
-
-        Matrix4f result = new Matrix4f(matrix);
-
-        result.setColumn(0, new Vector4f(x, 0F));
-        result.setColumn(1, new Vector4f(y, 0F));
-        result.setColumn(2, new Vector4f(z, 0F));
-
-        return result;
+        return GizmoMatrixUtils.normalizeBasis(matrix);
     }
 
     /* Build a single gizmo transform-mode button that selects its mode and highlights while
@@ -1429,17 +1415,13 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     public Matrix4f getOrigin(float transition)
     {
+        Matrix4f result = null;
+
         if (this.gizmoTargetsBodyPart && this.bodyPartEditor != null && this.bodyPartEditor.getPart() != null)
         {
-            Matrix4f bodyPartOrigin = this.getBodyPartOrigin(transition);
-
-            if (bodyPartOrigin != null)
-            {
-                return bodyPartOrigin;
-            }
+            result = this.getBodyPartOrigin(transition);
         }
-
-        if (this.gizmoTargetsTransform && this.editor != null && this.editor.form != null)
+        else if (this.gizmoTargetsTransform && this.editor != null && this.editor.form != null)
         {
             /* "#origin" makes UIForm.getOrigin() return the form's own pivot (entry.origin()),
              * i.e. the point its own transform rotates/scales around, ignoring any pose bone -
@@ -1447,31 +1429,35 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             TransformOrientation orientation = this.editor.generalPanel != null ? this.editor.generalPanel.transform.getOrientation() : TransformOrientation.PARENT;
             Matrix4f matrix = this.editor.getOrigin(transition, FormUtils.getPath(this.editor.form) + "#origin", orientation);
 
-            if (matrix == null || matrix == Matrices.EMPTY_4F)
+            if (matrix != null && matrix != Matrices.EMPTY_4F)
             {
-                return matrix;
+                Transform formTransform = this.editor.form.transform.get();
+                result = GizmoMatrixUtils.withLocalRotation(matrix, formTransform, orientation);
             }
-
-            Transform formTransform = this.editor.form.transform.get();
-            return GizmoMatrixUtils.withLocalRotation(matrix, formTransform, orientation);
+            else
+            {
+                result = matrix;
+            }
         }
-
-        if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
+        else if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
         {
             UIPoseEditor poseEditor = this.modelSettingsEditor.getPoseEditor();
 
             if (this.editor instanceof UIModelForm modelForm)
             {
-                return modelForm.getOriginForPoseEditor(transition, poseEditor);
+                result = modelForm.getOriginForPoseEditor(transition, poseEditor);
             }
         }
-
-        if (this.statesEditor.isVisible())
+        else if (this.statesEditor.isVisible())
         {
-            return this.statesKeyframes.getOrigin(transition);
+            result = this.statesKeyframes.getOrigin(transition);
+        }
+        else if (this.editor != null)
+        {
+            result = this.editor.getOrigin(transition);
         }
 
-        return this.editor.getOrigin(transition);
+        return GizmoMatrixUtils.normalizeBasis(result);
     }
 
     @Override

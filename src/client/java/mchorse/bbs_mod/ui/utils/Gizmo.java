@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -18,27 +19,31 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RawProjectionMatrix;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,14 +65,14 @@ public class Gizmo
     private static final class DeferredGizmo
     {
         private final Matrix4f matrix;
-        private final GpuBufferSlice projection;
+        private final Matrix4f projection;
         private final boolean stencil;
         private final StencilMap stencilMap;
 
         private DeferredGizmo(Matrix4f matrix, boolean stencil, StencilMap stencilMap)
         {
             this.matrix = matrix;
-            this.projection = RenderSystem.getProjectionMatrixBuffer();
+            this.projection = new Matrix4f(BBSRendering.camera);
             this.stencil = stencil;
             this.stencilMap = stencilMap;
         }
@@ -168,7 +173,6 @@ public class Gizmo
     private UIPropTransform currentTransform;
     private Map<Integer, IGizmoHandler> handlers = new HashMap<>();
     private final List<DeferredGizmo> deferredGizmos = new ArrayList<>();
-    private RawProjectionMatrix projectionBuffer;
 
     private float lastSx = 1F;
     private float lastSy = 1F;
@@ -204,6 +208,8 @@ public class Gizmo
     private boolean dragProgressActive;
     private final Vector3f dragProgressStart = new Vector3f();
     private final Vector3f dragProgressEnd = new Vector3f();
+
+    private final RawProjectionMatrix rawProjection = new RawProjectionMatrix("bbs_gizmo");
 
     private Gizmo()
     {}
@@ -617,7 +623,7 @@ public class Gizmo
 
     public void deferRender(Matrix4f matrix, boolean stencil, StencilMap stencilMap)
     {
-        this.deferredGizmos.add(new DeferredGizmo(new Matrix4f(matrix), stencil, stencilMap));
+        this.deferredGizmos.add(new DeferredGizmo(GizmoMatrixUtils.normalizeBasis(new Matrix4f(matrix)), stencil, stencilMap));
     }
 
     /**
@@ -632,7 +638,7 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        this.lastGizmoMatrix.set(GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix())));
         GizmoMatrixUtils.applyViewCaptureAlignment(this.lastGizmoMatrix, this.activeOrientation);
         this.hasGizmoMatrix = true;
     }
@@ -698,44 +704,46 @@ public class Gizmo
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-
-        context.batcher.flush();
-
-        int[] previousViewport = new int[4];
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, previousViewport);
-
-        RenderSystem.backupProjectionMatrix();
-        MatrixStackUtils.pushIdentityModelView();
+        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
+        float size = BBSModClient.getOriginalFramebufferScale();
+        int width = Math.max(1, (int) Math.ceil(area.w * rx * size));
+        int height = Math.max(1, (int) Math.ceil(area.h * ry * size));
+        ModelPreviewRenderer preview = context.render.acquireFormPreview();
+        int[] viewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
+        boolean clipped = scissor.isEnabled();
+        int sx = scissor.getX(), sy = scissor.getY(), sw = scissor.getWidth(), sh = scissor.getHeight();
+        RenderSystem.disableScissorForRenderTypeDraws();
 
         try
         {
-            RenderSystem.setProjectionMatrix(this.getProjectionBuffer().set(projection), ProjectionType.ORTHOGRAPHIC);
-
-            /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional
-             * scales like 1.5 up to 2, which offset/stretched the gizmo viewport and could push vy/vh
-             * negative (GL_INVALID_VALUE). Same fix as UIModelRenderer#setupViewport. */
-            float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
-            float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
-            float size = BBSModClient.getOriginalFramebufferScale();
-            int vx = (int) (area.x * rx);
-            int vy = (int) (mc.getWindow().getHeight() - (area.y + area.h) * ry);
-            int vw = (int) (area.w * rx);
-            int vh = (int) (area.h * ry);
-
-            GlStateManager._viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
-
+            preview.begin(width, height, projection);
             MatrixStack stack = new MatrixStack();
-
             MatrixStackUtils.multiply(stack, this.lastGizmoMatrix);
             this.render(stack);
-            this.renderDragReadout(context, projection, area);
         }
         finally
         {
-            GlStateManager._viewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
-            MatrixStackUtils.popModelView();
-            RenderSystem.restoreProjectionMatrix();
+            preview.end();
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
+            GlStateManager._viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+            if (clipped)
+            {
+                RenderSystem.enableScissorForRenderTypeDraws(sx, sy, sw, sh);
+            }
         }
+
+        /* Queue the visual after the film image instead of drawing behind deferred GUI quads. */
+        context.batcher.newRootLayer();
+        context.batcher.texturedBox(preview.getColorView(), Colors.WHITE, area.x, area.y, area.w, area.h,
+            0, height, width, 0, width, height);
+        context.batcher.newRootLayer();
+        this.renderDragReadout(context, projection, area);
     }
 
     private void renderDragReadout(UIContext context, Matrix4f projection, Area area)
@@ -781,38 +789,29 @@ public class Gizmo
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        int[] previousViewport = new int[4];
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, previousViewport);
-
+        MatrixStackUtils.cacheMatrices();
         RenderSystem.backupProjectionMatrix();
-        MatrixStackUtils.pushIdentityModelView();
+        RenderSystem.setProjectionMatrix(this.rawProjection.set(projection), ProjectionType.ORTHOGRAPHIC);
 
-        try
-        {
-            RenderSystem.setProjectionMatrix(this.getProjectionBuffer().set(projection), ProjectionType.ORTHOGRAPHIC);
+        /* Keep in sync with renderInterface: fractional UI scales must not be rounded. */
+        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
+        float size = BBSModClient.getOriginalFramebufferScale();
+        int vx = (int) (area.x * rx);
+        int vy = (int) (mc.getWindow().getHeight() - (area.y + area.h) * ry);
+        int vw = (int) (area.w * rx);
+        int vh = (int) (area.h * ry);
 
-            /* Keep in sync with renderInterface: fractional UI scales must not be rounded. */
-            float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
-            float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
-            float size = BBSModClient.getOriginalFramebufferScale();
-            int vx = (int) (area.x * rx);
-            int vy = (int) (mc.getWindow().getHeight() - (area.y + area.h) * ry);
-            int vw = (int) (area.w * rx);
-            int vh = (int) (area.h * ry);
+        GlStateManager._viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
 
-            GlStateManager._viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+        MatrixStack stack = new MatrixStack();
 
-            MatrixStack stack = new MatrixStack();
+        MatrixStackUtils.multiply(stack, this.lastGizmoMatrix);
+        this.renderStencil(stack, map);
 
-            MatrixStackUtils.multiply(stack, this.lastGizmoMatrix);
-            this.renderStencil(stack, map);
-        }
-        finally
-        {
-            GlStateManager._viewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
-            MatrixStackUtils.popModelView();
-            RenderSystem.restoreProjectionMatrix();
-        }
+        GlStateManager._viewport(0, 0, mc.getWindow().getFramebufferWidth(), mc.getWindow().getFramebufferHeight());
+        RenderSystem.restoreProjectionMatrix();
+        MatrixStackUtils.restoreMatrices();
     }
 
     public boolean hasDeferred()
@@ -833,55 +832,59 @@ public class Gizmo
         }
 
         boolean iris = BBSRendering.isIrisShadersEnabled();
+        Matrix4f savedModelView = new Matrix4f();
+
         if (iris)
         {
             RenderSystem.backupProjectionMatrix();
+            savedModelView.set(RenderSystem.getModelViewMatrix());
         }
 
-        try
-        {
-            for (DeferredGizmo deferred : this.deferredGizmos)
-            {
-                if (iris)
-                {
-                    /* WorldRenderEvents.LAST runs after Iris' own compositing passes and no
-                     * longer carries the same projection matrix as RenderLayer#getSolid(), where
-                     * the gizmo transform was captured. Re-binding the saved projection keeps the
-                     * deferred draw aligned with the hitbox/stencil pass on the ground. */
-                    RenderSystem.setProjectionMatrix(deferred.projection, ProjectionType.ORTHOGRAPHIC);
-                }
-
-                stack.push();
-
-                /* The saved matrix is the FULL camera-relative transform captured when the gizmo
-                 * was deferred, so it must replace the stack top rather than be multiplied onto
-                 * it: at WorldRenderEvents.LAST the stack is not guaranteed to be identity
-                 * (notably with Iris shader packs), and composing the two shifted the gizmo to a
-                 * wrong position whenever shaders were enabled. */
-                stack.peek().getPositionMatrix().set(deferred.matrix);
-                stack.peek().getNormalMatrix().identity();
-
-                if (deferred.stencil && deferred.stencilMap != null)
-                {
-                    this.renderStencil(stack, deferred.stencilMap);
-                }
-                else
-                {
-                    this.render(stack);
-                }
-
-                stack.pop();
-            }
-        }
-        finally
+        for (DeferredGizmo deferred : this.deferredGizmos)
         {
             if (iris)
             {
-                RenderSystem.restoreProjectionMatrix();
+                /* WorldRenderEvents.LAST runs after Iris' own compositing passes and no
+                 * longer carries the same projection matrix as RenderLayer#getSolid(), where
+                 * the gizmo transform was captured. Re-binding the saved projection keeps the
+                 * deferred draw aligned with the hitbox/stencil pass on the ground. */
+                RenderSystem.setProjectionMatrix(this.rawProjection.set(deferred.projection), ProjectionType.ORTHOGRAPHIC);
             }
 
-            this.deferredGizmos.clear();
+            stack.push();
+
+            /* The saved matrix is the FULL camera-relative transform captured when the gizmo
+             * was deferred, so it must replace the stack top rather than be multiplied onto
+             * it: at WorldRenderEvents.LAST the stack is not guaranteed to be identity
+             * (notably with Iris shader packs), and composing the two shifted the gizmo to a
+             * wrong position whenever shaders were enabled. */
+            stack.peek().getPositionMatrix().set(deferred.matrix);
+            stack.peek().getNormalMatrix().identity();
+
+            if (deferred.stencil && deferred.stencilMap != null)
+            {
+                this.renderStencil(stack, deferred.stencilMap);
+            }
+            else
+            {
+                this.render(stack);
+            }
+
+            stack.pop();
         }
+
+        if (iris)
+        {
+            RenderSystem.restoreProjectionMatrix();
+
+            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+
+            mvStack.pushMatrix();
+            mvStack.set(savedModelView);
+            mvStack.popMatrix();
+        }
+
+        this.deferredGizmos.clear();
     }
 
     /* ---- shared per-frame scale/orientation bookkeeping ---- */
@@ -950,7 +953,7 @@ public class Gizmo
 
     private float resolveThickness(boolean stencil)
     {
-        float thickness = BBSSettings.axesThickness == null ? 1F : BBSSettings.axesThickness.get();
+        float thickness = BBSSettings.axesThickness == null ? 1.2F : BBSSettings.axesThickness.get();
         boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
 
         if (!constantSize)
@@ -968,7 +971,7 @@ public class Gizmo
 
     private void updateFlipSigns(float camX, float camY, float camZ)
     {
-        if (BBSSettings.gizmoFlipAxes != null && !BBSSettings.gizmoFlipAxes.get())
+        if (!this.shouldFlipAxesTowardCamera())
         {
             this.lastSx = 1F;
             this.lastSy = 1F;
@@ -994,7 +997,10 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
+        this.lastGizmoMatrix.set(normalized);
         this.hasGizmoMatrix = true;
 
         float scale = this.computeScale(stack);
@@ -1017,6 +1023,12 @@ public class Gizmo
         this.drawActiveGuide(builder, stack, scale, thickness);
         this.drawDragProgress(builder, stack, scale, thickness);
 
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        GlStateManager._depthFunc(GL11.GL_ALWAYS);
+        GlStateManager._disableDepthTest();
+        GlStateManager._depthMask(false);
+
         if (BBSRendering.isIrisShadersEnabled())
         {
             /* Vertex positions already include the full gizmo transform; Iris leaves a
@@ -1024,17 +1036,16 @@ public class Gizmo
             MatrixStackUtils.pushIdentityModelView();
         }
 
-        try
+        this.drawBufferIfNotEmpty(builder);
+
+        if (BBSRendering.isIrisShadersEnabled())
         {
-            Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
+            MatrixStackUtils.popModelView();
         }
-        finally
-        {
-            if (BBSRendering.isIrisShadersEnabled())
-            {
-                MatrixStackUtils.popModelView();
-            }
-        }
+
+        GlStateManager._depthMask(true);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 
     /* ---- stencil (id-encoded) render pass ---- */
@@ -1046,7 +1057,10 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
+        this.lastGizmoMatrix.set(normalized);
         this.hasGizmoMatrix = true;
 
         float scale = this.computeScale(stack);
@@ -1060,32 +1074,33 @@ public class Gizmo
         else if (this.mode == Mode.TOP) this.drawTop(builder, stack, scale, thickness, true, map);
         else this.drawTranslate(builder, stack, scale, thickness, true, map);
 
+        GlStateManager._disableDepthTest();
+        GlStateManager._depthMask(false);
+
+        /* Iris leaves a stale terrain ModelView; verts already include the full transform.
+         * Do NOT bake BBSRendering.camera here for non-Iris: preview editors / form pickers /
+         * model-block stencil already carry their orbit (or composed) view in the stack.
+         * Multiplying the world frustum camera on top mis-picks handles. Film's empty
+         * camera-relative stack sets ModelView in UIFilmController instead. */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();
         }
 
-        try
+        this.drawBufferIfNotEmpty(builder);
+
+        if (BBSRendering.isIrisShadersEnabled())
         {
-            Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
+            MatrixStackUtils.popModelView();
         }
-        finally
-        {
-            if (BBSRendering.isIrisShadersEnabled())
-            {
-                MatrixStackUtils.popModelView();
-            }
-        }
+
+        GlStateManager._depthMask(true);
     }
 
-    private RawProjectionMatrix getProjectionBuffer()
+    /** Flush gizmo triangles using Draw.flush and position-color layer */
+    private void drawBufferIfNotEmpty(BufferBuilder builder)
     {
-        if (this.projectionBuffer == null)
-        {
-            this.projectionBuffer = new RawProjectionMatrix("bbs_gizmo_projection");
-        }
-
-        return this.projectionBuffer;
+        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
     }
 
     /* ---- color helpers ---- */
@@ -1525,6 +1540,8 @@ public class Gizmo
     /**
      * Draws an XYZ rotation ring: camera-facing 180° arc by default, or a full 360° circle
      * when {@link BBSSettings#gizmoFullRotationRings} is enabled. Visual and pick thickness match.
+     * When {@link BBSSettings#gizmoFlipAxes} is off, half-rings stay fixed (no camera reorient),
+     * matching translate/scale handles that stay on +X/+Y/+Z.
      */
     private void drawAxisRotationRing(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float ringThickness, float[] color, boolean stencil)
     {
@@ -1535,9 +1552,16 @@ public class Gizmo
             return;
         }
 
-        float startDeg = this.cameraFacingRingStartDeg(axis);
+        float startDeg = this.shouldFlipAxesTowardCamera()
+            ? this.cameraFacingRingStartDeg(axis)
+            : 0F;
 
         Draw.arc3D(builder, stack, axis, radius, ringThickness, color[0], color[1], color[2], startDeg, 180F, stencil);
+    }
+
+    private boolean shouldFlipAxesTowardCamera()
+    {
+        return BBSSettings.gizmoFlipAxes == null || BBSSettings.gizmoFlipAxes.get();
     }
 
     /**

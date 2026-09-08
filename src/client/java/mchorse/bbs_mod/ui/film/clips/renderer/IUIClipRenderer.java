@@ -8,6 +8,4 @@ import mchorse.bbs_mod.utils.clips.Clip;
 public interface IUIClipRenderer <T extends Clip>
 {
     public void renderClip(UIContext context, UIClips clips, T clip, Area area, boolean selected, boolean current);
-
-    public String getDefaultLabel(UIClips clips, T clip);
 }

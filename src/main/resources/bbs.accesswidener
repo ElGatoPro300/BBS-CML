@@ -1,9 +1,5 @@
 accessWidener v2 named
 
-accessible field com/mojang/blaze3d/opengl/GlStateManager TEXTURES [Lcom/mojang/blaze3d/opengl/GlStateManager$Texture2DState;
-accessible field com/mojang/blaze3d/opengl/GlStateManager activeTexture I
-accessible class com/mojang/blaze3d/opengl/GlStateManager$Texture2DState
-
 accessible field net/minecraft/client/MinecraftClient framebuffer Lnet/minecraft/client/gl/Framebuffer;
 mutable field net/minecraft/client/MinecraftClient framebuffer Lnet/minecraft/client/gl/Framebuffer;
 
@@ -15,6 +11,7 @@ accessible field net/minecraft/client/render/entity/model/ElytraEntityModel righ
 
 accessible method net/minecraft/client/particle/BillboardParticle setAlpha (F)V
 accessible field net/minecraft/client/particle/BillboardParticle alpha F
+mutable field net/minecraft/client/particle/BillboardParticle alpha F
 accessible field net/minecraft/client/particle/Particle age I
 accessible field net/minecraft/client/particle/Particle maxAge I
 accessible field net/minecraft/client/particle/Particle dead Z
@@ -23,3 +20,9 @@ accessible method net/minecraft/client/particle/Particle isAlive ()Z
 accessible field net/minecraft/client/util/math/MatrixStack stack Ljava/util/List;
 
 accessible field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
+mutable field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
+
+accessible field net/minecraft/client/render/GameRenderer guiRenderer Lnet/minecraft/client/gui/render/GuiRenderer;
+accessible field net/minecraft/client/render/GameRenderer guiState Lnet/minecraft/client/gui/render/state/GuiRenderState;
+accessible field net/minecraft/client/render/GameRenderer fogRenderer Lnet/minecraft/client/render/fog/FogRenderer;
+accessible field net/minecraft/client/gl/RenderPipelines POSITION_TEX_COLOR_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;

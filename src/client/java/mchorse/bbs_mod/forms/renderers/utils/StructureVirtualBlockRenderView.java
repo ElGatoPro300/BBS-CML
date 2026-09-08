@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.LightLayer;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.LightType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
 
             if (state != null)
             {
-                int lum = state.getLightEmission();
+                int lum = state.getLuminance();
 
                 if (lum > 0)
                 {
@@ -54,16 +54,16 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
     }
 
     @Override
-    public int getBrightness(LightLayer type, BlockPos pos)
+    public int getLightLevel(LightType type, BlockPos pos)
     {
-        int base = super.getBrightness(type, pos);
+        int base = super.getLightLevel(type, pos);
 
-        if (type == LightLayer.BLOCK && this.ignoreWorldBlockLight)
+        if (type == LightType.BLOCK && this.ignoreWorldBlockLight)
         {
             base = 0;
         }
 
-        if (!this.virtualMode || type != LightLayer.BLOCK || this.emitters.isEmpty())
+        if (!this.virtualMode || type != LightType.BLOCK || this.emitters.isEmpty())
         {
             return base;
         }
@@ -94,24 +94,18 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
     }
 
     @Override
-    public int getRawBrightness(BlockPos pos, int ambientDarkness)
+    public int getBaseLightLevel(BlockPos pos, int ambientDarkness)
     {
-        if (!this.ignoreWorldBlockLight)
+        int sky = this.getLightLevel(LightType.SKY, pos);
+
+        if (!this.isForceMaxSkyLight() && MinecraftClient.getInstance().world != null)
         {
-            return super.getRawBrightness(pos, ambientDarkness);
+            sky = Math.max(0, sky - ambientDarkness);
         }
 
-        if (Minecraft.getInstance().level == null)
-        {
-            return 15;
-        }
+        int block = this.getLightLevel(LightType.BLOCK, pos);
 
-        BlockPos worldPos = new BlockPos(
-            this.getWorldAnchor().getX() + this.getBaseDx() + pos.getX(),
-            this.getWorldAnchor().getY() + this.getBaseDy() + pos.getY(),
-            this.getWorldAnchor().getZ() + this.getBaseDz() + pos.getZ()
-        );
-
-        return Minecraft.getInstance().level.getBrightness(LightLayer.SKY, worldPos);
+        return Math.max(sky, block);
     }
 }
+

@@ -271,11 +271,11 @@
 				]
 			},
 			"armor_left_arm": {
-				"origin": [-6, 22, 0],
+				"origin": [-5, 22, 0],
 				"parent": "left_arm"
 			},
 			"left_arm": {
-				"origin": [-6, 22, 0],
+				"origin": [-5, 22, 0],
 				"parent": "body",
 				"cubes": [
 					{
@@ -500,11 +500,11 @@
 				]
 			},
 			"armor_right_arm": {
-				"origin": [6, 22, 0],
+				"origin": [5, 22, 0],
 				"parent": "right_arm"
 			},
 			"right_arm": {
-				"origin": [6, 22, 0],
+				"origin": [5, 22, 0],
 				"parent": "body",
 				"cubes": [
 					{

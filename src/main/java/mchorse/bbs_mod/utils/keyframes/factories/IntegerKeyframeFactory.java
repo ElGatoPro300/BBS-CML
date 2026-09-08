@@ -14,7 +14,25 @@ public class IntegerKeyframeFactory implements IKeyframeFactory<Integer>
     @Override
     public Integer fromData(BaseType data)
     {
-        return data.isNumeric() ? data.asNumeric().intValue() : 0;
+        if (!data.isNumeric())
+        {
+            return 0;
+        }
+
+        /* Long JSON numbers (e.g. duration 9999999999) must not truncate via (int) cast. */
+        long value = data.asNumeric().longValue();
+
+        if (value > Integer.MAX_VALUE)
+        {
+            return Integer.MAX_VALUE;
+        }
+
+        if (value < Integer.MIN_VALUE)
+        {
+            return Integer.MIN_VALUE;
+        }
+
+        return (int) value;
     }
 
     @Override

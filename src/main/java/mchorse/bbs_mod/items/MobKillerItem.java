@@ -1,32 +1,32 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.world.ServerWorld;
 
 public class MobKillerItem extends Item
 {
-    public MobKillerItem(Properties settings)
+    public MobKillerItem(Settings settings)
     {
         super(settings);
     }
 
     @Override
-    public boolean isFoil(ItemStack stack)
+    public boolean hasGlint(ItemStack stack)
     {
         return true;
     }
 
     @Override
-    public void hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker)
+    public void postHit(ItemStack stack, LivingEntity target, LivingEntity attacker)
     {
-        if (!target.level().isClientSide() && !(target instanceof Player) && target.level() instanceof ServerLevel serverWorld)
+        if (!target.getEntityWorld().isClient() && !(target instanceof PlayerEntity) && target.getEntityWorld() instanceof ServerWorld serverWorld)
         {
             target.kill(serverWorld);
         }
 
-        super.hurtEnemy(stack, target, attacker);
+        super.postHit(stack, target, attacker);
     }
 }

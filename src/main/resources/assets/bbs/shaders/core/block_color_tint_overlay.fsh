@@ -1,41 +1,15 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler3;
 
-uniform mat4 ColorEffectInverse;
-uniform float ColorEffectActive;
-uniform vec3 ColorMaskHalf;
-uniform float ColorMaskBottomAnchored;
-uniform float ColorMaskShape;
-uniform vec4 FormColorTint;
 /* brightness, contrast, hue degrees, saturation — same layout as model FormColorGrade. */
-uniform vec4 FormColorGrade;
-uniform float ColorGradeActive;
 
-uniform mat4 GradeBrightnessInverse;
-uniform float GradeBrightnessActive;
-uniform vec3 GradeBrightnessHalf;
-uniform float GradeBrightnessBottomAnchored;
-uniform float GradeBrightnessShape;
 
-uniform mat4 GradeContrastInverse;
-uniform float GradeContrastActive;
-uniform vec3 GradeContrastHalf;
-uniform float GradeContrastBottomAnchored;
-uniform float GradeContrastShape;
 
-uniform mat4 GradeHueInverse;
-uniform float GradeHueActive;
-uniform vec3 GradeHueHalf;
-uniform float GradeHueBottomAnchored;
-uniform float GradeHueShape;
 
-uniform mat4 GradeSaturationInverse;
-uniform float GradeSaturationActive;
-uniform vec3 GradeSaturationHalf;
-uniform float GradeSaturationBottomAnchored;
-uniform float GradeSaturationShape;
 
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -178,6 +152,11 @@ vec3 bbsHsl2Rgb(vec3 hsl)
     );
 }
 
+vec3 bbsPreserveLitShadow(vec3 inputRgb, vec3 gradedRgb)
+{
+    return gradedRgb;
+}
+
 vec3 bbsApplyFormColorGrade(vec3 rgb, vec3 rootPos)
 {
     if (abs(FormColorGrade.x) < 0.001 && abs(FormColorGrade.y) < 0.001 && abs(FormColorGrade.z) < 0.001 && abs(FormColorGrade.w) < 0.001)
@@ -206,8 +185,10 @@ vec3 bbsApplyFormColorGrade(vec3 rgb, vec3 rootPos)
     if (abs(FormColorGrade.w) >= 0.001)
     {
         float mask = bbsPaintEffectMask(rootPos, GradeSaturationInverse, GradeSaturationActive, GradeSaturationHalf, GradeSaturationBottomAnchored, GradeSaturationShape);
-        float luma = dot(outRgb, vec3(0.2126, 0.7152, 0.0722));
-        vec3 next = mix(vec3(luma), outRgb, 1.0 + FormColorGrade.w);
+        vec3 hsl = bbsRgb2Hsl(clamp(outRgb, 0.0, 1.0));
+
+        hsl.y = clamp(hsl.y * (1.0 + FormColorGrade.w), 0.0, 1.0);
+        vec3 next = bbsHsl2Rgb(hsl);
 
         outRgb = mix(outRgb, next, mask);
     }

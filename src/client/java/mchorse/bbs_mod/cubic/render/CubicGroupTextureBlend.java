@@ -1,16 +1,13 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.resources.Link;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.Uniform;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gl.ShaderProgram;
 
 import org.lwjgl.opengl.GL11;
 
@@ -59,16 +56,14 @@ public final class CubicGroupTextureBlend
         return null;
     }
 
-    public static boolean supportsShader(GlProgram shader)
+    public static boolean supportsShader(ShaderProgram shader)
     {
         if (shader == null)
         {
             return false;
         }
 
-        Uniform uniform = shader.getUniform("TextureBlendActive");
-
-        return uniform != null;
+        return shader.getUniform("TextureBlendActive") != null;
     }
 
     public static Link resolveDrawTexture(CubicGroupTextureBlend state, Link defaultTexture)
@@ -94,7 +89,7 @@ public final class CubicGroupTextureBlend
     /**
      * Binds the active texture and, when supported, enables single-pass shader crossfade.
      */
-    public static void bindForDraw(GlProgram shader, CubicGroupTextureBlend state, Link defaultTexture)
+    public static void bindForDraw(ShaderProgram shader, CubicGroupTextureBlend state, Link defaultTexture)
     {
         if (state == null)
         {
@@ -127,44 +122,18 @@ public final class CubicGroupTextureBlend
     }
 
     /**
-     * Binds a CPU group's texture for a RenderLayer draw. Partial blends are rendered by the
-     * caller as two alpha passes because RenderLayer does not expose mutable shader uniforms.
-     */
-    public static void bindForDraw(RenderPipeline pipeline, CubicGroupTextureBlend state, Link defaultTexture)
-    {
-        if (state == null)
-        {
-            ModelVAORenderer.clearTextureBlend();
-            BBSModClient.getTextures().bindTexture(defaultTexture);
-
-            return;
-        }
-
-        ModelVAORenderer.clearTextureBlend();
-
-        if (state.blend >= 1F)
-        {
-            BBSModClient.getTextures().bindTexture(state.to);
-        }
-        else
-        {
-            BBSModClient.getTextures().bindTexture(state.from);
-        }
-    }
-
-    /**
      * Two-pass opacity crossfade for vanilla / Iris entity shaders (no TextureBlend uniforms).
      */
     public static void drawTwoPass(Runnable fromPass, Runnable toPass, float blend)
     {
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        BBSRendering.enableBlend();
+        BBSRendering.defaultBlendFunc();
 
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
 
         fromPass.run();
 
-        GlStateManager._depthMask(false);
+        BBSRendering.depthMask(false);
 
         try
         {
@@ -172,7 +141,7 @@ public final class CubicGroupTextureBlend
         }
         finally
         {
-            GlStateManager._depthMask(depthMask);
+            BBSRendering.depthMask(depthMask);
         }
     }
 }

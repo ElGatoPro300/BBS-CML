@@ -8,6 +8,7 @@ import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -81,6 +82,19 @@ public class FilmEditorController extends BaseFilmController
 
         super.updateEntities(ticks);
 
+        /* Stubs do not run updateEntityAndForm while paused. After a swipe ends,
+         * settle stale hand-swing prev so wrap cannot block procedural idle. */
+        if (!this.controller.isPlaying())
+        {
+            for (IEntity entity : this.entities.values())
+            {
+                if (entity instanceof StubEntity stub)
+                {
+                    stub.settleFinishedHandSwing();
+                }
+            }
+        }
+
         this.lastTick = ticks;
         this.wasRunnerRunning = running;
     }
@@ -126,10 +140,21 @@ public class FilmEditorController extends BaseFilmController
         double scrubFromY = entity.getY();
         double scrubFromZ = entity.getZ();
 
-        if (entity != this.controller.getControlled() || (this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0 && groups != null))
+        boolean isControlled = entity == this.controller.getControlled();
+        boolean recordingLive = this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0;
+
+        /* Outside recording sets exception so the take subject never replays old
+         * client clips. Viewport keeps the stub for keyframe capture — skip swipe
+         * (and other client actions) on the controlled entity while recording, but
+         * still apply non-recorded keyframe groups when capturing a subset. */
+        if (!isControlled || (recordingLive && groups != null))
         {
-            replay.keyframes.apply(ticks, entity, entity == this.controller.getControlled() ? groups : null);
-            replay.applyClientActions(ticks, entity, this.film);
+            replay.keyframes.apply(ticks, entity, isControlled ? groups : null);
+
+            if (!isControlled && this.shouldApplyClientActions(entity))
+            {
+                replay.applyClientActions(ticks, entity, this.film);
+            }
         }
 
         if (entity == this.controller.getControlled() && this.controller.isRecording() && this.controller.panel.getRunner().isRunning())
@@ -140,7 +165,11 @@ public class FilmEditorController extends BaseFilmController
 
             MobCemPoseCapture.syncReplay(replay);
             replay.keyframes.record(cursor, entity, groups);
-            RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
+
+            if (ReplayKeyframes.wantsVanillaPoseActions(groups))
+            {
+                RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
+            }
 
             if (MobCemPoseCapture.isActive(replay))
             {
@@ -196,6 +225,12 @@ public class FilmEditorController extends BaseFilmController
     protected boolean shouldEmitReplayMotionFx(IEntity entity)
     {
         return !this.controller.isControlling() || entity != this.controller.getControlled();
+    }
+
+    @Override
+    protected boolean shouldApplyClientActions(IEntity entity)
+    {
+        return !this.controller.shouldSuppressClientActions(this.getTick());
     }
 
     @Override

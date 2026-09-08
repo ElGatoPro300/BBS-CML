@@ -37,6 +37,10 @@ public final class GizmoToolbarButtons
         {
             return Icons.MAXIMIZE;
         }
+        else if (ValueGizmoToolbar.THICKNESS.equals(id))
+        {
+            return Icons.LINE;
+        }
         else if (ValueGizmoToolbar.TRANSLATE_SPEED.equals(id))
         {
             return Icons.FORWARD;
@@ -70,6 +74,10 @@ public final class GizmoToolbarButtons
         else if (ValueGizmoToolbar.SIZE.equals(id))
         {
             return UIKeys.FILM_GIZMO_SIZE;
+        }
+        else if (ValueGizmoToolbar.THICKNESS.equals(id))
+        {
+            return UIKeys.FILM_GIZMO_THICKNESS;
         }
         else if (ValueGizmoToolbar.TRANSLATE_SPEED.equals(id))
         {

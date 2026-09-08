@@ -1,18 +1,16 @@
 package mchorse.bbs_mod.cubic.render;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.utils.joml.QuaternionMath;
 
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.util.math.MatrixStack;
+
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,7 +30,7 @@ public class CubicRenderer
      * applies given render processor. Processor may return true from its
      * sole method which means that iteration should be halted.
      */
-    public static boolean processRenderModel(ICubicRenderer renderProcessor, BufferBuilder builder, PoseStack stack, Model model)
+    public static boolean processRenderModel(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model)
     {
         for (ModelGroup group : model.topGroups)
         {
@@ -50,10 +48,10 @@ public class CubicRenderer
      * prefer these bones over parents/siblings drawn earlier (e.g. low_body over torso).
      * Depth testing stays on: closer geometry (e.g. head in front of torso) must keep winning.
      */
-    public static void renderStencilPickPriority(ICubicRenderer renderProcessor, BufferBuilder builder, PoseStack stack, Model model, Collection<String> boneIds)
+    public static void renderStencilPickPriority(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, Collection<String> boneIds)
     {
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthMask(true);
 
         for (String boneId : boneIds)
         {
@@ -66,7 +64,7 @@ public class CubicRenderer
         }
     }
 
-    public static void renderGroupBranch(ICubicRenderer renderProcessor, BufferBuilder builder, PoseStack stack, Model model, ModelGroup target)
+    public static void renderGroupBranch(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, ModelGroup target)
     {
         List<ModelGroup> path = new ArrayList<>();
         ModelGroup current = target;
@@ -79,7 +77,7 @@ public class CubicRenderer
 
         for (ModelGroup group : path)
         {
-            stack.pushPose();
+            stack.push();
             renderProcessor.applyGroupTransformations(stack, group);
         }
 
@@ -90,23 +88,23 @@ public class CubicRenderer
 
         for (int i = 0, c = path.size(); i < c; i++)
         {
-            stack.popPose();
+            stack.pop();
         }
     }
 
     /**
      * Apply the render processor, recursively
      */
-    private static boolean processRenderRecursively(ICubicRenderer renderProcessor, BufferBuilder builder, PoseStack stack, Model model, ModelGroup group)
+    private static boolean processRenderRecursively(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, ModelGroup group)
     {
-        stack.pushPose();
+        stack.push();
         renderProcessor.applyGroupTransformations(stack, group);
 
         if (group.visible)
         {
             if (renderProcessor.renderGroup(builder, stack, group, model))
             {
-                stack.popPose();
+                stack.pop();
 
                 return true;
             }
@@ -116,13 +114,13 @@ public class CubicRenderer
         {
             if (processRenderRecursively(renderProcessor, builder, stack, model, childGroup))
             {
-                stack.popPose();
+                stack.pop();
 
                 return true;
             }
         }
 
-        stack.popPose();
+        stack.pop();
 
         return false;
     }
@@ -153,7 +151,7 @@ public class CubicRenderer
             return;
         }
 
-        PoseStack stack = new PoseStack();
+        MatrixStack stack = new MatrixStack();
 
         if (baseTransform != null)
         {
@@ -161,7 +159,7 @@ public class CubicRenderer
             Quaternionf r = baseTransform.getNormalizedRotation(new Quaternionf());
             Matrix4f rigid = new Matrix4f().rotation(r).setTranslation(t);
 
-            stack.last().pose().set(rigid);
+            stack.peek().getPositionMatrix().set(rigid);
         }
 
         for (ModelGroup group : model.topGroups)
@@ -170,9 +168,9 @@ public class CubicRenderer
         }
     }
 
-    private static void collectPivotFramesRec(PoseStack stack, ModelGroup group, Set<String> wanted, Map<String, PivotFrame> out, boolean applyStretch)
+    private static void collectPivotFramesRec(MatrixStack stack, ModelGroup group, Set<String> wanted, Map<String, PivotFrame> out, boolean applyStretch)
     {
-        stack.pushPose();
+        stack.push();
 
         if (applyStretch)
         {
@@ -188,7 +186,7 @@ public class CubicRenderer
 
         if (store)
         {
-            Matrix4f mat = stack.last().pose();
+            Matrix4f mat = stack.peek().getPositionMatrix();
 
             pos = mat.getTranslation(new Vector3f());
             parentRot = mat.getNormalizedRotation(new Quaternionf());
@@ -203,7 +201,7 @@ public class CubicRenderer
 
         if (store)
         {
-            Matrix4f mat = stack.last().pose();
+            Matrix4f mat = stack.peek().getPositionMatrix();
             Quaternionf worldRot = mat.getNormalizedRotation(new Quaternionf());
 
             out.put(group.id, new PivotFrame(pos, parentRot, worldRot));
@@ -217,7 +215,7 @@ public class CubicRenderer
             collectPivotFramesRec(stack, child, wanted, out, applyStretch);
         }
 
-        stack.popPose();
+        stack.pop();
     }
 
     private static final float EPS = 1.0e-6f;

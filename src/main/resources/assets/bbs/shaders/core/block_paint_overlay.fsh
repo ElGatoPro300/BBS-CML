@@ -1,13 +1,10 @@
-#version 150
+#version 330
+
+#moj_import <bbs:model_effects.glsl>
 
 uniform sampler2D Sampler0;
 
-uniform mat4 PaintEffectInverse;
-uniform float PaintEffectActive;
-uniform vec3 PaintMaskHalf;
-uniform float PaintMaskBottomAnchored;
-uniform float PaintMaskShape;
-uniform vec4 GlowOverlayColor;
+
 
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -92,6 +89,23 @@ void main()
 {
     vec4 tex = texture(Sampler0, texCoord0);
     float mask = bbsPaintEffectMask(formRootPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
+
+    /* Negative paint/glow darken with spatial mask (ModelForm mix(color, color*factor, mask)).
+     * Java sets DST_COLOR/ZERO; vertexColor.rgb = darken factor, .a = form opacity coverage. */
+    if (PaintMultiplyDarken > 0.5)
+    {
+        float coverage = tex.a * vertexColor.a * mask;
+
+        if (coverage < 0.01)
+        {
+            discard;
+        }
+
+        fragColor = vec4(mix(vec3(1.0), vertexColor.rgb, coverage), 1.0);
+
+        return;
+    }
+
     float alpha = tex.a * vertexColor.a * mask;
 
     if (alpha < 0.01)
@@ -106,11 +120,11 @@ void main()
     {
         if (glowStrength >= 1.0)
         {
-            color += GlowOverlayColor.rgb * glowStrength * 8.0;
+            color += GlowOverlayColor.rgb * glowStrength;
         }
         else
         {
-            vec3 emissive = color + GlowOverlayColor.rgb * 8.0;
+            vec3 emissive = color + GlowOverlayColor.rgb;
 
             color = mix(color, emissive, glowStrength);
         }

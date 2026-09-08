@@ -3,9 +3,8 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.renderer.LightTexture;
-
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.VertexConsumer;
 
 public class BlockPaintOverlayVertexConsumer implements VertexConsumer
 {
@@ -23,66 +22,66 @@ public class BlockPaintOverlayVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer addVertex(float x, float y, float z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
-        return this.consumer.addVertex(x, y, z);
+        return this.consumer.vertex(x, y, z);
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         int r = MathUtils.clamp((int) (this.paintColor.r * 255F), 0, 255);
         int g = MathUtils.clamp((int) (this.paintColor.g * 255F), 0, 255);
         int b = MathUtils.clamp((int) (this.paintColor.b * 255F), 0, 255);
         int a = MathUtils.clamp((int) (this.strength * alpha), 0, 255);
 
-        return this.consumer.setColor(r, g, b, a);
+        return this.consumer.color(r, g, b, a);
     }
 
     @Override
-    public VertexConsumer setColor(int argb)
+    public VertexConsumer color(int argb)
     {
-        return this.consumer.setColor(argb);
+        return this.consumer.color(argb);
     }
 
     @Override
-    public VertexConsumer setColor(float red, float green, float blue, float alpha)
+    public VertexConsumer color(float red, float green, float blue, float alpha)
     {
         float r = MathUtils.clamp(this.paintColor.r * red, 0F, 1F);
         float g = MathUtils.clamp(this.paintColor.g * green, 0F, 1F);
         float b = MathUtils.clamp(this.paintColor.b * blue, 0F, 1F);
         float a = MathUtils.clamp(this.strength * alpha, 0F, 1F);
 
-        return this.consumer.setColor(r, g, b, a);
+        return this.consumer.color(r, g, b, a);
     }
 
     @Override
-    public VertexConsumer setUv(float u, float v)
+    public VertexConsumer texture(float u, float v)
     {
-        return this.consumer.setUv(u, v);
+        return this.consumer.texture(u, v);
     }
 
     @Override
-    public VertexConsumer setUv1(int u, int v)
+    public VertexConsumer overlay(int u, int v)
     {
-        return this.consumer.setUv1(u, v);
+        return this.consumer.overlay(u, v);
     }
 
     @Override
-    public VertexConsumer setUv2(int u, int v)
+    public VertexConsumer light(int u, int v)
     {
-        return this.consumer.setLight(LightTexture.FULL_BRIGHT);
+        return this.consumer.light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
     }
 
     @Override
-    public VertexConsumer setNormal(float x, float y, float z)
+    public VertexConsumer normal(float x, float y, float z)
     {
-        return this.consumer.setNormal(x, y, z);
+        return this.consumer.normal(x, y, z);
     }
 
     @Override
-    public VertexConsumer setLineWidth(float width)
+    public VertexConsumer lineWidth(float width)
     {
-        return this.consumer.setLineWidth(width);
+        return this.consumer.lineWidth(width);
     }
 }

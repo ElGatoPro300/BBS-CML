@@ -37,8 +37,25 @@ public class CurveClip extends CameraClip
     {
         this.add(this.channels);
         this.add(this.chromaSky);
-        this.channels.addChannel("sun_rotation");
-        this.channels.addChannel("sun_path_rotation");
+        this.ensureDefaultChannels();
+    }
+
+    public void ensureDefaultChannels()
+    {
+        if (this.channels.get("sun_rotation") == null)
+        {
+            this.channels.addChannel("sun_rotation");
+        }
+
+        if (this.channels.get("sun_path_rotation") == null)
+        {
+            this.channels.addChannel("sun_path_rotation");
+        }
+
+        if (this.channels.get("brightness") == null)
+        {
+            this.channels.addChannel("brightness");
+        }
     }
 
     @Override
@@ -100,5 +117,6 @@ public class CurveClip extends CameraClip
         }
 
         super.fromData(data);
+        this.ensureDefaultChannels();
     }
 }

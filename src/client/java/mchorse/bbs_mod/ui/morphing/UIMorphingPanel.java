@@ -108,6 +108,14 @@ public class UIMorphingPanel extends UIDashboardPanel
     }
 
     @Override
+    public boolean canPause()
+    {
+        /* Keep the world ticking so selected form thumbnails can advance idle
+         * when Optimized morph menu animates the selection. */
+        return !BBSSettings.optimizedMorphMenu.get();
+    }
+
+    @Override
     public void appear()
     {
         super.appear();

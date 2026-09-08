@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.particles;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.particles.ParticleScheme;
@@ -99,7 +100,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
 
-        MatrixStack stack = new MatrixStack();
+        MatrixStack stack = this.createCameraStack();
         Matrix4f modelMatrix = new Matrix4f(stack.peek().getPositionMatrix());
 
         this.emitter.lastGlobal.set(new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F)));
@@ -111,7 +112,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         GlStateManager._enableBlend();
         GlStateManager._enableDepthTest();
-        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR, BBSShaders.getParticlesLayer(), stack, OverlayTexture.DEFAULT_UV, context.getTransition());
+        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, BBSRendering::getParticleProgram, stack, OverlayTexture.DEFAULT_UV, context.getTransition());
         GlStateManager._disableDepthTest();
         GlStateManager._disableBlend();
 
@@ -127,7 +128,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
     private void renderPlane(UIContext context, float a, float b, float c, float d)
     {
-        Matrix4f matrix = new Matrix4f();
+        Matrix4f matrix = this.createCameraStack().peek().getPositionMatrix();
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         final float alpha = 0.5F;
@@ -182,7 +183,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         if (UIBaseMenu.renderAxes)
         {
-            Draw.coolerAxes(new MatrixStack(), 1F, 0.01F, 1.01F, 0.02F);
+            Draw.coolerAxes(this.createCameraStack(), 1F, 0.01F, 1.01F, 0.02F);
         }
     }
 

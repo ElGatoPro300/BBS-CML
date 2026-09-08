@@ -9,15 +9,16 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
 
@@ -30,6 +31,12 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
     public AnchorFormRenderer(AnchorForm form)
     {
         super(form);
+    }
+
+    @Override
+    public boolean is3D()
+    {
+        return !this.form.parts.getAll().isEmpty();
     }
 
     @Override
@@ -48,16 +55,16 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
         }
         else
         {
-            PoseStack stack = new PoseStack();
+            MatrixStack stack = new MatrixStack();
             Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
-            stack.pushPose();
+            stack.push();
 
             this.applyTransforms(uiMatrix, context.getTransition());
             MatrixStackUtils.multiply(stack, uiMatrix);
             /* Why? I don't know, because fuck you */
-            stack.mulPose(Axis.YN.rotationDegrees(180F));
+            stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
             MatrixStackUtils.invertUiNormalY(stack);
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
@@ -65,12 +72,12 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
             // RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
             this.renderBodyParts(new FormRenderingContext()
-                .set(FormRenderType.ENTITY, this.entity, stack, LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
+                .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
                 .inUI());
 
             // DiffuseLighting.disableGuiDepthLighting();
 
-            stack.popPose();
+            stack.pop();
             GlStateManager._depthFunc(GL11.GL_ALWAYS);
         }
     }

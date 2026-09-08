@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.forms.editors.panels;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -49,6 +50,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
     public UIToggle shading;
     public UITrackpad pbrNormalIntensity;
     public UITrackpad pbrSpecularIntensity;
+    public UITrackpad subdivision;
 
     public UIBillboardFormPanel(UIForm editor)
     {
@@ -140,7 +142,15 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) -> this.form.glowingColor.set(color));
+        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) ->
+        {
+            this.form.glowingColor.set(color);
+
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            settings.transform = color.transform == null ? new EffectTransform() : color.transform.copy();
+            this.form.glowSettings.set(settings);
+        });
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
 
         this.offsetX = new UITrackpad((value) -> this.form.offsetX.set(value.floatValue()));
@@ -155,6 +165,9 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.pbrNormalIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_NORMAL_INTENSITY);
         this.pbrSpecularIntensity = new UITrackpad((value) -> this.form.pbrSpecularIntensity.set(value.floatValue()));
         this.pbrSpecularIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_SPECULAR_INTENSITY);
+        this.subdivision = new UITrackpad((value) -> this.form.subdivision.set(value.floatValue()));
+        this.subdivision.values(0.1D, 0.05D, 0.5D).limit(0D, 16D);
+        this.subdivision.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_SUBDIVISION);
 
         this.options.add(
             this.pick,
@@ -167,7 +180,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
             ).marginTop(4),
             this.billboard,
             this.linear,
-            this.mipmap
+            this.mipmap,
+            this.subdivision
         );
 
         if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
@@ -216,5 +230,6 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.shading.setValue(form.shading.get());
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());
         this.pbrSpecularIntensity.setValue(form.pbrSpecularIntensity.get());
+        this.subdivision.setValue(form.subdivision.get());
     }
 }

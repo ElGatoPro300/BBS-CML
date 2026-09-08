@@ -44,6 +44,7 @@ import mchorse.bbs_mod.camera.clips.screen.ScreenNodeClip;
 import mchorse.bbs_mod.camera.clips.screen.VignetteClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -66,6 +67,7 @@ import mchorse.bbs_mod.ui.film.clips.widgets.UIEnvelope;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
@@ -75,6 +77,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.TimeUtilsClient;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.undo.IUndo;
 
 import java.util.HashMap;
@@ -196,7 +199,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
             this.editor.editMultiple(this.clip.duration, (int) TimeUtils.fromTime(v));
             this.updateDuration((int) TimeUtils.fromTime(v));
         });
-        this.duration.limit(1, Integer.MAX_VALUE, true).tooltip(UIKeys.CAMERA_PANELS_DURATION);
+        this.duration.limit(1, Clip.MAX_DURATION_TICKS, true).tooltip(UIKeys.CAMERA_PANELS_DURATION);
         this.envelope = new UIEnvelope(this);
         this.envelope.channel.setUndoId("envelope_keyframes");
 
@@ -219,7 +222,114 @@ public abstract class UIClip <T extends Clip> extends UIElement
         /* Clip-specific options first; envelopes last so they do not bury property fields. */
         this.addEnvelopes();
 
+        this.setupSections(this.panels);
+
         this.add(this.panels);
+    }
+
+    private void setupSections(UIElement element)
+    {
+        if (element instanceof UISection)
+        {
+            UISection group = (UISection) element;
+            String id = group.title.label.get();
+            String clipType = this.clip.getClass().getSimpleName();
+
+            boolean global = BBSSettings.editorGlobalClipPanels != null && BBSSettings.editorGlobalClipPanels.get();
+
+            if (global)
+            {
+                MapType data = PresetManager.CLIP_LAYOUTS.load("_clip_ui_sections");
+
+                if (data == null)
+                {
+                    data = PresetManager.CLIPS.load("_clip_ui_sections");
+                }
+
+                if (data != null && data.has(clipType, BaseType.TYPE_MAP))
+                {
+                    MapType clipMap = data.getMap(clipType);
+
+                    if (clipMap.has(id, BaseType.TYPE_BYTE))
+                    {
+                        group.setExpanded(clipMap.getBool(id));
+                    }
+                }
+            }
+            else if (this.editor != null && this.editor.getFilm() != null)
+            {
+                BaseType data = this.editor.getFilm().projectData.get();
+
+                if (data instanceof MapType)
+                {
+                    MapType map = (MapType) data;
+
+                    if (map.has(clipType, BaseType.TYPE_MAP))
+                    {
+                        MapType clipMap = map.getMap(clipType);
+
+                        if (clipMap.has(id, BaseType.TYPE_BYTE))
+                        {
+                            group.setExpanded(clipMap.getBool(id));
+                        }
+                    }
+                }
+            }
+
+            group.onToggle((open) ->
+            {
+                if (BBSSettings.editorGlobalClipPanels != null && BBSSettings.editorGlobalClipPanels.get())
+                {
+                    MapType map = PresetManager.CLIP_LAYOUTS.load("_clip_ui_sections");
+
+                    if (map == null)
+                    {
+                        map = PresetManager.CLIPS.load("_clip_ui_sections");
+                    }
+
+                    if (map == null)
+                    {
+                        map = new MapType();
+                    }
+
+                    if (!map.has(clipType, BaseType.TYPE_MAP))
+                    {
+                        map.put(clipType, new MapType());
+                    }
+
+                    MapType clipMap = map.getMap(clipType);
+                    clipMap.putBool(id, open);
+
+                    PresetManager.CLIP_LAYOUTS.save("_clip_ui_sections", map);
+                }
+                else if (this.editor != null && this.editor.getFilm() != null)
+                {
+                    BaseType baseData = this.editor.getFilm().projectData.get();
+
+                    if (!(baseData instanceof MapType))
+                    {
+                        baseData = new MapType();
+                    }
+
+                    MapType map = (MapType) baseData;
+
+                    if (!map.has(clipType, BaseType.TYPE_MAP))
+                    {
+                        map.put(clipType, new MapType());
+                    }
+
+                    MapType clipMap = map.getMap(clipType);
+                    clipMap.putBool(id, open);
+
+                    this.editor.getFilm().projectData.set(baseData);
+                }
+            });
+        }
+
+        for (UIElement child : element.getChildren(UIElement.class))
+        {
+            this.setupSections(child);
+        }
     }
 
     protected void registerUI()
@@ -227,14 +337,22 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     protected void registerPanels()
     {
-        this.panels.add(UIClip.label(UIKeys.CAMERA_PANELS_TITLE), this.title);
-        this.panels.add(this.enabled.marginBottom(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_METRICS), UI.row(this.layer, this.tick), this.duration));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_TITLE, this.title, this.enabled));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_METRICS, UI.row(this.layer, this.tick), this.duration));
     }
 
     protected void addEnvelopes()
     {
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_ENVELOPES_TITLE), this.envelope).marginTop(12));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_ENVELOPES_TITLE, this.envelope));
+    }
+
+    protected UISection section(IKey title, UIElement... fields)
+    {
+        UISection group = new UISection(title);
+
+        group.fields.add(fields);
+
+        return group;
     }
 
     public void handleUndo(IUndo<ValueGroup> undo, boolean redo)

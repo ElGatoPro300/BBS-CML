@@ -14,22 +14,22 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.renderer.LightTexture;
-
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
 
 import java.util.Map;
 import java.util.function.Function;
 
 public class CubicVAORenderer extends CubicCubeRenderer
 {
-    private RenderPipeline program;
+    private ShaderProgram program;
     private ModelInstance model;
     private Function<String, Link> textureResolver;
 
-    public CubicVAORenderer(RenderPipeline program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
+    public CubicVAORenderer(ShaderProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
@@ -39,7 +39,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
     {
         if (this.stencilMap != null && !this.stencilMap.isBoneAllowed(group.id))
         {
@@ -80,9 +80,29 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 a = this.a * group.color.a;
             }
 
+            /* Negative limb paint: bake into vertex tint. PaintColor uniforms / Iris overlay
+             * are for positive tint; ARGB-era paths and Iris entity shaders miss negative a. */
+            float paintUniformStrength = effectivePaintStrength;
+
+            if (group.paintColor != null && group.paintColor.a < 0F && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isPaintPass())
+            {
+                Color baked = new Color().set(r, g, b, a);
+
+                FormColorEffects.applyPaintBlend(baked, group.paintColor, group.paintColor.a);
+                r = baked.r;
+                g = baked.g;
+                b = baked.b;
+                a = baked.a;
+                paintUniformStrength = ModelVAORenderer.getBasePaintStrength() > 0F
+                    ? ModelVAORenderer.getBasePaintStrength()
+                    : 0F;
+            }
+
+            boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
+
             if (!ModelVAORenderer.isGlowingUniformActive())
             {
-                if (effectiveGlowStrength != 0F)
+                if (effectiveGlowStrength != 0F && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
                 {
                     Color groupColor = new Color().set(r, g, b, a);
                     Color glowColor = new Color().set(effectiveGlowR, effectiveGlowG, effectiveGlowB, 1F);
@@ -98,11 +118,11 @@ public class CubicVAORenderer extends CubicCubeRenderer
 
             int groupLight = this.light;
 
-            if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass())
+            if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass() && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
             {
                 float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
                 int baseU = groupLight & '\uffff';
-                int u = (int) Lerps.lerp(baseU, LightTexture.FULL_BLOCK, glowLightT);
+                int u = (int) Lerps.lerp(baseU, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, glowLightT);
                 int v = groupLight >> 16 & '\uffff';
 
                 groupLight = u | v << 16;
@@ -114,7 +134,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
             }
             else
             {
-                int u = (int) Lerps.lerp(groupLight & '\uffff', LightTexture.FULL_BLOCK, MathUtils.clamp(group.lighting, 0F, 1F));
+                int u = (int) Lerps.lerp(groupLight & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
                 int v = groupLight >> 16 & '\uffff';
 
                 groupLight = u | v << 16;
@@ -125,7 +145,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 String material = entry.getKey();
                 ModelVAO modelVAO = entry.getValue();
 
-                float currentPaintStrength = effectivePaintStrength;
+                float currentPaintStrength = paintUniformStrength;
 
                 if (currentPaintStrength > 0F && !this.groupHasPaintableTexture(group, material))
                 {

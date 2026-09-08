@@ -72,14 +72,10 @@ public class UITrackerClip extends UIClip<TrackerClientClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_TARGET), this.selector, this.group).marginTop(12));
-
-        this.panels.add(this.point.marginTop(6));
-        this.panels.add(this.angle.marginTop(6));
-        this.panels.add(this.fov);
-        this.panels.add(this.lookAt);
-        this.panels.add(this.relative);
-        this.panels.add(this.active);
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_TARGET, this.selector, this.group));
+        this.panels.add(this.point);
+        this.panels.add(this.angle);
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_FOV, this.fov, this.lookAt, this.relative, this.active));
     }
 
     /**

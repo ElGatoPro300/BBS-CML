@@ -21,6 +21,7 @@ public class ValueGizmoToolbar extends BaseValue implements IIconToolbarValue
     public static final String COMBINED = "combined";
     public static final String TOP = "top";
     public static final String SIZE = "size";
+    public static final String THICKNESS = "thickness";
     public static final String TRANSLATE_SPEED = "translate_speed";
 
     public static final List<String> DEFAULT_ORDER = Collections.unmodifiableList(Arrays.asList(
@@ -30,6 +31,7 @@ public class ValueGizmoToolbar extends BaseValue implements IIconToolbarValue
         COMBINED,
         TOP,
         SIZE,
+        THICKNESS,
         TRANSLATE_SPEED
     ));
 
@@ -146,9 +148,31 @@ public class ValueGizmoToolbar extends BaseValue implements IIconToolbarValue
         {
             if (!this.order.contains(id))
             {
-                this.order.add(id);
+                int insertAt = this.preferredInsertIndex(id);
+
+                if (insertAt >= 0 && insertAt <= this.order.size())
+                {
+                    this.order.add(insertAt, id);
+                }
+                else
+                {
+                    this.order.add(id);
+                }
             }
         }
+    }
+
+    /** Prefer placing new buttons next to related ones when migrating older toolbar configs. */
+    private int preferredInsertIndex(String id)
+    {
+        if (THICKNESS.equals(id))
+        {
+            int sizeIdx = this.order.indexOf(SIZE);
+
+            return sizeIdx >= 0 ? sizeIdx + 1 : -1;
+        }
+
+        return -1;
     }
 
     @Override

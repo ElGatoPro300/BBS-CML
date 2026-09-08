@@ -2,10 +2,8 @@ package mchorse.bbs_mod.client.renderer;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
@@ -18,34 +16,29 @@ import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
-import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.entity.LivingEntity;
-
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
+import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.RotationAxis;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayer player, float f, float g, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, PlayerEntityRenderState playerState, float g, MatrixStack matrixStack, OrderedRenderCommandQueue renderCommandQueue, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -76,52 +69,87 @@ public class MorphRenderer
 
         if (morph != null && morph.getForm() != null)
         {
+            /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
+             * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
+             * so other spectators / F5 see the normal semi-transparent head. */
+            if (player.isSpectator())
+            {
+                return false;
+            }
+
             if (canRender(playerForm))
             {
-                /* 1.21.11: GlStateManager._enableDepthTest() removed */
-                // GlStateManager._enableDepthTest();
+                GlStateManager._enableDepthTest();
 
-                /* InventoryScreen.drawEntity already set GUI diffuse lighting for the vanilla
-                 * player — override only there so forms match that preview. In the world, use
-                 * the same level lights as model blocks / editor previews. */
-                if (BBSRendering.isRenderingWorld())
+                boolean worldPass = BBSRendering.isRenderingWorld();
+
+                /* InventoryScreen.drawEntity uses ENTITY_IN_UI for the player
+                 * preview, then INVENTORY after. Forms must keep those same
+                 * entity lights. World morphs keep level diffuse like model blocks. */
+                if (worldPass)
                 {
                     BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
-                    // DiffuseLighting.enableGuiDepthLighting();
+                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
                 }
 
-                float bodyYaw = /* 1.21.11: prevBodyYaw removed */ player.yBodyRot;
-                int overlay = OverlayTexture.NO_OVERLAY;
+                int overlay = OverlayTexture.DEFAULT_UV;
 
-                matrixStack.pushPose();
-                matrixStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+                float bodyYaw = playerState.bodyYaw;
+                float pitch = playerState.pitch;
+                float headYaw = playerState.bodyYaw + playerState.relativeHeadYaw;
+                float yaw = headYaw;
 
-                FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
-                    .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
+                matrixStack.push();
+                matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                if (morph.entity.getFireTicks() > 0)
+                morph.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
+
+                try
                 {
-                    MorphFireRenderer.render(
-                        matrixStack,
-                        vertexConsumerProvider,
-                        morph.entity,
-                        morph.getForm(),
-                        g,
-                        Minecraft.getInstance().gameRenderer.getMainCamera(),
-                        false
-                    );
+                    FormRenderingContext morphContext = new FormRenderingContext()
+                        .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+                    /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                    if (!worldPass)
+                    {
+                        morphContext.inUI();
+                    }
+
+                    FormUtilsClient.render(morph.getForm(), morphContext);
+
+                    if (morph.entity.getFireTicks() > 0)
+                    {
+                        MorphFireRenderer.render(
+                            matrixStack,
+                            (VertexConsumerProvider) null,
+                            morph.entity,
+                            morph.getForm(),
+                            g,
+                            MinecraftClient.getInstance().gameRenderer.getCamera(),
+                            false
+                        );
+                    }
+                }
+                finally
+                {
+                    morph.entity.clearRotationOverride();
                 }
 
-                matrixStack.popPose();
+                matrixStack.pop();
 
-                BBSRendering.restoreWorldRenderState();
-                /* Prior morph pipeline left depth disabled after the form draw; keep that so
-                 * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
-                GlStateManager._disableDepthTest();
+                if (worldPass)
+                {
+                    BBSRendering.restoreWorldRenderState();
+                }
+                else
+                {
+                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
+                    BBSRendering.restoreWorldRenderState();
+                }
             }
 
             return true;
@@ -158,35 +186,7 @@ public class MorphRenderer
         return dataA != null && dataA.equals(dataB);
     }
 
-    /* 1.21.11 deferred collection API — called from LivingEntityRendererMorphMixin at render HEAD */
-    private static final List<Queued> QUEUE = new ArrayList<>();
-
-    public static boolean collectPlayer(AbstractClientPlayer player, int light, int overlay, float tickDelta)
-    {
-        if (hidePlayer)
-        {
-            if (FormUtilsClient.getCurrentForm() instanceof MobForm form && !form.isPlayer())
-            {
-                return true;
-            }
-        }
-
-        Morph morph = Morph.getMorph(player);
-
-        if (morph != null && morph.getForm() != null)
-        {
-            if (canRender(morph.getForm()))
-            {
-                QUEUE.add(new Queued(morph.getForm(), morph.entity, light, overlay, tickDelta));
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
-    public static boolean collectLivingEntity(LivingEntity livingEntity, int light, int overlay, float tickDelta)
+    public static boolean renderLivingEntity(LivingEntity livingEntity, LivingEntityRenderState livingState, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
     {
         if (!(livingEntity instanceof ISelectorOwnerProvider))
         {
@@ -201,112 +201,45 @@ public class MorphRenderer
 
         if (form != null)
         {
-            QUEUE.add(new Queued(form, owner.entity, light, overlay, tickDelta));
+            GlStateManager._enableDepthTest();
 
-            return true;
-        }
+            float bodyYaw = livingState.bodyYaw;
+            float pitch = livingState.pitch;
+            float headYaw = livingState.bodyYaw + livingState.relativeHeadYaw;
+            float yaw = headYaw;
 
-        return false;
-    }
+            matrixStack.push();
+            matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-    public static void renderQueued(WorldRenderContext context)
-    {
-        if (QUEUE.isEmpty())
-        {
-            return;
-        }
-
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        double cx = camera.position().x;
-        double cy = camera.position().y;
-        double cz = camera.position().z;
-        PoseStack stack = context.matrices();
-
-        for (Queued queued : QUEUE)
-        {
-            Matrix4f target = BaseFilmController.getMatrixForRenderWithRotation(queued.entity, cx, cy, cz, queued.tickDelta);
-
-            stack.pushPose();
+            owner.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
 
             try
             {
-                MatrixStackUtils.multiply(stack, target);
+                FormUtilsClient.render(form, new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
-                FormUtilsClient.render(queued.form, new FormRenderingContext()
-                    .set(FormRenderType.ENTITY, queued.entity, stack, queued.light, queued.overlay, queued.tickDelta)
-                    .camera(camera));
+                if (owner.entity.getFireTicks() > 0)
+                {
+                    MorphFireRenderer.render(
+                        matrixStack,
+                        vertexConsumerProvider,
+                        owner.entity,
+                        form,
+                        g,
+                        MinecraftClient.getInstance().gameRenderer.getCamera(),
+                        false
+                    );
+                }
             }
             finally
             {
-                stack.popPose();
-            }
-        }
-
-        QUEUE.clear();
-    }
-
-    private static class Queued
-    {
-        public Form form;
-        public IEntity entity;
-        public int light;
-        public int overlay;
-        public float tickDelta;
-
-        Queued(Form form, IEntity entity, int light, int overlay, float tickDelta)
-        {
-            this.form = form;
-            this.entity = entity;
-            this.light = light;
-            this.overlay = overlay;
-            this.tickDelta = tickDelta;
-        }
-    }
-
-    public static boolean renderLivingEntity(LivingEntity livingEntity, float f, float g, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i, int o)
-    {
-        if (!(livingEntity instanceof ISelectorOwnerProvider))
-        {
-            return false;
-        }
-
-        SelectorOwner owner = ((ISelectorOwnerProvider) livingEntity).getOwner();
-
-        owner.check();
-
-        Form form = owner.getForm();
-
-        if (form != null)
-        {
-            /* 1.21.11: GlStateManager._enableDepthTest() removed */
-            // GlStateManager._enableDepthTest();
-
-            float bodyYaw = /* 1.21.11: prevBodyYaw removed */ livingEntity.yBodyRot;
-
-            matrixStack.pushPose();
-            matrixStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
-
-            FormUtilsClient.render(form, new FormRenderingContext()
-                .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
-                .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
-
-            if (owner.entity.getFireTicks() > 0)
-            {
-                MorphFireRenderer.render(
-                    matrixStack,
-                    vertexConsumerProvider,
-                    owner.entity,
-                    form,
-                    g,
-                    Minecraft.getInstance().gameRenderer.getMainCamera(),
-                    false
-                );
+                owner.entity.clearRotationOverride();
             }
 
-            matrixStack.popPose();
+            matrixStack.pop();
 
             BBSRendering.restoreWorldRenderState();
-            GlStateManager._disableDepthTest();
 
             return true;
         }

@@ -8,9 +8,9 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
 
 public abstract class ActionClip extends Clip
 {
@@ -82,12 +82,12 @@ public abstract class ActionClip extends Clip
     {
         ReplayKeyframes keyframes = replay.keyframes;
 
-        player.setPos(keyframes.x.interpolate(tick), keyframes.y.interpolate(tick), keyframes.z.interpolate(tick));
-        player.setYRot(keyframes.yaw.interpolate(tick).floatValue());
-        player.setYHeadRot(keyframes.headYaw.interpolate(tick).floatValue());
-        player.setYBodyRot(keyframes.bodyYaw.interpolate(tick).floatValue());
-        player.setXRot(keyframes.pitch.interpolate(tick).floatValue());
-        player.setItemInHand(InteractionHand.MAIN_HAND, keyframes.mainHand.interpolate(tick, ItemStack.EMPTY).copy());
-        player.setItemInHand(InteractionHand.OFF_HAND, keyframes.offHand.interpolate(tick, ItemStack.EMPTY).copy());
+        player.setPosition(keyframes.x.interpolate(tick), keyframes.y.interpolate(tick), keyframes.z.interpolate(tick));
+        player.setYaw(keyframes.yaw.interpolate(tick).floatValue());
+        player.setHeadYaw(keyframes.headYaw.interpolate(tick).floatValue());
+        player.setBodyYaw(keyframes.bodyYaw.interpolate(tick).floatValue());
+        player.setPitch(keyframes.pitch.interpolate(tick).floatValue());
+        player.setStackInHand(Hand.MAIN_HAND, keyframes.mainHand.interpolate(tick, ItemStack.EMPTY).copy());
+        player.setStackInHand(Hand.OFF_HAND, keyframes.offHand.interpolate(tick, ItemStack.EMPTY).copy());
     }
 }

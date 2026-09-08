@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
@@ -849,12 +850,14 @@ public class UIPropTransform extends UITransform
 
     private float getRayAxisSensitivity(float axisWorldScale)
     {
-        if (this.usesModelPixelTranslation())
+        float scale = this.getEffectiveTranslationScale();
+
+        if (axisWorldScale > 1.0E-6F)
         {
-            return this.getEffectiveTranslationScale() / axisWorldScale;
+            return scale / axisWorldScale;
         }
 
-        return this.getEffectiveTranslationScale();
+        return scale;
     }
 
     private void applyAbsoluteRayTranslate(Axis axis, float axisDelta)
@@ -1087,12 +1090,7 @@ public class UIPropTransform extends UITransform
         }
 
         GLFW.glfwGetCursorPos(Window.getWindow(), CURSOR_X, CURSOR_Y);
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double fx = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
-        double fy = Math.ceil(mc.getWindow().getHeight() / (double) context.menu.height);
-
-        this.updateRayDragMouse(fx, fy);
+        this.updateRayDragMouse(context);
     }
 
     /** Re-read cursor position into ray/UI mouse fields without touching drag anchors. */
@@ -1105,13 +1103,9 @@ public class UIPropTransform extends UITransform
 
         GLFW.glfwGetCursorPos(Window.getWindow(), CURSOR_X, CURSOR_Y);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double fx = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
-        double fy = Math.ceil(mc.getWindow().getHeight() / (double) context.menu.height);
-
         if (this.gizmoRayProvider != null)
         {
-            this.updateRayDragMouse(fx, fy);
+            this.updateRayDragMouse(context);
         }
     }
 
@@ -1143,10 +1137,6 @@ public class UIPropTransform extends UITransform
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double fx = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
-        double fy = Math.ceil(mc.getWindow().getHeight() / (double) context.menu.height);
-
         int dragMouseX;
         int dragMouseY;
 
@@ -1157,6 +1147,9 @@ public class UIPropTransform extends UITransform
         }
         else
         {
+            double fx = uiScaleX(context);
+            double fy = uiScaleY(context);
+
             dragMouseX = (int) Math.round(CURSOR_X[0] / fx);
             dragMouseY = (int) Math.round(CURSOR_Y[0] / fy);
         }
@@ -1218,9 +1211,7 @@ public class UIPropTransform extends UITransform
 
     private float computePrimaryScreenAxisRaw(int dx, int dy)
     {
-        float factor = this.usesModelPixelTranslation()
-            ? this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale)
-            : this.getEffectiveTranslationScale();
+        float factor = this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
 
         if (this.axis == Axis.X)
         {
@@ -1242,9 +1233,7 @@ public class UIPropTransform extends UITransform
 
     private float computeSecondaryScreenAxisDelta(int dx, int dy)
     {
-        float factor = this.usesModelPixelTranslation()
-            ? this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale)
-            : this.getEffectiveTranslationScale();
+        float factor = this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale);
 
         return this.applyTranslateDelta(this.secondaryAxis, factor * dy);
     }
@@ -2101,10 +2090,8 @@ public class UIPropTransform extends UITransform
 
         double rawX = CURSOR_X[0];
         double rawY = CURSOR_Y[0];
-        double fx = Math.ceil(w / (double) context.menu.width);
-        double fy = Math.ceil(h / (double) context.menu.height);
 
-        this.updateRayDragMouse(fx, fy);
+        this.updateRayDragMouse(context);
 
         int border = 5;
         int borderPadding = border + 1;
@@ -2413,10 +2400,30 @@ public class UIPropTransform extends UITransform
         this.lastY = dragMouseY;
     }
 
-    private void updateRayDragMouse(double fx, double fy)
+    /**
+     * Exact window-pixel → BBS-menu ratio. Must not ceil/round: fractional GUI scales
+     * (e.g. 1.5) would snap to 2 and skew gizmo ray grab points — same rule as
+     * {@link UIModelRenderer#setupViewport}
+     * and {@link Gizmo#renderInterface}.
+     */
+    private static double uiScaleX(UIContext context)
     {
-        this.rayDragMouseX = (int) Math.round(CURSOR_X[0] / fx);
-        this.rayDragMouseY = (int) Math.round(CURSOR_Y[0] / fy);
+        int menuW = context.menu.width;
+
+        return menuW <= 0 ? 1D : MinecraftClient.getInstance().getWindow().getWidth() / (double) menuW;
+    }
+
+    private static double uiScaleY(UIContext context)
+    {
+        int menuH = context.menu.height;
+
+        return menuH <= 0 ? 1D : MinecraftClient.getInstance().getWindow().getHeight() / (double) menuH;
+    }
+
+    private void updateRayDragMouse(UIContext context)
+    {
+        this.rayDragMouseX = (int) Math.round(CURSOR_X[0] / uiScaleX(context));
+        this.rayDragMouseY = (int) Math.round(CURSOR_Y[0] / uiScaleY(context));
     }
 
     private int resolveDragMouseX(UIContext context)
@@ -2863,23 +2870,6 @@ public class UIPropTransform extends UITransform
                     this.addAxisDelta(result, Axis.Z, this.applyTranslateDelta(Axis.Z, dz));
                     this.setT(null, result.x, result.y, result.z);
                 }
-                else
-                {
-                    Vector3f worldX = new Vector3f();
-                    Vector3f worldY = new Vector3f();
-                    Vector3f worldZ = new Vector3f();
-                    this.extractAxisWorld(Axis.X, worldX);
-                    this.extractAxisWorld(Axis.Y, worldY);
-                    this.extractAxisWorld(Axis.Z, worldZ);
-
-                    float scale = this.getEffectiveTranslationScale();
-                    Vector3f result = new Vector3f(this.getValue());
-
-                    this.addAxisDelta(result, Axis.X, this.applyTranslateDelta(Axis.X, (float) step.dot(worldX.x, worldX.y, worldX.z) * scale));
-                    this.addAxisDelta(result, Axis.Y, this.applyTranslateDelta(Axis.Y, (float) step.dot(worldY.x, worldY.y, worldY.z) * scale));
-                    this.addAxisDelta(result, Axis.Z, this.applyTranslateDelta(Axis.Z, (float) step.dot(worldZ.x, worldZ.y, worldZ.z) * scale));
-                    this.setT(null, result.x, result.y, result.z);
-                }
 
                 this.rayLastPoint.set(this.rayCurrentPoint);
             }
@@ -2892,9 +2882,7 @@ public class UIPropTransform extends UITransform
                     return false;
                 }
 
-                float sensitivity = this.usesModelPixelTranslation()
-                    ? this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale)
-                    : this.getEffectiveTranslationScale();
+                float sensitivity = this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
                 float delta = (float) (axisValue - this.rayDragStartAxisValue) * sensitivity;
 
                 this.applyAbsoluteRayTranslate(this.axis, delta);
@@ -2908,27 +2896,13 @@ public class UIPropTransform extends UITransform
 
                 Vector3d offset = new Vector3d(this.rayCurrentPoint).sub(this.rayDragStartPoint);
 
-                if (this.usesModelPixelTranslation())
-                {
-                    float primaryDelta = (float) offset.dot(this.rayPrimaryAxis.x, this.rayPrimaryAxis.y, this.rayPrimaryAxis.z) * this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
-                    float secondaryDelta = (float) offset.dot(this.raySecondaryAxis.x, this.raySecondaryAxis.y, this.raySecondaryAxis.z) * this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale);
-                    Vector3f result = new Vector3f(this.rayDragStartTranslate);
+                float primaryDelta = (float) offset.dot(this.rayPrimaryAxis.x, this.rayPrimaryAxis.y, this.rayPrimaryAxis.z) * this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
+                float secondaryDelta = (float) offset.dot(this.raySecondaryAxis.x, this.raySecondaryAxis.y, this.raySecondaryAxis.z) * this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale);
+                Vector3f result = new Vector3f(this.rayDragStartTranslate);
 
-                    this.addAxisDelta(result, this.axis, this.applyTranslateDelta(this.axis, primaryDelta));
-                    this.addAxisDelta(result, this.secondaryAxis, this.applyTranslateDelta(this.secondaryAxis, secondaryDelta));
-                    this.setT(null, result.x, result.y, result.z);
-                }
-                else
-                {
-                    float scale = this.getEffectiveTranslationScale();
-                    float primaryDelta = (float) offset.dot(this.rayPrimaryAxis.x, this.rayPrimaryAxis.y, this.rayPrimaryAxis.z) * scale;
-                    float secondaryDelta = (float) offset.dot(this.raySecondaryAxis.x, this.raySecondaryAxis.y, this.raySecondaryAxis.z) * scale;
-                    Vector3f result = new Vector3f(this.rayDragStartTranslate);
-
-                    this.addAxisDelta(result, this.axis, this.applyTranslateDelta(this.axis, primaryDelta));
-                    this.addAxisDelta(result, this.secondaryAxis, this.applyTranslateDelta(this.secondaryAxis, secondaryDelta));
-                    this.setT(null, result.x, result.y, result.z);
-                }
+                this.addAxisDelta(result, this.axis, this.applyTranslateDelta(this.axis, primaryDelta));
+                this.addAxisDelta(result, this.secondaryAxis, this.applyTranslateDelta(this.secondaryAxis, secondaryDelta));
+                this.setT(null, result.x, result.y, result.z);
             }
         }
         else if (this.mode == 1 && !this.uniformScale)

@@ -6,7 +6,9 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+
+import com.mojang.blaze3d.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
@@ -230,12 +232,12 @@ public class VideoRecorder
 
     private void enableAmbientCapture(int frameRate) throws IOException
     {
-        Minecraft.getInstance().getSoundManager().stop();
+        MinecraftClient.getInstance().getSoundManager().stopAll();
         BBSModClient.getSounds().deleteSounds();
         LoopbackAudioController.suppressFilmClipPlayback(this.suppressFilmClipPlaybackForRender || this.filmAudioFile != null);
         LoopbackAudioController.requestCapture(true);
-        Minecraft.getInstance().getSoundManager().reload();
-        Minecraft.getInstance().getSoundManager().stop();
+        MinecraftClient.getInstance().getSoundManager().reloadSounds();
+        MinecraftClient.getInstance().getSoundManager().stopAll();
         this.ambientCapture = AmbientAudioCapture.open(this.exportFolder, this.movieName, frameRate);
     }
 
@@ -264,9 +266,9 @@ public class VideoRecorder
 
             if (hadCapture)
             {
-                Minecraft.getInstance().getSoundManager().stop();
-                Minecraft.getInstance().getSoundManager().reload();
-                Minecraft.getInstance().getSoundManager().stop();
+                MinecraftClient.getInstance().getSoundManager().stopAll();
+                MinecraftClient.getInstance().getSoundManager().reloadSounds();
+                MinecraftClient.getInstance().getSoundManager().stopAll();
                 BBSModClient.getSounds().deleteSounds();
             }
         }
@@ -650,6 +652,10 @@ public class VideoRecorder
             return;
         }
 
+        int previousTexture = GL30.glGetInteger(GL30.GL_TEXTURE_BINDING_2D);
+        int previousPackBuffer = GL30.glGetInteger(GL30.GL_PIXEL_PACK_BUFFER_BINDING);
+        int previousPackAlignment = GL30.glGetInteger(GL30.GL_PACK_ALIGNMENT);
+
         try
         {
             /* Async PBO ring: write the current texture into pbos[pbo], then map
@@ -662,7 +668,8 @@ public class VideoRecorder
 
             GL30.glPixelStorei(GL30.GL_PACK_ALIGNMENT, 1);
             GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[pbo]);
-            GL30.glBindTexture(GL30.GL_TEXTURE_2D, this.textureId);
+            /* Keep Minecraft's texture cache synchronized with the readback binding. */
+            GlStateManager._bindTexture(this.textureId);
             GL30.glGetTexImage(GL30.GL_TEXTURE_2D, 0, GL30.GL_BGR, GL30.GL_UNSIGNED_BYTE, 0);
 
             GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[nextPbo]);
@@ -694,6 +701,12 @@ public class VideoRecorder
         catch (Exception e)
         {
             e.printStackTrace();
+        }
+        finally
+        {
+            GlStateManager._bindTexture(previousTexture);
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, previousPackBuffer);
+            GL30.glPixelStorei(GL30.GL_PACK_ALIGNMENT, previousPackAlignment);
         }
 
         if (this.recordAmbientAudio && this.ambientCapture != null)

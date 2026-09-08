@@ -3,7 +3,8 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.line.LineBuilder;
 import mchorse.bbs_mod.graphics.line.SolidColorLineRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -26,18 +27,10 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
-
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
 import org.joml.Matrix3x2fc;
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.Collections;
 import java.util.List;
@@ -366,7 +359,10 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             double offsetY = this.fromGraphY(originalY) - factory.getY(originalV);
 
             float fx = (float) this.keyframes.fromGraphX(context.mouseX) - offsetX;
-            Object fy = factory.yToValue(this.fromGraphY(context.mouseY) - offsetY);
+            double graphY = this.fromGraphY(context.mouseY) - offsetY;
+            Object fy = factory == KeyframeFactories.LIGHTING_SETTINGS && originalV instanceof LightingSettings lighting
+                ? LightingSettingsKeyframeFactory.applyGraphY(lighting, graphY)
+                : factory.yToValue(graphY);
 
             if (!Window.isShiftPressed())
             {
@@ -439,7 +435,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             int tickBottom = area.y + RULER_HEIGHT;
             int tickHeight = majorTick ? 8 : 4;
 
-            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x44ffffff : 0x18ffffff);
+            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x1cffffff : 0x0affffff);
             context.batcher.box(x, tickBottom - tickHeight, x + 1, tickBottom, majorTick ? 0xddffffff : 0x77ffffff);
 
             if (majorTick)
@@ -468,7 +464,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
                 continue;
             }
 
-            context.batcher.box(area.x, y, area.ex(), y + 1, 0x24ffffff);
+            context.batcher.box(area.x, y, area.ex(), y + 1, 0x10ffffff);
             context.batcher.text(String.valueOf(min + j * mult), area.x + 4, y + 4);
         }
     }
@@ -593,16 +589,11 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         preview.setShape(shape);
 
         Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        GuiQuadMesh builder = new GuiQuadMesh();
 
         UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
 
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            RenderLayers.debugFilledBox().draw(built);
-        }
+        context.batcher.drawQuadMesh(builder);
     }
 
     /**
@@ -710,7 +701,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
 
         /* Render track bars (horizontal lines) */
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        GuiQuadMesh builder = new GuiQuadMesh();
 
         /* Draw keyframe handles (outer) */
         int forcedIndex = 0;
@@ -814,16 +805,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             }
         }
 
-        // GlStateManager._enableBlend();
-        // GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        // RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        if (keyframes.isEmpty())
-        {
-            return;
-        }
-
-        // BufferRenderer.drawWithGlobalProgram(builder.end());
+        context.batcher.drawQuadMesh(builder);
     }
 
     @Override

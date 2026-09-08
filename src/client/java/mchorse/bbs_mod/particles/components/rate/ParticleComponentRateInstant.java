@@ -56,7 +56,7 @@ public class ParticleComponentRateInstant extends ParticleComponentRate implemen
         {
             emitter.setEmitterVariables(0);
 
-            int particles = (int) this.particles.get();
+            int particles = Math.max(0, Math.round((float) this.particles.get() * Math.max(0F, emitter.spawnRateScale)));
 
             for (int i = 0, c = particles; i < c; i ++)
             {

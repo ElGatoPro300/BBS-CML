@@ -16,14 +16,13 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.World;
 
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,9 +52,178 @@ public final class FormIllusionRenderer
         public Runnable restoreFormTick;
     }
 
+    /**
+     * Local-space emission focus for particle forms (main form + each illusion copy).
+     * Offsets are relative to the primary form stack before world/camera placement.
+     */
+    public static final class EmissionSite
+    {
+        public final float localX;
+        public final float localY;
+        public final float localZ;
+        public final Transform transform;
+
+        public EmissionSite(float localX, float localY, float localZ, Transform transform)
+        {
+            this.localX = localX;
+            this.localY = localY;
+            this.localZ = localZ;
+            this.transform = transform;
+        }
+    }
+
     public static void render(Form form, FormRenderingContext formContext)
     {
         render(form, formContext, null);
+    }
+
+    /**
+     * Builds the main focus plus every illusion copy as local emission sites.
+     * Used by vanilla particle spawning so each focus gets its own particles.
+     */
+    public static List<EmissionSite> collectEmissionSites(Form form, IEntity entity)
+    {
+        List<EmissionSite> sites = new ArrayList<>();
+
+        sites.add(new EmissionSite(0F, 0F, 0F, null));
+
+        if (form == null)
+        {
+            return sites;
+        }
+
+        AABB hitbox = resolveHitbox(form, entity);
+        List<Illusion> layers = collectIllusionLayers(form);
+
+        for (int layer = 0; layer < layers.size(); layer++)
+        {
+            Illusion illusion = layers.get(layer);
+
+            if (illusion == null || illusion.count <= 0)
+            {
+                continue;
+            }
+
+            Transform layerTransform = createIllusionTransform(form, illusion);
+            List<Vector3f> directions = getIllusionDirections(illusion.directions);
+            int count = illusion.count;
+            int dirCount = directions.size();
+
+            if (dirCount <= 0)
+            {
+                continue;
+            }
+
+            int maxRank = (count + dirCount - 1) / dirCount;
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector3f dir = directions.get(i % dirCount);
+                int rank = i / dirCount + 1;
+                float distance = getIllusionDistance(illusion, hitbox, dir, rank, maxRank);
+                Transform partial = null;
+
+                if (!layerTransform.isDefault())
+                {
+                    float factor = getIllusionTransformFactor(i, count, illusion.gradual, illusion.gradualInvert);
+
+                    if (factor > 0F)
+                    {
+                        partial = new Transform();
+                        partial.lerp(layerTransform, factor);
+                    }
+                }
+
+                sites.add(new EmissionSite(dir.x * distance, dir.y * distance, dir.z * distance, partial));
+            }
+        }
+
+        return sites;
+    }
+
+    public static boolean shouldDistributeParticles(Form form)
+    {
+        return form != null && form.illusion.get().distributeParticles;
+    }
+
+    public static boolean shouldUseIndependentParticles(Form form)
+    {
+        return form != null && form.illusion.get().independentParticles;
+    }
+
+    /**
+     * Trail-instance keys used by illusion copies ({@code 0} = main form). Matches
+     * {@link #renderIllusionLayer} so particle renderers can map emitters 1:1.
+     */
+    public static List<Integer> collectEmissionTrailKeys(Form form)
+    {
+        List<Integer> keys = new ArrayList<>();
+
+        for (EmissionTrailSite site : collectEmissionTrailSites(form))
+        {
+            keys.add(site.trailInstance);
+        }
+
+        return keys;
+    }
+
+    /**
+     * Same keys as {@link #collectEmissionTrailKeys} plus per-copy film delay lag in ticks
+     * ({@code delay * (copyIndex + 1)}), so independent particle emitters can stay staggered.
+     */
+    public static List<EmissionTrailSite> collectEmissionTrailSites(Form form)
+    {
+        List<EmissionTrailSite> sites = new ArrayList<>();
+
+        sites.add(new EmissionTrailSite(0, 0));
+
+        if (form == null)
+        {
+            return sites;
+        }
+
+        List<Illusion> layers = collectIllusionLayers(form);
+
+        for (int layer = 0; layer < layers.size(); layer++)
+        {
+            Illusion illusion = layers.get(layer);
+
+            if (illusion == null || illusion.count <= 0)
+            {
+                continue;
+            }
+
+            List<Vector3f> directions = getIllusionDirections(illusion.directions);
+
+            if (directions.isEmpty())
+            {
+                continue;
+            }
+
+            int liftKeyBase = layer * 10000;
+            float delay = Math.max(0F, illusion.delay);
+
+            for (int i = 0; i < illusion.count; i++)
+            {
+                int lag = Math.round(delay * (i + 1));
+
+                sites.add(new EmissionTrailSite(liftKeyBase + i + 1, Math.max(0, lag)));
+            }
+        }
+
+        return sites;
+    }
+
+    public static final class EmissionTrailSite
+    {
+        public final int trailInstance;
+        public final int delayLagTicks;
+
+        public EmissionTrailSite(int trailInstance, int delayLagTicks)
+        {
+            this.trailInstance = trailInstance;
+            this.delayLagTicks = delayLagTicks;
+        }
     }
 
     public static void render(Form form, FormRenderingContext formContext, Extras extras)
@@ -92,7 +260,7 @@ public final class FormIllusionRenderer
         int baseLight = formContext.light;
         AABB hitbox = resolveHitbox(form, formContext.entity);
         float height = (float) hitbox.h;
-        PoseStack stack = formContext.stack;
+        MatrixStack stack = formContext.stack;
 
         for (int layer = 0; layer < layers.size(); layer++)
         {
@@ -175,7 +343,7 @@ public final class FormIllusionRenderer
         transform.pivot.add(overlay.pivot);
     }
 
-    private static void renderIllusionLayer(Form form, FormRenderingContext formContext, PoseStack stack, Illusion illusion, Transform illusionTransform, AABB hitbox, float height, int layerIndex, int baseColor, int baseLight, Extras extras)
+    private static void renderIllusionLayer(Form form, FormRenderingContext formContext, MatrixStack stack, Illusion illusion, Transform illusionTransform, AABB hitbox, float height, int layerIndex, int baseColor, int baseLight, Extras extras)
     {
         List<Vector3f> directions = getIllusionDirections(illusion.directions);
         float strength = Math.max(illusion.opacity, 0F);
@@ -278,7 +446,7 @@ public final class FormIllusionRenderer
                 {
                     int a = Math.round(((baseColor >>> 24) & 0xFF) * mainAlpha);
 
-                    stack.pushPose();
+                    stack.push();
 
                     try
                     {
@@ -294,7 +462,7 @@ public final class FormIllusionRenderer
                     }
                     finally
                     {
-                        stack.popPose();
+                        stack.pop();
                     }
                 }
 
@@ -412,7 +580,7 @@ public final class FormIllusionRenderer
         form.glowSettings.setRuntimeValue(override);
     }
 
-    private static void renderIllusionStreaks(Form form, FormRenderingContext formContext, PoseStack stack, float x, float y, float z, Transform partial, int argb, float distortFactor, int index, float height)
+    private static void renderIllusionStreaks(Form form, FormRenderingContext formContext, MatrixStack stack, float x, float y, float z, Transform partial, int argb, float distortFactor, int index, float height)
     {
         if (((argb >>> 24) & 0xFF) <= 0)
         {
@@ -432,7 +600,7 @@ public final class FormIllusionRenderer
             float squash = 0.03F + random.nextFloat() * 0.09F;
             float stretch = 1F + random.nextFloat() * (0.5F + distortFactor);
 
-            stack.pushPose();
+            stack.push();
 
             try
             {
@@ -448,7 +616,7 @@ public final class FormIllusionRenderer
             }
             finally
             {
-                stack.popPose();
+                stack.pop();
             }
         }
     }
@@ -474,7 +642,7 @@ public final class FormIllusionRenderer
 
     private static float getIllusionLift(IEntity entity, Vector3f dir, float distance, int index, float transition)
     {
-        Level world = entity.getWorld();
+        World world = entity.getWorld();
 
         if (world == null)
         {
@@ -516,11 +684,11 @@ public final class FormIllusionRenderer
         return lift.value;
     }
 
-    private static float getIllusionGroundDelta(Level world, double x, double y, double z)
+    private static float getIllusionGroundDelta(World world, double x, double y, double z)
     {
         for (int i = 0; i <= 6; i++)
         {
-            BlockPos blockPos = BlockPos.containing(x, y + 3D - i, z);
+            BlockPos blockPos = BlockPos.ofFloored(x, y + 3D - i, z);
             VoxelShape shape = world.getBlockState(blockPos).getCollisionShape(world, blockPos);
 
             if (shape.isEmpty())
@@ -528,7 +696,7 @@ public final class FormIllusionRenderer
                 continue;
             }
 
-            double top = blockPos.getY() + shape.max(Direction.Axis.Y);
+            double top = blockPos.getY() + shape.getMax(Direction.Axis.Y);
 
             return MathUtils.clamp((float) (top - y), -3F, 3F);
         }

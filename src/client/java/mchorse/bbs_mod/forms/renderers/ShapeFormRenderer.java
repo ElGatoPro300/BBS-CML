@@ -13,36 +13,36 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.math.Noise;
 
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
 
@@ -73,31 +73,36 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     @Override
     protected void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        PoseStack stack = new PoseStack();
+        context.batcher.flush();
+
+        MatrixStack stack = new MatrixStack();
         int scale = (y2 - y1) / 2;
 
-        stack.pushPose();
+        stack.push();
         stack.translate((x2 + x1) / 2, (y2 + y1) / 2, 40);
         MatrixStackUtils.scaleStack(stack, scale, scale, scale);
 
         /* Simple rotation for UI preview */
-        stack.mulPose(Axis.YP.rotationDegrees(context.getTransition() * 2));
-        stack.mulPose(Axis.XP.rotationDegrees(20));
+        stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(context.getTransition() * 2));
+        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(20));
 
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        this.renderShape(stack, null, OverlayTexture.NO_OVERLAY, LightTexture.FULL_BRIGHT, null);
-        stack.popPose();
+        BBSRendering.setupLevelLighting();
+
+        this.renderShape(stack, BBSRendering::getEntityTranslucentProgram, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
+
+        stack.pop();
     }
 
     @Override
     protected void render3D(FormRenderingContext context)
     {
-        this.renderShape(context.stack, null, context.overlay, context.light, context);
+        this.renderShape(context.stack, BBSRendering::getEntityTranslucentProgram, context.overlay, context.light, context);
     }
 
-    private void renderShape(PoseStack stack, Supplier<GlProgram> shader, int overlay, int light, FormRenderingContext renderContext)
+    private void renderShape(MatrixStack stack, Supplier<ShaderProgram> shader, int overlay, int light, FormRenderingContext renderContext)
     {
         this.evaluator = new ShapeGraphEvaluator(this.form.graph.get());
         
@@ -118,7 +123,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
         }
 
-        GlStateManager._enableBlend();
+        BBSRendering.bindProgram(shader.get());
+        BBSRendering.enableBlend();
 
         GlowSettings glowSettings = this.form.glowSettings.get();
         Color legacyGlow = this.form.glowingColor.get();
@@ -127,19 +133,15 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (this.form.lighting.get())
         {
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
+            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         }
         else
         {
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            BBSRendering.defaultBlendFunc();
         }
         
-        GlStateManager._disableCull();
-        GlStateManager._enableDepthTest();
-
-        // GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-        // gameRenderer.getLightmapTextureManager().enable();
-        // gameRenderer.getOverlayTexture().setupOverlayColor();
+        BBSRendering.disableCull();
+        BBSRendering.enableDepthTest();
 
         // Bind texture — material node overrides the form's static texture
         Link texture = this.form.texture.get();
@@ -172,7 +174,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         this.form.applyFormOpacity(finalColor);
 
-        if (finalColor.a <= 0.001F && !BBSRendering.isIrisShadowPass())
+        if (finalColor.a <= 0.001F)
         {
             return;
         }
@@ -215,23 +217,20 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         // We need to pass color per vertex
 
         // Transform
-        stack.pushPose();
+        stack.push();
         stack.scale(this.form.sizeX.get(), this.form.sizeY.get(), this.form.sizeZ.get());
 
         ShapeForm.ShapeType type = this.form.type.get();
-        boolean opacityPatch = ShaderOpacityPatch.isActive();
         boolean shadowPass = BBSRendering.isIrisShadowPass();
         /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
-         * needsIrisTranslucentFlatDeferral; with the opacity patch that live opaque path also
-         * vanishes, so defer every world shape while the patch is active. */
-        boolean deferTranslucent = !shadowPass
-            && (BBSRendering.needsIrisTranslucentFlatDeferral(c.a)
-                || (opacityPatch && BBSRendering.isIrisWorldModelPass()));
+         * needsIrisTranslucentFlatDeferral unless noshading is enabled. */
+        boolean noshadingDefer = !shadowPass && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
+        boolean deferTranslucent = (!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer;
 
         if (deferTranslucent)
         {
-            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.last().pose()));
-            Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+            Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
             Color colorSnapshot = c.copy();
             int lightSnapshot = light;
             int overlaySnapshot = overlay;
@@ -242,31 +241,15 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean lighting = this.form.lighting.get();
-            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
-            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(c.a);
             /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
-            double distanceSq = 0D;
-
-            if (renderContext != null && renderContext.entity != null && renderContext.camera != null)
-            {
-                double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), renderContext.getTransition());
-                double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), renderContext.getTransition());
-                double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), renderContext.getTransition());
-                double dx = x - renderContext.camera.position.x;
-                double dy = y - renderContext.camera.position.y;
-                double dz = z - renderContext.camera.position.z;
-
-                distanceSq = dx * dx + dy * dy + dz * dz;
-            }
 
             Runnable deferredDraw = () ->
             {
-                PoseStack overlayStack = new PoseStack();
+                MatrixStack overlayStack = new MatrixStack();
 
-                overlayStack.last().pose().set(positionMatrix);
-                overlayStack.last().normal().set(normalMatrix);
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
                 this.drawDeferredShape(
                     overlayStack,
@@ -280,52 +263,60 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                     glowSettingsSnapshot,
                     legacyGlowSnapshot,
                     glowIntensitySnapshot,
-                    () -> null,
+                    BBSShaders::getModel,
                     false
                 );
             };
 
-            if (opacityPatch && !noshadingPaintPath)
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
-            }
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
         }
         else
         {
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            /* No-shader / opaque Iris path: depthMask true like vanilla. */
+            if (BBSRendering.needsBbsModelForLowOpacity(c.a))
+            {
+                BBSRendering.bindProgram(BBSShaders.getModel());
+            }
 
-            Tesselator tessellator = Tesselator.getInstance();
-            BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.NEW_ENTITY);
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
 
-            this.buildShapeGeometry(builder, stack, type, c, overlay, light);
+            Tessellator tessellator = Tessellator.getInstance();
 
-            builder.buildOrThrow().close();
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
+            }
+
+            try
+            {
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                this.buildShapeGeometry(builder, stack, type, c, overlay, light);
+
+                BillboardRenderLayers.draw(builder.end(), this.resolveTexture(texture), false, false, shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, false);
+            }
+            finally
+            {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+            }
 
             if (positiveGlow)
             {
                 Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
-                float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-
-                GlStateManager._enableBlend();
-                GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-                GlStateManager._depthMask(false);
-                // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
                 this.unshadedVertices = true;
 
-                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
-                this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightTexture.FULL_BRIGHT);
+                this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
-                glowBuilder.buildOrThrow().close();
+                BillboardRenderLayers.draw(glowBuilder.end(), this.resolveTexture(texture), false, false, false, false, true);
 
                 this.unshadedVertices = false;
-                GlStateManager._depthMask(true);
             }
         }
 
@@ -355,17 +346,16 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
         }
 
-        stack.popPose();
+        stack.pop();
         
-        // gameRenderer.getLightmapTextureManager().disable();
-        // gameRenderer.getOverlayTexture().teardownOverlayColor();
-        
-        GlStateManager._disableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        BBSRendering.disableBlend();
+        BBSRendering.defaultBlendFunc();
     }
 
-    private void drawDeferredShape(PoseStack stack, Link texture, ShapeForm.ShapeType type, Color color, int overlay, int light, boolean lighting, boolean positiveGlow, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Supplier<GlProgram> shader, boolean unshaded)
+    private void drawDeferredShape(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color color, int overlay, int light, boolean lighting, boolean positiveGlow, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Supplier<ShaderProgram> shader, boolean unshaded)
     {
+        Texture texObj = this.resolveTexture(texture);
+
         if (texture != null)
         {
             BBSModClient.getTextures().bindTexture(texture);
@@ -375,56 +365,49 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             BBSModClient.getTextures().bindTexture(ParticleScheme.DEFAULT_TEXTURE);
         }
 
-        // RenderSystem.setShader(shader.get());
-        GlStateManager._enableBlend();
+        BBSRendering.bindProgram(shader.get());
+        BBSRendering.enableBlend();
 
         if (lighting)
         {
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
+            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         }
         else
         {
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            BBSRendering.defaultBlendFunc();
         }
 
         /* beginDeferredTranslucentModelPass already set cull/depth — do not override. */
         this.unshadedVertices = unshaded;
 
-        Tesselator tessellator = Tesselator.getInstance();
+        Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder builder = tessellator.begin(
             VertexFormat.DrawMode.QUADS,
-            unshaded ? DefaultVertexFormat.POSITION_TEX_COLOR : DefaultVertexFormat.NEW_ENTITY
+            unshaded ? VertexFormats.POSITION_TEXTURE_COLOR : VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
         );
 
         this.buildShapeGeometry(builder, stack, type, color, overlay, light);
-        builder.buildOrThrow().close();
+        BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
 
         if (positiveGlow)
         {
             Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, color.a, glowIntensity);
-            float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-            GlStateManager._depthMask(false);
-            // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
             this.unshadedVertices = true;
 
-            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightTexture.FULL_BRIGHT);
-            glowBuilder.buildOrThrow().close();
+            this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            BillboardRenderLayers.draw(glowBuilder.end(), texObj, false, false, false, false, true);
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._depthMask(true);
+            this.unshadedVertices = false;
         }
 
         this.unshadedVertices = false;
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        BBSRendering.defaultBlendFunc();
     }
 
-    private void buildShapeGeometry(BufferBuilder builder, PoseStack stack, ShapeForm.ShapeType type, Color c, int overlay, int light)
+    private void buildShapeGeometry(BufferBuilder builder, MatrixStack stack, ShapeForm.ShapeType type, Color c, int overlay, int light)
     {
         if (this.form.particles.get())
         {
@@ -448,7 +431,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
     }
 
-    private void renderVolumeParticles(BufferBuilder builder, PoseStack stack, ShapeForm.ShapeType type, Color c, int overlay, int light)
+    private void renderVolumeParticles(BufferBuilder builder, MatrixStack stack, ShapeForm.ShapeType type, Color c, int overlay, int light)
     {
         float scale = this.form.particleScale.get();
         float density = this.form.particleDensity.get();
@@ -491,8 +474,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         
         this.randomNoise.setSeed(0);
         
-        Matrix4f matrix = stack.last().pose();
-        Matrix3f normalMatrix = stack.last().normal();
+        Matrix4f matrix = stack.peek().getPositionMatrix();
+        Matrix3f normalMatrix = stack.peek().getNormalMatrix();
         
         for (float x = minX; x <= maxX; x += step)
         {
@@ -763,10 +746,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.vertex(builder, matrix, normalMatrix, x4, y4, z4, 0, 1, 0, 1, 0, c, overlay, light);
     }
 
-    private void renderBox(BufferBuilder builder, PoseStack stack, Color c, int overlay, int light)
+    private void renderBox(BufferBuilder builder, MatrixStack stack, Color c, int overlay, int light)
     {
-        Matrix4f matrix = stack.last().pose();
-        Matrix3f normal = stack.last().normal();
+        Matrix4f matrix = stack.peek().getPositionMatrix();
+        Matrix3f normal = stack.peek().getNormalMatrix();
         
         float w = 0.5F;
         float h = 0.5F;
@@ -809,10 +792,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.vertex(builder, matrix, normal, -w, h, -d, 0, 0, -1, 0, 0, c, overlay, light);
     }
     
-    private void renderSphere(BufferBuilder builder, PoseStack stack, Color c, int overlay, int light)
+    private void renderSphere(BufferBuilder builder, MatrixStack stack, Color c, int overlay, int light)
     {
-        Matrix4f matrix = stack.last().pose();
-        Matrix3f normalMatrix = stack.last().normal();
+        Matrix4f matrix = stack.peek().getPositionMatrix();
+        Matrix3f normalMatrix = stack.peek().getNormalMatrix();
         
         int subdivisions = Math.max(this.form.subdivisions.get(), 4);
         float radius = 0.5F;
@@ -850,10 +833,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
     }
     
-    private void renderCylinder(BufferBuilder builder, PoseStack stack, boolean capsule, Color c, int overlay, int light)
+    private void renderCylinder(BufferBuilder builder, MatrixStack stack, boolean capsule, Color c, int overlay, int light)
     {
-        Matrix4f matrix = stack.last().pose();
-        Matrix3f normalMatrix = stack.last().normal();
+        Matrix4f matrix = stack.peek().getPositionMatrix();
+        Matrix3f normalMatrix = stack.peek().getNormalMatrix();
         
         int subdivisions = Math.max(this.form.subdivisions.get(), 4);
         float radius = 0.5F;
@@ -1008,15 +991,15 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (this.unshadedVertices)
         {
-            builder.addVertex(matrix, x, y, z)
-                   .setUv(u, v)
-                   .setColor(c.r, c.g, c.b, c.a);
+            builder.vertex(matrix, x, y, z)
+                   .texture(u, v)
+                   .color(c.r, c.g, c.b, c.a);
         }
         else if (this.overlayVertexMode == OverlayVertexMode.PAINT)
         {
             /* Paint RGB/A from verts; spatial mask is applied in flat_paint_overlay. */
-            builder.addVertex(matrix, x, y, z)
-                   .setColor(c.r, c.g, c.b, c.a)
+            builder.vertex(matrix, x, y, z)
+                   .color(c.r, c.g, c.b, c.a)
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
@@ -1025,17 +1008,17 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         else if (this.overlayVertexMode == OverlayVertexMode.COLOR_TINT)
         {
             /* Neutral verts — FormColorTint + spatial mask live in flat_color_tint_overlay. */
-            builder.addVertex(matrix, x, y, z)
-                   .setColor(1F, 1F, 1F, 1F)
-                   .setUv(u, v)
-                   .setOverlay(overlay)
-                   .setLight(light)
-                   .setNormal(normal.x, normal.y, normal.z);
+            builder.vertex(matrix, x, y, z)
+                   .color(1F, 1F, 1F, 1F)
+                   .texture(u, v)
+                   .overlay(overlay)
+                   .light(light)
+                   .normal(normal.x, normal.y, normal.z);
         }
         else
         {
-            builder.addVertex(matrix, x, y, z)
-                   .setColor(c.r, c.g, c.b, c.a)
+            builder.vertex(matrix, x, y, z)
+                   .color(c.r, c.g, c.b, c.a)
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
@@ -1074,10 +1057,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         return color;
     }
 
-    private void submitDeferredShapePaintOverlay(PoseStack stack, Link texture, ShapeForm.ShapeType type, Color resolvedPaint, float alpha, EffectTransform paintTransform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void submitDeferredShapePaintOverlay(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color resolvedPaint, float alpha, EffectTransform paintTransform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.last().pose()));
-        Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+        Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
         paintOverlay.a *= alpha;
@@ -1100,15 +1083,15 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         });
     }
 
-    private void renderShapePaintOverlay(PoseStack stack, Link texture, ShapeForm.ShapeType type, Color paintOverlay, float alpha, EffectTransform paintTransform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void renderShapePaintOverlay(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color paintOverlay, float alpha, EffectTransform paintTransform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
         Color paint = new Color(paintOverlay.r, paintOverlay.g, paintOverlay.b, paintOverlay.a);
 
         paint.a *= alpha;
-        this.renderShapePaintOverlay(stack, texture, type, paint, OverlayTexture.NO_OVERLAY, paintTransform, glowSettings, legacyGlow, glowIntensity);
+        this.renderShapePaintOverlay(stack, texture, type, paint, OverlayTexture.DEFAULT_UV, paintTransform, glowSettings, legacyGlow, glowIntensity);
     }
 
-    private void renderShapePaintOverlay(PoseStack stack, Link texture, ShapeForm.ShapeType type, Color paintOverlay, int overlay, EffectTransform paintTransform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void renderShapePaintOverlay(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color paintOverlay, int overlay, EffectTransform paintTransform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
         if (texture != null)
         {
@@ -1126,7 +1109,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayVertexMode = OverlayVertexMode.PAINT;
         this.overlayTransform = paintTransform;
 
-        Matrix4f formRootInverse = new Matrix4f(stack.last().pose()).invert();
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
         Vector3f maskHalf = new Vector3f();
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(paintTransform, maskHalf);
@@ -1140,14 +1123,13 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             maskHalf,
             () ->
             {
+                Texture texObj = this.resolveTexture(texture);
                 Tessellator tessellator = Tessellator.getInstance();
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-                GlStateManager._disableCull();
                 this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
-                builder.end().close();
-                GlStateManager._enableCull();
+                BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
             }
         );
 
@@ -1155,10 +1137,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayTransform = null;
     }
 
-    private void submitDeferredShapeColorTintOverlay(PoseStack stack, Link texture, ShapeForm.ShapeType type, Color formTintColor, int overlay, EffectTransform colorTransform)
+    private void submitDeferredShapeColorTintOverlay(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color formTintColor, int overlay, EffectTransform colorTransform)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.last().pose()));
-        Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+        Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
         Color tintSnapshot = new Color(formTintColor.r, formTintColor.g, formTintColor.b, formTintColor.a);
 
         ShapeForm.ShapeType typeSnapshot = type;
@@ -1177,7 +1159,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         });
     }
 
-    private void renderShapeColorTintOverlay(PoseStack stack, Link texture, ShapeForm.ShapeType type, Color formTintColor, int overlay, EffectTransform colorTransform)
+    private void renderShapeColorTintOverlay(MatrixStack stack, Link texture, ShapeForm.ShapeType type, Color formTintColor, int overlay, EffectTransform colorTransform)
     {
         if (texture != null)
         {
@@ -1191,7 +1173,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayVertexMode = OverlayVertexMode.COLOR_TINT;
         this.overlayTransform = colorTransform;
 
-        Matrix4f formRootInverse = new Matrix4f(stack.last().pose()).invert();
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
         Vector3f maskHalf = new Vector3f();
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(colorTransform, maskHalf);
@@ -1206,14 +1188,13 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             formTintColor,
             () ->
             {
+                Texture texObj = this.resolveTexture(texture);
                 Tessellator tessellator = Tessellator.getInstance();
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-                GlStateManager._disableCull();
                 this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);
-                builder.end().close();
-                GlStateManager._enableCull();
+                BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
             }
         );
 
@@ -1232,5 +1213,17 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         glowSettings.resolveColor(legacyGlow, glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
+    }
+
+    private Texture resolveTexture(Link texture)
+    {
+        Texture texObj = BBSModClient.getTextures().getTexture(texture != null ? texture : ParticleScheme.DEFAULT_TEXTURE);
+
+        if (texObj == null || !texObj.isValid())
+        {
+            texObj = BBSModClient.getTextures().getTexture(Link.bbs("textures/block/white.png"));
+        }
+
+        return texObj;
     }
 }

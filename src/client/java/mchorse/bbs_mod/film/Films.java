@@ -8,6 +8,7 @@ import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
@@ -23,8 +24,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -36,8 +37,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import Film;
 
 public class Films
 {
@@ -166,7 +165,7 @@ public class Films
 
     public FirstPersonBobbingSample getFirstPersonBobbingSample(float tickDelta)
     {
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (player == null)
         {
@@ -218,7 +217,7 @@ public class Films
         /* Safety: never leave integrated-server ticks blocked after recording starts. */
         RecordingPauseHelper.reset();
 
-        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         this.recorder = new Recorder(film, morph == null ? null : morph.getForm(), replayId, tick);
 
@@ -311,6 +310,7 @@ public class Films
             {
                 next.shutdown();
                 it.remove();
+                ItemUseRenderState.releaseLocalPlayerUse();
 
                 return next.film;
             }
@@ -346,6 +346,7 @@ public class Films
             if (film.hasFinished())
             {
                 film.shutdown();
+                ItemUseRenderState.releaseLocalPlayerUse();
             }
 
             return film.hasFinished();
@@ -359,9 +360,18 @@ public class Films
 
     public void updateEndWorld()
     {
+        boolean wasDriving = ItemUseRenderState.isDrivingLocalPlayerUse();
+
+        ItemUseRenderState.beginEndWorldUpdate();
+
         for (BaseFilmController controller : this.controllers)
         {
             controller.updateEndWorld();
+        }
+
+        if (wasDriving && !ItemUseRenderState.isDrivingLocalPlayerUse())
+        {
+            ItemUseRenderState.releaseLocalPlayerUse();
         }
     }
 
@@ -414,8 +424,8 @@ public class Films
                 }
             }
 
-            int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
-            int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+            int sw = MinecraftClient.getInstance().getWindow().getScaledWidth();
+            int sh = MinecraftClient.getInstance().getWindow().getScaledHeight();
             w = (int) (sw * BBSSettings.audioWaveformWidth.get());
             x = sw / 2 - w / 2;
             y = sh / 2 + 100;

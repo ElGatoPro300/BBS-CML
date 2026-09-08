@@ -127,7 +127,19 @@ public class UIKeyframeEditor extends UIElement
     {
         if (this.target == target)
         {
+            /* Side-panel mode keeps target null. Undo can detach the factory panel
+             * via removeFromParent while target stays null — re-parent it here so
+             * applyLayout alone does not leave an empty overlay. */
+            if (this.editor != null && this.target == null && this.editor.getParent() != this)
+            {
+                this.add(this.editor);
+            }
+
             this.view.resetFlex().full(this).w(1F);
+            /* Same host — still re-apply factory layout/resize. Needed when the
+             * properties tab was already active and only a light host sync runs. */
+            this.applyLayout();
+            this.resize();
 
             return this;
         }
@@ -195,6 +207,25 @@ public class UIKeyframeEditor extends UIElement
         {
             this.editor.setVisible(visible);
         }
+    }
+
+    /**
+     * Detach the keyframe property form from its host without clearing graph
+     * selection. Used when switching timelines so the shared properties panel
+     * can show another form while keyframes stay selected for when the user returns.
+     */
+    public void hidePropertiesPanel()
+    {
+        if (this.editor == null)
+        {
+            return;
+        }
+
+        UIKeyframeFactory.saveScroll(this.editor);
+        this.editor.removeFromParent();
+        this.editor = null;
+        this.applyLayout();
+        this.resize();
     }
 
     private void pickKeyframe(Keyframe keyframe)

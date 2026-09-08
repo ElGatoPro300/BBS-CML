@@ -13,7 +13,7 @@ import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import com.mojang.logging.LogUtils;
 
@@ -333,7 +333,7 @@ public class DiscordPresenceManager
             return;
         }
 
-        if (!Minecraft.getInstance().isRunning())
+        if (!MinecraftClient.getInstance().isRunning())
         {
             return;
         }

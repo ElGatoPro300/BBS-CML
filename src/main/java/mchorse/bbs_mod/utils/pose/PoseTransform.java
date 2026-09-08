@@ -256,7 +256,8 @@ public class PoseTransform extends Transform
         data.putFloat("fix", this.fix);
         data.put("color", KeyframeFactories.COLOR.toData(this.color));
         data.put("paint_color", KeyframeFactories.COLOR.toData(this.paintColor));
-        data.putInt("glowing_color", this.glowingColor.getRGBColor());
+        /* Full Color map so glow spatial masks (transform) survive save / applyConfig. */
+        data.put("glowing_color", KeyframeFactories.COLOR.toData(this.glowingColor));
         data.putFloat("glow_intensity", this.glowIntensity);
         data.putFloat("glow_radius", this.glowRadius);
         data.putFloat("lighting", this.lighting);
@@ -290,20 +291,23 @@ public class PoseTransform extends Transform
         this.fix = data.getFloat("fix");
         this.readColor(data, "color", this.color, Colors.WHITE);
         this.readColor(data, "paint_color", this.paintColor, 0x00FFFFFF);
-        int glowArgb = data.getInt("glowing_color", 0xFFFFFF);
-
-        this.glowingColor.set(glowArgb);
+        this.readColor(data, "glowing_color", this.glowingColor, 0xFFFFFFFF);
         this.glowingColor.a = 1F;
 
         if (data.has("glow_intensity"))
         {
             this.glowIntensity = data.getFloat("glow_intensity");
         }
-        else
+        else if (data.has("glowing_color") && data.get("glowing_color").isNumeric())
         {
-            Color legacy = new Color().set(glowArgb);
+            /* Legacy packed ARGB used alpha as intensity before glow_intensity existed. */
+            Color legacy = new Color().set(data.get("glowing_color").asNumeric().intValue());
 
             this.glowIntensity = legacy.a;
+        }
+        else
+        {
+            this.glowIntensity = 0F;
         }
 
         this.glowRadius = data.getFloat("glow_radius");

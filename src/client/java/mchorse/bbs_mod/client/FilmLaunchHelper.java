@@ -7,13 +7,13 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 public class FilmLaunchHelper
 {
     public static void launch(CrossWorldFilmEntry entry)
     {
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
         if (WorldLaunchHelper.isCurrentWorld(client, entry.worldFolder))
         {
@@ -53,6 +53,16 @@ public class FilmLaunchHelper
             return;
         }
 
+        MinecraftClient.getInstance().execute(() -> FilmLaunchHelper.openFilmNow(filmId));
+    }
+
+    public static void openFilmNow(String filmId)
+    {
+        if (filmId == null || filmId.trim().isEmpty())
+        {
+            return;
+        }
+
         UIDashboard dashboard = BBSModClient.getDashboard();
 
         UIScreen.open(dashboard);
@@ -70,6 +80,11 @@ public class FilmLaunchHelper
         {
             dashboard.documentTabsBar.closeCrossWorldFilmTabs(filmId);
             dashboard.documentTabsBar.addOrActivate(ContentType.FILMS, filmId);
+        }
+
+        if (panel != null && (panel.getData() == null || !filmId.equals(panel.getData().getId())))
+        {
+            panel.pickData(filmId);
         }
     }
 }

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import mchorse.bbs_mod.bridge.IRenderLayerBridge;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
@@ -12,9 +13,11 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.LabelTextTintQuadCapture;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.FontUtils;
@@ -22,21 +25,26 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -46,14 +54,45 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class LabelFormRenderer extends FormRenderer<LabelForm>
 {
     /**
-     * Minecraft's {@link Font} treats {@code (color & 0xFC000000) == 0} as fully
+     * Minecraft's {@link TextRenderer} treats {@code (color & 0xFC000000) == 0} as fully
      * opaque, so alpha bytes 0–3 become 255. Keep a minimum of 4 when opacity is intended.
      */
     private static final int MIN_TEXT_ALPHA_BYTE = 4;
+    /* Positive offset pushes decorations away from the camera (stable on front, back, and grazing). */
+    private static final float LABEL_DECORATION_POLYGON_FACTOR = 1F;
+    private static final float LABEL_DECORATION_POLYGON_UNITS = 8F;
+    /* Extra gap between wrapped lines so descenders do not touch the next line. */
+    private int resolveWrapLineGap()
+    {
+        return Math.max(0, this.form.wrapLineGap.get());
+    }
+
+    /** Units-only bias — factor 0 avoids Iris wall punch-through on grazing label planes. */
+    private static final float LABEL_COLOR_TINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
+    private static final float LABEL_COLOR_TINT_OFFSET_UNITS = -96F;
+    private static final float LABEL_PAINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
+    private static final float LABEL_PAINT_OFFSET_UNITS = -128F;
+    private static final float LABEL_DEFERRED_PAINT_OFFSET_UNITS = -128F;
+    /* Color/paint overlays: camera-facing local Z (same rule as BillboardFormRenderer). */
+    private static final float FACE_Z_BIAS = 0.0005F;
+    private static final float OVERLAY_FACE_EXTRA = 0.0015F;
+    /* Depth precision falls off with distance — scale overlay bias (FlatPaintOverlayPass). */
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_START = 4F;
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_LINEAR = 0.4F;
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_QUADRATIC = 0.0025F;
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_CAP = 32F;
+    private static final float LABEL_OVERLAY_SEPARATION_LINEAR = 0.0012F;
+    private static final float LABEL_OVERLAY_SEPARATION_QUADRATIC = 0.00001F;
+    private static final float LABEL_OVERLAY_SEPARATION_MAX = 2F;
+    private static final float LABEL_BASE_FILL_PULLBACK = 0.4F;
+    private static final float LABEL_OVERLAY_OFFSET_UNITS_CAP = -4096F;
+    private static final Vector3f OVERLAY_TO_CAMERA = new Vector3f();
+    private static final Vector3f OVERLAY_LOCAL_Z = new Vector3f();
 
     private float nametagAlpha = 1F;
     private int lastBoundTextTexture;
@@ -61,22 +100,28 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private final LabelTextTintQuadCapture tintCapture = new LabelTextTintQuadCapture();
     private final Matrix4f identityMatrix = new Matrix4f();
 
-    public static void fillQuad(BufferBuilder builder, PoseStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4, float r, float g, float b, float a)
+    public static void fillQuad(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4, float r, float g, float b, float a)
     {
-        Matrix4f matrix4f = stack.last().pose();
+        Matrix4f matrix4f = stack.peek().getPositionMatrix();
 
         /* 1 - BR, 2 - BL, 3 - TL, 4 - TR */
-        builder.addVertex(matrix4f, x1, y1, z1).setColor(r, g, b, a);
-        builder.addVertex(matrix4f, x2, y2, z2).setColor(r, g, b, a);
-        builder.addVertex(matrix4f, x3, y3, z3).setColor(r, g, b, a);
-        builder.addVertex(matrix4f, x1, y1, z1).setColor(r, g, b, a);
-        builder.addVertex(matrix4f, x3, y3, z3).setColor(r, g, b, a);
-        builder.addVertex(matrix4f, x4, y4, z4).setColor(r, g, b, a);
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix4f, x2, y2, z2).color(r, g, b, a);
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a);
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a);
+        builder.vertex(matrix4f, x4, y4, z4).color(r, g, b, a);
     }
 
     public LabelFormRenderer(LabelForm form)
     {
         super(form);
+    }
+
+    @Override
+    public boolean is3D()
+    {
+        return false;
     }
 
     @Override
@@ -126,9 +171,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             int glowArgb = toSafeTextArgb(glowColor);
             int glowY = (y2 + y1) / 2 - h / 2;
 
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-            // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+            BBSRendering.enableBlend();
+            BBSRendering.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+            BBSRendering.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
             for (String s : wrap)
             {
@@ -137,136 +182,269 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 glowY += lineHeight;
             }
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            BBSRendering.defaultBlendFunc();
         }
     }
 
     @Override
     public void render3D(FormRenderingContext context)
     {
-        context.stack.pushPose();
+        Color contextColor = new Color().set(context.color, true);
+        Color formColor = this.form.color.get();
+        float alpha = contextColor.a * (formColor != null ? formColor.a : 1F);
 
-        if (this.form.billboard.get())
+        if (alpha <= 0.001F)
         {
-            Matrix4f modelMatrix = context.stack.last().pose();
-            Vector3f scale = new Vector3f();
+            return;
+        }
 
-            modelMatrix.getScale(scale);
+        context.stack.push();
 
-            modelMatrix.m00(1).m01(0).m02(0);
-            modelMatrix.m10(0).m11(1).m12(0);
-            modelMatrix.m20(0).m21(0).m22(1);
+        try
+        {
+            BBSRendering.forceDisableCull(true);
 
-            if (!context.modelRenderer && !context.isPicking())
+            if (this.form.billboard.get())
             {
-                modelMatrix.mul(context.camera.view);
+                Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
+                Vector3f scale = new Vector3f();
+
+                modelMatrix.getScale(scale);
+
+                modelMatrix.m00(1).m01(0).m02(0);
+                modelMatrix.m10(0).m11(1).m12(0);
+                modelMatrix.m20(0).m21(0).m22(1);
+
+                if (!context.modelRenderer && !context.isPicking())
+                {
+                    modelMatrix.mul(context.camera.view);
+                }
+
+                modelMatrix.scale(scale);
+
+                context.stack.peek().getNormalMatrix().identity();
+                context.stack.peek().getNormalMatrix().scale(
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
+                );
             }
 
-            modelMatrix.scale(scale);
+            TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+            float fontSize = this.form.fontSize.get();
+            float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
+            int light = context.light;
 
-            context.stack.last().normal().identity();
-            context.stack.last().normal().scale(
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
-            );
-        }
+            this.nametagAlpha = 1F;
 
-        Font renderer = Minecraft.getInstance().font;
-        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        float fontSize = this.form.fontSize.get();
-        float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
-        int light = context.light;
+            boolean shadowPass = this.isShadowPass(context);
 
-        this.nametagAlpha = 1F;
-
-        if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
-        {
-            context.stack.translate(0F, -0.5F, 0F);
-            this.nametagAlpha = 0.125F;
-        }
-
-        MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
-
-        GlStateManager._disableCull();
-
-        if (context.isPicking())
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            if (shadowPass)
             {
-                /* startDrawing may re-enable culling; keep both sides of the label visible. */
-                GlStateManager._disableCull();
-                // this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                // RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
-            });
+                BBSRendering.enableDepthTest();
+                BBSRendering.depthMask(true);
+            }
 
-            light = 0;
-        }
-        else
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
             {
-                GlStateManager._disableCull();
-                GlStateManager._enableBlend();
-                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-            });
-        }
+                context.stack.translate(0F, -0.5F, 0F);
+                this.nametagAlpha = 0.125F;
+            }
 
-        if (this.form.max.get() <= 10)
+            MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
+
+            BBSRendering.disableCull();
+
+            if (context.isPicking())
+            {
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    /* startDrawing may re-enable culling; keep both sides of the label visible. */
+                    BBSRendering.disableCull();
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    BBSRendering.bindProgram(BBSShaders.getPickerModelsProgram());
+                });
+
+                light = 0;
+            }
+            else
+            {
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    BBSRendering.disableCull();
+                    BBSRendering.enableBlend();
+                    BBSRendering.defaultBlendFunc();
+                });
+            }
+
+            if (this.form.max.get() <= 0)
+            {
+                this.renderString(context, consumers, renderer, light);
+            }
+            else
+            {
+                this.renderLimitedString(context, consumers, renderer, light);
+            }
+
+            /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
+             * flush so the last label keeps both faces when WorldRenderer draws later. */
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) -> BBSRendering.disableCull());
+            this.flushLabelConsumers(consumers);
+
+            CustomVertexConsumerProvider.clearRunnables();
+            BBSRendering.defaultBlendFunc();
+
+            BBSRendering.enableDepthTest();
+        }
+        finally
         {
-            this.renderString(context, consumers, renderer, light);
+            BBSRendering.forceDisableCull(false);
+            BBSRendering.enableCull();
+            context.stack.pop();
         }
-        else
-        {
-            this.renderLimitedString(context, consumers, renderer, light);
-        }
-
-        /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
-         * flush so the last label keeps both faces when WorldRenderer draws later. */
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> GlStateManager._disableCull());
-        this.flushLabelConsumers(consumers);
-
-        CustomVertexConsumerProvider.clearRunnables();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-
-        GlStateManager._enableDepthTest();
-        GlStateManager._enableCull();
-
-        context.stack.popPose();
     }
 
     /**
-     * Text {@link RenderType}s restore GL culling in
+     * Text {@link RenderLayer}s restore GL culling in
      * {@code startDrawing}. Labels use a negative Y scale (flipped winding), so both faces
      * must stay unculled at flush time or the back of the last drawn label disappears.
      */
     private void flushLabelConsumers(CustomVertexConsumerProvider consumers)
     {
-        GlStateManager._disableCull();
+        BBSRendering.disableCull();
         consumers.draw();
+    }
+
+    private Consumer<RenderLayer> createLabelBaseHijack(FormRenderingContext context)
+    {
+        if (context.isPicking())
+        {
+            return (layer) ->
+            {
+                BBSRendering.disableCull();
+                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                BBSRendering.bindProgram(BBSShaders.getPickerModelsProgram());
+            };
+        }
+
+        return (layer) ->
+        {
+            BBSRendering.disableCull();
+            BBSRendering.enableBlend();
+            BBSRendering.defaultBlendFunc();
+
+            if (this.isShadowPass(context))
+            {
+                ShaderOpacityPatch.uploadShadowFormUniform();
+            }
+        };
+    }
+
+    private boolean isShadowPass(FormRenderingContext context)
+    {
+        return context.isShadowPass || BBSRendering.isIrisShadowPass();
+    }
+
+    /**
+     * Outline/shadow: depth write on + polygon offset away from the camera (not local ±Z).
+     * Local/view normal sign flips at grazing angles and put the outline in front of the fill.
+     */
+    private void beginLabelDecorationDepthPass(Consumer<RenderLayer> baseHijack)
+    {
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthMask(true);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(LABEL_DECORATION_POLYGON_FACTOR, LABEL_DECORATION_POLYGON_UNITS);
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            baseHijack.accept(layer);
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthMask(true);
+            GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            GL11.glPolygonOffset(LABEL_DECORATION_POLYGON_FACTOR, LABEL_DECORATION_POLYGON_UNITS);
+        });
+    }
+
+    /**
+     * Fill glyphs at true depth (no polygon offset) so they composite over decorations.
+     */
+    private void beginLabelFillDepthPass(Consumer<RenderLayer> baseHijack)
+    {
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthMask(true);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            baseHijack.accept(layer);
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthMask(true);
+            GL11.glPolygonOffset(0F, 0F);
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        });
+    }
+
+    private void restoreLabelPolygonOffset(boolean wasEnabled)
+    {
+        GL11.glPolygonOffset(0F, 0F);
+
+        if (wasEnabled)
+        {
+            GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        }
+        else
+        {
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        }
     }
 
     private String applyStyles(String content)
     {
         StringBuilder prefix = new StringBuilder();
-        if (this.form.fontWeight.get() >= 700) prefix.append("\u00A7l");
-        if (this.form.fontStyle.get() >= 1) prefix.append("\u00A7o");
-        if (this.form.underline.get()) prefix.append("\u00A7n");
-        if (this.form.strikethrough.get()) prefix.append("\u00A7m");
-        
+
+        if (this.form.fontWeight.get() >= 700)
+        {
+            prefix.append("\u00A7l");
+        }
+
+        if (this.form.fontStyle.get() >= 1)
+        {
+            prefix.append("\u00A7o");
+        }
+
+        if (this.form.underline.get())
+        {
+            prefix.append("\u00A7n");
+        }
+
+        if (this.form.strikethrough.get())
+        {
+            prefix.append("\u00A7m");
+        }
+
         return prefix.toString() + content;
     }
 
-    private void renderTextShadow(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, Color shadowColor)
+    private int resolveLabelLight(int light)
+    {
+        if (this.form.noshadingOpacity.get())
+        {
+            return LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        }
+
+        return light;
+    }
+
+    private void renderTextShadow(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, Color shadowColor)
     {
         if (isFullyTransparent(shadowColor))
         {
             return;
         }
 
-        context.stack.pushPose();
-        context.stack.translate(0F, 0F, -0.05F);
+        context.stack.push();
 
         float sx = this.form.shadowX.get();
         float sy = this.form.shadowY.get();
@@ -290,108 +468,127 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             this.drawSimpleText(context, consumers, renderer, customFont, content, x + sx, y + sy, letterSpacing, light, toSafeTextArgb(shadowColor));
         }
 
-        context.stack.popPose();
+        context.stack.pop();
     }
 
-    private void drawSimpleText(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, int color)
+    private void drawSimpleText(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, int color)
     {
+        int resolvedLight = this.resolveLabelLight(light);
+
         if (customFont != null)
         {
-            customFont.draw(content, x, y, color, color, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
+            customFont.draw(content, x, y, color, color, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, resolvedLight);
         }
         else
         {
-            renderer.drawInBatch(
+            renderer.draw(
                 content,
                 x,
                 y,
                 color, false,
-                context.stack.last().pose(),
+                context.stack.peek().getPositionMatrix(),
                 consumers,
-                Font.DisplayMode.NORMAL,
+                TextRenderer.TextLayerType.NORMAL,
                 0,
-                light
+                resolvedLight
             );
         }
     }
 
-    private void renderTextGlowOverlay(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, int textColor)
+    private void submitOrRenderLabelGlowOverlay(FormRenderingContext context, float x, float y, float w, float h, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, EffectTransform glowTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads)
     {
-        if (context.isPicking() || glowIntensity <= 0F)
+        if (glowIntensity <= 0F || glowSettings.resolvePaintOnly() || quads == null || quads.isEmpty())
         {
             return;
         }
 
-        context.stack.pushPose();
-        context.stack.translate(0F, 0F, 0.002F);
+        LabelOverlayLayout layout = this.resolveLabelOverlayLayout(x, y, w, h, quads);
+        GlowSettings glowSnapshot = glowSettings.copy();
+        Color legacyGlowSnapshot = legacyGlow == null ? null : legacyGlow.copy();
+        EffectTransform transformSnapshot = glowTransform == null ? null : glowTransform.copy();
+        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
+        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        Matrix4f rootMatrix = this.captureLabelOverlayRootMatrix(context, layout.centerX, layout.centerY);
 
-        CustomVertexConsumerProvider.clearRunnables();
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        if (defer)
         {
-            GlStateManager._disableCull();
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-        });
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
+
+            ModelVAORenderer.submitPaintOverlay(false, () ->
+            {
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                this.renderLabelGlowOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, glowSnapshot, legacyGlowSnapshot, glowIntensity, alpha, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, LabelFormRenderer.LABEL_DEFERRED_PAINT_OFFSET_UNITS);
+            });
+        }
+        else
+        {
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(rootMatrix);
+            this.renderLabelGlowOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, glowSnapshot, legacyGlowSnapshot, glowIntensity, alpha, transformSnapshot, quadSnapshot, LabelFormRenderer.LABEL_PAINT_OFFSET_FACTOR, LabelFormRenderer.LABEL_PAINT_OFFSET_UNITS);
+        }
+    }
+
+    private void renderLabelGlowOverlay(MatrixStack stack, float centerX, float centerY, float halfX, float halfY, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, EffectTransform glowTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads, float polygonOffsetFactor, float polygonOffsetUnits)
+    {
+        Matrix4f glowMatrix = stack.peek().getPositionMatrix();
+        MatrixStack.Entry entry = stack.peek();
+        Matrix4f formRootInverse = new Matrix4f(glowMatrix).invert();
 
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-        int maxLight = LightTexture.FULL_BRIGHT;
-        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-        GlStateManager._depthMask(false);
-        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        GL11.glPolygonOffset(-1F, -1F);
-        // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        EffectTransformMath.resolveBillboardMaskHalfExtents(glowTransform, this.maskHalfExtents, halfX, halfY);
 
-        try
+        Map<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
+
+        for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
         {
-            consumers.setSubstitute(BBSRendering.getTextGlowOverlayConsumer(glowColor));
-
-            if (customFont != null)
-            {
-                customFont.draw(content, x, y, textColor, textColor, letterSpacing, 0F, context.stack.last().pose(), consumers, maxLight);
-            }
-            else
-            {
-                renderer.drawInBatch(
-                    content,
-                    x,
-                    y,
-                    textColor,
-                    false,
-                    context.stack.last().pose(),
-                    consumers,
-                    Font.DisplayMode.NORMAL,
-                    0,
-                    maxLight
-                );
-            }
-
-            this.flushLabelConsumers(consumers);
-        }
-        finally
-        {
-            consumers.setSubstitute(null);
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            GL11.glPolygonOffset(0F, 0F);
-
-            if (!savedPolygonOffsetFill)
-            {
-                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
-            }
-
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-            CustomVertexConsumerProvider.clearRunnables();
+            byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
         }
 
-        context.stack.popPose();
+        float offsetUnits = this.resolveLabelOverlayOffsetUnits(glowMatrix, polygonOffsetUnits);
+
+        FlatGlowOverlayPass.renderMasked(polygonOffsetFactor, offsetUnits, formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale, () ->
+        {
+            int glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
+            float glowZ = this.resolveOverlayFaceZ(glowMatrix);
+            float glowNz = glowZ >= 0F ? 1F : -1F;
+
+            BBSRendering.disableCull();
+
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            {
+                this.bindTextLayerTexture(layerEntry.getKey());
+                BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale);
+                GlStateManager._bindTexture(this.lastBoundTextTexture);
+
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
+                {
+                    this.fillLabelPaint(builder, glowMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, glowZ, quad.u0, quad.v0, overlay, glowLight, glowNz, glowColor);
+                    this.fillLabelPaint(builder, glowMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, glowZ, quad.u1, quad.v1, overlay, glowLight, glowNz, glowColor);
+                    this.fillLabelPaint(builder, glowMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, glowZ, quad.u2, quad.v2, overlay, glowLight, glowNz, glowColor);
+
+                    this.fillLabelPaint(builder, glowMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, glowZ, quad.u0, quad.v0, overlay, glowLight, glowNz, glowColor);
+                    this.fillLabelPaint(builder, glowMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, glowZ, quad.u2, quad.v2, overlay, glowLight, glowNz, glowColor);
+                    this.fillLabelPaint(builder, glowMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, glowZ, quad.u3, quad.v3, overlay, glowLight, glowNz, glowColor);
+                }
+
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+            }
+
+            BBSRendering.enableCull();
+        });
     }
 
-    private void renderString(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, int light)
+
+
+    private void renderString(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light)
     {
         String content = applyStyles(StringUtils.processColoredText(this.form.text.get()));
         String fontName = this.form.font.get();
@@ -408,8 +605,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         float transition = context.getTransition();
         float letterSpacing = this.form.letterSpacing.get();
-        int w = customFont != null ? customFont.getWidth(content, letterSpacing) : renderer.width(content) - 1;
-        int h = customFont != null ? customFont.getHeight() : renderer.lineHeight - 2;
+        int w = customFont != null ? customFont.getWidth(content, letterSpacing) : renderer.getWidth(content) - 1;
+        int h = customFont != null ? customFont.getHeight() : renderer.fontHeight - 2;
         int x = (int) (-w * this.form.anchorX.get());
         int y = (int) (-h * this.form.anchorY.get());
 
@@ -435,19 +632,26 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             this.form.applyFormOpacity(color);
             /* Keep base + FlatColorTint opacity in sync (context alpha used to hit only the tint). */
             color.a *= contextColor.a;
-            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            formTintColor = storedFormColor.copyBakingColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
             formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
         {
-            color.mul(storedFormColor);
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
-        FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+        boolean positivePaint = !context.isPicking() && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        boolean shadowPass = this.isShadowPass(context);
 
-        if (glowIntensity < 0F)
+        if (!shadowPass && !context.isPicking() && (!colorTransformWanted || paintStrength < 0F))
+        {
+            FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        }
+
+        if (!shadowPass && !context.isPicking() && glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
@@ -466,73 +670,139 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (isFullyTransparent(color) && !context.isPicking())
         {
-            this.renderShadow(context, x, y, w, h);
+            if (!shadowPass)
+            {
+                this.renderShadow(context, x, y, w, h);
+            }
 
             return;
         }
 
-        this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
+        boolean hasShadow = !shadowPass && !isFullyTransparent(shadowColor);
+        boolean hasOutline = !shadowPass && this.form.outline.get() && !isFullyTransparent(color);
+        Consumer<RenderLayer> baseHijack = this.createLabelBaseHijack(context);
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
-        if (this.form.outline.get() && !isFullyTransparent(color))
+        try
         {
-            Color outlineColor = this.form.outlineColor.get().copy();
-            outlineColor.a *= formOpacity;
-            int oc = toSafeTextArgb(outlineColor);
-            float ow = this.form.outlineWidth.get();
-
-            context.stack.pushPose();
-            context.stack.translate(0, 0, -0.025F);
-
-            if (customFont != null)
+            /* Decorations: same plane + polygon offset away from camera (no local-Z sign flip),
+             * flush, then fill at true depth. Rim still writes depth for translucents. */
+            if (hasShadow || hasOutline)
             {
-                customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
-                customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
-                customFont.draw(content, x, y - ow, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
-                customFont.draw(content, x, y + ow, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
+                this.beginLabelDecorationDepthPass(baseHijack);
+
+                if (hasShadow)
+                {
+                    this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
+                }
+
+                if (hasOutline)
+                {
+                    Color outlineColor = this.form.outlineColor.get().copy();
+                    outlineColor.a *= formOpacity;
+                    int oc = toSafeTextArgb(outlineColor);
+                    float ow = this.form.outlineWidth.get();
+
+                    if (customFont != null)
+                    {
+                        customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                        customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                        customFont.draw(content, x, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                        customFont.draw(content, x, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                    }
+                    else
+                    {
+                        renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                        renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                        renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                        renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                    }
+                }
+
+                this.flushLabelConsumers(consumers);
             }
-            else
+
+            this.beginLabelFillDepthPass(baseHijack);
+
+            Color gradientEnd = null;
+
+            if (this.form.gradient.get() && !colorTransformWanted)
             {
-                renderer.drawInBatch(content, x - ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
-                renderer.drawInBatch(content, x + ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
-                renderer.drawInBatch(content, x, y - ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
-                renderer.drawInBatch(content, x, y + ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
+                gradientEnd = this.form.gradientEndColor.get().copy();
+                gradientEnd.a *= formOpacity;
+                gradientEnd.mul(context.color);
             }
 
-            context.stack.popPose();
+            float baseFillZ = colorTransformWanted ? this.resolveBaseFillFaceZ(context.stack.peek().getPositionMatrix()) : 0F;
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.push();
+                context.stack.translate(0F, 0F, baseFillZ);
+            }
+
+            int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.pop();
+            }
+
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthMask(true);
+            this.flushLabelConsumers(consumers);
+
+            List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
+
+            if (!shadowPass && !context.isPicking())
+            {
+                boolean hasPositiveGlow = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+                EffectTransform glowTransform = hasPositiveGlow ? FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow) : null;
+                boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+                boolean needsGlyphs = formTintColor != null || (colorTransformWanted && positivePaint) || hasPositiveGlow;
+
+                if (needsGlyphs)
+                {
+                    this.tintCapture.clear();
+                    this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
+                    overlayQuads = this.tintCapture.snapshot();
+                }
+
+                if (formTintColor != null && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, overlayQuads);
+                }
+
+                if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+
+                    resolvedPaint.a *= formOpacity;
+                    EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
+                    this.submitOrRenderLabelPaintOverlay(context, x, y, w, h, resolvedPaint, paintTransform, overlayQuads);
+                }
+
+                if (hasPositiveGlow && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    this.submitOrRenderLabelGlowOverlay(context, x, y, w, h, glowSettings, legacyGlow, glowIntensity, color.a, hasGlowTransform ? glowTransform : null, overlayQuads);
+                }
+
+                this.renderShadow(context, x, y, w, h);
+            }
         }
-
-        Color gradientEnd = null;
-
-        if (this.form.gradient.get() && !colorTransformWanted)
+        finally
         {
-            gradientEnd = this.form.gradientEndColor.get().copy();
-            gradientEnd.a *= formOpacity;
-            gradientEnd.mul(context.color);
+            BBSRendering.depthMask(savedDepthMask);
+            this.restoreLabelPolygonOffset(savedPolygonOffsetFill);
         }
-
-        int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
-
-        GlStateManager._enableDepthTest();
-
-        this.flushLabelConsumers(consumers);
-
-        if (formTintColor != null)
-        {
-            this.tintCapture.clear();
-            this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
-            this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, this.tintCapture.snapshot());
-        }
-
-        this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
-
-        this.renderShadow(context, x, y, w, h);
     }
 
-    private void renderLimitedString(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, int light)
+    private void renderLimitedString(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light)
     {
         float transition = context.getTransition();
         int w = 0;
-        int h = renderer.lineHeight - 2;
+        int h = renderer.fontHeight - 2;
         String content = applyStyles(StringUtils.processColoredText(this.form.text.get()));
         
         String fontName = this.form.font.get();
@@ -572,13 +842,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         for (String line : lines)
         {
-            int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.width(line) - 1;
+            int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
             w = Math.max(lw, w);
         }
 
-        int fh = customFont != null ? customFont.getHeight() : renderer.lineHeight;
-        int lineHeight = (int) (fh + this.form.lineHeight.get());
-        int totalHeight = (lines.size() - 1) * lineHeight + fh - 2;
+        int fh = customFont != null ? customFont.getHeight() : renderer.fontHeight - 2;
+        int lineStep = fh + this.form.lineHeight.get().intValue() + this.resolveWrapLineGap();
+        int totalHeight = (lines.size() - 1) * lineStep + fh;
 
         float anchorX = this.form.anchorX.get();
         int x = (int) (-w * anchorX);
@@ -588,6 +858,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         GlowSettings glowSettings = this.form.glowSettings.get();
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+        PaintSettings paintSettings = this.form.paintSettings.get();
+        Color legacyPaint = this.form.paintColor.get();
         Color shadowColor = this.form.shadowColor.get().copy();
         Color storedFormColor = this.form.color.get();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
@@ -603,17 +875,26 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.b = 1F;
             this.form.applyFormOpacity(color);
             color.a *= contextColor.a;
-            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            formTintColor = storedFormColor.copyBakingColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
             formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
         {
-            color.mul(storedFormColor);
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
-        if (glowIntensity < 0F)
+        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+        boolean positivePaint = !context.isPicking() && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        boolean shadowPass = this.isShadowPass(context);
+
+        if (!shadowPass && !context.isPicking() && (!colorTransformWanted || paintStrength < 0F))
+        {
+            FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        }
+
+        if (!shadowPass && !context.isPicking() && glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
@@ -632,7 +913,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (isFullyTransparent(color) && !context.isPicking())
         {
-            this.renderShadow(context, x, shadowY, w, totalHeight);
+            if (!this.isShadowPass(context))
+            {
+                this.renderShadow(context, x, shadowY, w, totalHeight);
+            }
 
             return;
         }
@@ -652,105 +936,165 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         this.tintCapture.clear();
 
-        for (String line : lines)
+        boolean hasShadow = !shadowPass && !isFullyTransparent(shadowColor);
+        boolean hasOutline = !shadowPass && this.form.outline.get() && !isFullyTransparent(color);
+        Consumer<RenderLayer> baseHijack = this.createLabelBaseHijack(context);
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+
+        try
         {
-            int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.width(line) - 1;
-            int lx = x;
-
-            if (anchorLines)
+            if (hasShadow || hasOutline)
             {
-                lx = (int) (-lw * anchorX);
-            }
-            else if (align == 1)
-            {
-                lx = x + (w - lw) / 2;
-            }
-            else if (align == 2)
-            {
-                lx = x + (w - lw);
-            }
+                this.beginLabelDecorationDepthPass(baseHijack);
 
-            this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
+                int outlineY = shadowY;
 
-            if (this.form.outline.get())
-            {
-                Color outlineColor = this.form.outlineColor.get().copy();
-                outlineColor.a *= formOpacity;
-                int oc = toSafeTextArgb(outlineColor);
-                float ow = this.form.outlineWidth.get();
-
-                context.stack.pushPose();
-                context.stack.translate(0, 0, -0.025F);
-
-                if (customFont != null)
+                for (String line : lines)
                 {
-                    customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
-                    customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
-                    customFont.draw(line, lx, y - ow, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
-                    customFont.draw(line, lx, y + ow, oc, oc, letterSpacing, 0F, context.stack.last().pose(), consumers, light);
+                    int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
+                    int lx = x;
+
+                    if (anchorLines)
+                    {
+                        lx = (int) (-lw * anchorX);
+                    }
+                    else if (align == 1)
+                    {
+                        lx = x + (w - lw) / 2;
+                    }
+                    else if (align == 2)
+                    {
+                        lx = x + (w - lw);
+                    }
+
+                    if (hasShadow)
+                    {
+                        this.renderTextShadow(context, consumers, renderer, customFont, line, lx, outlineY, letterSpacing, light, shadowColor);
+                    }
+
+                    if (hasOutline)
+                    {
+                        Color outlineColor = this.form.outlineColor.get().copy();
+                        outlineColor.a *= formOpacity;
+                        int oc = toSafeTextArgb(outlineColor);
+                        float ow = this.form.outlineWidth.get();
+
+                        if (customFont != null)
+                        {
+                            customFont.draw(line, lx - ow, outlineY, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx + ow, outlineY, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx, outlineY - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx, outlineY + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                        }
+                        else
+                        {
+                            renderer.draw(line, lx - ow, outlineY, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx + ow, outlineY, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx, outlineY - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx, outlineY + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                        }
+                    }
+
+                    outlineY += lineStep;
                 }
-                else
+
+                this.flushLabelConsumers(consumers);
+            }
+
+            this.beginLabelFillDepthPass(baseHijack);
+
+            y = shadowY;
+            int textArgbFill = 0;
+
+            float baseFillZ = colorTransformWanted ? this.resolveBaseFillFaceZ(context.stack.peek().getPositionMatrix()) : 0F;
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.push();
+                context.stack.translate(0F, 0F, baseFillZ);
+            }
+
+            for (String line : lines)
+            {
+                int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
+                int lx = x;
+
+                if (anchorLines)
                 {
-                    renderer.drawInBatch(line, lx - ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
-                    renderer.drawInBatch(line, lx + ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
-                    renderer.drawInBatch(line, lx, y - ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
-                    renderer.drawInBatch(line, lx, y + ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, light);
+                    lx = (int) (-lw * anchorX);
                 }
-                context.stack.popPose();
+                else if (align == 1)
+                {
+                    lx = x + (w - lw) / 2;
+                }
+                else if (align == 2)
+                {
+                    lx = x + (w - lw);
+                }
+
+                textArgbFill = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
+
+                boolean hasPositiveGlow = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+
+                if (!shadowPass && !context.isPicking() && (formTintColor != null || (colorTransformWanted && positivePaint) || hasPositiveGlow))
+                {
+                    this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
+                }
+
+                y += lineStep;
             }
 
-            textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
-
-            if (formTintColor != null)
+            if (baseFillZ != 0F)
             {
-                this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
+                context.stack.pop();
             }
 
-            y += lineHeight;
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthMask(true);
+            this.flushLabelConsumers(consumers);
+
+            if (!shadowPass && !context.isPicking())
+            {
+                List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = this.tintCapture.snapshot();
+                boolean hasPositiveGlow = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+                EffectTransform glowTransform = hasPositiveGlow ? FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow) : null;
+                boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                if (formTintColor != null && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, overlayQuads);
+                }
+
+                if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+
+                    resolvedPaint.a *= formOpacity;
+                    EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
+                    this.submitOrRenderLabelPaintOverlay(context, x, shadowY, w, totalHeight, resolvedPaint, paintTransform, overlayQuads);
+                }
+
+                if (hasPositiveGlow && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    this.submitOrRenderLabelGlowOverlay(context, x, shadowY, w, totalHeight, glowSettings, legacyGlow, glowIntensity, color.a, hasGlowTransform ? glowTransform : null, overlayQuads);
+                }
+
+                this.renderShadow(context, x, shadowY, w, totalHeight);
+            }
         }
-
-        GlStateManager._enableDepthTest();
-
-        this.flushLabelConsumers(consumers);
-
-        if (formTintColor != null)
+        finally
         {
-            this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, this.tintCapture.snapshot());
+            BBSRendering.depthMask(savedDepthMask);
+            this.restoreLabelPolygonOffset(savedPolygonOffsetFill);
         }
-
-        y = shadowY;
-
-        for (String line : lines)
-        {
-            int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.width(line) - 1;
-            int lx = x;
-
-            if (anchorLines)
-            {
-                lx = (int) (-lw * anchorX);
-            }
-            else if (align == 1)
-            {
-                lx = x + (w - lw) / 2;
-            }
-            else if (align == 2)
-            {
-                lx = x + (w - lw);
-            }
-
-            this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
-
-            y += lineHeight;
-        }
-
-        this.renderShadow(context, x, shadowY, w, totalHeight);
     }
 
     /**
      * Draws label glyphs with a flat vertex color (no spatial mask bake). Color transform is
      * applied afterward via FlatColorTint on captured glyph quads.
      */
-    private int drawLabelContent(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, TextureFont customFont, String content, float drawX, float drawY, float letterSpacing, int light, Color color, Color gradientEnd)
+    private int drawLabelContent(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float drawX, float drawY, float letterSpacing, int light, Color color, Color gradientEnd)
     {
         int c1 = toSafeTextArgb(color);
         int c2 = c1;
@@ -762,27 +1106,27 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (customFont != null)
         {
-            customFont.draw(content, drawX, drawY, c1, c2, letterSpacing, 0F, context.stack.last().pose(), consumers, light, this.form.gradientOffset.get());
+            customFont.draw(content, drawX, drawY, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light), this.form.gradientOffset.get());
         }
         else
         {
-            renderer.drawInBatch(
+            renderer.draw(
                 content,
                 drawX,
                 drawY,
                 c1, false,
-                context.stack.last().pose(),
+                context.stack.peek().getPositionMatrix(),
                 consumers,
-                Font.DisplayMode.NORMAL,
+                TextRenderer.TextLayerType.NORMAL,
                 0,
-                light
+                this.resolveLabelLight(light)
             );
         }
 
         return c1;
     }
 
-    private void captureLabelGlyphs(LabelTextTintQuadCapture capture, Font renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light)
+    private void captureLabelGlyphs(LabelTextTintQuadCapture capture, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light)
     {
         int opaqueWhite = 0xFFFFFFFF;
 
@@ -790,11 +1134,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (customFont != null)
         {
-            customFont.draw(content, x, y, opaqueWhite, opaqueWhite, letterSpacing, 0F, this.identityMatrix, capture, light);
+            customFont.draw(content, x, y, opaqueWhite, opaqueWhite, letterSpacing, 0F, this.identityMatrix, capture, this.resolveLabelLight(light));
         }
         else
         {
-            renderer.drawInBatch(content, x, y, opaqueWhite, false, this.identityMatrix, capture, Font.DisplayMode.NORMAL, 0, light);
+            renderer.draw(content, x, y, opaqueWhite, false, this.identityMatrix, capture, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
         }
     }
 
@@ -805,6 +1149,83 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
+        LabelOverlayLayout layout = this.resolveLabelOverlayLayout(x, y, w, h, quads);
+        Color tintSnapshot = formTintColor.copy();
+        EffectTransform transformSnapshot = colorTransform == null ? null : colorTransform.copy();
+        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
+        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        Matrix4f rootMatrix = this.captureLabelOverlayRootMatrix(context, layout.centerX, layout.centerY);
+
+        if (defer)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
+
+            ModelVAORenderer.submitColorTintOverlay(() ->
+            {
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                this.renderLabelColorTintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
+            });
+        }
+        else
+        {
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(rootMatrix);
+            this.renderLabelColorTintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, tintSnapshot, transformSnapshot, quadSnapshot, LabelFormRenderer.LABEL_COLOR_TINT_OFFSET_FACTOR, LabelFormRenderer.LABEL_COLOR_TINT_OFFSET_UNITS);
+        }
+    }
+
+    private void submitOrRenderLabelPaintOverlay(FormRenderingContext context, float x, float y, float w, float h, Color resolvedPaint, EffectTransform paintTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads)
+    {
+        if (resolvedPaint == null || resolvedPaint.a <= 0.001F || quads == null || quads.isEmpty())
+        {
+            return;
+        }
+
+        LabelOverlayLayout layout = this.resolveLabelOverlayLayout(x, y, w, h, quads);
+        Color paintSnapshot = resolvedPaint.copy();
+        EffectTransform transformSnapshot = paintTransform == null ? null : paintTransform.copy();
+        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
+        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        Matrix4f rootMatrix = this.captureLabelOverlayRootMatrix(context, layout.centerX, layout.centerY);
+
+        if (defer)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
+
+            ModelVAORenderer.submitPaintOverlay(false, () ->
+            {
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                this.renderLabelPaintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, paintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, LabelFormRenderer.LABEL_DEFERRED_PAINT_OFFSET_UNITS);
+            });
+        }
+        else
+        {
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(rootMatrix);
+            this.renderLabelPaintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, paintSnapshot, transformSnapshot, quadSnapshot, LabelFormRenderer.LABEL_PAINT_OFFSET_FACTOR, LabelFormRenderer.LABEL_PAINT_OFFSET_UNITS);
+        }
+    }
+
+    private Matrix4f captureLabelOverlayRootMatrix(FormRenderingContext context, float centerX, float centerY)
+    {
+        context.stack.push();
+        context.stack.translate(centerX, centerY, 0F);
+
+        Matrix4f rootMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+
+        context.stack.pop();
+
+        return rootMatrix;
+    }
+
+    private LabelOverlayLayout resolveLabelOverlayLayout(float x, float y, float w, float h, List<LabelTextTintQuadCapture.GlyphQuad> quads)
+    {
         /* Glyph AABB can extend past layout metrics (descenders, bearings). Keep the mask
          * origin on the label layout center (same as the form gizmo), and grow half extents
          * so every captured glyph stays inside. */
@@ -832,67 +1253,45 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             resolvedHalfY = Math.max(resolvedHalfY, Math.max(Math.abs(maxY - centerY), Math.abs(minY - centerY)));
         }
 
-        final float halfX = Math.max(resolvedHalfX, 0.001F);
-        final float halfY = Math.max(resolvedHalfY, 0.001F);
+        LabelOverlayLayout layout = new LabelOverlayLayout();
 
-        Color tintSnapshot = formTintColor.copy();
-        EffectTransform transformSnapshot = colorTransform == null ? null : colorTransform.copy();
-        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
-        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        layout.centerX = centerX;
+        layout.centerY = centerY;
+        layout.halfX = Math.max(resolvedHalfX, 0.001F);
+        layout.halfY = Math.max(resolvedHalfY, 0.001F);
 
-        context.stack.pushPose();
-        context.stack.translate(centerX, centerY, 0.001F);
-
-        Matrix4f rootMatrix = new Matrix4f(context.stack.last().pose());
-
-        context.stack.popPose();
-
-        if (defer)
-        {
-            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
-
-            ModelVAORenderer.submitColorTintOverlay(() ->
-            {
-                MatrixStack overlayStack = new MatrixStack();
-
-                overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                this.renderLabelColorTintOverlay(overlayStack, centerX, centerY, halfX, halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
-            });
-        }
-        else
-        {
-            PoseStack overlayStack = new PoseStack();
-
-            overlayStack.last().pose().set(rootMatrix);
-            this.renderLabelColorTintOverlay(overlayStack, centerX, centerY, halfX, halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
-        }
+        return layout;
     }
 
     /**
      * Billboard-style FlatColorTint on glyph quads. Glyph positions are converted into
      * AABB-centered local space so mask scale/offset match other forms (origin at text center).
      */
-    private void renderLabelColorTintOverlay(PoseStack stack, float centerX, float centerY, float halfX, float halfY, Color formTintColor, EffectTransform colorTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads, float polygonOffsetFactor, float polygonOffsetUnits)
+    private void renderLabelColorTintOverlay(MatrixStack stack, float centerX, float centerY, float halfX, float halfY, Color formTintColor, EffectTransform colorTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads, float polygonOffsetFactor, float polygonOffsetUnits)
     {
-        Matrix4f tintMatrix = stack.last().pose();
-        PoseStack.Pose entry = stack.last();
+        Matrix4f tintMatrix = stack.peek().getPositionMatrix();
+        MatrixStack.Entry entry = stack.peek();
         Matrix4f formRootInverse = new Matrix4f(tintMatrix).invert();
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(colorTransform, this.maskHalfExtents, halfX, halfY);
 
-        Map<RenderType, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
+        Map<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
 
         for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
         {
             byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
         }
 
-        FlatColorTintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor, () ->
+        float offsetUnits = this.resolveLabelOverlayOffsetUnits(tintMatrix, polygonOffsetUnits);
+
+        FlatColorTintOverlayPass.render(polygonOffsetFactor, offsetUnits, formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor, () ->
         {
             int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             int overlay = OverlayTexture.DEFAULT_UV;
+            float tintZ = this.resolveOverlayFaceZ(tintMatrix);
+            float tintNz = tintZ >= 0F ? 1F : -1F;
 
-            GlStateManager._disableCull();
+            BBSRendering.disableCull();
 
             for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
@@ -905,23 +1304,75 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, quad.u1, quad.v1, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, tintZ, quad.u0, quad.v0, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, tintZ, quad.u1, quad.v1, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, tintZ, quad.u2, quad.v2, overlay, tintLight, tintNz);
 
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, quad.u3, quad.v3, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, tintZ, quad.u0, quad.v0, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, tintZ, quad.u2, quad.v2, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, tintZ, quad.u3, quad.v3, overlay, tintLight, tintNz);
                 }
 
-                builder.end().close();
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
-            GlStateManager._enableCull();
+            BBSRendering.enableCull();
         });
     }
 
-    private void bindTextLayerTexture(RenderType layer)
+    private void renderLabelPaintOverlay(MatrixStack stack, float centerX, float centerY, float halfX, float halfY, Color resolvedPaint, EffectTransform paintTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads, float polygonOffsetFactor, float polygonOffsetUnits)
+    {
+        Matrix4f paintMatrix = stack.peek().getPositionMatrix();
+        MatrixStack.Entry entry = stack.peek();
+        Matrix4f formRootInverse = new Matrix4f(paintMatrix).invert();
+
+        EffectTransformMath.resolveBillboardMaskHalfExtents(paintTransform, this.maskHalfExtents, halfX, halfY);
+
+        Map<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
+
+        for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
+        {
+            byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
+        }
+
+        float offsetUnits = this.resolveLabelOverlayOffsetUnits(paintMatrix, polygonOffsetUnits);
+
+        FlatPaintOverlayPass.render(polygonOffsetFactor, offsetUnits, formRootInverse, paintTransform, false, this.maskHalfExtents, () ->
+        {
+            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
+            float paintZ = this.resolveOverlayFaceZ(paintMatrix);
+            float paintNz = paintZ >= 0F ? 1F : -1F;
+
+            BBSRendering.disableCull();
+
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            {
+                this.bindTextLayerTexture(layerEntry.getKey());
+                BlockEffectOverlayUniforms.configureFlatPaintOverlay(formRootInverse, paintTransform, false, this.maskHalfExtents);
+                GlStateManager._bindTexture(this.lastBoundTextTexture);
+
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
+                {
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, paintZ, quad.u0, quad.v0, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, paintZ, quad.u1, quad.v1, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, paintZ, quad.u2, quad.v2, overlay, paintLight, paintNz, resolvedPaint);
+
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, paintZ, quad.u0, quad.v0, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, paintZ, quad.u2, quad.v2, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, paintZ, quad.u3, quad.v3, overlay, paintLight, paintNz, resolvedPaint);
+                }
+
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+            }
+
+            BBSRendering.enableCull();
+        });
+    }
+
+    private void bindTextLayerTexture(RenderLayer layer)
     {
         this.lastBoundTextTexture = 0;
 
@@ -930,14 +1381,95 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        // layer.startDrawing();
-        this.lastBoundTextTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        // layer.endDrawing();
+        if ((Object) layer instanceof IRenderLayerBridge bridge)
+        {
+            this.lastBoundTextTexture = bridge.bbs$getTextureId();
+        }
     }
 
-    private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, PoseStack.Pose entry, float x, float y, float u, float v, int overlay, int light)
+    private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz)
     {
-        builder.addVertex(matrix, x, y, 0F).setColor(1F, 1F, 1F, 1F).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, 0F, 0F, 1F);
+        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+    }
+
+    private void fillLabelPaint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz, Color paintColor)
+    {
+        builder.vertex(matrix, x, y, z).color(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+    }
+
+    /**
+     * Local Z just outside the base face that points toward the camera. Same rule as
+     * {@link BillboardFormRenderer#resolveOverlayFaceZ} — fixed ±Z fails when the label
+     * plane is rotated (e.g. on X); polygon offset alone is not enough at grazing angles.
+     */
+    private float resolveOverlayFaceZ(Matrix4f viewModel)
+    {
+        return this.resolveOverlayPlaneSign(viewModel) * this.resolveLabelOverlaySeparation(viewModel);
+    }
+
+    /**
+     * Base fill sits slightly behind the mid-plane when a color-transform overlay follows,
+     * doubling the effective depth gap without relying on polygon offset alone at distance.
+     */
+    private float resolveBaseFillFaceZ(Matrix4f viewModel)
+    {
+        return -this.resolveOverlayPlaneSign(viewModel) * this.resolveLabelOverlaySeparation(viewModel) * LABEL_BASE_FILL_PULLBACK;
+    }
+
+    private float resolveOverlayPlaneSign(Matrix4f viewModel)
+    {
+        OVERLAY_TO_CAMERA.set(-viewModel.m30(), -viewModel.m31(), -viewModel.m32());
+        OVERLAY_LOCAL_Z.set(viewModel.m20(), viewModel.m21(), viewModel.m22());
+
+        float facing = OVERLAY_LOCAL_Z.dot(OVERLAY_TO_CAMERA);
+
+        return facing >= 0F ? 1F : -1F;
+    }
+
+    private float resolveOverlayViewDistance(Matrix4f viewModel)
+    {
+        float dx = viewModel.m30();
+        float dy = viewModel.m31();
+        float dz = viewModel.m32();
+
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * Camera-facing separation in label plane space. Grows linearly and quadratically with
+     * view distance because perspective depth precision collapses coplanar passes when far.
+     */
+    private float resolveLabelOverlaySeparation(Matrix4f viewModel)
+    {
+        float distance = this.resolveOverlayViewDistance(viewModel);
+        float scale = this.resolveLabelOverlayDistanceScale(viewModel);
+        float separation = (FACE_Z_BIAS + OVERLAY_FACE_EXTRA) * scale;
+
+        separation += distance * LABEL_OVERLAY_SEPARATION_LINEAR;
+        separation += distance * distance * LABEL_OVERLAY_SEPARATION_QUADRATIC;
+
+        return Math.min(separation, LABEL_OVERLAY_SEPARATION_MAX);
+    }
+
+    /**
+     * Extra overlay separation when the label is far from the camera — float depth
+     * precision shrinks and fixed polygon offset / Z bias collapse to the base pass.
+     */
+    private float resolveLabelOverlayDistanceScale(Matrix4f viewModel)
+    {
+        float distance = this.resolveOverlayViewDistance(viewModel);
+        float beyond = Math.max(0F, distance - LABEL_OVERLAY_DISTANCE_SCALE_START);
+        float linear = beyond * LABEL_OVERLAY_DISTANCE_SCALE_LINEAR;
+        float quadratic = beyond * beyond * LABEL_OVERLAY_DISTANCE_SCALE_QUADRATIC;
+
+        return 1F + Math.min(linear + quadratic, LABEL_OVERLAY_DISTANCE_SCALE_CAP);
+    }
+
+    private float resolveLabelOverlayOffsetUnits(Matrix4f viewModel, float baseUnits)
+    {
+        float scaled = baseUnits * this.resolveLabelOverlayDistanceScale(viewModel);
+
+        return Math.max(scaled, LABEL_OVERLAY_OFFSET_UNITS_CAP);
     }
 
     private void renderShadow(FormRenderingContext context, int x, int y, int w, int h)
@@ -952,10 +1484,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        context.stack.pushPose();
+        context.stack.push();
         context.stack.translate(0, 0, -0.2F);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillQuad(
             builder, context.stack,
@@ -966,11 +1498,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.r, color.g, color.b, color.a
         );
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._enableDepthTest();
-        builder.buildOrThrow().close();
-        context.stack.popPose();
+        BBSRendering.enableBlend();
+        BBSRendering.enableDepthTest();
+        Draw.flush(builder, Draw.getPositionColorLayer());
+        context.stack.pop();
     }
 
     /**
@@ -992,5 +1523,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         return argb;
+    }
+
+    private static final class LabelOverlayLayout
+    {
+        private float centerX;
+        private float centerY;
+        private float halfX;
+        private float halfY;
     }
 }

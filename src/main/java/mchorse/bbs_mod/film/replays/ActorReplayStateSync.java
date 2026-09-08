@@ -6,11 +6,11 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 
 /**
  * Copies replay vanilla pose / action state onto a physical {@link LivingEntity} actor.
@@ -32,7 +32,7 @@ public final class ActorReplayStateSync
     }
 
     /**
-     * @param syncLimbs when false, leave {@link LivingEntity#walkAnimation} alone so the
+     * @param syncLimbs when false, leave {@link LivingEntity#limbAnimator} alone so the
      *                  actor can keep natural walk-cycle motion from {@code tick()} / scrub steps.
      */
     public static void syncFromSource(LivingEntity actor, IEntity source, boolean syncLimbs)
@@ -44,32 +44,32 @@ public final class ActorReplayStateSync
 
         boolean mounted = source.getMountTarget() != null || source.isSitting();
 
-        actor.setShiftKeyDown(mounted ? false : source.isSneaking());
+        actor.setSneaking(mounted ? false : source.isSneaking());
         actor.setSprinting(mounted ? false : source.isSprinting());
         actor.setSwimming(mounted ? false : source.isSwimming());
         actor.setOnGround(source.isOnGround());
-        actor.setSharedFlag(7, mounted ? false : source.isFallFlying());
+        actor.setFlag(7, mounted ? false : source.isFallFlying());
         actor.setPose(resolvePose(source, mounted));
         applyHurtAndDeath(actor, source.getHurtTimer(), source.getDeathTime());
-        actor.setRemainingFireTicks(source.getFireTicks());
+        actor.setFireTicks(source.getFireTicks());
         actor.fallDistance = source.getFallDistance();
 
-        if (actor instanceof Player player)
+        if (actor instanceof PlayerEntity player)
         {
             player.getAbilities().flying = mounted ? false : source.isFlying();
         }
 
-        boolean usingItem = source.isUsingItem() || source.getItemUseTimeLeft() > 0;
+        boolean usingItem = source.isUsingItem();
 
-        actor.setLivingEntityFlag(1, usingItem || source.isBlocking());
-        actor.setLivingEntityFlag(2, source.getActiveHand() == InteractionHand.OFF_HAND && usingItem);
-        actor.setLivingEntityFlag(4, source.isUsingRiptide());
+        actor.setLivingFlag(1, usingItem || source.isBlocking());
+        actor.setLivingFlag(2, source.getActiveHand() == Hand.OFF_HAND && usingItem);
+        actor.setLivingFlag(4, source.isUsingRiptide());
 
         if (syncLimbs)
         {
             syncLimbAnimator(actor, source, mounted);
         }
-        else if (mounted && actor.walkAnimation instanceof LimbAnimatorAccessor actorLimb)
+        else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor actorLimb)
         {
             actorLimb.setPrevSpeed(0F);
             actorLimb.setSpeed(0F);
@@ -82,7 +82,7 @@ public final class ActorReplayStateSync
      */
     public static void advanceLimbStep(LivingEntity actor, double fromX, double fromZ, double toX, double toZ)
     {
-        if (actor == null || !(actor.walkAnimation instanceof LimbAnimatorAccessor limb))
+        if (actor == null || !(actor.limbAnimator instanceof LimbAnimatorAccessor limb))
         {
             return;
         }
@@ -100,7 +100,7 @@ public final class ActorReplayStateSync
      */
     public static void applyTimelineLimbs(LivingEntity actor, ReplayKeyframes keyframes, int tick, boolean mounted)
     {
-        if (actor == null || !(actor.walkAnimation instanceof LimbAnimatorAccessor limb))
+        if (actor == null || !(actor.limbAnimator instanceof LimbAnimatorAccessor limb))
         {
             return;
         }
@@ -157,7 +157,7 @@ public final class ActorReplayStateSync
 
     private static float limbSpeedFromDelta(double dx, double dz)
     {
-        float delta = (float) Mth.length(dx, 0D, dz);
+        float delta = (float) MathHelper.magnitude(dx, 0D, dz);
 
         return Math.min(delta * 4F, 1F);
     }
@@ -195,32 +195,36 @@ public final class ActorReplayStateSync
         boolean sleeping = !mounted && keyframes.sleeping.interpolate(tick) != 0D;
         boolean riptide = !mounted && keyframes.riptide.interpolate(tick) != 0D;
         boolean grounded = keyframes.grounded.interpolate(tick) != 0D;
-        int itemUseElapsed = keyframes.itemUseTime.interpolate(tick).intValue();
-        boolean usingItem = keyframes.usingItem.interpolate(tick) > 0D || itemUseElapsed > 0;
+        boolean usingItem = keyframes.isUsingItemAt(tick);
         boolean offHand = keyframes.activeHand.interpolate(tick) > 0D;
 
-        actor.setShiftKeyDown(sneaking);
+        actor.setSneaking(sneaking);
         actor.setSprinting(sprinting);
         actor.setSwimming(swimming);
         actor.setOnGround(grounded);
-        actor.setSharedFlag(7, fallFlying);
+        actor.setFlag(7, fallFlying);
         actor.setPose(resolvePose(sneaking, swimming, crawling, sleeping, mounted));
         applyHurtAndDeath(actor,
             keyframes.damage.interpolate(tick).intValue(),
             keyframes.deathTime.interpolate(tick).intValue());
-        actor.setRemainingFireTicks(keyframes.getFireTicksAt((int) tick));
+        actor.setFireTicks(keyframes.getFireTicksAt((int) tick));
         actor.fallDistance = keyframes.fall.interpolate(tick).floatValue();
 
-        if (actor instanceof Player player)
+        if (actor instanceof PlayerEntity player)
         {
             player.getAbilities().flying = flying;
         }
 
-        actor.setLivingEntityFlag(1, usingItem || blocking);
-        actor.setLivingEntityFlag(2, offHand && usingItem);
-        actor.setLivingEntityFlag(4, riptide);
+        /* FP binds the real player — a vanilla use would consume food and
+         * fight client input (stopUsingItem every tick). Client
+         * ItemUseRenderState drives first-person use visuals instead. */
+        boolean applyUseFlags = !(actor instanceof PlayerEntity);
 
-        if (!mounted && actor.walkAnimation instanceof LimbAnimatorAccessor)
+        actor.setLivingFlag(1, (usingItem && applyUseFlags) || blocking);
+        actor.setLivingFlag(2, offHand && usingItem && applyUseFlags);
+        actor.setLivingFlag(4, riptide);
+
+        if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor)
         {
             if (advanceLimbs)
             {
@@ -230,10 +234,10 @@ public final class ActorReplayStateSync
                 double z = keyframes.z.interpolate(tick);
                 double nextX = keyframes.x.interpolate(tick + 1F);
                 double nextZ = keyframes.z.interpolate(tick + 1F);
-                float delta = (float) Mth.length(nextX - x, 0D, nextZ - z);
+                float delta = (float) MathHelper.magnitude(nextX - x, 0D, nextZ - z);
                 float speed = Math.min(delta * 4F, 1F);
 
-                actor.walkAnimation.update(speed, 0.4F, 1F);
+                actor.limbAnimator.updateLimbs(speed, 0.4F, 1F);
             }
             else if (settleWhenPaused)
             {
@@ -248,17 +252,17 @@ public final class ActorReplayStateSync
                 double z = keyframes.z.interpolate(tick);
                 double prevX = keyframes.x.interpolate(tick - 1F);
                 double prevZ = keyframes.z.interpolate(tick - 1F);
-                float delta = (float) Mth.length(x - prevX, 0D, z - prevZ);
+                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
                 float speed = Math.min(delta * 4F, 1F);
 
-                if (actor.walkAnimation instanceof LimbAnimatorAccessor limb)
+                if (actor.limbAnimator instanceof LimbAnimatorAccessor limb)
                 {
                     limb.setPrevSpeed(limb.getSpeed());
                     limb.setSpeed(speed);
                 }
             }
         }
-        else if (mounted && actor.walkAnimation instanceof LimbAnimatorAccessor limb)
+        else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
         {
             limb.setPrevSpeed(0F);
             limb.setSpeed(0F);
@@ -296,13 +300,34 @@ public final class ActorReplayStateSync
      * Actor death is Attack/combat-driven at playback — {@code death_time} keyframes
      * must not force-kill an actor (or keep them dead when Attack clips are disabled).
      * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
+     * <p>
+     * First-person playback binds the real {@link PlayerEntity} as the actor body; that
+     * path must keep the same live/keyframe merge or Attack/Damage clips never produce
+     * camera shake / hurt overlay in FP view.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
     {
         if (!(actor instanceof ActorEntity actorEntity))
         {
-            actor.hurtTime = keyframeHurt;
-            actor.deathTime = keyframeDeath;
+            if (BBSSettings.shouldKeepActorLiveHurtTime())
+            {
+                actor.hurtTime = Math.max(actor.hurtTime, keyframeHurt);
+            }
+            else
+            {
+                actor.hurtTime = keyframeHurt;
+            }
+
+            if (actor.hurtTime > 0 && actor.maxHurtTime < actor.hurtTime)
+            {
+                actor.maxHurtTime = Math.max(10, actor.hurtTime);
+            }
+
+            /* Never force deathTime onto the real FP player from keyframes. */
+            if (!(actor instanceof PlayerEntity))
+            {
+                actor.deathTime = keyframeDeath;
+            }
 
             return;
         }
@@ -318,15 +343,15 @@ public final class ActorReplayStateSync
             actor.hurtTime = keyframeHurt;
         }
 
-        if (actor.hurtTime > 0 && actor.hurtDuration < actor.hurtTime)
+        if (actor.hurtTime > 0 && actor.maxHurtTime < actor.hurtTime)
         {
-            actor.hurtDuration = Math.max(10, actor.hurtTime);
+            actor.maxHurtTime = Math.max(10, actor.hurtTime);
         }
     }
 
     private static void syncLimbAnimator(LivingEntity actor, IEntity source, boolean mounted)
     {
-        if (!(actor.walkAnimation instanceof LimbAnimatorAccessor actorLimb))
+        if (!(actor.limbAnimator instanceof LimbAnimatorAccessor actorLimb))
         {
             return;
         }
@@ -347,45 +372,45 @@ public final class ActorReplayStateSync
         }
     }
 
-    private static Pose resolvePose(IEntity source, boolean mounted)
+    private static EntityPose resolvePose(IEntity source, boolean mounted)
     {
-        Pose pose = source.getEntityPose();
+        EntityPose pose = source.getEntityPose();
 
-        if ((mounted || source.isSitting()) && pose == Pose.STANDING)
+        if ((mounted || source.isSitting()) && pose == EntityPose.STANDING)
         {
-            return Pose.SITTING;
+            return EntityPose.SITTING;
         }
 
-        if (source.isSneaking() && pose == Pose.STANDING)
+        if (source.isSneaking() && pose == EntityPose.STANDING)
         {
-            return Pose.CROUCHING;
+            return EntityPose.CROUCHING;
         }
 
         return pose;
     }
 
-    private static Pose resolvePose(boolean sneaking, boolean swimming, boolean crawling, boolean sleeping, boolean mounted)
+    private static EntityPose resolvePose(boolean sneaking, boolean swimming, boolean crawling, boolean sleeping, boolean mounted)
     {
         if (sleeping)
         {
-            return Pose.SLEEPING;
+            return EntityPose.SLEEPING;
         }
 
         if (mounted)
         {
-            return Pose.SITTING;
+            return EntityPose.SITTING;
         }
 
         if (swimming || crawling)
         {
-            return Pose.SWIMMING;
+            return EntityPose.SWIMMING;
         }
 
         if (sneaking)
         {
-            return Pose.CROUCHING;
+            return EntityPose.CROUCHING;
         }
 
-        return Pose.STANDING;
+        return EntityPose.STANDING;
     }
 }

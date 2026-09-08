@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
@@ -10,6 +11,8 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -99,7 +102,10 @@ public class UICustomInterpolationGraph extends UIKeyframeGraph
             double offsetY = this.fromGraphY(originalY) - factory.getY(originalV);
 
             float fx = (float) this.keyframes.fromGraphX(context.mouseX) - offsetX;
-            Object fy = factory.yToValue(this.fromGraphY(context.mouseY) - offsetY);
+            double graphY = this.fromGraphY(context.mouseY) - offsetY;
+            Object fy = factory == KeyframeFactories.LIGHTING_SETTINGS && originalV instanceof LightingSettings lighting
+                ? LightingSettingsKeyframeFactory.applyGraphY(lighting, graphY)
+                : factory.yToValue(graphY);
 
             if (!Window.isShiftPressed())
             {

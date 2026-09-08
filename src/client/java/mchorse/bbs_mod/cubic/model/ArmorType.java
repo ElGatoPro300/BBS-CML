@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.cubic.model;
 
-import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.entity.EquipmentSlot;
 
 public enum ArmorType
 {

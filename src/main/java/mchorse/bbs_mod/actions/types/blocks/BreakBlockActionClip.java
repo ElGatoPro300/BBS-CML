@@ -6,8 +6,8 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.BlockPos;
 
 public class BreakBlockActionClip extends BlockActionClip
 {
@@ -23,7 +23,7 @@ public class BreakBlockActionClip extends BlockActionClip
     @Override
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
-        player.level().destroyBlockProgress(player.getId(), new BlockPos(this.x.get(), this.y.get(), this.z.get()), this.progress.get());
+        player.getEntityWorld().setBlockBreakingInfo(player.getId(), new BlockPos(this.x.get(), this.y.get(), this.z.get()), this.progress.get());
     }
 
     @Override

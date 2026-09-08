@@ -242,6 +242,18 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         {
             this.panel.setVisible(visible);
         }
+
+        /* Detach embedded keyframe property forms from the shared host while this
+         * timeline is hidden; graph selection is kept for restore on show. */
+        if (!visible)
+        {
+            UIElement embed = this.clips.getEmbeddedView();
+
+            if (embed instanceof UIKeyframeEditor editor)
+            {
+                editor.hidePropertiesPanel();
+            }
+        }
     }
 
     public void setClips(Clips clips)
@@ -425,6 +437,90 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         {
             this.panel.fillData();
         }
+    }
+
+    /**
+     * Hide the clip form in the shared properties host without clearing timeline
+     * selection (used when switching to another timeline).
+     */
+    public void hideClipProperties()
+    {
+        if (this.panel != null)
+        {
+            this.panel.setVisible(false);
+        }
+    }
+
+    /**
+     * After returning to this timeline: show either the embedded keyframe form
+     * (if a keyframe is still selected) or remount/show the selected clip form.
+     */
+    public void restorePropertiesForActiveTimeline()
+    {
+        if (!this.isVisible())
+        {
+            return;
+        }
+
+        UIElement embed = this.clips.getEmbeddedView();
+
+        if (embed instanceof UIKeyframeEditor editor
+            && editor.view != null
+            && editor.view.getGraph() != null
+            && editor.view.getGraph().getSelected() != null)
+        {
+            editor.setVisible(true);
+            editor.view.getGraph().pickSelected();
+
+            return;
+        }
+
+        Clip clip = this.getClip();
+
+        if (clip == null)
+        {
+            List<Clip> selected = this.clips.getClipsFromSelection();
+
+            if (!selected.isEmpty())
+            {
+                this.pickClip(selected.get(selected.size() - 1));
+
+                return;
+            }
+
+            return;
+        }
+
+        this.ensureClipPanelMounted();
+    }
+
+    /**
+     * Ensure the open clip form is parented to {@link #target}, visible with this
+     * timeline, and refreshed — without destroying an embedded keyframe view.
+     */
+    public void ensureClipPanelMounted()
+    {
+        if (this.panel == null)
+        {
+            return;
+        }
+
+        this.panel.setVisible(this.isVisible());
+
+        if (this.target != null)
+        {
+            if (this.panel.getParent() != this.target)
+            {
+                this.panel.removeFromParent();
+                this.panel.full(this.target);
+                this.target.add(this.panel);
+            }
+
+            this.target.resize();
+        }
+
+        this.panel.fillData();
+        this.resize();
     }
 
     @Override

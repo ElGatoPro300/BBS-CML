@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.math.Operation;
@@ -55,6 +56,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
 import org.lwjgl.glfw.GLFW;
@@ -315,10 +317,24 @@ public class UIKeyframes extends UIElement
             }
         }.rendering((context) ->
         {
-            float alpha = (this.sidebarResizer.isDragging() || this.sidebarResizer.area.isInside(context)) ? 0.75F : 0.5F;
-            int color = Colors.setA(BBSSettings.primaryColor.get(), alpha);
+            boolean hovered = this.sidebarResizer.area.isInside(context) || this.sidebarResizer.isDragging();
+            int primary = BBSSettings.primaryColor.get();
 
-            context.batcher.box(this.sidebarResizer.area.x, this.sidebarResizer.area.y, this.sidebarResizer.area.ex(), this.sidebarResizer.area.ey(), color);
+            int handleBg = hovered ? (primary | Colors.A100) : Colors.setA(primary, 0.85F);
+            int border = hovered ? Colors.WHITE : Colors.setA(0x000000, 0.6F);
+
+            Area rx = this.sidebarResizer.area;
+
+            context.batcher.box(rx.x - 1, rx.y - 1, rx.ex() + 1, rx.ey() + 1, border);
+            context.batcher.box(rx.x, rx.y, rx.ex(), rx.ey(), handleBg);
+
+            int cx = rx.mx();
+            int cy = rx.my();
+            int dotColor = hovered ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.9F);
+
+            context.batcher.box(cx - 1, cy - 8, cx + 1, cy - 6, dotColor);
+            context.batcher.box(cx - 1, cy - 1, cx + 1, cy + 1, dotColor);
+            context.batcher.box(cx - 1, cy + 6, cx + 1, cy + 8, dotColor);
         }).dragEnd(this::persistSidebarWidth);
         this.add(this.sidebarResizer);
 
@@ -412,7 +428,17 @@ public class UIKeyframes extends UIElement
 
             for (Keyframe keyframe : selected)
             {
-                keyframe.setValue(sheet.clampValue(factory.yToValue(factory.getY(keyframe.getValue()) + difference)));
+                Object current = keyframe.getValue();
+                double newY = factory.getY(current) + difference;
+
+                if (factory == KeyframeFactories.LIGHTING_SETTINGS && current instanceof LightingSettings lighting)
+                {
+                    keyframe.setValue(LightingSettingsKeyframeFactory.applyGraphY(lighting, newY));
+                }
+                else
+                {
+                    keyframe.setValue(sheet.clampValue(factory.yToValue(newY)));
+                }
             }
 
             sheet.channel.postNotify();
@@ -567,6 +593,11 @@ public class UIKeyframes extends UIElement
             this.scaling = false;
             this.scalingShowInteractionHints = false;
 
+            return;
+        }
+
+        if (!this.canScaleSelectedKeyframes())
+        {
             return;
         }
 
@@ -777,6 +808,28 @@ public class UIKeyframes extends UIElement
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean canScaleSelectedKeyframes()
+    {
+        if (!this.isModifyingKeyframes())
+        {
+            return false;
+        }
+
+        int count = 0;
+
+        for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+        {
+            count += sheet.selection.getSelected().size();
+
+            if (count >= 2)
+            {
+                return true;
             }
         }
 
@@ -1374,6 +1427,11 @@ public class UIKeyframes extends UIElement
 
     public void toolbarScaleTime()
     {
+        if (!this.canScaleSelectedKeyframes())
+        {
+            return;
+        }
+
         this.cancelTrackInteraction();
         this.scaleTime(true);
     }
@@ -1623,6 +1681,16 @@ public class UIKeyframes extends UIElement
     public void cacheKeyframes()
     {
         this.cache = new SheetCache(this.currentGraph.getSheets());
+    }
+
+    /**
+     * True while a graph/trackpad drag has an open {@link #cacheKeyframes()} session.
+     * Live edits in that window must not notify (undo is submitted once via
+     * {@link #submitKeyframes()}), matching graph drag which uses dirty=false.
+     */
+    public boolean hasKeyframeCache()
+    {
+        return this.cache != null;
     }
 
     public void submitKeyframes()
@@ -2467,7 +2535,7 @@ public class UIKeyframes extends UIElement
     {
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xee0b0d12);
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + RULER_HEIGHT, 0xff111115);
-        context.batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x44ffffff);
+        context.batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x22ffffff);
 
         int duration = this.getDuration();
 
@@ -2508,10 +2576,10 @@ public class UIKeyframes extends UIElement
 
         this.dopeSheet.setSidebarWidth(this.dopeSheet.getSidebarWidth());
 
-        int x = this.area.x + this.dopeSheet.getSidebarWidth() - 3;
-        int y = this.area.my() - 20;
+        int x = this.area.x + this.dopeSheet.getSidebarWidth() - 4;
+        int y = this.area.my() - 24;
 
-        this.sidebarResizer.relative(this).x(x - this.area.x).y(y - this.area.y).w(6).h(40);
+        this.sidebarResizer.relative(this).x(x - this.area.x).y(y - this.area.y).w(8).h(48);
         this.sidebarResizer.resize();
     }
 

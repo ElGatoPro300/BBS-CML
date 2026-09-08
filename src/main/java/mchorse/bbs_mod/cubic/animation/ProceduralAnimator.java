@@ -25,12 +25,12 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Pose;
 
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -151,7 +151,7 @@ public class ProceduralAnimator implements IAnimator
         ItemStack offhand = target.getEquipmentStack(EquipmentSlot.OFFHAND);
 
         boolean isRolling = target.getRoll() > 4;
-        boolean isInSwimmingPose = target.getEntityPose() == Pose.SWIMMING;
+        boolean isInSwimmingPose = target.getEntityPose() == EntityPose.SWIMMING;
 
         /* Common variables */
         float handSwingProgress = target.getHandSwingProgress(transition);
@@ -162,15 +162,15 @@ public class ProceduralAnimator implements IAnimator
         float pitch = (float) Lerps.lerp(target.getPrevPitch(), target.getPitch(), transition);
         float limbSpeed = target.getLimbSpeed(transition);
         float limbPhase = target.getLimbPos(transition);
-        Vec3 entityVelocity = target.getVelocity();
+        Vec3d entityVelocity = target.getVelocity();
         double dx = target.getX() - target.getPrevX();
         double dz = target.getZ() - target.getPrevZ();
         float velocityHorizontalSpeed = (float) Math.sqrt(entityVelocity.x * entityVelocity.x + entityVelocity.z * entityVelocity.z) * 20F;
         float displacementHorizontalSpeed = (float) Math.sqrt(dx * dx + dz * dz) * 20F;
         float horizontalSpeed = Math.max(velocityHorizontalSpeed, displacementHorizontalSpeed);
         float bodyYawRad = MathUtils.toRad(bodyYaw);
-        float forwardX = -Mth.sin(bodyYawRad);
-        float forwardZ = Mth.cos(bodyYawRad);
+        float forwardX = -MathHelper.sin(bodyYawRad);
+        float forwardZ = MathHelper.cos(bodyYawRad);
         float velocityForwardSpeed = ((float) entityVelocity.x * forwardX + (float) entityVelocity.z * forwardZ) * 20F;
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
@@ -192,41 +192,24 @@ public class ProceduralAnimator implements IAnimator
         {
             if (limbSpeed < 0.01F && horizontalSpeed > 0.08F)
             {
-                float synthesized = Mth.clamp(horizontalSpeed / 4F, 0F, 1F);
+                float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
 
-                if (filmActor)
-                {
-                    /* Soft-fill like one vanilla updateLimbs(0.4) step from real
-                     * displacement only — complements the void without a phase jump. */
-                    limbSpeed = synthesized * 0.4F;
-                    limbPhase = limbPhase + limbSpeed;
+                /* Soft-fill like one vanilla updateLimbs(0.4) step from real
+                 * motion — complements the void without a phase jump. */
+                limbSpeed = synthesized * 0.4F;
+                limbPhase = limbPhase + limbSpeed;
 
-                    if (displacementHorizontalSpeed > 10F)
-                    {
-                        limbPhase = age * 0.6662F;
-                    }
-                }
-                else
+                if (displacementHorizontalSpeed > 10F)
                 {
-                    limbSpeed = synthesized;
-                    /* Synthesizing amplitude from motion must also drive phase. Leaving a
-                     * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
                     limbPhase = age * 0.6662F;
                 }
             }
             else if (limbPhase == 0F && horizontalSpeed > 0.08F)
             {
-                if (filmActor)
-                {
-                    float synthesized = Mth.clamp(horizontalSpeed / 4F, 0F, 1F);
+                float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
 
-                    limbSpeed = Math.max(limbSpeed, synthesized * 0.4F);
-                    limbPhase = limbPhase + Math.max(limbSpeed, 0.01F);
-                }
-                else
-                {
-                    limbPhase = age * 0.6662F;
-                }
+                limbSpeed = Math.max(limbSpeed, synthesized * 0.4F);
+                limbPhase = limbPhase + Math.max(limbSpeed, 0.01F);
             }
         }
         else
@@ -237,7 +220,7 @@ public class ProceduralAnimator implements IAnimator
         }
 
         boolean riding = target.isRiding() || target.isSitting();
-        boolean isMainHandBlocking = target.getActiveHand() == InteractionHand.MAIN_HAND;
+        boolean isMainHandBlocking = target.getActiveHand() == Hand.MAIN_HAND;
         Map<GeckoLimbRole, String> roleBones = ProceduralPoseDefaults.buildRoleBoneMap(model);
         String rightArmBone = this.roleBone(roleBones, GeckoLimbRole.RIGHT_ARM, "right_arm");
         String leftArmBone = this.roleBone(roleBones, GeckoLimbRole.LEFT_ARM, "left_arm");
@@ -253,7 +236,7 @@ public class ProceduralAnimator implements IAnimator
 
         if (isRolling)
         {
-            coefficient = (float) (target.getVelocity().lengthSqr() / 2D);
+            coefficient = (float) (target.getVelocity().lengthSquared() / 2D);
             coefficient = Math.min(1F, coefficient * coefficient * coefficient);
         }
 
@@ -291,7 +274,7 @@ public class ProceduralAnimator implements IAnimator
                     }
                     else if (flyProgress > 0F || target.isFallFlying())
                     {
-                        group.current.rotate.x = Mth.lerp(flyProgress, 0F, -90.0F - pitch);
+                        group.current.rotate.x = MathHelper.lerp(flyProgress, 0F, -90.0F - pitch);
                         group.current.rotate.y = 0F;
                         group.current.rotate.z = 0F;
                     }
@@ -305,9 +288,9 @@ public class ProceduralAnimator implements IAnimator
                     {
                         float newPitch = target.isTouchingWater() ? -90F - pitch : -90F;
 
-                        group.current.rotate.x = Mth.lerp(leaningPitch > 0F ? leaningPitch : 1F, 0F, newPitch);
+                        group.current.rotate.x = MathHelper.lerp(leaningPitch > 0F ? leaningPitch : 1F, 0F, newPitch);
 
-                        if (target.getEntityPose() == Pose.SWIMMING || target.isSwimming())
+                        if (target.getEntityPose() == EntityPose.SWIMMING || target.isSwimming())
                         {
                             group.current.translate.y -= 0.5F * 16F;
                             group.current.translate.z += 0.3F * 16F;
@@ -322,7 +305,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         group.current.rotate.x = 45;
                     }
-                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == Pose.FALL_FLYING)
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.GLIDING)
                     {
                         group.current.rotate.x = this.lerpAngle(flyProgress, -pitch, -pitch + 90F);
                     }
@@ -347,7 +330,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -364,9 +347,9 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else
                         {
-                            group.current.rotate.x += MathUtils.toDeg(Mth.cos(limbPhase * 0.6662F) * 2.0F * limbSpeed * 0.5F / coefficient);
-                            group.current.rotate.z += MathUtils.toDeg(1F * (Mth.cos(-age * 0.09F) * 0.05F + 0.05F));
-                            group.current.rotate.x += MathUtils.toDeg(1F * Mth.sin(-age * 0.067F) * 0.05F);
+                            group.current.rotate.x += MathUtils.toDeg(MathHelper.cos(limbPhase * 0.6662F) * 2.0F * limbSpeed * 0.5F / coefficient);
+                            group.current.rotate.z += MathUtils.toDeg(1F * (MathHelper.cos(-age * 0.09F) * 0.05F + 0.05F));
+                            group.current.rotate.x += MathUtils.toDeg(1F * MathHelper.sin(-age * 0.067F) * 0.05F);
 
                             if (!main.isEmpty())
                             {
@@ -389,7 +372,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -406,9 +389,9 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else
                         {
-                            group.current.rotate.x += MathUtils.toDeg(Mth.cos(limbPhase * 0.6662F + 3.1415927F) * 2.0F * limbSpeed * 0.5F / coefficient);
-                            group.current.rotate.z += MathUtils.toDeg(-1F * (Mth.cos(-age * 0.09F) * 0.05F + 0.05F));
-                            group.current.rotate.x += MathUtils.toDeg(-1F * Mth.sin(-age * 0.067F) * 0.05F);
+                            group.current.rotate.x += MathUtils.toDeg(MathHelper.cos(limbPhase * 0.6662F + 3.1415927F) * 2.0F * limbSpeed * 0.5F / coefficient);
+                            group.current.rotate.z += MathUtils.toDeg(-1F * (MathHelper.cos(-age * 0.09F) * 0.05F + 0.05F));
+                            group.current.rotate.x += MathUtils.toDeg(-1F * MathHelper.sin(-age * 0.067F) * 0.05F);
 
                             if (!offhand.isEmpty())
                             {
@@ -435,14 +418,14 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = (float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
                         }
                         else
                         {
-                            group.current.rotate.x = MathUtils.toDeg(Mth.cos(limbPhase * 0.6662F + 3.1415927F) * 1.4F * limbSpeed / coefficient);
+                            group.current.rotate.x = MathUtils.toDeg(MathHelper.cos(limbPhase * 0.6662F + 3.1415927F) * 1.4F * limbSpeed / coefficient);
                         }
                     }
                 }
@@ -458,23 +441,28 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = -(float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
                         }
                         else
                         {
-                            group.current.rotate.x = MathUtils.toDeg(Mth.cos(limbPhase * 0.6662F) * 1.4F * limbSpeed / coefficient);
+                            group.current.rotate.x = MathUtils.toDeg(MathHelper.cos(limbPhase * 0.6662F) * 1.4F * limbSpeed / coefficient);
                         }
                     }
                 }
             }
 
+            if (!riding && leftArm != null && rightArm != null)
+            {
+                ProceduralItemUsePoses.applyModel(target, leftArm, rightArm, main, offhand, pitch, yaw, transition);
+            }
+
             if (!riding && handSwingProgress > 0F && leftArm != null && rightArm != null)
             {
                 float swingFactor = handSwingProgress;
-                float swingBodyYaw = -MathUtils.toDeg(Mth.sin(Mth.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
+                float swingBodyYaw = -MathUtils.toDeg(MathHelper.sin(MathHelper.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
 
                 if (torso != null)
                 {
@@ -496,14 +484,14 @@ public class ProceduralAnimator implements IAnimator
                 swingFactor = 1F - swingFactor;
 
                 float headPitch = 0F;
-                float swing1 = Mth.sin(swingFactor * MathUtils.PI);
-                float swing2 = Mth.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
+                float swing1 = MathHelper.sin(swingFactor * MathUtils.PI);
+                float swing2 = MathHelper.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
 
                 /* Apply swing on the attacking arm's own pitch (vanilla BipedEntityModel).
                  * Using the other arm's pitch as base made the arm snap when progress hit 0. */
                 rightArm.current.rotate.x += MathUtils.toDeg(swing1 * 1.2F + swing2);
                 rightArm.current.rotate.y += swingBodyYaw * 2F;
-                rightArm.current.rotate.z += MathUtils.toDeg(Mth.sin(handSwingProgress * MathUtils.PI) * -0.4F);
+                rightArm.current.rotate.z += MathUtils.toDeg(MathHelper.sin(handSwingProgress * MathUtils.PI) * -0.4F);
             }
         }
         /* For BOBJ models */
@@ -528,7 +516,7 @@ public class ProceduralAnimator implements IAnimator
                     }
                     else if (flyProgress > 0F || target.isFallFlying())
                     {
-                        bone.transform.rotate.x = MathUtils.toRad(Mth.lerp(flyProgress, 0F, -90.0F - pitch));
+                        bone.transform.rotate.x = MathUtils.toRad(MathHelper.lerp(flyProgress, 0F, -90.0F - pitch));
                         bone.transform.rotate.y = 0F;
                         bone.transform.rotate.z = 0F;
                     }
@@ -542,9 +530,9 @@ public class ProceduralAnimator implements IAnimator
                     {
                         float newPitch = target.isTouchingWater() ? -90F - pitch : -90F;
 
-                        bone.transform.rotate.x = MathUtils.toRad(Mth.lerp(leaningPitch > 0F ? leaningPitch : 1F, 0F, newPitch));
+                        bone.transform.rotate.x = MathUtils.toRad(MathHelper.lerp(leaningPitch > 0F ? leaningPitch : 1F, 0F, newPitch));
 
-                        if (target.getEntityPose() == Pose.SWIMMING || target.isSwimming())
+                        if (target.getEntityPose() == EntityPose.SWIMMING || target.isSwimming())
                         {
                             bone.transform.translate.y -= MathUtils.toRad(0.5F * 16F);
                             bone.transform.translate.z += MathUtils.toRad(0.3F * 16F);
@@ -559,7 +547,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(45);
                     }
-                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == Pose.FALL_FLYING)
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.GLIDING)
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(this.lerpAngle(flyProgress, -pitch, -pitch + 90F));
                     }
@@ -584,7 +572,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -601,9 +589,9 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else
                         {
-                            bone.transform.rotate.x += Mth.cos(limbPhase * 0.6662F) * 2.0F * limbSpeed * 0.5F / coefficient;
-                            bone.transform.rotate.z -= 1F * (Mth.cos(-age * 0.09F) * 0.05F + 0.05F);
-                            bone.transform.rotate.x += 1F * Mth.sin(-age * 0.067F) * 0.05F;
+                            bone.transform.rotate.x += MathHelper.cos(limbPhase * 0.6662F) * 2.0F * limbSpeed * 0.5F / coefficient;
+                            bone.transform.rotate.z -= 1F * (MathHelper.cos(-age * 0.09F) * 0.05F + 0.05F);
+                            bone.transform.rotate.x += 1F * MathHelper.sin(-age * 0.067F) * 0.05F;
 
                             if (!main.isEmpty())
                             {
@@ -626,7 +614,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -643,9 +631,9 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else
                         {
-                            bone.transform.rotate.x += Mth.cos(limbPhase * 0.6662F + 3.1415927F) * 2.0F * limbSpeed * 0.5F / coefficient;
-                            bone.transform.rotate.z -= -1F * (Mth.cos(-age * 0.09F) * 0.05F + 0.05F);
-                            bone.transform.rotate.x += -1F * Mth.sin(-age * 0.067F) * 0.05F;
+                            bone.transform.rotate.x += MathHelper.cos(limbPhase * 0.6662F + 3.1415927F) * 2.0F * limbSpeed * 0.5F / coefficient;
+                            bone.transform.rotate.z -= -1F * (MathHelper.cos(-age * 0.09F) * 0.05F + 0.05F);
+                            bone.transform.rotate.x += -1F * MathHelper.sin(-age * 0.067F) * 0.05F;
 
                             if (!offhand.isEmpty())
                             {
@@ -668,14 +656,14 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
                         }
                         else
                         {
-                            bone.transform.rotate.x = Mth.cos(limbPhase * 0.6662F + 3.1415927F) * 1.4F * limbSpeed / coefficient;
+                            bone.transform.rotate.x = MathHelper.cos(limbPhase * 0.6662F + 3.1415927F) * 1.4F * limbSpeed / coefficient;
                         }
                     }
                 }
@@ -691,23 +679,28 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = -MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
                         }
                         else
                         {
-                            bone.transform.rotate.x = Mth.cos(limbPhase * 0.6662F) * 1.4F * limbSpeed / coefficient;
+                            bone.transform.rotate.x = MathHelper.cos(limbPhase * 0.6662F) * 1.4F * limbSpeed / coefficient;
                         }
                     }
                 }
             }
 
+            if (!riding && bobjLeftArm != null && bobjRightArm != null)
+            {
+                ProceduralItemUsePoses.applyBobj(target, bobjLeftArm, bobjRightArm, main, offhand, pitch, yaw, transition);
+            }
+
             if (!riding && handSwingProgress > 0F && bobjLeftArm != null && bobjRightArm != null)
             {
                 float swingFactor = handSwingProgress;
-                float rotate = -MathUtils.toDeg(Mth.sin(Mth.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
+                float rotate = -MathUtils.toDeg(MathHelper.sin(MathHelper.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
 
                 bobjLeftArm.transform.translate.z -= ((float) Math.sin(MathUtils.toRad(rotate)) * 5F) / 16F;
                 bobjLeftArm.transform.translate.x -= ((float) Math.cos(MathUtils.toRad(rotate)) * 5F - 5F) / 16F;
@@ -724,14 +717,14 @@ public class ProceduralAnimator implements IAnimator
                 swingFactor = 1F - swingFactor;
 
                 float headPitch = 0F;
-                float swing1 = Mth.sin(swingFactor * MathUtils.PI);
-                float swing2 = Mth.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
+                float swing1 = MathHelper.sin(swingFactor * MathUtils.PI);
+                float swing2 = MathHelper.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
 
                 /* Same as the non-BOBJ path: swing offsets the attacking arm, do not
                  * replace its pitch with the other arm's (caused end-of-swipe snaps). */
                 bobjRightArm.transform.rotate.x += swing1 * 1.2F + swing2;
                 bobjRightArm.transform.rotate.y -= MathUtils.toRad(rotate * 2F);
-                bobjRightArm.transform.rotate.z -= Mth.sin(handSwingProgress * MathUtils.PI) * -0.4F;
+                bobjRightArm.transform.rotate.z -= MathHelper.sin(handSwingProgress * MathUtils.PI) * -0.4F;
             }
         }
 
@@ -751,7 +744,7 @@ public class ProceduralAnimator implements IAnimator
         geckoContext.sneaking = target.isSneaking();
         geckoContext.riding = target.isRiding() || target.isSitting();
         geckoContext.sprinting = target.isSprinting();
-        geckoContext.swimming = target.getEntityPose() == Pose.SWIMMING;
+        geckoContext.swimming = target.getEntityPose() == EntityPose.SWIMMING;
         geckoContext.fallFlying = target.isFallFlying();
         geckoContext.usingRiptide = target.isUsingRiptide();
         geckoContext.hasMainHandItem = !main.isEmpty();

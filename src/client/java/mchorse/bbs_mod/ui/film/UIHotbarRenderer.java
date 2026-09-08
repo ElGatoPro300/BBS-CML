@@ -1,21 +1,17 @@
 package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.camera.clips.misc.HotbarState;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
-import org.joml.Vector3f;
-
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
+import org.joml.Matrix3x2fStack;
 
 import java.util.List;
 import java.util.Random;
@@ -25,6 +21,7 @@ public class UIHotbarRenderer
     private static final float REFERENCE_WIDTH = 1920F;
     private static final float REFERENCE_HEIGHT = 1080F;
     private static final int HUD_GREEN = 8453920;
+
     private static final int BAR_ICON_Y = -17;
     private static final int EXPERIENCE_BAR_Y = -7;
     private static final int EXPERIENCE_TEXT_Y = -13;
@@ -68,10 +65,10 @@ public class UIHotbarRenderer
     private static final Identifier FOOD_HALF_HUNGER = Identifier.of("minecraft", "hud/food_half_hunger");
     private static final Identifier AIR = Identifier.of("minecraft", "hud/air");
     private static final Identifier AIR_BURSTING = Identifier.of("minecraft", "hud/air_bursting");
-    private static final Identifier EXPERIENCE_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/experience_bar_background.png");
-    private static final Identifier EXPERIENCE_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/experience_bar_progress.png");
-    private static final Identifier JUMP_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/jump_bar_background.png");
-    private static final Identifier JUMP_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/jump_bar_progress.png");
+    private static final Identifier EXPERIENCE_BAR_BACKGROUND = Identifier.of("minecraft", "hud/experience_bar_background");
+    private static final Identifier EXPERIENCE_BAR_PROGRESS = Identifier.of("minecraft", "hud/experience_bar_progress");
+    private static final Identifier JUMP_BAR_BACKGROUND = Identifier.of("minecraft", "hud/jump_bar_background");
+    private static final Identifier JUMP_BAR_PROGRESS = Identifier.of("minecraft", "hud/jump_bar_progress");
     private static boolean wasHeartRegenerationEnabled;
     private static long heartRegenerationStartTick;
 
@@ -102,6 +99,15 @@ public class UIHotbarRenderer
         }
     }
 
+    public static void renderHotbar(MatrixStack stack, Batcher2D batcher, HotbarState hotbar)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int width = mc.getWindow().getScaledWidth();
+        int height = mc.getWindow().getScaledHeight();
+
+        renderHotbar(stack, batcher, hotbar, 0, 0, width, height);
+    }
+
     public static void renderHotbar(MatrixStack stack, Batcher2D batcher, HotbarState hotbar, int originX, int originY, int width, int height)
     {
         float alpha = MathHelper.clamp(hotbar.alpha, 0F, 1F);
@@ -115,20 +121,23 @@ public class UIHotbarRenderer
         float scale = Math.max(0.05F, hotbar.scale) * resolutionScale;
         int hotbarWidth = 182;
         int x = originX + Math.round(width / 2F + hotbar.x * resolutionScale - hotbarWidth / 2F);
-        int y = originY + Math.round(height - (22 + 9) * resolutionScale + hotbar.y * resolutionScale);
+        int y = originY + Math.round(height - 22 * resolutionScale + hotbar.y * resolutionScale);
+
+        Matrix3x2fStack matrices = batcher.getContext().getMatrices();
 
         batcher.flush();
-        stack.push();
-        stack.translate(x, y, 0);
-        stack.translate(SCALE_PIVOT_X, SCALE_PIVOT_Y, 0F);
-        stack.scale(scale, scale, 1F);
-        stack.translate(-SCALE_PIVOT_X, -SCALE_PIVOT_Y, 0F);
+        matrices.pushMatrix();
+        matrices.translate(x, y);
+        matrices.translate(SCALE_PIVOT_X, SCALE_PIVOT_Y);
+        matrices.scale(scale, scale);
+        matrices.translate(-SCALE_PIVOT_X, -SCALE_PIVOT_Y);
 
         /* HUD layers must ignore world depth to avoid bottom clipping against terrain. */
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        BBSRendering.disableDepthTest();
+        BBSRendering.depthMask(false);
+        BBSRendering.enableBlend();
+        BBSRendering.defaultBlendFunc();
+        BBSRendering.setShaderColor(1F, 1F, 1F, alpha);
 
         boolean hasOffhandItem = hotbar.offhandItem != null && !hotbar.offhandItem.isEmpty();
 
@@ -234,20 +243,20 @@ public class UIHotbarRenderer
         {
             float jumpProgress = MathHelper.clamp(hotbar.horseJump, 0F, 1F);
             int jumpPixels = MathHelper.ceil(jumpProgress * 182F);
-            batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, JUMP_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
+            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, JUMP_BAR_BACKGROUND, 0, EXPERIENCE_BAR_Y, 182, 5);
             if (jumpPixels > 0)
             {
-                batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, JUMP_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, jumpPixels, 5, 182, 5);
+                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, JUMP_BAR_PROGRESS, 182, 5, 0, 0, 0, EXPERIENCE_BAR_Y, jumpPixels, 5);
             }
         }
         else if (hotbar.showExperience)
         {
             float experience = MathHelper.clamp(hotbar.experience, 0F, 1F);
             int xpPixels = MathHelper.ceil(experience * 182F);
-            batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, EXPERIENCE_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
+            batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, EXPERIENCE_BAR_BACKGROUND, 0, EXPERIENCE_BAR_Y, 182, 5);
             if (xpPixels > 0)
             {
-                batcher.getContext().drawTexture(RenderPipelines.GUI_TEXTURED, EXPERIENCE_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, xpPixels, 5, 182, 5);
+                batcher.getContext().drawGuiTexture(RenderPipelines.GUI_TEXTURED, EXPERIENCE_BAR_PROGRESS, 182, 5, 0, 0, 0, EXPERIENCE_BAR_Y, xpPixels, 5);
             }
 
             if (hotbar.experienceLevel > 0)
@@ -269,8 +278,8 @@ public class UIHotbarRenderer
         if (hotbar.showHotbar)
         {
             /* Item glint (enchants) requires depth test in GUI item renderer. */
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
+            BBSRendering.enableDepthTest();
+            BBSRendering.depthMask(true);
 
             for (int i = 0; i < 9; i++)
             {
@@ -300,11 +309,13 @@ public class UIHotbarRenderer
 
         batcher.getContext().drawDeferredElements();
 
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._disableBlend();
+        BBSRendering.disableDepthTest();
+        BBSRendering.depthMask(false);
+        BBSRendering.disableBlend();
 
-        stack.pop();
+        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+
+        matrices.popMatrix();
         batcher.flush();
     }
 

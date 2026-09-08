@@ -2,15 +2,25 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.MobTextureOverride;
 
-import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-/* TODO(1.21.11 render): RenderLayer entity factory methods (getEntityCutoutNoCull,
- * getEntityCutout, getEntityTranslucent, etc.) were removed in the render pipeline
- * rewrite. The texture override mechanism needs to be re-implemented using the
- * new RenderSetup/TextureSpec system. This mixin is currently a no-op stub. */
-@Mixin(RenderType.class)
+@Mixin(RenderLayers.class)
 public class RenderLayerTextureOverrideMixin
 {
+    @ModifyVariable(method = {
+        "entityCutoutNoCull(Lnet/minecraft/util/Identifier;Z)Lnet/minecraft/client/render/RenderLayer;",
+        "entityCutout(Lnet/minecraft/util/Identifier;)Lnet/minecraft/client/render/RenderLayer;",
+        "entityTranslucent(Lnet/minecraft/util/Identifier;Z)Lnet/minecraft/client/render/RenderLayer;",
+        "itemEntityTranslucentCull(Lnet/minecraft/util/Identifier;)Lnet/minecraft/client/render/RenderLayer;",
+        "outlineNoCull(Lnet/minecraft/util/Identifier;)Lnet/minecraft/client/render/RenderLayer;"
+    }, at = @At("HEAD"), argsOnly = true, require = 5)
+    private static Identifier bbs$overrideTexture(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
 }

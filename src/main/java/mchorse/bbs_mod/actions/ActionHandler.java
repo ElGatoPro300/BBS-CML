@@ -6,15 +6,15 @@ import mchorse.bbs_mod.actions.types.chat.ChatActionClip;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.ChatType;
-import net.minecraft.network.chat.PlayerChatMessage;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.message.MessageType;
+import net.minecraft.network.message.SignedMessage;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
+import net.minecraft.world.World;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -22,9 +22,9 @@ public class ActionHandler
 {
     public static void registerHandlers(ActionManager actions)
     {
-        ServerMessageEvents.CHAT_MESSAGE.register((PlayerChatMessage message, ServerPlayer sender, ChatType.Bound params) ->
+        ServerMessageEvents.CHAT_MESSAGE.register((SignedMessage message, ServerPlayerEntity sender, MessageType.Parameters params) ->
         {
-            String literalString = message.decoratedContent().tryCollapseToString();
+            String literalString = message.getContent().getLiteralString();
 
             if (literalString != null)
             {
@@ -39,9 +39,9 @@ public class ActionHandler
             }
         });
 
-        PlayerBlockBreakEvents.AFTER.register((Level world, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity) ->
+        PlayerBlockBreakEvents.AFTER.register((World world, PlayerEntity player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity) ->
         {
-            if (player instanceof ServerPlayer serverPlayer)
+            if (player instanceof ServerPlayerEntity serverPlayer)
             {
                 actions.addAction(serverPlayer, () ->
                 {
@@ -51,7 +51,7 @@ public class ActionHandler
                     clip.x.set(pos.getX());
                     clip.y.set(pos.getY());
                     clip.z.set(pos.getZ());
-                    clip.drop.set(serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL);
+                    clip.drop.set(serverPlayer.interactionManager.getGameMode() == GameMode.SURVIVAL);
 
                     return clip;
                 });

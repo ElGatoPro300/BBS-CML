@@ -10,7 +10,7 @@ import mchorse.bbs_mod.utils.Factor;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import org.joml.Matrix3f;
 import org.joml.Vector3d;
@@ -336,7 +336,7 @@ public class OrbitCamera
 
         if (this.velocityPosition.lengthSquared() > 0)
         {
-            float lastFrameDuration = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaTicks() * 5F;
+            float lastFrameDuration = MinecraftClient.getInstance().getRenderTickCounter().getDynamicDeltaTicks() * 5F;
 
             this.position.add(this.rotateVector(this.velocityPosition.x, 0, this.velocityPosition.z)
                 .add(0, this.velocityPosition.y, 0)

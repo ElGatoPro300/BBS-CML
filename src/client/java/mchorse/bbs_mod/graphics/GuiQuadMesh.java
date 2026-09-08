@@ -1,11 +1,11 @@
 package mchorse.bbs_mod.graphics;
 
-import net.minecraft.client.gui.navigation.ScreenRectangle;
-import net.minecraft.client.gui.render.TextureSetup;
-import net.minecraft.client.gui.render.state.GuiElementRenderState;
+import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.texture.TextureSetup;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.jspecify.annotations.Nullable;
 
@@ -54,7 +54,7 @@ public class GuiQuadMesh implements VertexConsumer
      * Axis-aligned bounds of the recorded geometry intersected with the active scissor.
      */
     @Nullable
-    public ScreenRectangle computeBounds(@Nullable ScreenRectangle scissorArea)
+    public ScreenRect computeBounds(@Nullable ScreenRect scissorArea)
     {
         if (this.count == 0)
         {
@@ -66,7 +66,7 @@ public class GuiQuadMesh implements VertexConsumer
         int w = (int) Math.ceil(this.maxX) - x;
         int h = (int) Math.ceil(this.maxY) - y;
 
-        ScreenRectangle bounds = new ScreenRectangle(x, y, Math.max(0, w), Math.max(0, h));
+        ScreenRect bounds = new ScreenRect(x, y, Math.max(0, w), Math.max(0, h));
 
         return scissorArea != null ? scissorArea.intersection(bounds) : bounds;
     }
@@ -93,7 +93,7 @@ public class GuiQuadMesh implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer addVertex(float x, float y, float z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
         this.ensureCapacity();
 
@@ -111,7 +111,7 @@ public class GuiQuadMesh implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer setColor(int argb)
+    public VertexConsumer color(int argb)
     {
         if (this.count > 0)
         {
@@ -122,37 +122,37 @@ public class GuiQuadMesh implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        return this.setColor((alpha << 24) | (red << 16) | (green << 8) | blue);
+        return this.color((alpha << 24) | (red << 16) | (green << 8) | blue);
     }
 
     @Override
-    public VertexConsumer setUv(float u, float v)
-    {
-        return this;
-    }
-
-    @Override
-    public VertexConsumer setUv1(int u, int v)
+    public VertexConsumer texture(float u, float v)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer setUv2(int u, int v)
+    public VertexConsumer overlay(int u, int v)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer setNormal(float x, float y, float z)
+    public VertexConsumer light(int u, int v)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer setLineWidth(float width)
+    public VertexConsumer normal(float x, float y, float z)
+    {
+        return this;
+    }
+
+    @Override
+    public VertexConsumer lineWidth(float width)
     {
         return this;
     }
@@ -167,16 +167,16 @@ public class GuiQuadMesh implements VertexConsumer
         float[] ys,
         int[] colors,
         int count,
-        @Nullable ScreenRectangle scissorArea,
-        @Nullable ScreenRectangle bounds
-    ) implements GuiElementRenderState
+        @Nullable ScreenRect scissorArea,
+        @Nullable ScreenRect bounds
+    ) implements SimpleGuiElementRenderState
     {
         @Override
-        public void buildVertices(VertexConsumer vertices)
+        public void setupVertices(VertexConsumer vertices)
         {
             for (int i = 0; i < this.count; i++)
             {
-                vertices.addVertex(this.xs[i], this.ys[i], 0.0F).setColor(this.colors[i]);
+                vertices.vertex(this.xs[i], this.ys[i], 0.0F).color(this.colors[i]);
             }
         }
     }

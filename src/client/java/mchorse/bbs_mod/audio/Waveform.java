@@ -12,8 +12,6 @@ import org.lwjgl.opengl.GL13;
 import java.util.ArrayList;
 import java.util.List;
 
-import ColorCode;
-
 public class Waveform
 {
     public float[] average;
