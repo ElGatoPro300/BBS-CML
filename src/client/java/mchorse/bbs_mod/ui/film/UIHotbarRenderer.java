@@ -51,21 +51,21 @@ public class UIHotbarRenderer
         {Identifier.of("minecraft", "hud/heart/absorbing_full"), Identifier.of("minecraft", "hud/heart/absorbing_hardcore_full")},
         {Identifier.of("minecraft", "hud/heart/frozen_full"), Identifier.of("minecraft", "hud/heart/frozen_hardcore_full")}
     };
+    private static final Identifier ARMOR_EMPTY = Identifier.of("minecraft", "hud/armor_empty");
+    private static final Identifier ARMOR_FULL = Identifier.of("minecraft", "hud/armor_full");
+    private static final Identifier ARMOR_HALF = Identifier.of("minecraft", "hud/armor_half");
     private static final Identifier FOOD_EMPTY = Identifier.of("minecraft", "hud/food_empty");
-    private static final Identifier FOOD_HALF = Identifier.of("minecraft", "hud/food_half");
     private static final Identifier FOOD_FULL = Identifier.of("minecraft", "hud/food_full");
+    private static final Identifier FOOD_HALF = Identifier.of("minecraft", "hud/food_half");
     private static final Identifier FOOD_EMPTY_HUNGER = Identifier.of("minecraft", "hud/food_empty_hunger");
-    private static final Identifier FOOD_HALF_HUNGER = Identifier.of("minecraft", "hud/food_half_hunger");
     private static final Identifier FOOD_FULL_HUNGER = Identifier.of("minecraft", "hud/food_full_hunger");
+    private static final Identifier FOOD_HALF_HUNGER = Identifier.of("minecraft", "hud/food_half_hunger");
     private static final Identifier AIR = Identifier.of("minecraft", "hud/air");
     private static final Identifier AIR_BURSTING = Identifier.of("minecraft", "hud/air_bursting");
-    private static final Identifier ARMOR_EMPTY = Identifier.of("minecraft", "hud/armor_empty");
-    private static final Identifier ARMOR_HALF = Identifier.of("minecraft", "hud/armor_half");
-    private static final Identifier ARMOR_FULL = Identifier.of("minecraft", "hud/armor_full");
-    private static final Identifier JUMP_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "hud/jump_bar_background");
-    private static final Identifier JUMP_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "hud/jump_bar_progress");
-    private static final Identifier EXPERIENCE_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "hud/experience_bar_background");
-    private static final Identifier EXPERIENCE_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "hud/experience_bar_progress");
+    private static final Identifier EXPERIENCE_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/experience_bar_background.png");
+    private static final Identifier EXPERIENCE_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/experience_bar_progress.png");
+    private static final Identifier JUMP_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/jump_bar_background.png");
+    private static final Identifier JUMP_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/jump_bar_progress.png");
     private static boolean wasHeartRegenerationEnabled;
     private static long heartRegenerationStartTick;
 
