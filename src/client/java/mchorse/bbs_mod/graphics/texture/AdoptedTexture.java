@@ -35,12 +35,16 @@ public final class AdoptedTexture extends AbstractTexture
         private final Identifier id;
         private final int width;
         private final int height;
+        private final boolean linear;
+        private final boolean mipmap;
 
-        private Cached(Identifier id, int width, int height)
+        private Cached(Identifier id, int width, int height, boolean linear, boolean mipmap)
         {
             this.id = id;
             this.width = width;
             this.height = height;
+            this.linear = linear;
+            this.mipmap = mipmap;
         }
     }
 
@@ -53,9 +57,11 @@ public final class AdoptedTexture extends AbstractTexture
 
         int width = Math.max(1, texture.width);
         int height = Math.max(1, texture.height);
+        boolean linear = texture.isLinear();
+        boolean mipmap = texture.isReallyMipmap();
         Cached cached = REGISTRY.get(texture);
 
-        if (cached != null && cached.width == width && cached.height == height)
+        if (cached != null && cached.width == width && cached.height == height && cached.linear == linear && cached.mipmap == mipmap)
         {
             return cached.id;
         }
@@ -63,13 +69,18 @@ public final class AdoptedTexture extends AbstractTexture
         Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/" + (counter++));
 
         MinecraftClient.getInstance().getTextureManager().registerTexture(id,
-            new AdoptedTexture(texture.id, "bbs_adopted_" + texture.id, width, height, texture.isLinear()));
-        REGISTRY.put(texture, new Cached(id, width, height));
+            new AdoptedTexture(texture.id, "bbs_adopted_" + texture.id, width, height, linear, mipmap));
+        REGISTRY.put(texture, new Cached(id, width, height, linear, mipmap));
 
         return id;
     }
 
     public static Identifier identifier(int glId, int width, int height, boolean linear)
+    {
+        return identifier(glId, width, height, linear, false);
+    }
+
+    public static Identifier identifier(int glId, int width, int height, boolean linear, boolean mipmap)
     {
         if (glId < 0)
         {
@@ -80,21 +91,21 @@ public final class AdoptedTexture extends AbstractTexture
         int safeH = Math.max(1, height);
         Cached cached = GLID_REGISTRY.get(glId);
 
-        if (cached != null && cached.width == safeW && cached.height == safeH)
+        if (cached != null && cached.width == safeW && cached.height == safeH && cached.linear == linear && cached.mipmap == mipmap)
         {
             return cached.id;
         }
 
-        Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/glid_" + glId);
+        Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/glid_" + glId + (linear ? "_lin" : "_nea") + (mipmap ? "_mip" : ""));
 
         MinecraftClient.getInstance().getTextureManager().registerTexture(id,
-            new AdoptedTexture(glId, "bbs_adopted_glid_" + glId, safeW, safeH, linear));
-        GLID_REGISTRY.put(glId, new Cached(id, safeW, safeH));
+            new AdoptedTexture(glId, "bbs_adopted_glid_" + glId, safeW, safeH, linear, mipmap));
+        GLID_REGISTRY.put(glId, new Cached(id, safeW, safeH, linear, mipmap));
 
         return id;
     }
 
-    private AdoptedTexture(int glId, String label, int width, int height, boolean linear)
+    private AdoptedTexture(int glId, String label, int width, int height, boolean linear, boolean mipmap)
     {
         AdoptedGlTexture glTexture = new AdoptedGlTexture(glId, label, width, height);
 
@@ -104,7 +115,7 @@ public final class AdoptedTexture extends AbstractTexture
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
 
         this.sampler = RenderSystem.getSamplerCache().get(
-            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, filter, filter, false);
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, filter, filter, mipmap);
     }
 
     @Override
