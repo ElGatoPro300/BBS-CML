@@ -26,13 +26,7 @@ public class ClientPlayerInteractionManagerMixin
     }
 
     @Inject(method = "interact", at = @At("HEAD"))
-    private void bbs$onInteractEntity(Player player, Entity entity, InteractionHand hand, CallbackInfoReturnable<InteractionResult> info)
-    {
-        RecorderMobCapture.onEntityInteraction(entity);
-    }
-
-    @Inject(method = "interactAt", at = @At("HEAD"))
-    private void bbs$onInteractEntityAtLocation(Player player, Entity entity, EntityHitResult hitResult, InteractionHand hand, CallbackInfoReturnable<InteractionResult> info)
+    private void bbs$onInteractEntity(Player player, Entity entity, EntityHitResult hitResult, InteractionHand hand, CallbackInfoReturnable<InteractionResult> info)
     {
         RecorderMobCapture.onEntityInteraction(entity);
     }

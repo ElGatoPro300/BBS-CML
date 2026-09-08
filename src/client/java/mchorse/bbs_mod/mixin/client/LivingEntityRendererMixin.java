@@ -32,7 +32,10 @@ public abstract class LivingEntityRendererMixin
     @Shadow
     protected EntityModel<?> model;
 
-    @Inject(method = "submit", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/EntityModel;setAngles(Ljava/lang/Object;)V", ordinal = 0, shift = At.Shift.AFTER))
+    @Inject(
+        method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+        at = @At("HEAD")
+    )
     public void onSetAngles(LivingEntityRenderState state, PoseStack matrixStack, SubmitNodeCollector renderCommandQueue, CameraRenderState cameraRenderState, CallbackInfo info)
     {
         Entity entity = ((IEntityRenderState) state).bbs$getEntity();
@@ -112,7 +115,10 @@ public abstract class LivingEntityRendererMixin
         }
     }
 
-    @Inject(method = "submit", at = @At("TAIL"))
+    @Inject(
+        method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+        at = @At("TAIL")
+    )
     public void onRenderEnd(LivingEntityRenderState state, PoseStack matrixStack, SubmitNodeCollector renderCommandQueue, CameraRenderState cameraRenderState, CallbackInfo info)
     {
         for (Map.Entry<ModelPart, Transform> entry : MobFormRenderer.getCache().entrySet())
