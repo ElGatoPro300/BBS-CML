@@ -117,20 +117,19 @@ public final class BbsGuiScale
      */
     public static void withBbsWindowScale(Runnable draw)
     {
-        if (isLinkedToGame())
-        {
-            draw.run();
-
-            return;
-        }
-
         MinecraftClient mc = MinecraftClient.getInstance();
         Window window = mc.getWindow();
         int saved = getGameScaleFactor();
+        boolean linked = isLinkedToGame();
+        int targetScale = linked || getFactor() <= 0D ? saved : (int) getFactor();
 
         try
         {
-            window.setScaleFactor((int) getFactor());
+            if (!linked)
+            {
+                window.setScaleFactor(targetScale);
+            }
+
             int sw = window.getScaledWidth();
             int sh = window.getScaledHeight();
 
@@ -160,7 +159,11 @@ public final class BbsGuiScale
         }
         finally
         {
-            restoringGameScale(() -> window.setScaleFactor(saved));
+            if (!linked)
+            {
+                restoringGameScale(() -> window.setScaleFactor(saved));
+            }
+
             RenderSystem.restoreProjectionMatrix();
         }
     }
