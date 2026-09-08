@@ -1,8 +1,6 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -20,13 +18,14 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 /**
  * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
@@ -105,12 +104,32 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         float effectivePaintStrength = this.resolveEffectivePaintStrength(group);
         float effectiveGlowStrength = this.resolveEffectiveGlowStrength(group);
+        float r = this.r;
+        float g = this.g;
+        float b = this.b;
+        float a = alpha;
+        float paintUniformStrength = effectivePaintStrength;
+
+        if (group.paintColor != null && group.paintColor.a < 0F
+            && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isPaintPass())
+        {
+            Color baked = new Color().set(r, g, b, a);
+
+            FormColorEffects.applyPaintBlend(baked, group.paintColor, group.paintColor.a);
+            r = baked.r;
+            g = baked.g;
+            b = baked.b;
+            a = baked.a;
+            paintUniformStrength = ModelVAORenderer.getBasePaintStrength() > 0F
+                ? ModelVAORenderer.getBasePaintStrength()
+                : 0F;
+        }
 
         ModelVAORenderer.setGroupPaint(
             this.resolveEffectivePaintR(group),
             this.resolveEffectivePaintG(group),
             this.resolveEffectivePaintB(group),
-            effectivePaintStrength
+            paintUniformStrength
         );
         ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
         ModelVAORenderer.setGroupGlowing(
@@ -123,11 +142,6 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.setGroupFormColorGrade(group.color);
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);
-
-        float r = this.r;
-        float g = this.g;
-        float b = this.b;
-        float a = alpha;
 
         boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
 
@@ -184,12 +198,16 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         try
         {
-            BBSRendering.bindProgram(this.shader);
-            BBSUniform.set(this.shader, "ColorModulator", r, g, b, a);
+            RenderSystem.setShaderColor(r, g, b, a);
+            this.shader.bind();
+            if (this.shader.colorModulator != null)
+            {
+                this.shader.colorModulator.set(r, g, b, a);
+            }
 
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            BBSRendering.unbindProgram();
+            this.shader.unbind();
         }
         catch (IllegalStateException e)
         {
@@ -197,7 +215,12 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         finally
         {
-            BBSUniform.set(this.shader, "ColorModulator", 1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+            if (this.shader.colorModulator != null)
+            {
+                this.shader.colorModulator.set(1F, 1F, 1F, 1F);
+            }
         }
 
         this.setColor(this.r, this.g, this.b, savedA);

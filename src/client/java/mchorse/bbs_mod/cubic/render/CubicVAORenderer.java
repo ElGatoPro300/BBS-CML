@@ -15,6 +15,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormats;
@@ -80,6 +81,24 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 a = this.a * group.color.a;
             }
 
+            /* Negative limb paint: bake into vertex tint. PaintColor uniforms / Iris overlay
+             * are for positive tint; ARGB-era paths and Iris entity shaders miss negative a. */
+            float paintUniformStrength = effectivePaintStrength;
+
+            if (group.paintColor != null && group.paintColor.a < 0F && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isPaintPass())
+            {
+                Color baked = new Color().set(r, g, b, a);
+
+                FormColorEffects.applyPaintBlend(baked, group.paintColor, group.paintColor.a);
+                r = baked.r;
+                g = baked.g;
+                b = baked.b;
+                a = baked.a;
+                paintUniformStrength = ModelVAORenderer.getBasePaintStrength() > 0F
+                    ? ModelVAORenderer.getBasePaintStrength()
+                    : 0F;
+            }
+
             boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
 
             if (!ModelVAORenderer.isGlowingUniformActive())
@@ -127,7 +146,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 String material = entry.getKey();
                 ModelVAO modelVAO = entry.getValue();
 
-                float currentPaintStrength = effectivePaintStrength;
+                float currentPaintStrength = paintUniformStrength;
 
                 if (currentPaintStrength > 0F && !this.groupHasPaintableTexture(group, material))
                 {

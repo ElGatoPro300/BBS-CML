@@ -50,7 +50,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.MinecraftClient;
@@ -104,14 +104,7 @@ public class UIDashboard extends UIBaseMenu
             {
                 this.orbit.setFovRoll(panel.supportsRollFOVControl());
 
-                if (BBSSettings.editorOrbitRestrictToViewport.get())
-                {
-                    this.orbitUI.setViewportArea(panel::getFlightViewportArea);
-                }
-                else
-                {
-                    this.orbitUI.setViewportArea(null);
-                }
+                this.orbitUI.setViewportArea(() -> BBSSettings.editorOrbitRestrictToViewport.get() ? panel.getFlightViewportArea() : null);
             }
             else
             {
@@ -451,6 +444,8 @@ public class UIDashboard extends UIBaseMenu
         Link background = BBSSettings.backgroundImage.get();
         int color = BBSSettings.backgroundColor.get();
 
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
 
         if (background == null)
         {

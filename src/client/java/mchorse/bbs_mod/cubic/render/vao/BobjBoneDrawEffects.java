@@ -117,6 +117,19 @@ public final class BobjBoneDrawEffects
             a = baseA * bone.color.a;
         }
 
+        /* Negative limb paint: bake darken into vertex tint (same as cubic groups). */
+        if (bone.paintColor != null && bone.paintColor.a < 0F
+            && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isPaintPass())
+        {
+            Color baked = output.set(r, g, b, a);
+
+            FormColorEffects.applyPaintBlend(baked, bone.paintColor, bone.paintColor.a);
+            r = baked.r;
+            g = baked.g;
+            b = baked.b;
+            a = baked.a;
+        }
+
         float effectiveGlowStrength = resolveEffectiveGlowStrength(bone);
         boolean boneGlowMaskActive = bone.glowingColor != null
             && bone.glowingColor.transform != null
@@ -227,6 +240,14 @@ public final class BobjBoneDrawEffects
     {
         if (bone.paintColor.a != 0F)
         {
+            /* Negative intensity is baked into vertex tint on the main pass. */
+            if (bone.paintColor.a < 0F)
+            {
+                return ModelVAORenderer.getBasePaintStrength() > 0F
+                    ? ModelVAORenderer.getBasePaintStrength()
+                    : 0F;
+            }
+
             return bone.paintColor.a;
         }
 

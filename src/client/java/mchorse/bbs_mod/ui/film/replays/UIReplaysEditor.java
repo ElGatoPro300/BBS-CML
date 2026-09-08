@@ -1019,7 +1019,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
          * not include the camera rotation (see renderPickingPreview). */
         Camera camera = this.filmPanel.getWorldCamera();
 
-        Area viewport = preview.getViewport();
+        Area viewport = preview.getAbsoluteViewport();
 
         if (!viewport.isInside(context.mouseX(), context.mouseY()))
         {
@@ -5040,6 +5040,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             this.keyframeEditor.view.getGraph().clearSelection();
             this.keyframeEditor.view.getGraph().pickSelected();
+        }
+    }
+
+    /**
+     * Hide the keyframe properties form without clearing dope-sheet selection.
+     */
+    public void hideKeyframeProperties()
+    {
+        if (this.keyframeEditor != null)
+        {
+            this.keyframeEditor.hidePropertiesPanel();
         }
     }
 }

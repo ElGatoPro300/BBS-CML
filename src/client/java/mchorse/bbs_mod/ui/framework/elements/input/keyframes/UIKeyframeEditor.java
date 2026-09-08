@@ -209,6 +209,25 @@ public class UIKeyframeEditor extends UIElement
         }
     }
 
+    /**
+     * Detach the keyframe property form from its host without clearing graph
+     * selection. Used when switching timelines so the shared properties panel
+     * can show another form while keyframes stay selected for when the user returns.
+     */
+    public void hidePropertiesPanel()
+    {
+        if (this.editor == null)
+        {
+            return;
+        }
+
+        UIKeyframeFactory.saveScroll(this.editor);
+        this.editor.removeFromParent();
+        this.editor = null;
+        this.applyLayout();
+        this.resize();
+    }
+
     private void pickKeyframe(Keyframe keyframe)
     {
         UIKeyframeFactory.saveScroll(this.editor);
