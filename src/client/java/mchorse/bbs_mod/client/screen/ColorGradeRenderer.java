@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client.screen;
 
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -11,6 +12,7 @@ import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.util.Identifier;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -19,6 +21,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL43;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
@@ -257,7 +260,7 @@ public class ColorGradeRenderer
                 /* Lens Dirt & Rain Overlay (Procedural raindrops and static spots refraction) */
                 if (u_rain > 0.001)
                 {
-                    // Falling rain droplets grid
+                    /* Falling rain droplets grid */
                     vec2 rainUV = distortedUV * vec2(8.0, 4.5);
                     rainUV.y += u_time * 1.2;
                     vec2 cell = fract(rainUV) - vec2(0.5);
@@ -274,7 +277,7 @@ public class ColorGradeRenderer
                         }
                     }
 
-                    // Static lens dirt / condensation drops
+                    /* Static lens dirt / condensation drops */
                     vec2 dirtUV = distortedUV * vec2(12.0, 9.0);
                     vec2 dirtCell = fract(dirtUV) - vec2(0.5);
                     vec2 dirtId = floor(dirtUV);
@@ -483,7 +486,7 @@ public class ColorGradeRenderer
                             vec2 diff = distortedUV - randPos;
                             diff.x *= 1.77;
 
-                            // Randomly rotate the coordinates for each speck
+                            /* Randomly rotate the coordinates for each speck */
                             float rotAngle = hash(vec2(dustTime, float(i) * 19.3)) * 6.28318;
                             float cosA = cos(rotAngle);
                             float sinA = sin(rotAngle);
@@ -496,7 +499,7 @@ public class ColorGradeRenderer
 
                             if (typeDecider < 0.33)
                             {
-                                // Type A: Rounded / Irregular Speck (soot flake)
+                                /* Type A: Rounded / Irregular Speck (soot flake) */
                                 float angle = atan(rotatedDiff.y, rotatedDiff.x);
                                 float deform = 1.0 + 0.4 * sin(angle * 4.0) + 0.3 * cos(angle * 7.0 + 0.8);
                                 float rLimit = 0.008 * u_dust * deform;
@@ -507,7 +510,7 @@ public class ColorGradeRenderer
                             }
                             else if (typeDecider < 0.66)
                             {
-                                // Type B: Thread / Curved Lint Hair
+                                /* Type B: Thread / Curved Lint Hair */
                                 float hairLength = 0.022 * u_dust;
                                 float hairThickness = 0.0010 * u_dust;
                                 float bend = sin(rotatedDiff.x * 180.0) * 0.005;
@@ -518,7 +521,7 @@ public class ColorGradeRenderer
                             }
                             else
                             {
-                                // Type C: Deformed Elongated Ellipse Speck (dust fiber clump)
+                                /* Type C: Deformed Elongated Ellipse Speck (dust fiber clump) */
                                 vec2 stretched = vec2(rotatedDiff.x * 2.8, rotatedDiff.y);
                                 float angle = atan(stretched.y, stretched.x);
                                 float deform = 1.0 + 0.35 * sin(angle * 3.0);
@@ -532,17 +535,18 @@ public class ColorGradeRenderer
                     }
                 }
 
-                fragColor = vec4(clamp(rgb, 0.0, 1.0), texture(u_sampler, distortedUV).a);
+                fragColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
             }
             """;
 
-    private static final int SHADER_VERSION = 21;
+    private static final int SHADER_VERSION = 22;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
     private static int program;
     private static int vao;
     private static int vbo;
+    private static int captureFbo = -1;
     private static Texture tempTex;
 
     private static int uSampler;
@@ -630,9 +634,28 @@ public class ColorGradeRenderer
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        net.minecraft.client.gl.Framebuffer fb = mc.getFramebuffer();
+        net.minecraft.client.gl.Framebuffer fb = BBSRendering.getPaintOverlaySourceFramebuffer();
+
+        if (fb == null)
+        {
+            fb = mc.getFramebuffer();
+        }
+
         int fbW = fb.textureWidth;
         int fbH = fb.textureHeight;
+
+        int sourceId = ((GlTexture) fb.getColorAttachment()).getGlId();
+
+        if (captureFbo == -1)
+        {
+            captureFbo = GL30.glGenFramebuffers();
+        }
+
+        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
 
         /* Copy current framebuffer content to tempTex */
         if (tempTex == null)
@@ -645,24 +668,36 @@ public class ColorGradeRenderer
         }
 
         tempTex.bind();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, tempTex.id);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_BASE_LEVEL, 0);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_MAX_LEVEL, 0);
 
         if (tempTex.width != fbW || tempTex.height != fbH)
         {
             tempTex.setSize(fbW, fbH);
+            tempTex.bind();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, tempTex.id);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_BASE_LEVEL, 0);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_MAX_LEVEL, 0);
         }
-
-        /* 1.21.11: Framebuffer.beginRead removed — copy from color attachment via temp read FBO if needed. */
-        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        int sourceId = ((GlTexture) fb.getColorAttachment()).getGlId();
-        int captureFbo = GL30.glGenFramebuffers();
 
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, captureFbo);
         GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, sourceId, 0);
         GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+
         GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fbW, fbH);
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
-        GL30.glDeleteFramebuffers(captureFbo);
+
         tempTex.unbind();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
 
         /* Accumulate color effects */
         float vigStr = 0F;
@@ -795,13 +830,18 @@ public class ColorGradeRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
         GL11.glViewport(0, 0, fbW, fbH);
 
+        GL11.glColorMask(true, true, true, true);
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glDisable(GL11.GL_BLEND);
 
         GL20.glUseProgram(program);
 
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         tempTex.bind();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, tempTex.id);
         glUniform1iSafe(uSampler, 0);
 
         glUniform1fSafe(uVigStr, vigStr);
@@ -859,12 +899,18 @@ public class ColorGradeRenderer
         glUniform1fSafe(uHeatScale, 2.0F + heatScale * 35.0F);
         glUniform1fSafe(uTime, time);
 
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, captureFbo);
+        GL30.glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, sourceId, 0);
+        GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+
         GL30.glBindVertexArray(vao);
         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
         GL30.glBindVertexArray(0);
 
         GL20.glUseProgram(0);
-        tempTex.unbind();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GlStateManager._bindTexture(0);
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     }

@@ -41,6 +41,11 @@ public class ScreenEffectRenderer
 {
     public static void render(Batcher2D batcher, ClipContext context, int screenW, int screenH)
     {
+        if (context == null)
+        {
+            return;
+        }
+
         List<ColorEffect> effects = ColorClip.getEffects(context);
         List<LetterboxEffect> letterboxEffects = LetterboxClip.getEffects(context);
         List<GrainEffect> grainEffects = GrainClip.getEffects(context);

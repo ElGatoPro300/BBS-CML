@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
+import mchorse.bbs_mod.camera.clips.CameraClipContext;
 import mchorse.bbs_mod.camera.clips.misc.ChromaSkyCurveSettings;
 import mchorse.bbs_mod.camera.clips.misc.CurveClip;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
@@ -804,7 +805,7 @@ public class BBSRendering
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
         }
 
-        if (!customSize && BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
+        if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
             DrawContext drawContext = new DrawContext(mc, new GuiRenderState(), mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
             Batcher2D batcher = new Batcher2D(drawContext);
@@ -837,8 +838,23 @@ public class BBSRendering
                 Window window = mc.getWindow();
                 Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
 
-                VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
+                if (panel.getData() != null && panel.getData().camera != null)
+                {
+                    CameraClipContext context = panel.getRunner().getContext();
 
+                    context.clipData.clear();
+                    context.clips = panel.getData().camera;
+                    context.setup(panel.getCursor(), panel.getRunner().isRunning() ? mc.getRenderTickCounter().getTickProgress(false) : 0F);
+
+                    for (Clip clip : panel.getData().camera.getClips(panel.getCursor()))
+                    {
+                        context.apply(clip, panel.getRunner().getPosition());
+                    }
+
+                    VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
+
+                    ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
+                }
             }
         }
 
