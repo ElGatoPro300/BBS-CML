@@ -38,16 +38,20 @@ import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
+import net.minecraft.block.AbstractSkullBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.model.TridentEntityModel;
-import net.minecraft.client.render.model.ModelLoader;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.render.entity.TridentEntityRenderer;
+import net.minecraft.client.render.model.ModelBaker;
 import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -161,7 +165,7 @@ public class FormUtilsClient
             map.put(TexturedRenderLayers.getEntitySolid(), new BufferAllocator(RenderLayer.getSolid().getExpectedBufferSize()));
             map.put(TexturedRenderLayers.getEntityCutout(), new BufferAllocator(RenderLayer.getCutout().getExpectedBufferSize()));
             map.put(TexturedRenderLayers.getBannerPatterns(), new BufferAllocator(RenderLayer.getCutoutMipped().getExpectedBufferSize()));
-            map.put(TexturedRenderLayers.getEntityTranslucentCull(), new BufferAllocator(RenderLayer.getTranslucent().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getItemEntityTranslucentCull(), new BufferAllocator(RenderLayer.getTranslucent().getExpectedBufferSize()));
             FormUtilsClient.assignBuffer(map, RenderLayer.getSolid());
             FormUtilsClient.assignBuffer(map, RenderLayer.getCutout());
             FormUtilsClient.assignBuffer(map, RenderLayer.getTranslucent());
@@ -180,10 +184,8 @@ public class FormUtilsClient
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlintTranslucent());
             FormUtilsClient.assignBuffer(map, RenderLayer.getEntityGlint());
-            FormUtilsClient.assignBuffer(map, RenderLayer.getDirectEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getWaterMask());
-            FormUtilsClient.assignBuffer(map, RenderLayer.getEntitySolid(TridentEntityModel.TEXTURE));
-            ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.forEach((layer) -> FormUtilsClient.assignBuffer(map, layer));
+            FormUtilsClient.assignBuffer(map, RenderLayer.getEntitySolid(TridentEntityRenderer.TEXTURE));
         });
 
         return new CustomVertexConsumerProvider(
@@ -208,14 +210,9 @@ public class FormUtilsClient
             return false;
         }
 
-        try
-        {
-            return MinecraftClient.getInstance().getItemRenderer().getModel(stack, null, null, 0).isBuiltin();
-        }
-        catch (Exception e)
-        {
-            return false;
-        }
+        return stack.isOf(Items.TRIDENT)
+            || stack.isOf(Items.SHIELD)
+            || stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock;
     }
 
     public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ModelTransformationMode mode, VertexConsumerProvider fallback)
@@ -245,7 +242,7 @@ public class FormUtilsClient
             return false;
         }
 
-        if (ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.contains(layer))
+        if (ModelBaker.BLOCK_DESTRUCTION_RENDER_LAYERS.contains(layer))
         {
             return true;
         }
@@ -419,7 +416,17 @@ public class FormUtilsClient
 
             try
             {
+                if (context.isPicking())
+                {
+                    StencilFormFramebuffer.rebindActive();
+                }
+
                 renderer.render(context);
+
+                if (context.isPicking())
+                {
+                    StencilFormFramebuffer.rebindActive();
+                }
             }
             catch (Exception e)
             {}

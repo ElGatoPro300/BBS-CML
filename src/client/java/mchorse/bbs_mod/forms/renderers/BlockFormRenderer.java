@@ -44,10 +44,10 @@ import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.BakedQuad;
-import net.minecraft.client.render.model.ModelLoader;
+import net.minecraft.client.render.model.ModelBaker;
 import net.minecraft.client.texture.Sprite;
+import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -219,8 +219,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
                     this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-                    RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
                     /* Unit pick cubes need both faces; culling clipped the volume to a flat slab. */
                     RenderSystem.disableCull();
                 });
@@ -577,6 +577,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             this.blockMainPassGlowEmission = null;
             CustomVertexConsumerProvider.clearRunnables();
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            /* Keep the shared ItemForm scratch neutral after BE/atlas color bake. */
+            color.set(1F, 1F, 1F, 1F);
 
             if (context.isPicking())
             {
@@ -834,7 +836,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                 if (!picking && !effectOverlay && breakingLevel > 0 && breakingLevel <= 10 && blockState.getRenderType() == BlockRenderType.MODEL)
                 {
-                    RenderLayer crackingLayer = ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.get(breakingLevel - 1);
+                    RenderLayer crackingLayer = ModelBaker.BLOCK_DESTRUCTION_RENDER_LAYERS.get(breakingLevel - 1);
                     VertexConsumer delegateConsumer = consumers.getBuffer(crackingLayer);
                     VertexConsumer crackingConsumer = new OverlayVertexConsumer(delegateConsumer, stack.peek(), 1.0F);
                     Function<VertexConsumer, VertexConsumer> previousSubstitute = consumers.getSubstitute();
@@ -894,7 +896,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return TexturedRenderLayers.getEntitySolid();
         }
 
-        return RenderLayers.getEntityBlockLayer(state, false);
+        return RenderLayers.getEntityBlockLayer(state);
     }
 
     private int resolveBlockTint(BlockState state, BlockPos worldPos)
@@ -977,7 +979,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         return state.getRenderType() == BlockRenderType.INVISIBLE
-            || state.getRenderType() == BlockRenderType.ENTITYBLOCK_ANIMATED
             || state.getBlock() instanceof BlockEntityProvider;
     }
 
@@ -990,7 +991,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         /* Signs / hanging signs / chests / beds / … — animated or invisible mesh, or any BE. */
         if (state.getRenderType() == BlockRenderType.INVISIBLE
-            || state.getRenderType() == BlockRenderType.ENTITYBLOCK_ANIMATED
             || state.getBlock() instanceof BlockEntityProvider)
         {
             return true;
@@ -1027,10 +1027,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
      */
     private void renderPickVolume(MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay)
     {
-        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         RenderSystem.disableCull();
 
-        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntitySolid(PlayerScreenHandler.BLOCK_ATLAS_TEXTURE));
+        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntitySolid(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE));
         MatrixStack.Entry entry = stack.peek();
         Matrix4f matrix = entry.getPositionMatrix();
         float[] uv = this.getOpaquePickUv();
@@ -1086,10 +1086,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
         }
 
-        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         RenderSystem.disableCull();
 
-        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntitySolid(PlayerScreenHandler.BLOCK_ATLAS_TEXTURE));
+        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntitySolid(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE));
         MatrixStack.Entry entry = stack.peek();
         Matrix4f matrix = entry.getPositionMatrix();
         float[] uv = this.getOpaquePickUv();
@@ -1100,7 +1100,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     private float[] getOpaquePickUv()
     {
         Sprite sprite = MinecraftClient.getInstance().getBakedModelManager()
-            .getAtlas(PlayerScreenHandler.BLOCK_ATLAS_TEXTURE)
+            .getAtlas(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE)
             .getSprite(Identifier.of("minecraft", "block/white_concrete"));
         float u = (sprite.getMinU() + sprite.getMaxU()) * 0.5F;
         float v = (sprite.getMinV() + sprite.getMaxV()) * 0.5F;
@@ -1144,7 +1144,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         return state.getBlock() instanceof BlockEntityProvider
-            || state.getRenderType() == BlockRenderType.ENTITYBLOCK_ANIMATED
             || state.getRenderType() == BlockRenderType.INVISIBLE;
     }
 
@@ -1433,7 +1432,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -1445,7 +1444,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
                 consumers.setSubstitute(null);
                 RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             }
@@ -1584,7 +1583,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -1593,7 +1592,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
             }
         });
     }
@@ -1696,7 +1695,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -1705,7 +1704,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
             }
         });
     }
@@ -1859,7 +1858,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -1868,7 +1867,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
             }
         });
     }
