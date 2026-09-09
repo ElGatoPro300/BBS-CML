@@ -63,7 +63,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.utils.undo.IUndo;
 import mchorse.bbs_mod.utils.undo.UndoManager;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -83,7 +83,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -239,7 +239,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.keyDude.keys().register(Keys.MODEL_BLOCKS_MOVE_TO, () -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             Camera camera = mc.gameRenderer.getCamera();
-            BlockHitResult blockHitResult = RayTracing.rayTrace(mc.world, camera.getPos(),
+            BlockHitResult blockHitResult = RayTracing.rayTrace(mc.world, camera.getCameraPos(),
                     RayTracing.fromVector3f(this.mouseDirection), 512F);
 
             if (blockHitResult.getType() != HitResult.Type.MISS) {
@@ -2256,7 +2256,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public void renderInWorld(WorldRenderContext context) {
         super.renderInWorld(context);
 
-        MatrixStack matrices = context.matrixStack();
+        MatrixStack matrices = context.matrices();
         boolean shaderPath = BBSRendering.isIrisShadersEnabled();
 
         if (shaderPath)
@@ -2272,8 +2272,8 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             matrices = new MatrixStack();
         }
 
-        Camera camera = context.camera();
-        Vec3d pos = camera.getPos();
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Vec3d pos = camera.getCameraPos();
 
         MinecraftClient mc = MinecraftClient.getInstance();
         double x = mc.mouse.getX();
@@ -2286,13 +2286,15 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
          * (which doesn't use this ray) kept working fine. */
         Matrix4f view = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
 
+        Matrix4f proj = mc.gameRenderer.getBasicProjectionMatrix(mc.options.getFov().getValue().floatValue());
         this.mouseDirection.set(CameraUtils.getMouseDirection(
-                RenderSystem.getProjectionMatrix(),
+                proj,
                 view,
                 (int) x, (int) y, 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()));
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), this.mouseDirection);
 
-        RenderSystem.enableDepthTest();
+        /* TODO 1.21.11: RenderSystem.enableDepthTest removed */
+        GlStateManager._enableDepthTest();
 
         for (ModelBlockEntity entity : this.modelBlocks.getList()) {
             BlockPos blockPos = entity.getPos();
@@ -2329,7 +2331,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.renderSelectedHitbox(matrices, pos, shaderPath);
         this.renderGizmo(context, pos, matrices);
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
     }
 
     /** Draws the selected block's form hitbox wireframe in world space. */
@@ -2392,7 +2394,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         /* Don't draw/pick this panel's own gizmo while the block's nested form/model editor is
          * open on top - that editor has its own gizmo (rendered in its own viewport), and
          * showing both at once would double up and fight over the same drag. */
-        if (this.modelBlock == null || this.isEditing(this.modelBlock) || !UIBaseMenu.renderAxes)
+        if (this.modelBlock == null || this.isEditing(this.modelBlock))
         {
             this.gizmoStencil.clearPicking();
             this.gizmoController.updateHover();
@@ -2417,7 +2419,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.gizmoCameraPosition.set(cameraPos.x, cameraPos.y, cameraPos.z);
         this.hasGizmo = true;
-        this.gizmoProjection.set(RenderSystem.getProjectionMatrix());
+        this.gizmoProjection.set(MinecraftClient.getInstance().gameRenderer.getBasicProjectionMatrix(MinecraftClient.getInstance().options.getFov().getValue().floatValue()));
 
         MatrixStack gizmoStack;
 
@@ -2446,7 +2448,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.hasGizmoInterfaceMatrix = true;
         Gizmo.INSTANCE.captureVisual(gizmoStack);
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
         gizmoStack.pop();
     }
 
@@ -2509,9 +2511,8 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
          * the just-drawn world behind the dashboard and left a black pause present. */
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GlStateManager._bindTexture(0);
-        RenderSystem.setShaderTexture(0, 0);
         BBSRendering.ensureMainFramebuffer();
-        mc.getFramebuffer().beginWrite(false);
+        BBSRendering.bindMainFramebuffer(false);
     }
 
     @Override

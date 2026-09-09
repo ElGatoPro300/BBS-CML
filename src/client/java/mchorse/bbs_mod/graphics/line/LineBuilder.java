@@ -1,19 +1,9 @@
 package mchorse.bbs_mod.graphics.line;
 
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import net.minecraft.client.gl.ShaderProgramKeys;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
+import org.joml.Matrix3x2fc;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,22 +74,37 @@ public class LineBuilder <T>
 
     public void render(Batcher2D batcher2D, ILineRenderer<T> renderer)
     {
-        Matrix4f matrix = batcher2D.getContext().getMatrices().peek().getPositionMatrix();
         List<List<LinePoint<T>>> build = this.build();
+
+        if (build.isEmpty())
+        {
+            return;
+        }
+
+        GuiQuadMesh mesh = new GuiQuadMesh();
+        Matrix3x2fc matrix = batcher2D.getContext().getMatrices();
 
         for (List<LinePoint<T>> points : build)
         {
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+            int size = points.size();
 
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-            RenderSystem.enableBlend();
-
-            for (LinePoint<T> point : points)
+            if (size < 4)
             {
-                renderer.render(builder, matrix, point);
+                continue;
             }
 
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            for (int i = 0; i + 3 < size; i += 2)
+            {
+                renderer.render(mesh, matrix, points.get(i));
+                renderer.render(mesh, matrix, points.get(i + 1));
+                renderer.render(mesh, matrix, points.get(i + 3));
+                renderer.render(mesh, matrix, points.get(i + 2));
+            }
+        }
+
+        if (!mesh.isEmpty())
+        {
+            batcher2D.drawQuadMesh(mesh);
         }
     }
 }

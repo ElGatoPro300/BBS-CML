@@ -33,7 +33,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.Frustum;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.render.entity.EntityRenderManager;
 import net.minecraft.client.util.math.MatrixStack;
 
 import net.irisshaders.iris.mixin.LevelRendererAccessor;
@@ -42,6 +42,7 @@ import net.irisshaders.iris.shadows.ShadowRenderer;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -59,7 +61,7 @@ public class ShadowRendererMixin
 {
     @Inject(method = "renderEntities", at = @At("TAIL"))
     private void bbs$renderFormsShadows(LevelRendererAccessor levelRenderer,
-                                        EntityRenderDispatcher dispatcher,
+                                        EntityRenderManager dispatcher,
                                         VertexConsumerProvider.Immediate consumers,
                                         MatrixStack shadowStack,
                                         float tickDelta,
@@ -74,9 +76,32 @@ public class ShadowRendererMixin
             return;
         }
 
+        GpuTextureView previousColor = RenderSystem.outputColorTextureOverride;
+        GpuTextureView previousDepth = RenderSystem.outputDepthTextureOverride;
+
+        /* The film viewport's attachments are not shadow targets. Keeping them
+         * also makes model renderers choose the BBS preview shader instead of Iris. */
+        RenderSystem.outputColorTextureOverride = null;
+        RenderSystem.outputDepthTextureOverride = null;
+
+        try
+        {
+            this.bbs$drawFormShadows(consumers, shadowStack, tickDelta, camX, camY, camZ);
+        }
+        finally
+        {
+            RenderSystem.outputColorTextureOverride = previousColor;
+            RenderSystem.outputDepthTextureOverride = previousDepth;
+        }
+    }
+
+    @Unique
+    private void bbs$drawFormShadows(VertexConsumerProvider.Immediate consumers, MatrixStack shadowStack,
+                                   float tickDelta, double camX, double camY, double camZ)
+    {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
         Camera gameCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        RenderSystem.enableDepthTest();
+        BBSRendering.enableDepthTest();
 
         /* Case 1: film panel open – keep existing onion skin and panel-specific logic */
         if (menu instanceof UIDashboard)

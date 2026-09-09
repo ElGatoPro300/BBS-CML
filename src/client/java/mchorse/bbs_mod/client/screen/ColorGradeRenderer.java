@@ -2,14 +2,17 @@ package mchorse.bbs_mod.client.screen;
 
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.GlTexture;
 import net.minecraft.util.Identifier;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -18,6 +21,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL43;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
@@ -256,7 +260,7 @@ public class ColorGradeRenderer
                 /* Lens Dirt & Rain Overlay (Procedural raindrops and static spots refraction) */
                 if (u_rain > 0.001)
                 {
-                    // Falling rain droplets grid
+                    /* Falling rain droplets grid */
                     vec2 rainUV = distortedUV * vec2(8.0, 4.5);
                     rainUV.y += u_time * 1.2;
                     vec2 cell = fract(rainUV) - vec2(0.5);
@@ -273,7 +277,7 @@ public class ColorGradeRenderer
                         }
                     }
 
-                    // Static lens dirt / condensation drops
+                    /* Static lens dirt / condensation drops */
                     vec2 dirtUV = distortedUV * vec2(12.0, 9.0);
                     vec2 dirtCell = fract(dirtUV) - vec2(0.5);
                     vec2 dirtId = floor(dirtUV);
@@ -482,7 +486,7 @@ public class ColorGradeRenderer
                             vec2 diff = distortedUV - randPos;
                             diff.x *= 1.77;
 
-                            // Randomly rotate the coordinates for each speck
+                            /* Randomly rotate the coordinates for each speck */
                             float rotAngle = hash(vec2(dustTime, float(i) * 19.3)) * 6.28318;
                             float cosA = cos(rotAngle);
                             float sinA = sin(rotAngle);
@@ -495,7 +499,7 @@ public class ColorGradeRenderer
 
                             if (typeDecider < 0.33)
                             {
-                                // Type A: Rounded / Irregular Speck (soot flake)
+                                /* Type A: Rounded / Irregular Speck (soot flake) */
                                 float angle = atan(rotatedDiff.y, rotatedDiff.x);
                                 float deform = 1.0 + 0.4 * sin(angle * 4.0) + 0.3 * cos(angle * 7.0 + 0.8);
                                 float rLimit = 0.008 * u_dust * deform;
@@ -506,7 +510,7 @@ public class ColorGradeRenderer
                             }
                             else if (typeDecider < 0.66)
                             {
-                                // Type B: Thread / Curved Lint Hair
+                                /* Type B: Thread / Curved Lint Hair */
                                 float hairLength = 0.022 * u_dust;
                                 float hairThickness = 0.0010 * u_dust;
                                 float bend = sin(rotatedDiff.x * 180.0) * 0.005;
@@ -517,7 +521,7 @@ public class ColorGradeRenderer
                             }
                             else
                             {
-                                // Type C: Deformed Elongated Ellipse Speck (dust fiber clump)
+                                /* Type C: Deformed Elongated Ellipse Speck (dust fiber clump) */
                                 vec2 stretched = vec2(rotatedDiff.x * 2.8, rotatedDiff.y);
                                 float angle = atan(stretched.y, stretched.x);
                                 float deform = 1.0 + 0.35 * sin(angle * 3.0);
@@ -531,17 +535,18 @@ public class ColorGradeRenderer
                     }
                 }
 
-                fragColor = vec4(clamp(rgb, 0.0, 1.0), texture(u_sampler, distortedUV).a);
+                fragColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
             }
             """;
 
-    private static final int SHADER_VERSION = 21;
+    private static final int SHADER_VERSION = 22;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
     private static int program;
     private static int vao;
     private static int vbo;
+    private static int captureFbo = -1;
     private static Texture tempTex;
 
     private static int uSampler;
@@ -629,9 +634,28 @@ public class ColorGradeRenderer
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        net.minecraft.client.gl.Framebuffer fb = mc.getFramebuffer();
+        net.minecraft.client.gl.Framebuffer fb = BBSRendering.getPaintOverlaySourceFramebuffer();
+
+        if (fb == null)
+        {
+            fb = mc.getFramebuffer();
+        }
+
         int fbW = fb.textureWidth;
         int fbH = fb.textureHeight;
+
+        int sourceId = ((GlTexture) fb.getColorAttachment()).getGlId();
+
+        if (captureFbo == -1)
+        {
+            captureFbo = GL30.glGenFramebuffers();
+        }
+
+        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
 
         /* Copy current framebuffer content to tempTex */
         if (tempTex == null)
@@ -643,17 +667,37 @@ public class ColorGradeRenderer
             tempTex.setWrap(GL12.GL_CLAMP_TO_EDGE);
         }
 
-        fb.beginRead();
         tempTex.bind();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, tempTex.id);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_BASE_LEVEL, 0);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_MAX_LEVEL, 0);
 
         if (tempTex.width != fbW || tempTex.height != fbH)
         {
             tempTex.setSize(fbW, fbH);
+            tempTex.bind();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, tempTex.id);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_BASE_LEVEL, 0);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL30.GL_TEXTURE_MAX_LEVEL, 0);
         }
 
+        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, captureFbo);
+        GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, sourceId, 0);
+        GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+
         GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fbW, fbH);
+
         tempTex.unbind();
-        fb.beginWrite(false);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
 
         /* Accumulate color effects */
         float vigStr = 0F;
@@ -749,35 +793,26 @@ public class ColorGradeRenderer
         float heatSpeed = 0F;
         float heatScale = 0F;
         float time = 0F;
-
         for (ColorEffect e : effects)
         {
             if (e.hasCinematic)
             {
-                if (e.aberration > aberration)
-                {
-                    aberration = e.aberration;
-                    aberrationAngle = e.aberrationAngle;
-                    aberrationDirectional = e.aberrationDirectional;
-                    aberrationRadius = e.aberrationRadius;
-                    aberrationHardness = e.aberrationHardness;
-                    aberrationBalance = e.aberrationBalance;
-                    aberrationCenterX = e.aberrationCenterX;
-                    aberrationCenterY = e.aberrationCenterY;
-                    aberrationGreen = e.aberrationGreen;
-                    aberrationSpectrum = e.aberrationSpectrum;
-                }
-
+                aberration = Math.max(aberration, e.aberration);
+                aberrationAngle = e.aberrationAngle;
+                aberrationDirectional = Math.max(aberrationDirectional, e.aberrationDirectional);
+                aberrationRadius = e.aberrationRadius;
+                aberrationHardness = e.aberrationHardness;
+                aberrationBalance = e.aberrationBalance;
+                aberrationCenterX = e.aberrationCenterX;
+                aberrationCenterY = e.aberrationCenterY;
+                aberrationGreen = Math.max(aberrationGreen, e.aberrationGreen);
+                aberrationSpectrum = Math.max(aberrationSpectrum, e.aberrationSpectrum);
                 vhs = Math.max(vhs, e.vhs);
-                lensDistortion += e.lensDistortion;
-
-                if (Math.abs(e.lensDistortion) > 1.0e-6F)
-                {
-                    lensRadiusX = e.lensRadiusX;
-                    lensRadiusY = e.lensRadiusY;
-                    lensHardness = e.lensHardness;
-                    lensSharpen = Math.max(lensSharpen, e.lensSharpen);
-                }
+                lensDistortion = Math.abs(e.lensDistortion) > Math.abs(lensDistortion) ? e.lensDistortion : lensDistortion;
+                lensRadiusX = e.lensRadiusX;
+                lensRadiusY = e.lensRadiusY;
+                lensHardness = e.lensHardness;
+                lensSharpen = Math.max(lensSharpen, e.lensSharpen);
                 vintage = Math.max(vintage, e.vintage);
                 radialBlur = Math.max(radialBlur, e.radialBlur);
                 rain = Math.max(rain, e.rain);
@@ -795,79 +830,89 @@ public class ColorGradeRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
         GL11.glViewport(0, 0, fbW, fbH);
 
+        GL11.glColorMask(true, true, true, true);
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glDisable(GL11.GL_BLEND);
 
         GL20.glUseProgram(program);
 
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         tempTex.bind();
-        GL20.glUniform1i(uSampler, 0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, tempTex.id);
+        glUniform1iSafe(uSampler, 0);
 
-        GL20.glUniform1f(uVigStr, vigStr);
-        GL20.glUniform1f(uVigSmooth, vigSmooth);
-        GL20.glUniform3f(uVigColor, vigR, vigG, vigB);
-        GL20.glUniform1f(uBrightness, brightness);
-        GL20.glUniform1f(uContrast, contrast);
-        GL20.glUniform1f(uSaturation, saturation);
-        GL20.glUniform1f(uHue, hue);
-        GL20.glUniform3f(uLift, liftR, liftG, liftB);
-        GL20.glUniform3f(uGamma, gammaR, gammaG, gammaB);
-        GL20.glUniform3f(uGain, gainR, gainG, gainB);
-        GL20.glUniform1f(uGrainStr, grainStr);
-        GL20.glUniform1f(uGrainSize, grainSize);
-        GL20.glUniform1f(uGrainSeed, grainSeed);
-        GL20.glUniform2f(uDistort, distortX, distortY);
-        GL20.glUniform1f(uAberration, aberration);
-        GL20.glUniform1f(uAberrationAngle, aberrationAngle);
-        GL20.glUniform1f(
+        glUniform1fSafe(uVigStr, vigStr);
+        glUniform1fSafe(uVigSmooth, vigSmooth);
+        glUniform3fSafe(uVigColor, vigR, vigG, vigB);
+        glUniform1fSafe(uBrightness, brightness);
+        glUniform1fSafe(uContrast, contrast);
+        glUniform1fSafe(uSaturation, saturation);
+        glUniform1fSafe(uHue, hue);
+        glUniform3fSafe(uLift, liftR, liftG, liftB);
+        glUniform3fSafe(uGamma, gammaR, gammaG, gammaB);
+        glUniform3fSafe(uGain, gainR, gainG, gainB);
+        glUniform1fSafe(uGrainStr, grainStr);
+        glUniform1fSafe(uGrainSize, grainSize);
+        glUniform1fSafe(uGrainSeed, grainSeed);
+        glUniform2fSafe(uDistort, distortX, distortY);
+        glUniform1fSafe(uAberration, aberration);
+        glUniform1fSafe(uAberrationAngle, aberrationAngle);
+        glUniform1fSafe(
             uAberrationDirectional,
             Math.max(0F, Math.min(1F, aberrationDirectional))
         );
-        GL20.glUniform1f(uAberrationRadius, Math.max(0F, aberrationRadius));
-        GL20.glUniform1f(
+        glUniform1fSafe(uAberrationRadius, Math.max(0F, aberrationRadius));
+        glUniform1fSafe(
             uAberrationHardness,
             Math.max(0F, Math.min(1F, aberrationHardness))
         );
-        GL20.glUniform1f(
+        glUniform1fSafe(
             uAberrationBalance,
             Math.max(-1F, Math.min(1F, aberrationBalance))
         );
-        GL20.glUniform2f(
+        glUniform2fSafe(
             uAberrationCenter,
             Math.max(0F, Math.min(1F, aberrationCenterX)),
             Math.max(0F, Math.min(1F, aberrationCenterY))
         );
-        GL20.glUniform1f(uAberrationGreen, Math.max(0F, aberrationGreen));
-        GL20.glUniform1f(
+        glUniform1fSafe(uAberrationGreen, Math.max(0F, aberrationGreen));
+        glUniform1fSafe(
             uAberrationSpectrum,
             Math.max(0F, Math.min(1F, aberrationSpectrum))
         );
-        GL20.glUniform1f(uVHS, vhs);
-        GL20.glUniform1f(uLensDistortion, lensDistortion);
-        GL20.glUniform1f(uLensRadiusX, Math.max(0F, lensRadiusX));
-        GL20.glUniform1f(uLensRadiusY, Math.max(0F, lensRadiusY));
-        GL20.glUniform1f(uLensHardness, Math.max(0F, Math.min(1F, lensHardness)));
-        GL20.glUniform1f(uLensSharpen, Math.max(0F, lensSharpen));
-        GL20.glUniform1f(uVintage, vintage);
-        GL20.glUniform1f(uRadialBlur, radialBlur);
-        GL20.glUniform1f(uRain, rain);
-        GL20.glUniform1f(uDust, dust);
-        GL20.glUniform1f(uLightLeak, lightLeak);
-        GL20.glUniform1f(uHeatStrength, heatStrength * 0.006F);
-        GL20.glUniform1f(uHeatSpeed, 0.5F + heatSpeed * 2.0F);
-        GL20.glUniform1f(uHeatScale, 2.0F + heatScale * 35.0F);
-        GL20.glUniform1f(uTime, time);
+        glUniform1fSafe(uVHS, vhs);
+        glUniform1fSafe(uLensDistortion, lensDistortion);
+        glUniform1fSafe(uLensRadiusX, Math.max(0F, lensRadiusX));
+        glUniform1fSafe(uLensRadiusY, Math.max(0F, lensRadiusY));
+        glUniform1fSafe(uLensHardness, Math.max(0F, Math.min(1F, lensHardness)));
+        glUniform1fSafe(uLensSharpen, Math.max(0F, lensSharpen));
+        glUniform1fSafe(uVintage, vintage);
+        glUniform1fSafe(uRadialBlur, radialBlur);
+        glUniform1fSafe(uRain, rain);
+        glUniform1fSafe(uDust, dust);
+        glUniform1fSafe(uLightLeak, lightLeak);
+        glUniform1fSafe(uHeatStrength, heatStrength * 0.006F);
+        glUniform1fSafe(uHeatSpeed, 0.5F + heatSpeed * 2.0F);
+        glUniform1fSafe(uHeatScale, 2.0F + heatScale * 35.0F);
+        glUniform1fSafe(uTime, time);
+
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, captureFbo);
+        GL30.glFramebufferTexture2D(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, sourceId, 0);
+        GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
 
         GL30.glBindVertexArray(vao);
         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
         GL30.glBindVertexArray(0);
 
         GL20.glUseProgram(0);
-        tempTex.unbind();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GlStateManager._bindTexture(0);
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        fb.beginWrite(false);
     }
 
     /**
@@ -887,20 +932,18 @@ public class ColorGradeRenderer
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        mc.getFramebuffer().beginWrite(false);
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         /*
          * Invalidate unit 0 so the following textured draw must call glBindTexture.
          * A PositionColor-only box is not enough — text needs a live Sampler0 bind path.
          */
-        RenderSystem.setShaderTexture(0, 0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
 
         AbstractTexture atlas = mc.getTextureManager().getTexture(Identifier.of("minecraft", "textures/atlas/blocks.png"));
-        int textureId = atlas == null ? 0 : atlas.getGlId();
+        int textureId = atlas == null ? 0 : ((GlTexture) atlas.getGlTexture()).getGlId();
 
         if (textureId != 0)
         {
@@ -1028,5 +1071,37 @@ public class ColorGradeRenderer
 
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+    }
+
+    private static void glUniform1iSafe(int location, int v0)
+    {
+        if (location >= 0)
+        {
+            GL20.glUniform1i(location, v0);
+        }
+    }
+
+    private static void glUniform1fSafe(int location, float v0)
+    {
+        if (location >= 0)
+        {
+            GL20.glUniform1f(location, v0);
+        }
+    }
+
+    private static void glUniform2fSafe(int location, float v0, float v1)
+    {
+        if (location >= 0)
+        {
+            GL20.glUniform2f(location, v0, v1);
+        }
+    }
+
+    private static void glUniform3fSafe(int location, float v0, float v1, float v2)
+    {
+        if (location >= 0)
+        {
+            GL20.glUniform3f(location, v0, v1, v2);
+        }
     }
 }

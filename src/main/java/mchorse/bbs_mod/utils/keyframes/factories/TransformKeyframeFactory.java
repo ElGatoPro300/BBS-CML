@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -34,7 +35,7 @@ public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
     @Override
     public BaseType toData(Transform value)
     {
-        return value.toData();
+        return value == null ? new MapType() : value.toData();
     }
 
     @Override
@@ -46,7 +47,7 @@ public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
     @Override
     public Transform copy(Transform value)
     {
-        return value.copy();
+        return value == null ? new Transform() : value.copy();
     }
 
     @Override
