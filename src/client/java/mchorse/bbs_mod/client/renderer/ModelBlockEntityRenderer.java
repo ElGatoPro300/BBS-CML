@@ -379,11 +379,12 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
                 matrices.pop();
             }
 
-            /* ModelForm tears down lightmap; do not leave depth off — WorldRenderer may still
-             * flush buffered vanilla entity layers (enchanted armor) after block entities. */
+            /* ModelForm tears down lightmap; Block/Item color masks can leave DST_COLOR blend
+             * and a form atlas on TU0. Pause-menu blur samples that and goes solid dark. */
             if (!formContext.isShadowPass)
             {
                 BBSRendering.restoreWorldRenderState();
+                BBSRendering.clearTextureUnit0();
             }
 
             matrices.pop();

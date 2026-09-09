@@ -220,6 +220,17 @@ public class GameRendererMixin
         BBSRendering.onWorldRenderEnd();
     }
 
+    /**
+     * Pause / screen background blur runs after the world pass. World model-block forms can
+     * leave ColorModulator, TU0, or blend (DST_COLOR) dirty — blur then presents a black world
+     * while menu buttons still look fine.
+     */
+    @Inject(method = "renderBlur", at = @At("HEAD"))
+    private void bbsPrepareMenuBlurState(CallbackInfo callbackInfo)
+    {
+        BBSRendering.prepareMenuBackgroundState();
+    }
+
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/InGameHud;render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V"), require = 0)
     private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
     {

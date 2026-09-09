@@ -19,7 +19,6 @@ import org.joml.Quaternionf;
 
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 public class MatrixStackUtils
 {
@@ -28,6 +27,7 @@ public class MatrixStackUtils
     private static Matrix4f oldProjection = new Matrix4f();
     private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
+    private static ProjectionType oldProjectionType = ProjectionType.ORTHOGRAPHIC;
     private static final Quaternionf tempQuaternion = new Quaternionf();
     /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
      * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */

@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -214,7 +213,6 @@ public abstract class FormRenderer <T extends Form>
         int ry1 = is3D ? renderY1 : y1;
         int rx2 = is3D ? renderX2 : x2;
         int ry2 = is3D ? renderY2 : y2;
-
         try
         {
             if (is3D)

@@ -704,6 +704,7 @@ public class Gizmo
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
+
         float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
         float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
@@ -833,6 +834,7 @@ public class Gizmo
 
         boolean iris = BBSRendering.isIrisShadersEnabled();
         Matrix4f savedModelView = new Matrix4f();
+        ProjectionType savedProjectionType = ProjectionType.PERSPECTIVE;
 
         if (iris)
         {
@@ -1056,6 +1058,9 @@ public class Gizmo
         {
             return;
         }
+
+        /* Keep pick FBO bound — POSITION_COLOR draws skip RenderLayer hijacks. */
+        StencilFormFramebuffer.rebindActive();
 
         Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
         stack.peek().getPositionMatrix().set(normalized);

@@ -32,6 +32,8 @@ import java.util.Map;
  */
 public class StencilFormFramebuffer
 {
+    private static Framebuffer activePickTarget;
+
     private Framebuffer framebuffer;
 
     private int index;
@@ -50,6 +52,24 @@ public class StencilFormFramebuffer
     private GpuTextureView previousColorView;
     private GpuTextureView previousDepthView;
     private boolean applied;
+
+    /**
+     * 1.21.4 vanilla Immediate/RenderLayer draws can rebind the main client framebuffer mid-pass.
+     * Keep the pick FBO current so pick IDs land in the stencil target (hover highlight) instead
+     * of leaking a dark duplicate onto the preview.
+     */
+    public static void rebindActive()
+    {
+        if (activePickTarget != null)
+        {
+            activePickTarget.bind();
+        }
+    }
+
+    public static boolean isPickPassActive()
+    {
+        return activePickTarget != null;
+    }
 
     public Framebuffer getFramebuffer()
     {
@@ -180,6 +200,16 @@ public class StencilFormFramebuffer
 
         RenderSystem.outputColorTextureOverride = this.colorView;
         RenderSystem.outputDepthTextureOverride = this.depthView;
+        activePickTarget = this.framebuffer;
+    }
+
+    public void bindForPick()
+    {
+        if (this.framebuffer != null)
+        {
+            activePickTarget = this.framebuffer;
+            this.framebuffer.bind();
+        }
     }
 
     public void pickGUI(UIContext context, Area area)
@@ -257,6 +287,8 @@ public class StencilFormFramebuffer
 
     public void unbind()
     {
+        activePickTarget = null;
+
         if (this.applied)
         {
             RenderSystem.outputColorTextureOverride = this.previousColorView;
