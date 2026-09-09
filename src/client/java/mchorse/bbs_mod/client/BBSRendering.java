@@ -698,6 +698,8 @@ public class BBSRendering
         ModelVAORenderer.flushPaintOverlayQueue();
         ShaderOpacityPatch.onWorldRenderEnd();
 
+        renderingWorld = false;
+
         MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
 
@@ -739,7 +741,6 @@ public class BBSRendering
 
         if (!customSize)
         {
-            renderingWorld = false;
             /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
              * HUD (hotbar) and the pause menu draw next and would go dark without this. */
             prepareHudRenderState();
@@ -767,8 +768,6 @@ public class BBSRendering
                 RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
         }
-
-        renderingWorld = false;
     }
 
     private static void updateCloudRenderMode(MinecraftClient mc)
