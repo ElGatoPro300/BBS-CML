@@ -45,15 +45,15 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
     private static Vector2f vector = new Vector2f();
     private static Vector2f previous = new Vector2f();
 
-    private static final RenderPipeline GUI_TRIANGLES = RenderPipeline.builder()
-        .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/clip_envelope_triangles"))
-        .withVertexShader(RenderPipelines.DEBUG_FILLED_BOX.getVertexShader())
-        .withFragmentShader(RenderPipelines.DEBUG_FILLED_BOX.getFragmentShader())
-        .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
-        .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-        .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
-        .withCull(false)
-        .build();
+    private static final RenderPipeline GUI_TRIANGLES = RenderPipelines.register(
+        RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/clip_envelope_triangles"))
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
+            .withCull(false)
+            .build()
+    );
 
     private static RenderType guiTrianglesLayer;
 
