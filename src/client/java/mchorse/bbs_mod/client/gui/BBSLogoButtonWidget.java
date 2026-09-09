@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client.gui;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -10,15 +9,21 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 public class BBSLogoButtonWidget extends ButtonWidget
 {
-    private static final Identifier LOGO = Identifier.of("bbs", "textures/gui/cml_icon.png");
+    private static final Identifier LOGO = new Identifier("bbs", "textures/gui/cml_icon.png");
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, PressAction onPress)
     {
         super(x, y, width, height, Text.empty(), onPress, DEFAULT_NARRATION_SUPPLIER);
     }
 
+    public void setSize(int size)
+    {
+        this.setWidth(size);
+        this.height = size;
+    }
+
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta)
+    public void renderButton(DrawContext context, int mouseX, int mouseY, float delta)
     {
         int x1 = this.getX();
         int y1 = this.getY();
@@ -47,7 +52,7 @@ public class BBSLogoButtonWidget extends ButtonWidget
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
-        context.drawTexture(RenderLayer::getGuiTextured, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
+        context.drawTexture(LOGO, logoX, logoY, 0, 0, logoSize, logoSize, logoSize, logoSize);
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }

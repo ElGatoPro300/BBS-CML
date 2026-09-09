@@ -31,7 +31,7 @@ public class LivingEntityMixin
      * damage ({@link AttackDamage#fromAttacker}), or spam-clicks replay as full hits.
      */
     @Inject(method = "damage", at = @At("RETURN"))
-    private void onDamage(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
+    private void onDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
     {
         if (!Boolean.TRUE.equals(info.getReturnValue()))
         {
@@ -42,7 +42,7 @@ public class LivingEntityMixin
         Entity attacker = source.getAttacker();
 
         /* Player melee → ActionRecorder on the player replay (existing path). */
-        if (source.isDirect() && attacker instanceof ServerPlayerEntity player)
+        if (source.getSource() == source.getAttacker() && attacker instanceof ServerPlayerEntity player)
         {
             float recorded = amount;
 
@@ -111,7 +111,7 @@ public class LivingEntityMixin
                 kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
             }
         }
-        else if (source.isDirect() && attacker instanceof LivingEntity)
+        else if (source.getSource() == attacker && attacker instanceof LivingEntity)
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
             sourceEntityId = attacker.getId();

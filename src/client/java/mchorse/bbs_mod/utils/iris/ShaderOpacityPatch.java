@@ -10,6 +10,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
+import net.minecraft.client.util.math.MatrixStack;
 
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
@@ -19,10 +20,9 @@ import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
 import net.irisshaders.iris.targets.RenderTargets;
 
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
@@ -664,7 +664,7 @@ public class ShaderOpacityPatch
         }
         else if (paintOpaqueDepthStash.textureWidth != width || paintOpaqueDepthStash.textureHeight != height)
         {
-            paintOpaqueDepthStash.resize(width, height);
+            paintOpaqueDepthStash.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
         }
     }
 
@@ -874,15 +874,8 @@ public class ShaderOpacityPatch
                     .copy(null, opaqueDepth, null, liveDepth, width, height);
             }
 
-            if (bindIrisDefault)
-            {
-                access.bbs$bindDefault();
-            }
-            else
-            {
-                /* Depth copy may have switched FBOs — return to the visible target. */
-                BBSRendering.ensurePaintOverlayTargetFramebuffer();
-            }
+            /* Depth copy may have switched FBOs — return to the visible target. */
+            BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
         catch (Throwable ignored)
         {
@@ -893,15 +886,14 @@ public class ShaderOpacityPatch
     private static void runEntry(PostDeferredEntry entry)
     {
         Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType savedProjectionType = RenderSystem.getProjectionType();
-        Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-        Matrix4f savedModelView = new Matrix4f(modelViewStack);
+        MatrixStack modelViewStack = RenderSystem.getModelViewStack();
+        Matrix4f savedModelView = new Matrix4f(modelViewStack.peek().getPositionMatrix());
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
 
         try
         {
-            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.PERSPECTIVE);
+            RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
             flushingDepthWrite = entry.depthWrite;
             RenderSystem.depthMask(entry.depthWrite);
 
@@ -909,11 +901,13 @@ public class ShaderOpacityPatch
              * WorldRenderer's "Pose stack not empty" check with Iris/Sodium. */
             if (entry.irisCamera)
             {
-                modelViewStack.set(entry.modelView);
+                modelViewStack.peek().getPositionMatrix().set(entry.modelView);
+                RenderSystem.applyModelViewMatrix();
             }
             else
             {
-                modelViewStack.identity();
+                modelViewStack.loadIdentity();
+                RenderSystem.applyModelViewMatrix();
                 ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
             }
@@ -951,6 +945,7 @@ public class ShaderOpacityPatch
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(savedDepthMask);
+
             if (flushingPostDeferred)
             {
                 MinecraftClient mc = MinecraftClient.getInstance();
@@ -965,8 +960,9 @@ public class ShaderOpacityPatch
                 reassertPostDeferredDepthState(entry.depthWrite);
             }
 
-            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
-            modelViewStack.set(savedModelView);
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
+            modelViewStack.peek().getPositionMatrix().set(savedModelView);
+            RenderSystem.applyModelViewMatrix();
         }
     }
 

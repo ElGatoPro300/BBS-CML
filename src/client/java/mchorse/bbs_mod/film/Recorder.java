@@ -29,7 +29,6 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -38,7 +37,6 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
@@ -153,9 +151,10 @@ public class Recorder extends WorldFilmController
         Vector4f bottomLeft = frustumCorner(fx, fy, fz, rrx, rry, rrz, uux, uuy, uuz, distance, -halfWidth, -halfHeight);
         Vector4f forward = new Vector4f(fx * (distance + 100F), fy * (distance + 100F), fz * (distance + 100F), 1F);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         fillPreviewSegment(builder, stack, x, y, z, x + topRight.x, y + topRight.y, z + topRight.z, thickness, r, g, b, a);
         fillPreviewSegment(builder, stack, x, y, z, x + topLeft.x, y + topLeft.y, z + topLeft.z, thickness, r, g, b, a);

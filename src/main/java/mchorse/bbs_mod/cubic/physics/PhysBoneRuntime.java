@@ -1278,7 +1278,7 @@ public class PhysBoneRuntime
             to,
             RaycastContext.ShapeType.COLLIDER,
             RaycastContext.FluidHandling.NONE,
-            ShapeContext.absent()
+            null
         ));
 
         return result != null && result.getType() != HitResult.Type.MISS;

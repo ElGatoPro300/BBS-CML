@@ -18,7 +18,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
@@ -30,15 +29,14 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 
@@ -703,7 +701,7 @@ public class Gizmo
         context.batcher.flush();
 
         MatrixStackUtils.cacheMatrices();
-        RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE);
+        RenderSystem.setProjectionMatrix(projection, VertexSorter.BY_Z);
 
         /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional
          * scales like 1.5 up to 2, which offset/stretched the gizmo viewport and could push vy/vh
@@ -778,7 +776,7 @@ public class Gizmo
         MinecraftClient mc = MinecraftClient.getInstance();
 
         MatrixStackUtils.cacheMatrices();
-        RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE);
+        RenderSystem.setProjectionMatrix(projection, VertexSorter.BY_Z);
 
         /* Keep in sync with renderInterface: fractional UI scales must not be rounded. */
         float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
@@ -820,12 +818,10 @@ public class Gizmo
         boolean iris = BBSRendering.isIrisShadersEnabled();
         Matrix4f savedProjection = new Matrix4f();
         Matrix4f savedModelView = new Matrix4f();
-        ProjectionType savedProjectionType = ProjectionType.PERSPECTIVE;
 
         if (iris)
         {
             savedProjection.set(RenderSystem.getProjectionMatrix());
-            savedProjectionType = RenderSystem.getProjectionType();
             savedModelView.set(RenderSystem.getModelViewMatrix());
         }
 
@@ -837,7 +833,7 @@ public class Gizmo
                  * longer carries the same projection matrix as RenderLayer#getSolid(), where
                  * the gizmo transform was captured. Re-binding the saved projection keeps the
                  * deferred draw aligned with the hitbox/stencil pass on the ground. */
-                RenderSystem.setProjectionMatrix(deferred.projection, ProjectionType.PERSPECTIVE);
+                RenderSystem.setProjectionMatrix(deferred.projection, VertexSorter.BY_Z);
             }
 
             stack.push();
@@ -864,13 +860,16 @@ public class Gizmo
 
         if (iris)
         {
-            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
-            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+            MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-            mvStack.pushMatrix();
-            mvStack.set(savedModelView);
-            mvStack.popMatrix();
+            mvStack.push();
+            mvStack.loadIdentity();
+            MatrixStackUtils.multiply(mvStack, savedModelView);
+            RenderSystem.applyModelViewMatrix();
+            mvStack.pop();
+            RenderSystem.applyModelViewMatrix();
         }
 
         this.deferredGizmos.clear();
@@ -1001,7 +1000,8 @@ public class Gizmo
             return;
         }
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, false, null);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, false, null);
@@ -1014,8 +1014,7 @@ public class Gizmo
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         /* Explicitly reset the shader color multiplier: a shader pack's own compositing pass
          * (run just before WorldRenderEvents.LAST, which is when a shader pack is active and
          * this call is reached via renderDeferred()) can leave it at something other than
@@ -1054,9 +1053,6 @@ public class Gizmo
             return;
         }
 
-        /* Keep pick FBO bound — POSITION_COLOR draws skip RenderLayer hijacks. */
-        StencilFormFramebuffer.rebindActive();
-
         Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
         stack.peek().getPositionMatrix().set(normalized);
 
@@ -1066,7 +1062,8 @@ public class Gizmo
         float scale = this.computeScale(stack);
         float thickness = this.resolveThickness(true);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, true, map);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, true, map);
@@ -1074,16 +1071,16 @@ public class Gizmo
         else if (this.mode == Mode.TOP) this.drawTop(builder, stack, scale, thickness, true, map);
         else this.drawTranslate(builder, stack, scale, thickness, true, map);
 
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
         /* Iris leaves a stale terrain ModelView; verts already include the full transform.
-         * Do NOT bake BBSRendering.camera here for non-Iris: preview editors / form pickers /
-         * model-block stencil already carry their orbit (or composed) view in the stack.
-         * Multiplying the world frustum camera on top mis-picks handles. Film's empty
-         * camera-relative stack sets ModelView in UIFilmController instead. */
+         * On 1.20.4 film picks the stack is already view-baked (panel.lastView) and
+         * cacheMatrices() left ModelView identity — do not multiply BBSRendering.camera
+         * again. Preview editors / model-block stencil already carry orbit view in the stack;
+         * only Iris needs a clean ModelView here. */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();

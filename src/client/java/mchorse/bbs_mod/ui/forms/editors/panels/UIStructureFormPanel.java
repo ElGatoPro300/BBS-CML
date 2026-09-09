@@ -33,7 +33,6 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
@@ -234,7 +233,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         {
             if (MinecraftClient.getInstance().world != null)
             {
-                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().getOrThrow(RegistryKeys.BIOME);
+                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BIOME);
                 for (Identifier id : reg.getIds())
                 {
                     ids.add(id.toString());

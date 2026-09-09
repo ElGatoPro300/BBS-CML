@@ -10,8 +10,6 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4f;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -296,17 +294,28 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer vertex(float x, float y, float z)
+        public VertexConsumer vertex(double x, double y, double z)
         {
             this.delegate.vertex(x, y, z);
             return this;
         }
 
         @Override
-        public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+        public void next()
         {
-            this.delegate.vertex(matrix, x, y, z);
-            return this;
+            this.delegate.next();
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+            this.delegate.fixedColor(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor()
+        {
+            this.delegate.unfixColor();
         }
 
         @Override

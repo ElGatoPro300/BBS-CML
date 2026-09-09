@@ -11,7 +11,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 
-import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -61,7 +60,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
         this.stack = stack.copy();
         this.name = new UITextbox(1000, (v) ->
         {
-            this.stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(v));
+            this.stack.setCustomName(Text.literal(v));
             this.pickItemStack(this.stack);
             this.updateNbt();
         });
@@ -78,12 +77,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
             try
             {
                 NbtCompound nbtCompound = new StringNbtReader(new StringReader(v)).parseCompound();
-                RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
-                RegistryOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : null;
-
-                ItemStack itemStack = registries != null
-                    ? ItemStack.CODEC.parse(ops, nbtCompound).result().orElse(ItemStack.EMPTY)
-                    : ItemStack.fromNbtOrEmpty(null, nbtCompound);
+                ItemStack itemStack = ItemStack.fromNbt(nbtCompound);
 
                 this.pickItemStack(itemStack);
                 this.itemList.list.setCurrentScroll(Registries.ITEM.getId(this.stack.getItem()).toString());
@@ -140,7 +134,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     private void setItem(String s)
     {
-        this.stack = new ItemStack(Registries.ITEM.get(Identifier.of(s)));
+        this.stack = new ItemStack(Registries.ITEM.get(new Identifier(s)));
 
         this.pickItemStack(this.stack);
         this.updateNbt();

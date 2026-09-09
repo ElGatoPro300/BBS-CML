@@ -348,36 +348,22 @@ public abstract class Form extends ValueGroup
 
         if (hp != 20F)
         {
-            entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(hp);
+            entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(hp);
             entity.setHealth(hp);
         }
-        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(speed);
-        /* setStepHeight() was removed in 1.20.5+; step-up is STEP_HEIGHT attribute now in 1.21.4.
-         * Default matches vanilla living/player step height (0.6). */
+        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
         if (stepHeight != 0.6F)
         {
-            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
-
-            if (step != null)
-            {
-                step.setBaseValue(stepHeight);
-            }
+            entity.setStepHeight(stepHeight);
         }
     }
 
     public void onDemorph(LivingEntity entity)
     {
-        entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(20F);
+        entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
-        entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(0.1F);
-
-        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
-
-        if (step != null)
-        {
-            /* Vanilla player / living default step height. */
-            step.setBaseValue(0.6D);
-        }
+        entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
+        entity.setStepHeight(0.6F);
     }
 
     /* ID and display name */

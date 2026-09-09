@@ -130,9 +130,7 @@ public class TextureFont
         
         RenderSystem.recordRenderCall(() -> {
             this.texture = new NativeImageBackedTexture(nativeImage);
-            String name = "bbs_font_" + font.hashCode();
-            this.textureId = Identifier.of("bbs_mod", name.toLowerCase());
-            MinecraftClient.getInstance().getTextureManager().registerTexture(this.textureId, this.texture);
+            this.textureId = MinecraftClient.getInstance().getTextureManager().registerDynamicTexture("bbs_font_" + font.hashCode(), this.texture);
         });
     }
 
@@ -323,7 +321,7 @@ public class TextureFont
 
     private void drawVertex(VertexConsumer consumer, Matrix4f matrix, float x, float y, float z, float u, float v, float r, float g, float b, float a, int light)
     {
-        consumer.vertex(matrix, x, y, z).color(r, g, b, a).texture(u, v).light(light);
+        consumer.vertex(matrix, x, y, z).color(r, g, b, a).texture(u, v).light(light).next();
     }
 
     private static class Glyph

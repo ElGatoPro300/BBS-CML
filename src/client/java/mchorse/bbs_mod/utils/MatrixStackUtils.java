@@ -6,19 +6,16 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 public class MatrixStackUtils
 {
@@ -27,7 +24,6 @@ public class MatrixStackUtils
     private static Matrix4f oldProjection = new Matrix4f();
     private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
-    private static ProjectionType oldProjectionType = ProjectionType.ORTHOGRAPHIC;
     private static final Quaternionf tempQuaternion = new Quaternionf();
     /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
      * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */
@@ -133,55 +129,42 @@ public class MatrixStackUtils
 
     public static void cacheMatrices()
     {
-        /* Cache matrix + ProjectionType (1.21.3+). Forcing ORTHOGRAPHIC on restore leaked
-         * into world/pause draws after UI previews and film gizmo/stencil passes. */
+        /* Cache the global stuff */
         oldProjection.set(RenderSystem.getProjectionMatrix());
-        oldProjectionType = RenderSystem.getProjectionType();
         oldMV.set(RenderSystem.getModelViewMatrix());
         oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.identity();
-        applyModelViewMatrix();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void restoreMatrices()
     {
-        RenderSystem.setProjectionMatrix(oldProjection, oldProjectionType);
+        /* Return back to orthographic projection */
+        RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.set(oldMV);
-        applyModelViewMatrix();
-    }
-
-    public static void applyModelViewMatrix()
-    {
-        ShaderProgram program = RenderSystem.getShader();
-
-        if (program != null)
-        {
-            GlUniform uniform = program.getUniform("ModelViewMat");
-
-            if (uniform != null)
-            {
-                uniform.set(RenderSystem.getModelViewStack());
-            }
-        }
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.loadIdentity();
+        mvStack.peek().getPositionMatrix().set(oldMV);
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void pushIdentityModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.pushMatrix();
-        mvStack.identity();
+        mvStack.push();
+        mvStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.popMatrix();
+        mvStack.pop();
+        RenderSystem.applyModelViewMatrix();
     }
 
     /**

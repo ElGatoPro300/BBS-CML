@@ -80,14 +80,13 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.consume.UseAction;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.PlayerInput;
+import net.minecraft.util.UseAction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -187,25 +186,9 @@ public abstract class BaseFilmController
 
         if (relative)
         {
-            if (context.map != null)
-            {
-                cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
-                cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
-                cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
-            }
-            else
-            {
-                cx = position.x + context.replay.relativeOffset.get().x;
-                cy = position.y + context.replay.relativeOffset.get().y;
-                cz = position.z + context.replay.relativeOffset.get().z;
-            }
-
-            if (context.isShadowPass)
-            {
-                cx += camera.getPos().x;
-                cy += camera.getPos().y;
-                cz += camera.getPos().z;
-            }
+            cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
+            cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
+            cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
         }
 
         Matrix4f target = null;
@@ -284,9 +267,11 @@ public abstract class BaseFilmController
             .stencilMap(context.map)
             .color(context.color);
 
-        formContext.relative = relative;
+        /* Film shadow mixin sets FilmControllerContext.isShadowPass; form renderers must see it
+         * even if IrisApi.isRenderingShadowPass() is briefly false (Iris 1.7 / 1.20.4). Without
+         * this, Structure soft leaves keep entity-translucent + ColorModulator alpha and dither
+         * faster than solid VAO casters (master 1.21.1 already assigns this). */
         formContext.isShadowPass = context.isShadowPass;
-        formContext.viewMatrix = context.viewMatrix;
 
         /* World pass: physical ActorEntity already draws the body — only capture gizmos.
          * Stencil pass (map != null): still draw the form so bone pick/highlight match the actor. */
@@ -298,16 +283,8 @@ public abstract class BaseFilmController
         {
             if (relative)
             {
-                if (!context.isShadowPass)
-                {
-                    stack.peek().getPositionMatrix().identity();
-                    stack.peek().getNormalMatrix().identity();
-                }
-
-                if (context.map == null)
-                {
-                    stack.multiply(camera.getRotation());
-                }
+                stack.peek().getPositionMatrix().identity();
+                stack.peek().getNormalMatrix().identity();
             }
 
             MatrixStackUtils.multiply(stack, target);
@@ -1147,7 +1124,7 @@ public abstract class BaseFilmController
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
         matrices.multiply(MinecraftClient.getInstance().getEntityRenderDispatcher().getRotation());
-        matrices.scale(0.025F, -0.025F, 0.025F);
+        matrices.scale(-0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
         TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
@@ -1798,11 +1775,9 @@ public abstract class BaseFilmController
                                 accessor.bbs$setIsSneakingPose(sneaking);
                             }
 
-                            if (player instanceof ClientPlayerEntity playerEntity && playerEntity.input != null && playerEntity.input.playerInput != null)
+                            if (player instanceof ClientPlayerEntity playerEntity)
                             {
-                                PlayerInput pi = playerEntity.input.playerInput;
-
-                                playerEntity.input.playerInput = new PlayerInput(pi.forward(), pi.backward(), pi.left(), pi.right(), pi.jump(), sneaking, pi.sprint());
+                                playerEntity.input.sneaking = sneaking;
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
@@ -2341,7 +2316,7 @@ public abstract class BaseFilmController
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
         Camera camera = context.camera();
-        float transition = context.tickCounter().getTickDelta(false);
+        float transition = context.tickDelta();
 
         sorted.sort(Comparator
             .comparing((Map.Entry<Integer, IEntity> entry) ->
@@ -2390,7 +2365,7 @@ public abstract class BaseFilmController
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
-            filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
+            filmContext.transition = getTransition(entity, context.tickDelta());
 
             filmContext.stack.push();
 
@@ -2807,9 +2782,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
-            ? runtimeColor
-            : null;
+        Color runtime = valueColor.getRuntimeValue();
 
         if (runtime == null)
         {
@@ -2870,7 +2843,7 @@ public abstract class BaseFilmController
 
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickCounter().getTickDelta(false));
+        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickDelta());
         ShadowSettings shadow = resolveShadowSettings(replay, tick);
 
         return FilmControllerContext.instance

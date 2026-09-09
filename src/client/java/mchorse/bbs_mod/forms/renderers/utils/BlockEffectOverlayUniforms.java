@@ -9,7 +9,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.texture.SpriteAtlasTexture;
+import net.minecraft.screen.PlayerScreenHandler;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -110,17 +110,17 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
-            uploadFlatOverlayFog(program, rootInverse);
             bindPaintMultiplyDarken(program, multiplyDarken);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -156,7 +156,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
 
@@ -166,11 +166,13 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -186,7 +188,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
 
@@ -196,6 +198,8 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -231,15 +235,15 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
-            uploadFlatOverlayFog(program, rootInverse);
             bindPaintMultiplyDarken(program, multiplyDarken);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
-        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
@@ -265,7 +269,7 @@ public final class BlockEffectOverlayUniforms
 
     /**
      * Signs / chests / beds use entity atlases — keep each draw call's bound texture instead of
-     * forcing {@link SpriteAtlasTexture#BLOCK_ATLAS_TEXTURE}.
+     * forcing {@link PlayerScreenHandler#BLOCK_ATLAS_TEXTURE}.
      */
     public static void configureColorTintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource)
     {
@@ -283,25 +287,11 @@ public final class BlockEffectOverlayUniforms
     private static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource, boolean structureSized, float sizeX, float sizeY, float sizeZ, boolean bindBlockAtlas)
     {
         boolean wantGrade = gradeSource != null && gradeSource.hasColorAdjustments();
-        boolean gradeActive = wantGrade && ModelVAORenderer.captureGradeSceneColor();
+        boolean sceneCaptured = ModelVAORenderer.captureGradeSceneColor();
+        boolean gradeActive = wantGrade && sceneCaptured;
 
         RenderSystem.enableBlend();
-
-        if (gradeActive)
-        {
-            /* Replace lit pixels with graded lit pixels — never leave DST_COLOR for UI. */
-            RenderSystem.defaultBlendFunc();
-        }
-        else
-        {
-            RenderSystem.blendFuncSeparate(
-                GlStateManager.SrcFactor.DST_COLOR,
-                GlStateManager.DstFactor.ZERO,
-                GlStateManager.SrcFactor.DST_ALPHA,
-                GlStateManager.DstFactor.ZERO
-            );
-        }
-
+        RenderSystem.defaultBlendFunc();
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
@@ -310,7 +300,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
 
             if (structureSized)
@@ -328,7 +318,7 @@ public final class BlockEffectOverlayUniforms
 
             uploadFlatOverlayFog(program, rootInverse);
 
-            if (gradeActive)
+            if (sceneCaptured)
             {
                 ModelVAORenderer.bindGradeSceneColorTexture();
             }
@@ -336,7 +326,7 @@ public final class BlockEffectOverlayUniforms
 
         if (bindBlockAtlas)
         {
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -533,7 +523,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
             uploadFlatOverlayFog(program, rootInverse);
@@ -554,7 +544,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
 
@@ -564,6 +554,8 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -868,7 +860,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);

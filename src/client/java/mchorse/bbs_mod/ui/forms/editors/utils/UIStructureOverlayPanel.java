@@ -579,6 +579,18 @@ public class UIStructureOverlayPanel extends UIStringOverlayPanel
             {
                 string = "saved:" + string.substring(11);
             }
+            else if (string.startsWith("bbs:structure/"))
+            {
+                string = "saved:" + string.substring(14);
+            }
+            else if (string.startsWith("assets:structure/"))
+            {
+                string = "saved:" + string.substring(17);
+            }
+            else if (string.startsWith("structure/"))
+            {
+                string = "saved:" + string.substring(10);
+            }
         }
         
         this.selectedStructure = string;

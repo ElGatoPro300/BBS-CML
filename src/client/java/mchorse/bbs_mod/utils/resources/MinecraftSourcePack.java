@@ -34,7 +34,7 @@ public class MinecraftSourcePack implements ISourcePack
     private ResourceManager getEffectiveManager(Link link)
     {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getServer() != null && (link.path.startsWith("structure/") || link.path.endsWith(".nbt")))
+        if (mc.getServer() != null && (link.path.startsWith("structure/") || link.path.startsWith("structures/") || link.path.endsWith(".nbt")))
         {
             return mc.getServer().getResourceManager();
         }
@@ -96,13 +96,20 @@ public class MinecraftSourcePack implements ISourcePack
             return true;
         }
         
-        if (!link.path.startsWith("structure/") && link.path.endsWith(".nbt"))
+        if (!link.path.startsWith("structure/") && !link.path.startsWith("structures/") && link.path.endsWith(".nbt"))
         {
-             Identifier structureId = Identifier.of(link.source, "structure/" + link.path);
-             if (effectiveManager.getResource(structureId).isPresent())
-             {
-                 return true;
-             }
+            Identifier structureId = Identifier.of(link.source, "structure/" + link.path);
+
+            if (effectiveManager.getResource(structureId).isPresent())
+            {
+                return true;
+            }
+            Identifier structuresId = Identifier.of(link.source, "structures/" + link.path);
+
+            if (effectiveManager.getResource(structuresId).isPresent())
+            {
+                return true;
+            }
         }
         
         return false;
@@ -116,10 +123,18 @@ public class MinecraftSourcePack implements ISourcePack
         
         Optional<Resource> resource = effectiveManager.getResource(id);
 
-        if (resource.isEmpty() && !link.path.startsWith("structure/") && link.path.endsWith(".nbt"))
+        if (resource.isEmpty() && !link.path.startsWith("structure/") && !link.path.startsWith("structures/") && link.path.endsWith(".nbt"))
         {
-             Identifier structureId = Identifier.of(link.source, "structure/" + link.path);
-             resource = effectiveManager.getResource(structureId);
+            Identifier structureId = Identifier.of(link.source, "structure/" + link.path);
+
+            resource = effectiveManager.getResource(structureId);
+
+            if (resource.isEmpty())
+            {
+                Identifier structuresId = Identifier.of(link.source, "structures/" + link.path);
+
+                resource = effectiveManager.getResource(structuresId);
+            }
         }
 
         if (resource.isPresent())

@@ -21,8 +21,8 @@ import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -259,7 +259,6 @@ public final class FormUIPreviewCache
         MinecraftClient client = MinecraftClient.getInstance();
         int[] viewport = new int[4];
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-        ProjectionType previousProjectionType = RenderSystem.getProjectionType();
         Matrix4f previousProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
         MatrixStack matrices = context.batcher.getContext().getMatrices();
 
@@ -278,10 +277,11 @@ public final class FormUIPreviewCache
          * target so getUIMatrix scale fills the thumbnail instead of a screen speck. */
         RenderSystem.setProjectionMatrix(
             new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
-            ProjectionType.ORTHOGRAPHIC
+            VertexSorter.BY_Z
         );
-        RenderSystem.getModelViewStack().pushMatrix();
-        RenderSystem.getModelViewStack().identity();
+        RenderSystem.getModelViewStack().push();
+        RenderSystem.getModelViewStack().loadIdentity();
+        RenderSystem.applyModelViewMatrix();
         matrices.push();
         matrices.peek().getPositionMatrix().identity();
         matrices.peek().getNormalMatrix().identity();
@@ -312,8 +312,9 @@ public final class FormUIPreviewCache
         scratchFramebuffer.unbind();
 
         matrices.pop();
-        RenderSystem.getModelViewStack().popMatrix();
-        RenderSystem.setProjectionMatrix(previousProjection, previousProjectionType);
+        RenderSystem.getModelViewStack().pop();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.setProjectionMatrix(previousProjection, VertexSorter.BY_Z);
 
         if (client != null && client.getFramebuffer() != null)
         {

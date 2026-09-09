@@ -17,7 +17,4 @@ public interface IrisRenderingPipelineAccessor
 
     @Accessor(value = "renderTargets", remap = false)
     public RenderTargets bbs$renderTargets();
-
-    @Invoker(value = "bindDefault", remap = false)
-    public void bbs$bindDefault();
 }

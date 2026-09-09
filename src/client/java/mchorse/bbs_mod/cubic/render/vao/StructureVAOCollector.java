@@ -43,23 +43,18 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
-        this.vx = x;
-        this.vy = y;
-        this.vz = z;
+        this.vx = (float) x;
+        this.vy = (float) y;
+        this.vz = (float) z;
         return this;
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+    public void next()
     {
-        Vector4f v = new Vector4f(x, y, z, 1F);
-        v.mul(matrix);
-        this.vx = v.x;
-        this.vy = v.y;
-        this.vz = v.z;
-        return this;
+        /* no-op */
     }
 
     @Override
@@ -112,6 +107,20 @@ public class StructureVAOCollector implements VertexConsumer
 
         if (this.quadIndex == 4)
         {
+            /* Calculate quad UV center */
+            float uMid = (this.quad[0].u + this.quad[1].u + this.quad[2].u + this.quad[3].u) * 0.25F;
+            float vMid = (this.quad[0].v + this.quad[1].v + this.quad[2].v + this.quad[3].v) * 0.25F;
+
+            /* Inset quad UVs by a small sub-texel delta (~0.25 texels of a standard 16x16 block sprite)
+             * to prevent sub-texel texture atlas mipmap bleeding at distance when sampled with trilinear filtering. */
+            float delta = 1F / 32F;
+
+            for (int i = 0; i < 4; i++)
+            {
+                this.quad[i].u += (uMid - this.quad[i].u) * delta;
+                this.quad[i].v += (vMid - this.quad[i].v) * delta;
+            }
+
             /* Triangulate quad: (0,1,2) and (0,2,3) */
             this.emitTriangle(this.quad[0], this.quad[1], this.quad[2]);
             this.emitTriangle(this.quad[0], this.quad[2], this.quad[3]);

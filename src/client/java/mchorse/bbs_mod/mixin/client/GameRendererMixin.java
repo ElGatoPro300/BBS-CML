@@ -12,7 +12,6 @@ import mchorse.bbs_mod.items.GunZoom;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.MathHelper;
@@ -33,6 +32,14 @@ public class GameRendererMixin
     private float bbs$fpBobPrevPhase;
     private float bbs$fpBobStride;
     private float bbs$fpBobPrevStride;
+
+    @Inject(method = "renderWorld", at = @At("HEAD"))
+    public void onRenderWorld(float tickDelta, long limitTime, MatrixStack matrices, CallbackInfo info)
+    {
+        CameraController controller = BBSModClient.getCameraController();
+
+        controller.setup(controller.camera, tickDelta);
+    }
 
     /**
      * This injection cancels bobbing when camera controller takes over
@@ -108,13 +115,13 @@ public class GameRendererMixin
      * This injection replaces the camera FOV when camera controller takes over
      */
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    public void onGetFov(CallbackInfoReturnable<Float> info)
+    public void onGetFov(CallbackInfoReturnable<Double> info)
     {
         GunZoom gunZoom = BBSModClient.getGunZoom();
 
         if (gunZoom != null)
         {
-            info.setReturnValue(gunZoom.getFOV(info.getReturnValue()));
+            info.setReturnValue((double) gunZoom.getFOV(info.getReturnValue().floatValue()));
 
             return;
         }
@@ -123,7 +130,7 @@ public class GameRendererMixin
 
         if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
         {
-            info.setReturnValue((float) controller.getFOV());
+            info.setReturnValue(controller.getFOV());
         }
     }
 
@@ -218,19 +225,8 @@ public class GameRendererMixin
         BBSRendering.onWorldRenderEnd();
     }
 
-    /**
-     * Pause / screen background blur runs after the world pass. World model-block forms can
-     * leave ColorModulator, TU0, or blend (DST_COLOR) dirty — blur then presents a black world
-     * while menu buttons still look fine.
-     */
-    @Inject(method = "renderBlur", at = @At("HEAD"))
-    private void bbsPrepareMenuBlurState(CallbackInfo callbackInfo)
-    {
-        BBSRendering.prepareMenuBackgroundState();
-    }
-
     @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
-    private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
+    private void onBeforeHudRendering(float tickDelta, long startTime, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 

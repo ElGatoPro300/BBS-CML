@@ -29,14 +29,12 @@ import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
 
 import org.joml.Matrix4f;
 
@@ -598,11 +596,12 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
@@ -712,7 +711,8 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
 
         /* Render track bars (horizontal lines) */
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         /* Draw keyframe handles (outer) */
         int forcedIndex = 0;
@@ -818,13 +818,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        if (keyframes.isEmpty())
-        {
-            return;
-        }
-
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 

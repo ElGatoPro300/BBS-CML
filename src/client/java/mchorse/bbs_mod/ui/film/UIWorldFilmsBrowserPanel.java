@@ -559,7 +559,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
     private void joinWorldSummary(LevelSummary summary)
     {
-        if (summary == null || !summary.isSelectable())
+        if (summary == null)
         {
             return;
         }

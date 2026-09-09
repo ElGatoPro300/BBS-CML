@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client.video;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -10,7 +9,6 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 
@@ -478,7 +476,7 @@ public class VideoRenderer
                 return;
             }
 
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX);
+            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
             RenderSystem.setShaderTexture(0, texture);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
             RenderSystem.enableBlend();
@@ -488,17 +486,18 @@ public class VideoRenderer
             RenderSystem.disableCull();
 
             Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+            BufferBuilder buffer = tessellator.getBuffer();
+            buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
             Matrix4f matrix = stack.peek().getPositionMatrix();
 
             /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
             int drawX = x + Math.round(absW * left) * wSign;
             int drawY = y + Math.round(absH * top) * hSign;
 
-            buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1);
-            buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
-            buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
-            buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
+            buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1).next();
+            buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1).next();
+            buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0).next();
+            buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0).next();
             BufferRenderer.drawWithGlobalProgram(buffer.end());
             
             RenderSystem.enableCull();

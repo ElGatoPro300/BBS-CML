@@ -4,6 +4,7 @@ import mchorse.bbs_mod.items.MobKillerItem;
 
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityGroup;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
@@ -72,7 +73,7 @@ public final class AttackDamage
             return MOB_KILLER_DAMAGE;
         }
 
-        float base = (float) attacker.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
+        float base = (float) attacker.getAttributeValue(EntityAttributes.GENERIC_ATTACK_DAMAGE);
 
         if (stack.isEmpty() || !(attacker.getWorld() instanceof ServerWorld serverWorld))
         {
@@ -91,7 +92,7 @@ public final class AttackDamage
             source = serverWorld.getDamageSources().playerAttack(player);
         }
 
-        float enchanted = EnchantmentHelper.getDamage(serverWorld, stack, target, source, base);
+        float enchanted = base + EnchantmentHelper.getAttackDamage(stack, target instanceof LivingEntity living ? living.getGroup() : EntityGroup.DEFAULT);
 
         return scaleForAttacker(attacker, Math.max(0F, Math.max(base, enchanted)));
     }
@@ -134,9 +135,9 @@ public final class AttackDamage
 
         if (isMobKiller(stack) || clipDamage >= MOB_KILLER_DAMAGE)
         {
-            if (target instanceof LivingEntity living && !(living instanceof PlayerEntity) && attacker.getWorld() instanceof ServerWorld serverWorld)
+            if (target instanceof LivingEntity living && !(living instanceof PlayerEntity))
             {
-                living.kill(serverWorld);
+                living.kill();
             }
 
             return;
@@ -149,9 +150,6 @@ public final class AttackDamage
             return;
         }
 
-        if (attacker.getWorld() instanceof ServerWorld serverWorld)
-        {
-            target.damage(serverWorld, serverWorld.getDamageSources().mobAttack(attacker), damage);
-        }
+        target.damage(attacker.getWorld().getDamageSources().mobAttack(attacker), damage);
     }
 }

@@ -82,15 +82,10 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void onFilesDropped(List<Path> paths)
-    {
-        super.onFilesDropped(paths);
-
-        this.filesDragged(paths);
-    }
-
     public void filesDragged(List<Path> paths)
     {
+        super.filesDragged(paths);
+
         String[] filePaths = new String[paths.size()];
         int i = 0;
 
@@ -123,10 +118,6 @@ public class UIScreen extends Screen implements IFileDropListener
 
         this.menu.onClose(null);
         DiscordPresenceManager.INSTANCE.onBbsUiClosed();
-
-        /* Stencil unbind leaves FBO 0; preview/pick can leave TU0 / lightmap / ColorModulator
-         * dirty. Next world/pause present would be solid black without this. */
-        BBSRendering.prepareWorldPresentState();
 
         MinecraftClient.getInstance().options.hudHidden = false;
     }
@@ -233,10 +224,15 @@ public class UIScreen extends Screen implements IFileDropListener
         return this.menu.mouseClicked(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), button);
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
+    public void setHorizontal(double horizontal)
     {
-        return this.menu.mouseScrolled(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), horizontalAmount, verticalAmount);
+        this.menu.context.mouseWheelHorizontal = horizontal;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount)
+    {
+        return this.menu.mouseScrolled(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), 0.0, amount);
     }
 
     @Override
@@ -266,7 +262,7 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta)
+    public void renderBackground(DrawContext context)
     {}
 
     @Override
@@ -279,7 +275,7 @@ public class UIScreen extends Screen implements IFileDropListener
 
         BbsGuiScale.withBbsWindowScale(() ->
         {
-            this.menu.context.setTransition(this.client.getRenderTickCounter().getTickDelta(false));
+            this.menu.context.setTransition(this.client.getTickDelta());
             this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
             this.menu.context.render.executeRunnables();
         });

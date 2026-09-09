@@ -191,7 +191,8 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(this.r, this.g, this.b, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tessellator.getInstance().getBuffer();
+        groupBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
         ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
@@ -200,6 +201,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         {
             RenderSystem.setShaderColor(r, g, b, a);
             this.shader.bind();
+
             if (this.shader.colorModulator != null)
             {
                 this.shader.colorModulator.set(r, g, b, a);
@@ -264,6 +266,6 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             builder.light(this.currentGroupLight & '\uffff', this.currentGroupLight >> 16 & '\uffff');
         }
 
-        builder.normal(normal.x, normal.y, normal.z);
+        builder.normal(normal.x, normal.y, normal.z).next();
     }
 }

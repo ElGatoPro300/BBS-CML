@@ -41,7 +41,7 @@ public abstract class SelectWorldScreenMixin
         this.bbs$ensureSelectWorldBbsButton(screen);
     }
 
-    @Inject(method = "initTabNavigation", at = @At("TAIL"), require = 0)
+    @Inject(method = "initTabNavigation", at = @At("TAIL"))
     private void bbs$repositionSelectWorldBbsButton(CallbackInfo ci)
     {
         if (!((Object) this instanceof SelectWorldScreen screen))
@@ -103,8 +103,7 @@ public abstract class SelectWorldScreenMixin
         {
             this.bbs$selectWorldLogoButton.setX(x);
             this.bbs$selectWorldLogoButton.setY(y);
-            this.bbs$selectWorldLogoButton.setWidth(size);
-            this.bbs$selectWorldLogoButton.setHeight(size);
+            this.bbs$selectWorldLogoButton.setSize(size);
         }
     }
 

@@ -83,13 +83,10 @@ import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
@@ -166,6 +163,7 @@ public class BBSRendering
     private static Texture texture;
     private static CloudRenderMode cachedCloudRenderMode;
     private static boolean cloudsForced;
+    public static Matrix4f positionMatrix;
 
     public static int getMotionBlur()
     {
@@ -299,11 +297,6 @@ public class BBSRendering
         return customSize;
     }
 
-    public static boolean isFramebufferToggled()
-    {
-        return toggleFramebuffer;
-    }
-
     public static void setCustomSize(boolean customSize)
     {
         setCustomSize(customSize, 0, 0);
@@ -414,63 +407,6 @@ public class BBSRendering
         restoreWorldRenderState();
         DiffuseLighting.enableGuiDepthLighting();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        clearTextureUnit0();
-    }
-
-    /**
-     * Model-block / world forms can leave TU0 on a form atlas, ColorModulator tinted, or blend
-     * enabled (DST_COLOR from color masks). {@link GameRenderer#renderBlur()} then samples that
-     * state and the pause-menu world goes solid dark while buttons still draw fine.
-     */
-    public static void prepareMenuBackgroundState()
-    {
-        ensureMainFramebuffer();
-        restoreWorldRenderState();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        clearTextureUnit0();
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        if (mc != null && mc.getFramebuffer() != null)
-        {
-            mc.getFramebuffer().beginWrite(false);
-        }
-
-        /* Blur post-chain expects blend off (see Forge pause-screen blend fixes). */
-        RenderSystem.disableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.depthMask(true);
-        RenderSystem.colorMask(true, true, true, true);
-    }
-
-    public static void clearTextureUnit0()
-    {
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GlStateManager._bindTexture(0);
-        RenderSystem.setShaderTexture(0, 0);
-    }
-
-    /**
-     * Call before terrain/entities draw. Preview/pick can leave the main FB unbound (FBO 0),
-     * TU0 on a pick texture, lightmap off, or ColorModulator dirty — the next world pass
-     * (including the freeze behind the pause menu) then presents solid black while UI chrome
-     * still looks fine. {@link #prepareHudRenderState()} runs too late for that geometry.
-     */
-    public static void prepareWorldPresentState()
-    {
-        /* Film offscreen sessions can leave toggleFramebuffer true; restore window target. */
-        ensureMainFramebuffer();
-        restoreWorldRenderState();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        if (mc != null && mc.getFramebuffer() != null)
-        {
-            mc.getFramebuffer().beginWrite(false);
-        }
-
-        clearTextureUnit0();
     }
 
     /**
@@ -494,12 +430,14 @@ public class BBSRendering
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
+        Matrix4f matrix = isRenderingWorld() ? camera : RenderSystem.getModelViewMatrix();
+
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, matrix);
     }
 
     /**
      * Same diffuse choice {@link WorldRenderer} uses before entities:
-     * {@link DiffuseLighting#enableForLevel()} in darkened dimensions, otherwise the shared
+     * {@link DiffuseLighting#enableForLevel(Matrix4f)} in darkened dimensions, otherwise the shared
      * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
      * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
      */
@@ -509,7 +447,9 @@ public class BBSRendering
 
         if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
         {
-            DiffuseLighting.enableForLevel();
+            Matrix4f matrix = isRenderingWorld() ? camera : new Matrix4f();
+
+            DiffuseLighting.enableForLevel(matrix);
 
             return;
         }
@@ -657,7 +597,7 @@ public class BBSRendering
             return;
         }
 
-        framebuffer.resize(w, h);
+        framebuffer.resize(w, h, MinecraftClient.IS_SYSTEM_MAC);
     }
 
     public static void toggleFramebuffer(boolean toggleFramebuffer)
@@ -681,14 +621,12 @@ public class BBSRendering
 
             if (framebuffer.textureWidth != w || framebuffer.textureHeight != h)
             {
-                framebuffer.resize(w, h);
+                framebuffer.resize(w, h, MinecraftClient.IS_SYSTEM_MAC);
             }
 
             clientFramebuffer = mc.getFramebuffer();
 
             reassignFramebuffer(framebuffer);
-
-            mc.worldRenderer.onResized(w, h);
 
             framebuffer.beginWrite(true);
         }
@@ -706,21 +644,6 @@ public class BBSRendering
             {
                 framebuffer.draw(fbW, fbH);
             }
-
-            /* framebuffer.draw() leaves its color-attachment texture bound on TU0
-             * inside GlStateManager / RenderSystem.shaderTextures[0].  If we don't
-             * clear it, every subsequent draw (chunks, forms, HUD) that queries
-             * getShaderTexture(0) reads a stale id and renders black. */
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(0);
-
-            /* Extra FBs / Iris must track the window target again or film actors
-             * composite in the wrong space (models float). onResized enables depth
-             * test and binds FBO 0, which would punch through film panel chrome. */
-            mc.worldRenderer.onResized(fbW, fbH);
-            target.beginWrite(false);
-            restoreGuiRenderState();
-            RenderSystem.disableDepthTest();
         }
     }
 
@@ -733,22 +656,19 @@ public class BBSRendering
 
     public static void onWorldRenderBegin()
     {
-        /* Always sanitize before world (or before skip): pause presents this buffer. */
-        prepareWorldPresentState();
-
         if (BBSRendering.shouldSkipWorldRender())
         {
             return;
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        BBSModClient.getFilms().startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
+        BBSModClient.getFilms().startRenderFrame(mc.getTickDelta());
 
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null)
         {
-            menu.startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
+            menu.startRenderFrame(mc.getTickDelta());
         }
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -786,26 +706,22 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
 
-        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType cacheType = RenderSystem.getProjectionType();
-
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
             DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
-            RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
-            drawContext.draw();
-
-            RenderSystem.setProjectionMatrix(cache, cacheType);
+            RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
         if (!customSize && BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
@@ -814,16 +730,16 @@ public class BBSRendering
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-            cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
-            RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
-            RenderSystem.setProjectionMatrix(cache, cacheType);
+            RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
         if (!customSize)
@@ -844,17 +760,16 @@ public class BBSRendering
                 Batcher2D offscreenBatcher = new Batcher2D(drawContext);
 
                 Window window = mc.getWindow();
-                Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+                Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
                 Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
 
-                RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+                RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
+                Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
 
-                drawContext.draw();
-
-                RenderSystem.setProjectionMatrix(cache, cacheType);
+                RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
         }
 
@@ -896,19 +811,15 @@ public class BBSRendering
             return;
         }
 
-        int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        int lastTexture = RenderSystem.getShaderTexture(0);
         Texture texture = getTexture();
         int prevRead = GL30.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
 
         framebuffer.beginRead();
 
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GlStateManager._bindTexture(texture.id);
+        texture.bind();
         texture.setSize(framebuffer.textureWidth, framebuffer.textureHeight);
         GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, framebuffer.textureWidth, framebuffer.textureHeight);
-        GlStateManager._bindTexture(lastTexture);
-        GlStateManager._activeTexture(activeTexture);
+        texture.unbind();
 
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
 
@@ -922,19 +833,6 @@ public class BBSRendering
 
     public static void onRenderChunkLayer(MatrixStack stack)
     {
-        WorldRenderContextImpl worldRenderContext = new WorldRenderContextImpl();
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        worldRenderContext.prepare(
-            mc.worldRenderer, mc.getRenderTickCounter(), false,
-            mc.gameRenderer.getCamera(), mc.gameRenderer,
-            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), false, mc.world
-        );
-
-        if (!isIrisShadersEnabled())
-        {
-            renderCoolStuff(worldRenderContext);
-        }
     }
 
     public static void onRenderChunkLayer(Matrix4f positionMatrix, Matrix4f projectionMatrix)
@@ -1104,13 +1002,30 @@ public class BBSRendering
 
     public static void renderCoolStuff(WorldRenderContext worldRenderContext)
     {
-        if (MinecraftClient.getInstance().currentScreen instanceof UIScreen screen)
+        boolean needsIdentityModelView = !isIrisShadersEnabled();
+
+        if (needsIdentityModelView)
         {
-            screen.renderInWorld(worldRenderContext);
+            MatrixStackUtils.pushIdentityModelView();
         }
 
-        BBSModClient.getFilms().render(worldRenderContext);
-        StructurePickerRenderer.render(worldRenderContext);
+        try
+        {
+            if (MinecraftClient.getInstance().currentScreen instanceof UIScreen screen)
+            {
+                screen.renderInWorld(worldRenderContext);
+            }
+
+            BBSModClient.getFilms().render(worldRenderContext);
+            StructurePickerRenderer.render(worldRenderContext);
+        }
+        finally
+        {
+            if (needsIdentityModelView)
+            {
+                MatrixStackUtils.popModelView();
+            }
+        }
     }
 
     public static boolean isOptifinePresent()

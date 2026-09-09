@@ -254,9 +254,9 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup)
+    public void readNbt(NbtCompound nbt)
     {
-        super.readNbt(nbt, registryLookup);
+        super.readNbt(nbt);
         
         if (nbt.contains("Left")) this.left.fromData(DataStorageUtils.fromNbt(nbt.get("Left")));
         if (nbt.contains("Right")) this.right.fromData(DataStorageUtils.fromNbt(nbt.get("Right")));
@@ -273,9 +273,9 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup)
+    public void writeNbt(NbtCompound nbt)
     {
-        super.writeNbt(nbt, registryLookup);
+        super.writeNbt(nbt);
 
         /* Route every value through the null-safe helper: ValueList.toData() returns
          * null when the list is empty (the default state of a freshly placed block),
@@ -302,8 +302,8 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup)
+    public NbtCompound toInitialChunkDataNbt()
     {
-        return this.createNbtWithId(registryLookup);
+        return this.createNbtWithId();
     }
 }

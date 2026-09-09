@@ -24,23 +24,18 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -306,7 +301,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         catch (Exception e)
         {}
 
-        this.entity = Registries.ENTITY_TYPE.get(Identifier.of(id)).create(MinecraftClient.getInstance().world, SpawnReason.MOB_SUMMONED);
+        this.entity = Registries.ENTITY_TYPE.get(new Identifier(id)).create(world);
 
         if (this.entity == null && this.form.isPlayer())
         {
@@ -369,7 +364,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             if (!stack.isEmpty())
             {
-                stats.itemUseElapsed = Math.max(0, stack.getMaxUseTime(living) - living.getItemUseTimeLeft());
+                stats.itemUseElapsed = Math.max(0, stack.getMaxUseTime() - living.getItemUseTimeLeft());
             }
         }
 
@@ -419,11 +414,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     }
 
     @SuppressWarnings("unchecked")
-    public static void setLivingAngles(LivingEntityRenderer<?, ?, ?> livingRenderer, EntityModel<?> model, LivingEntity living, float transition)
+    public static void setLivingAngles(EntityModel<?> model, LivingEntity living, float animPos, float animSpeed, float transition, float headYaw, float pitch)
     {
-        LivingEntityRenderState state = (LivingEntityRenderState) livingRenderer.createRenderState();
-        ((LivingEntityRenderer<LivingEntity, LivingEntityRenderState, ?>) livingRenderer).updateRenderState(living, state, transition);
-        ((EntityModel<LivingEntityRenderState>) model).setAngles(state);
+        ((EntityModel<LivingEntity>) model).setAngles(living, animPos, animSpeed, transition, headYaw, pitch);
     }
 
     /**
@@ -471,14 +464,18 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
         }
 
-        if (!(MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(this.entity) instanceof LivingEntityRenderer<?, ?, ?> livingRenderer))
+        if (!(MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(this.entity) instanceof LivingEntityRenderer<?, ?> livingRenderer))
         {
             return Collections.emptyMap();
         }
 
         EntityModel<?> model = livingRenderer.getModel();
+        float animPos = living.limbAnimator.getPos(transition);
+        float animSpeed = living.limbAnimator.getSpeed(transition);
+        float headYaw = living.headYaw;
+        float pitch = living.getPitch();
 
-        MobFormRenderer.setLivingAngles(livingRenderer, model, living, transition);
+        MobFormRenderer.setLivingAngles(model, living, animPos, animSpeed, transition, headYaw, pitch);
 
         return MobFormRenderer.resolveModelParts(model, this.entity.getClass());
     }
@@ -542,16 +539,12 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 }
             });
 
-            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            RenderSystem.setupLevelDiffuseLighting(light0, light1);
-
             consumers.setUI(true);
             MobTextureOverride.begin(this.form.texture.get());
             this.applyPBRTextureIntensity();
             try
             {
-                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, stack, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE);
+                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), stack, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE);
             }
             finally
             {
@@ -562,8 +555,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             consumers.setUI(false);
 
             CustomVertexConsumerProvider.clearRunnables();
-
-            DiffuseLighting.disableGuiDepthLighting();
 
             stack.pop();
 
@@ -596,7 +587,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 {
                     this.bindTexture();
                     this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                 });
 
                 light = 0;
@@ -697,7 +688,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 /* Film draws its own ground shadow; nested vanilla shadow on the morph can
                  * defer the last clothing layer until a late draw with a bad light basis. */
                 dispatcher.setRenderShadows(false);
-                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.stack, consumers, light);
+                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
             }
             finally
             {

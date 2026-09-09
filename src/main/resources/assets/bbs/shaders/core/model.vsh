@@ -39,7 +39,7 @@ void main()
      * Terrain uses the same space via Position + ChunkOffset. FogMat holds that
      * camera-relative model transform; ModelViewMat stays view × FogMat for clip. */
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    vertexDistance = fog_distance((FogMat * vec4(Position, 1.0)).xyz, FogShape);
+    vertexDistance = fog_distance(FogMat, Position, FogShape);
     vec3 n = NormalMat * Normal;
     float nLen2 = dot(n, n);
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);

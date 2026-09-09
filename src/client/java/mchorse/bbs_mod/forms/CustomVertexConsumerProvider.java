@@ -3,13 +3,11 @@ package mchorse.bbs_mod.forms;
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
-import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.BufferAllocator;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -29,15 +27,10 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
 
     public static void drawLayer(RenderLayer layer)
     {
-        /* Rebind before/after layer setup: RenderLayer startDrawing can steal the main FB. */
-        StencilFormFramebuffer.rebindActive();
-
         if (runnables != null)
         {
             runnables.accept(layer);
         }
-
-        StencilFormFramebuffer.rebindActive();
     }
 
     public static void hijackVertexFormat(Consumer<RenderLayer> runnable)
@@ -48,6 +41,17 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
     public static void clearRunnables()
     {
         runnables = null;
+    }
+
+    public static boolean isGlintLayer(RenderLayer layer)
+    {
+        return layer == RenderLayer.getArmorGlint()
+            || layer == RenderLayer.getArmorEntityGlint()
+            || layer == RenderLayer.getGlint()
+            || layer == RenderLayer.getDirectGlint()
+            || layer == RenderLayer.getGlintTranslucent()
+            || layer == RenderLayer.getEntityGlint()
+            || layer == RenderLayer.getDirectEntityGlint();
     }
 
     public CustomVertexConsumerProvider(VertexConsumerProvider.Immediate delegate)
@@ -83,7 +87,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
     {
         VertexConsumer buffer = this.delegate.getBuffer(renderLayer);
 
-        if (this.substitute != null)
+        if (this.substitute != null && !isGlintLayer(renderLayer))
         {
             VertexConsumer apply = this.substitute.apply(buffer);
 

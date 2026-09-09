@@ -21,30 +21,10 @@ import java.util.Map;
 
 public class StencilFormFramebuffer
 {
-    private static Framebuffer activePickTarget;
-
     private Framebuffer framebuffer;
 
     private int index;
     private Map<Integer, Pair<Form, String>> indexMap = new HashMap<>();
-
-    /**
-     * 1.21.4 vanilla Immediate/RenderLayer draws can rebind the main client framebuffer mid-pass.
-     * Keep the pick FBO current so pick IDs land in the stencil target (hover highlight) instead
-     * of leaking a dark duplicate onto the preview.
-     */
-    public static void rebindActive()
-    {
-        if (activePickTarget != null)
-        {
-            activePickTarget.bind();
-        }
-    }
-
-    public static boolean isPickPassActive()
-    {
-        return activePickTarget != null;
-    }
 
     public Framebuffer getFramebuffer()
     {
@@ -111,17 +91,7 @@ public class StencilFormFramebuffer
 
     public void apply()
     {
-        activePickTarget = this.framebuffer;
         this.framebuffer.applyClear();
-    }
-
-    public void bindForPick()
-    {
-        if (this.framebuffer != null)
-        {
-            activePickTarget = this.framebuffer;
-            this.framebuffer.bind();
-        }
     }
 
     public void pickGUI(UIContext context, Area area)
@@ -151,9 +121,6 @@ public class StencilFormFramebuffer
 
     public void pick(int x, int y)
     {
-        /* glReadPixels samples the currently bound FB — rebind pick target if vanilla stole it. */
-        this.bindForPick();
-
         try (MemoryStack stack = MemoryStack.stackPush())
         {
             FloatBuffer floats = stack.mallocFloat(4);
@@ -180,7 +147,6 @@ public class StencilFormFramebuffer
 
     public void unbind()
     {
-        activePickTarget = null;
         this.framebuffer.unbind();
     }
 

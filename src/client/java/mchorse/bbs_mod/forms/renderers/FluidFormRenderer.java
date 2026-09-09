@@ -24,10 +24,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKey;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
@@ -74,19 +71,13 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
-
         VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
         
-        this.renderFluid(format, ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT,
+        this.renderFluid(format, GameRenderer::getRenderTypeEntityTranslucentProgram,
             stack,
             OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
             context.getTransition()
         );
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -95,9 +86,9 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
     protected void render3D(FormRenderingContext context)
     {
         VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
-        ShaderProgramKey shader = BBSRendering.isIrisShadersEnabled()
-            ? ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT
-            : ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT;
+        Supplier<ShaderProgram> shader = BBSRendering.isIrisShadersEnabled()
+            ? GameRenderer::getRenderTypeEntityTranslucentCullProgram
+            : GameRenderer::getRenderTypeEntityTranslucentProgram;
 
         this.renderFluid(format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition());
         
@@ -109,10 +100,11 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
     private void renderDebug(FormRenderingContext context)
     {
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getRenderTypeLinesProgram);
         RenderSystem.lineWidth(2.0F);
         
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
         
         MatrixStack stack = context.stack;
         
@@ -153,16 +145,16 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
                 float s2 = (float) Math.sin(a2) * r;
                 
                 /* XY circle */
-                builder.vertex(matrix, c1, s1, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1);
-                builder.vertex(matrix, c2, s2, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1);
+                builder.vertex(matrix, c1, s1, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1).next();
+                builder.vertex(matrix, c2, s2, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1).next();
                 
                 /* XZ circle */
-                builder.vertex(matrix, c1, 0, s1).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2);
-                builder.vertex(matrix, c2, 0, s2).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2);
+                builder.vertex(matrix, c1, 0, s1).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2).next();
+                builder.vertex(matrix, c2, 0, s2).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2).next();
                 
                 /* YZ circle */
-                builder.vertex(matrix, 0, c1, s1).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3);
-                builder.vertex(matrix, 0, c2, s2).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3);
+                builder.vertex(matrix, 0, c1, s1).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3).next();
+                builder.vertex(matrix, 0, c2, s2).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3).next();
             }
             
             stack.pop();
@@ -172,7 +164,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         RenderSystem.lineWidth(1.0F);
     }
 
-    private void renderFluid(VertexFormat format, ShaderProgramKey shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
+    private void renderFluid(VertexFormat format, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
     {
         Link t = this.form.texture.get();
         Texture texture = null;
@@ -202,8 +194,8 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         gameRenderer.getLightmapTextureManager().enable();
         gameRenderer.getOverlayTexture().setupOverlayColor();
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, format);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
         Color color = this.form.color.get();
         Color finalColor = color.copy();
@@ -256,7 +248,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         
         if (MinecraftClient.getInstance().player != null)
         {
-            time = (MinecraftClient.getInstance().player.age + MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true)) * speed * 0.1f;
+            time = (MinecraftClient.getInstance().player.age + MinecraftClient.getInstance().getTickDelta()) * speed * 0.1f;
         }
         else
         {
@@ -722,7 +714,8 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
                .texture(u, v)
                .overlay(overlay)
                .light(light)
-               .normal(tn.x, tn.y, tn.z);
+               .normal(tn.x, tn.y, tn.z)
+               .next();
     }
     
     @Override
