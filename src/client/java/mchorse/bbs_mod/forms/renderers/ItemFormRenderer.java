@@ -207,6 +207,10 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
+            /* Shared scratch with BlockForm — must reset every draw or a prior BlockForm bake
+             * (e.g. hanging-sign tint without color transform) leaks into this ItemForm. */
+            BlockFormRenderer.color.set(context.color);
+
             if (shadowPass)
             {
                 BlockFormRenderer.color.a *= storedFormColor.a;
@@ -364,6 +368,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                         {
                             RenderSystem.enableBlend();
                             RenderSystem.defaultBlendFunc();
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                         }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
@@ -618,6 +623,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             /* RGB carries Iris emission (glow bake). Alpha must stay 1 — soft/form opacity is
              * already in the white vertex recolor (same as BlockForm / StructureForm soft bloom). */
             RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, 1F);
+        }
+        else
+        {
+            /* Match BlockForm: never leave a leftover ColorModulator from a prior form. */
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 
