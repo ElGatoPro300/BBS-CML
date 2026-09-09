@@ -3,17 +3,12 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
-import org.joml.Matrix3x2fStack;
-
-import com.mojang.blaze3d.opengl.GlStateManager;
-
-import org.lwjgl.opengl.GL11;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
 
@@ -75,15 +70,31 @@ public class UIBossBarRenderer
         int barY = anchorY + textBlockHeight + (hasText ? TEXT_GAP : 0);
         float blockCenterX = x + displayWidth / 2F;
 
+        batcher.flush();
+        stack.push();
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
         DrawContext context = batcher.getContext();
 
-        context.fill(x, barY, x + displayWidth, barY + displayHeight, 0xFFFFFFFF);
+        setShaderColor(context, 1F, 1F, 1F, alpha);
+        context.drawGuiTexture(BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight);
 
         if (progressWidth > 0)
         {
             int color = bossBar.color;
 
-            context.fill(x, barY, x + progressWidth, barY + displayHeight, color);
+            setShaderColor(
+                context,
+                ((color >> 16) & 0xFF) / 255F,
+                ((color >> 8) & 0xFF) / 255F,
+                (color & 0xFF) / 255F,
+                alpha
+            );
+            context.drawGuiTexture(BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight);
         }
 
         if (hasText)
@@ -93,23 +104,37 @@ public class UIBossBarRenderer
             int textColor = applyAlpha(bossBar.textColor, alpha);
             float textCenterX = textX + textWidth / 2F;
             float textCenterY = textY + fontHeight / 2F;
-            Matrix3x2fStack matrices = context.getMatrices();
+
+            setShaderColor(context, 1F, 1F, 1F, 1F);
 
             if (textScale != 1F)
             {
-                matrices.pushMatrix();
-                matrices.translate(textCenterX, textCenterY);
-                matrices.scale(textScale, textScale);
-                matrices.translate(-textCenterX, -textCenterY);
+                stack.push();
+                stack.translate(textCenterX, textCenterY, 0F);
+                stack.scale(textScale, textScale, 1F);
+                stack.translate(-textCenterX, -textCenterY, 0F);
             }
 
             batcher.text(bossBar.text, textX, textY, textColor, true);
 
             if (textScale != 1F)
             {
-                matrices.popMatrix();
+                stack.pop();
             }
         }
+
+        setShaderColor(context, 1F, 1F, 1F, 1F);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.disableBlend();
+
+        stack.pop();
+        batcher.flush();
+    }
+
+    private static void setShaderColor(DrawContext context, float red, float green, float blue, float alpha)
+    {
+        context.setShaderColor(red, green, blue, alpha);
+        RenderSystem.setShaderColor(red, green, blue, alpha);
     }
 
     private static float getResolutionScale(int width, int height)

@@ -2,9 +2,8 @@ package mchorse.bbs_mod.cubic.render.vao;
 
 import mchorse.bbs_mod.client.BBSRendering;
 
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL30;
 
@@ -13,12 +12,6 @@ public class ModelVAO implements IModelVAO
     private int vao;
     private int vao2;
     private int count;
-    private ModelVAOData data;
-
-    public ModelVAOData getData()
-    {
-        return this.data;
-    }
 
     public ModelVAO(ModelVAOData data)
     {
@@ -46,7 +39,6 @@ public class ModelVAO implements IModelVAO
 
     public void upload(ModelVAOData data)
     {
-        this.data = data;
         this.vao = GL30.glGenVertexArrays();
         this.vao2 = GL30.glGenVertexArrays();
 
@@ -75,7 +67,7 @@ public class ModelVAO implements IModelVAO
         GL30.glVertexAttribPointer(Attributes.TANGENTS, 4, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, midTexCoordBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.midTexCoords(), GL30.GL_STATIC_DRAW);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.texCoords(), GL30.GL_STATIC_DRAW);
         GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glEnableVertexAttribArray(Attributes.POSITION);
