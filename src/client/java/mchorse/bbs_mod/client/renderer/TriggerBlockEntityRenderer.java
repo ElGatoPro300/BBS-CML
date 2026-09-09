@@ -31,7 +31,7 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
 
         MinecraftClient mc = MinecraftClient.getInstance();
         
-        if (mc.options.debugEnabled)
+        if (mc.getDebugHud().shouldShowDebugHud())
         {
             matrices.push();
             matrices.translate(0.5D, 0, 0.5D);

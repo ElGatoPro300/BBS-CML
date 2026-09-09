@@ -34,6 +34,7 @@ import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldView;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -70,7 +71,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
-    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state)
+    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state)
     {
         BlockEntity entity = world.getBlockEntity(pos);
 

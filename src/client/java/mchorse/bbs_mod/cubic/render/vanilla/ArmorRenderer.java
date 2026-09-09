@@ -143,7 +143,7 @@ public class ArmorRenderer
                 }
 
                 Optional<ArmorTrim> trimOpt = MinecraftClient.getInstance().world != null
-                    ? ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack)
+                    ? ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack, true)
                     : Optional.empty();
                 boolean hasTrim = trimOpt.isPresent();
                 boolean hasGlint = itemStack.hasGlint();
@@ -202,7 +202,7 @@ public class ArmorRenderer
     private void renderTrim(ModelPart part, ArmorMaterial material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
-        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims()));
+        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
         VertexConsumer vertexConsumer = withGlint
             ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()))
             : trimConsumer;
