@@ -27,8 +27,6 @@ import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.MapCodec;
 
@@ -89,22 +87,16 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 try
                 {
-                    if (mode == ModelTransformationMode.GUI)
-                    {
-                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                        RenderSystem.setupGui3DDiffuseLighting(a, b);
-                    }
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
 
                     FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
                         .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
                 finally
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        /* Re-enable GUI lights — disable left hotbar widgets / later slots dark. */
                         BBSRendering.restoreAfterGuiItemForm();
                     }
                     else

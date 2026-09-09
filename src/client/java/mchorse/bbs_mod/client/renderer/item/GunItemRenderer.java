@@ -24,8 +24,6 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ModelTransformationMode;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.MapCodec;
 
@@ -99,16 +97,10 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 try
                 {
-                    if (mode == ModelTransformationMode.GUI)
-                    {
-                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                        RenderSystem.setupGui3DDiffuseLighting(a, b);
-                    }
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
 
-                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
                     FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
                         .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
                 }
                 finally
