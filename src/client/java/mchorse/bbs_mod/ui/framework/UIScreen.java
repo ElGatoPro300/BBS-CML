@@ -134,11 +134,6 @@ public class UIScreen extends Screen implements IFileDropListener
         /* Stencil unbind leaves FBO 0; preview/pick can leave TU0 / lightmap / ColorModulator
          * dirty. Next world/pause present would be solid black without this. */
         BBSRendering.prepareWorldPresentState();
-
-        if (this.menu.canHideHUD())
-        {
-            Minecraft.getInstance().options.hideGui = false;
-        }
     }
 
     @Override
@@ -153,8 +148,6 @@ public class UIScreen extends Screen implements IFileDropListener
 
         this.menu.onOpen(null);
         DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
-
-        client.options.hideGui = this.menu.canHideHUD();
     }
 
     /**
@@ -294,7 +287,6 @@ public class UIScreen extends Screen implements IFileDropListener
             this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
             this.menu.context.render.executeRunnables();
         });
-        this.minecraft.options.hideGui = this.menu.canHideHUD();
     }
 
     @Override
