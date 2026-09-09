@@ -15,12 +15,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix3d;
@@ -31,8 +26,13 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.system.MemoryStack;
@@ -339,9 +339,9 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
         }
     }
 
-    public MatrixStack createCameraStack()
+    public PoseStack createCameraStack()
     {
-        MatrixStack stack = new MatrixStack();
+        PoseStack stack = new PoseStack();
 
         MatrixStackUtils.multiply(stack, this.camera.view);
         stack.translate(-this.camera.position.x, -this.camera.position.y, -this.camera.position.z);
@@ -359,7 +359,7 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
 
         try (MemoryStack stack = MemoryStack.stackPush())
         {
-            ByteBuffer data = Std140Builder.onStack(stack, DiffuseLighting.UBO_SIZE)
+            ByteBuffer data = Std140Builder.onStack(stack, Lighting.UBO_SIZE)
                 .putVec3(this.lightDirA)
                 .putVec3(this.lightDirB)
                 .get();
@@ -367,7 +367,7 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
             if (this.lightsBuffer == null)
             {
                 this.lightsBuffer = RenderSystem.getDevice().createBuffer(() -> "BBS editor preview lights UBO", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, data);
-                this.lights = this.lightsBuffer.slice(0, DiffuseLighting.UBO_SIZE);
+                this.lights = this.lightsBuffer.slice(0, Lighting.UBO_SIZE);
             }
             else
             {
@@ -442,7 +442,7 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
 
     protected void setupViewport(UIContext context)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         if (this.stencilViewport)
         {
@@ -466,8 +466,8 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
 
         try
         {
-            float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
-            float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
+            float rx = (float) (mc.getWindow().getScreenWidth() / (double) context.menu.width);
+            float ry = (float) (mc.getWindow().getScreenHeight() / (double) context.menu.height);
 
             this.viewportW = (int) (this.area.w * rx);
             this.viewportH = (int) (this.area.h * ry);
@@ -496,20 +496,20 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
      */
     protected void renderGrid(UIContext context)
     {
-        Matrix4f matrix4f = this.createCameraStack().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        Matrix4f matrix4f = this.createCameraStack().last().pose();
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
 
         for (int x = 0; x <= 10; x ++)
         {
             if (x == 0)
             {
-                builder.vertex(matrix4f, x - 5, 0, -5).color(0F, 0F, 1F, 1F);
-                builder.vertex(matrix4f, x - 5, 0, 5).color(0F, 0F, 1F, 1F);
+                builder.addVertex(matrix4f, x - 5, 0, -5).setColor(0F, 0F, 1F, 1F);
+                builder.addVertex(matrix4f, x - 5, 0, 5).setColor(0F, 0F, 1F, 1F);
             }
             else
             {
-                builder.vertex(matrix4f, x - 5, 0, -5).color(0.25F, 0.25F, 0.25F, 1F);
-                builder.vertex(matrix4f, x - 5, 0, 5).color(0.25F, 0.25F, 0.25F, 1F);
+                builder.addVertex(matrix4f, x - 5, 0, -5).setColor(0.25F, 0.25F, 0.25F, 1F);
+                builder.addVertex(matrix4f, x - 5, 0, 5).setColor(0.25F, 0.25F, 0.25F, 1F);
             }
         }
 
@@ -517,13 +517,13 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
         {
             if (x == 0)
             {
-                builder.vertex(matrix4f, -5, 0, x - 5).color(1F, 0F, 0F, 1F);
-                builder.vertex(matrix4f, 5, 0, x - 5).color(1F, 0F, 0F, 1F);
+                builder.addVertex(matrix4f, -5, 0, x - 5).setColor(1F, 0F, 0F, 1F);
+                builder.addVertex(matrix4f, 5, 0, x - 5).setColor(1F, 0F, 0F, 1F);
             }
             else
             {
-                builder.vertex(matrix4f, -5, 0, x - 5).color(0.25F, 0.25F, 0.25F, 1F);
-                builder.vertex(matrix4f, 5, 0, x - 5).color(0.25F, 0.25F, 0.25F, 1F);
+                builder.addVertex(matrix4f, -5, 0, x - 5).setColor(0.25F, 0.25F, 0.25F, 1F);
+                builder.addVertex(matrix4f, 5, 0, x - 5).setColor(0.25F, 0.25F, 0.25F, 1F);
             }
         }
 

@@ -1,12 +1,12 @@
 package mchorse.bbs_mod.cubic.physics;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.joml.Vector3f;
 
@@ -30,17 +30,17 @@ public final class TerrainCollisionResolver
     {
     }
 
-    public static void resolve(World world, Vector3f[] pos, Vector3f[] prev, int from, int to, float radius, float friction)
+    public static void resolve(Level world, Vector3f[] pos, Vector3f[] prev, int from, int to, float radius, float friction)
     {
         if (world == null || pos == null || prev == null || from < 0 || to > pos.length || to > prev.length || from >= to || radius <= 0F)
         {
             return;
         }
 
-        float f = MathHelper.clamp(friction, 0F, 1F);
+        float f = Mth.clamp(friction, 0F, 1F);
         Vector3f normal = new Vector3f();
         Vector3f sample = new Vector3f();
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         List<float[]> boxes = new ArrayList<>();
 
         for (int relax = 0; relax < RELAXATIONS; relax++)
@@ -62,7 +62,7 @@ public final class TerrainCollisionResolver
         }
     }
 
-    private static void gatherNearbyBoxes(World world, BlockPos.Mutable mutable, List<float[]> boxes, Vector3f pos, Vector3f prev, float radius)
+    private static void gatherNearbyBoxes(Level world, BlockPos.MutableBlockPos mutable, List<float[]> boxes, Vector3f pos, Vector3f prev, float radius)
     {
         boxes.clear();
 
@@ -74,20 +74,20 @@ public final class TerrainCollisionResolver
         float maxZ = Math.max(pos.z, prev.z);
 
         collectBoxesInAabb(world, mutable, boxes,
-            MathHelper.floor(minX - radius), MathHelper.floor(minY - radius), MathHelper.floor(minZ - radius),
-            MathHelper.floor(maxX + radius), MathHelper.floor(maxY + radius), MathHelper.floor(maxZ + radius));
+            Mth.floor(minX - radius), Mth.floor(minY - radius), Mth.floor(minZ - radius),
+            Mth.floor(maxX + radius), Mth.floor(maxY + radius), Mth.floor(maxZ + radius));
     }
 
-    private static void gatherSegmentBoxes(World world, BlockPos.Mutable mutable, List<float[]> boxes, Vector3f a, Vector3f b, float radius)
+    private static void gatherSegmentBoxes(Level world, BlockPos.MutableBlockPos mutable, List<float[]> boxes, Vector3f a, Vector3f b, float radius)
     {
         boxes.clear();
 
         collectBoxesInAabb(world, mutable, boxes,
-            MathHelper.floor(Math.min(a.x, b.x) - radius), MathHelper.floor(Math.min(a.y, b.y) - radius), MathHelper.floor(Math.min(a.z, b.z) - radius),
-            MathHelper.floor(Math.max(a.x, b.x) + radius), MathHelper.floor(Math.max(a.y, b.y) + radius), MathHelper.floor(Math.max(a.z, b.z) + radius));
+            Mth.floor(Math.min(a.x, b.x) - radius), Mth.floor(Math.min(a.y, b.y) - radius), Mth.floor(Math.min(a.z, b.z) - radius),
+            Mth.floor(Math.max(a.x, b.x) + radius), Mth.floor(Math.max(a.y, b.y) + radius), Mth.floor(Math.max(a.z, b.z) + radius));
     }
 
-    private static void collectBoxesInAabb(World world, BlockPos.Mutable mutable, List<float[]> boxes, int bx1, int by1, int bz1, int bx2, int by2, int bz2)
+    private static void collectBoxesInAabb(Level world, BlockPos.MutableBlockPos mutable, List<float[]> boxes, int bx1, int by1, int bz1, int bx2, int by2, int bz2)
     {
         for (int x = bx1; x <= bx2; x++)
         {
@@ -97,7 +97,7 @@ public final class TerrainCollisionResolver
                 {
                     mutable.set(x, y, z);
 
-                    if (!world.isChunkLoaded(mutable))
+                    if (!world.hasChunkAt(mutable))
                     {
                         continue;
                     }
@@ -109,20 +109,20 @@ public final class TerrainCollisionResolver
                         continue;
                     }
 
-                    if (state.isFullCube(world, mutable))
+                    if (state.isCollisionShapeFullBlock(world, mutable))
                     {
                         boxes.add(new float[] {x, y, z, x + 1F, y + 1F, z + 1F});
                         continue;
                     }
 
-                    VoxelShape shape = state.getCollisionShape(world, mutable, ShapeContext.absent());
+                    VoxelShape shape = state.getCollisionShape(world, mutable, CollisionContext.empty());
 
                     if (shape.isEmpty())
                     {
                         continue;
                     }
 
-                    for (Box box : shape.getBoundingBoxes())
+                    for (AABB box : shape.toAabbs())
                     {
                         boxes.add(new float[] {
                             (float) (x + box.minX), (float) (y + box.minY), (float) (z + box.minZ),
@@ -340,7 +340,7 @@ public final class TerrainCollisionResolver
         return best;
     }
 
-    public static boolean hasFullCubeInAabb(World world, BlockPos.Mutable mutable, int minBX, int minBY, int minBZ, int maxBX, int maxBY, int maxBZ)
+    public static boolean hasFullCubeInAabb(Level world, BlockPos.MutableBlockPos mutable, int minBX, int minBY, int minBZ, int maxBX, int maxBY, int maxBZ)
     {
         if (world == null)
         {
@@ -355,7 +355,7 @@ public final class TerrainCollisionResolver
                 {
                     mutable.set(x, y, z);
 
-                    if (!world.isChunkLoaded(mutable))
+                    if (!world.hasChunkAt(mutable))
                     {
                         continue;
                     }
@@ -367,12 +367,12 @@ public final class TerrainCollisionResolver
                         continue;
                     }
 
-                    if (block.isFullCube(world, mutable))
+                    if (block.isCollisionShapeFullBlock(world, mutable))
                     {
                         return true;
                     }
 
-                    if (!block.getCollisionShape(world, mutable, ShapeContext.absent()).isEmpty())
+                    if (!block.getCollisionShape(world, mutable, CollisionContext.empty()).isEmpty())
                     {
                         return true;
                     }

@@ -6,13 +6,13 @@ import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.utils.VideoRecorder;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.server.integrated.IntegratedServerLoader;
-import net.minecraft.text.Text;
-import net.minecraft.util.WorldSavePath;
-import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.worldselection.WorldOpenFlows;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.LevelStorageSource;
 
 import java.nio.file.Path;
 
@@ -24,28 +24,28 @@ public class WorldLaunchHelper
     private static String pendingWorldFolder;
     private static int pendingWaitTicks;
 
-    public static boolean isCurrentWorld(MinecraftClient client, String worldFolder)
+    public static boolean isCurrentWorld(Minecraft client, String worldFolder)
     {
         if (worldFolder == null || worldFolder.isEmpty())
         {
             return false;
         }
 
-        if (!client.isIntegratedServerRunning() || client.getServer() == null)
+        if (!client.hasSingleplayerServer() || client.getSingleplayerServer() == null)
         {
             return false;
         }
 
-        Path currentSave = client.getServer().getSavePath(WorldSavePath.ROOT);
+        Path currentSave = client.getSingleplayerServer().getWorldPath(LevelResource.ROOT);
 
-        for (LevelStorage.LevelSave save : client.getLevelStorage().getLevelList().levels())
+        for (LevelStorageSource.LevelDirectory save : client.getLevelSource().findLevelCandidates().levels())
         {
             if (!currentSave.equals(save.path()))
             {
                 continue;
             }
 
-            if (WorldLaunchHelper.matchesWorldFolder(worldFolder, save.getRootPath()))
+            if (WorldLaunchHelper.matchesWorldFolder(worldFolder, save.directoryName()))
             {
                 return true;
             }
@@ -74,14 +74,14 @@ public class WorldLaunchHelper
     /**
      * True when the client is already inside a loaded world session.
      */
-    public static boolean isInLoadedWorld(MinecraftClient client)
+    public static boolean isInLoadedWorld(Minecraft client)
     {
-        return client != null && client.world != null;
+        return client != null && client.level != null;
     }
 
     public static void loadWorld(String worldFolder)
     {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         if (WorldLaunchHelper.isCurrentWorld(client, worldFolder))
         {
@@ -102,7 +102,7 @@ public class WorldLaunchHelper
         WorldLaunchHelper.startWorldLoad(client, worldFolder);
     }
 
-    public static void tick(MinecraftClient client)
+    public static void tick(Minecraft client)
     {
         if (WorldLaunchHelper.pendingWorldFolder == null)
         {
@@ -137,7 +137,7 @@ public class WorldLaunchHelper
         WorldLaunchHelper.startWorldLoad(client, folder);
     }
 
-    public static void onClientDisconnected(MinecraftClient client)
+    public static void onClientDisconnected(Minecraft client)
     {
         WorldLaunchHelper.ensureRenderTarget(client);
     }
@@ -148,39 +148,39 @@ public class WorldLaunchHelper
         WorldLaunchHelper.pendingWaitTicks = 0;
     }
 
-    private static boolean needsDisconnect(MinecraftClient client)
+    private static boolean needsDisconnect(Minecraft client)
     {
-        return client.world != null || client.isIntegratedServerRunning();
+        return client.level != null || client.hasSingleplayerServer();
     }
 
-    private static void requestDisconnect(MinecraftClient client)
+    private static void requestDisconnect(Minecraft client)
     {
         WorldLaunchHelper.prepareClientForWorldSwitch(client);
 
-        ClientWorld world = client.world;
+        ClientLevel world = client.level;
 
         if (world != null)
         {
-            world.disconnect(Text.literal("Disconnecting"));
+            world.disconnect(Component.literal("Disconnecting"));
         }
 
         client.disconnect(new TitleScreen(), false);
     }
 
-    private static void abortPendingLaunch(MinecraftClient client)
+    private static void abortPendingLaunch(Minecraft client)
     {
         WorldLaunchHelper.clearPending();
         WorldLaunchHelper.ensureRenderTarget(client);
 
-        if (client.currentScreen == null)
+        if (client.screen == null)
         {
             client.setScreen(new TitleScreen());
         }
     }
 
-    private static void prepareClientForWorldSwitch(MinecraftClient client)
+    private static void prepareClientForWorldSwitch(Minecraft client)
     {
-        if (client.currentScreen instanceof UIScreen)
+        if (client.screen instanceof UIScreen)
         {
             client.setScreen(null);
         }
@@ -199,20 +199,20 @@ public class WorldLaunchHelper
         EditorSpectatorHelper.restore();
     }
 
-    private static void ensureRenderTarget(MinecraftClient client)
+    private static void ensureRenderTarget(Minecraft client)
     {
         BBSRendering.ensureMainFramebuffer();
     }
 
-    private static void startWorldLoad(MinecraftClient client, String worldFolder)
+    private static void startWorldLoad(Minecraft client, String worldFolder)
     {
         client.execute(() ->
         {
             WorldLaunchHelper.ensureRenderTarget(client);
 
-            IntegratedServerLoader loader = client.createIntegratedServerLoader();
+            WorldOpenFlows loader = client.createWorldOpenFlows();
 
-            loader.start(worldFolder, WorldLaunchHelper::clearPending);
+            loader.openWorld(worldFolder, WorldLaunchHelper::clearPending);
         });
     }
 }

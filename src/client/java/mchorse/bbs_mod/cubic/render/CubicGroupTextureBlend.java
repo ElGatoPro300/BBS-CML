@@ -7,7 +7,7 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.resources.Link;
 
-import net.minecraft.client.gl.ShaderProgram;
+import com.mojang.blaze3d.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
 
@@ -56,7 +56,7 @@ public final class CubicGroupTextureBlend
         return null;
     }
 
-    public static boolean supportsShader(ShaderProgram shader)
+    public static boolean supportsShader(GlProgram shader)
     {
         if (shader == null)
         {
@@ -89,7 +89,7 @@ public final class CubicGroupTextureBlend
     /**
      * Binds the active texture and, when supported, enables single-pass shader crossfade.
      */
-    public static void bindForDraw(ShaderProgram shader, CubicGroupTextureBlend state, Link defaultTexture)
+    public static void bindForDraw(GlProgram shader, CubicGroupTextureBlend state, Link defaultTexture)
     {
         if (state == null)
         {

@@ -18,27 +18,23 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.BufferUtils;
@@ -288,7 +284,7 @@ public class ModelVAORenderer
             this.half.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
         }
 
-        private void upload(ShaderProgram shader, String prefix)
+        private void upload(GlProgram shader, String prefix)
         {
             BBSUniform.setMatrix4f(shader, prefix + "Inverse", this.inverse);
             BBSUniform.set(shader, prefix + "Active", this.active ? 1F : 0F);
@@ -917,7 +913,7 @@ public class ModelVAORenderer
      */
     public static boolean captureGradeSceneColor()
     {
-        net.minecraft.client.gl.Framebuffer source = BBSRendering.getPaintOverlaySourceFramebuffer();
+        RenderTarget source = BBSRendering.getPaintOverlaySourceFramebuffer();
 
         if (source == null)
         {
@@ -926,7 +922,7 @@ public class ModelVAORenderer
 
         /* Previews override the output attachment without replacing Minecraft's framebuffer. */
         GpuTexture sourceTexture = RenderSystem.outputColorTextureOverride != null
-            ? RenderSystem.outputColorTextureOverride.texture() : source.getColorAttachment();
+            ? RenderSystem.outputColorTextureOverride.texture() : source.getColorTexture();
 
         if (!(sourceTexture instanceof GlTexture glTexture))
         {
@@ -959,7 +955,7 @@ public class ModelVAORenderer
             }
 
             GL43.glCopyImageSubData(
-                    glTexture.getGlId(), GL11.GL_TEXTURE_2D, 0, 0, 0, 0,
+                    glTexture.glId(), GL11.GL_TEXTURE_2D, 0, 0, 0, 0,
                     gradeSceneColor.id, GL11.GL_TEXTURE_2D, 0, 0, 0, 0,
                     width, height, 1
             );
@@ -1328,7 +1324,7 @@ public class ModelVAORenderer
         suppressShapeKeyMainPassGlow = suppress;
     }
 
-    public static void beginCpuGeometry(ShaderProgram shader)
+    public static void beginCpuGeometry(GlProgram shader)
     {
         glowingUniformActive = BBSUniform.hasUniform(shader, "GlowingColor");
     }
@@ -1809,11 +1805,11 @@ public class ModelVAORenderer
         return formRootInverse;
     }
 
-    public static void render(ShaderProgram shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    public static void render(GlProgram shader, IModelVAO modelVAO, PoseStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         /* Iris / resource-reload races can leave BBSShaders.getModel() null while
          * form-list UI cards still try to draw Extruded/Structure VAOs. */
-        if (shader == null || shader == ShaderProgram.INVALID || modelVAO == null)
+        if (shader == null || shader == GlProgram.INVALID_PROGRAM || modelVAO == null)
         {
             return;
         }
@@ -1828,21 +1824,21 @@ public class ModelVAORenderer
             }
 
             /* Retained meshes need an explicit pass to bind picking uniforms and attachments. */
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-                VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+                DefaultVertexFormat.ENTITY);
 
             for (int i = 0; i < data.vertices().length / 3; i++)
             {
                 int position = i * 3;
                 int uv = i * 2;
-                builder.vertex(data.vertices()[position], data.vertices()[position + 1], data.vertices()[position + 2])
-                    .color(r, g, b, a).texture(data.texCoords()[uv], data.texCoords()[uv + 1])
-                    .overlay(overlay).light(0)
-                    .normal(data.normals()[position], data.normals()[position + 1], data.normals()[position + 2]);
+                builder.addVertex(data.vertices()[position], data.vertices()[position + 1], data.vertices()[position + 2])
+                    .setColor(r, g, b, a).setUv(data.texCoords()[uv], data.texCoords()[uv + 1])
+                    .setOverlay(overlay).setLight(0)
+                    .setNormal(data.normals()[position], data.normals()[position + 1], data.normals()[position + 2]);
             }
 
             setupUniforms(stack, shader);
-            ModelEffectPass.drawBound(builder.end(), null, false);
+            ModelEffectPass.drawBound(builder.buildOrThrow(), null, false);
             return;
         }
 
@@ -1860,7 +1856,7 @@ public class ModelVAORenderer
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
-        modelVAO.render(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, r, g, b, a, light, overlay);
+        modelVAO.render(DefaultVertexFormat.ENTITY, r, g, b, a, light, overlay);
 
         GlStateManager._activeTexture(GL30.GL_TEXTURE0);
 
@@ -1874,7 +1870,7 @@ public class ModelVAORenderer
         }
     }
 
-    public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
+    public static void setupUniforms(PoseStack stack, GlProgram shader)
     {
         if (shader == null)
         {
@@ -1899,12 +1895,12 @@ public class ModelVAORenderer
      * {@code drawWithGlobalProgram} keeps only the camera matrix), and NormalMat must stay
      * identity or diffuse lighting is applied twice.
      */
-    public static void setupUniformsCpuPretransformed(ShaderProgram shader)
+    public static void setupUniformsCpuPretransformed(GlProgram shader)
     {
         setupUniformsCpuPretransformed(shader, null);
     }
 
-    public static void setupUniformsCpuPretransformed(ShaderProgram shader, Matrix4f rootInverse)
+    public static void setupUniformsCpuPretransformed(GlProgram shader, Matrix4f rootInverse)
     {
         if (shader == null)
         {
@@ -1915,7 +1911,7 @@ public class ModelVAORenderer
         setupUniforms(null, shader, true, rootInverse);
     }
 
-    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed, Matrix4f rootInverse)
+    private static void setupUniforms(PoseStack stack, GlProgram shader, boolean cpuPretransformed, Matrix4f rootInverse)
     {
         if (shader == null)
         {
@@ -1962,12 +1958,12 @@ public class ModelVAORenderer
         {
             if (usesCapturedModelView() || !BBSRendering.isIrisShadersEnabled())
             {
-                BBSUniform.setMatrix3f(shader, "NormalMat", stack.peek().getNormalMatrix());
+                BBSUniform.setMatrix3f(shader, "NormalMat", stack.last().normal());
             }
             else
             {
                 Matrix3f normalMat = RenderSystem.getModelViewMatrix().normal(new Matrix3f());
-                normalMat.mul(stack.peek().getNormalMatrix());
+                normalMat.mul(stack.last().normal());
                 BBSUniform.setMatrix3f(shader, "NormalMat", normalMat);
             }
         }
@@ -2057,7 +2053,7 @@ public class ModelVAORenderer
      * back to camera-relative Y-up for cylindrical fog — identity when the bake was already
      * camera-relative, inverse-view when the bake included view rotation.
      */
-    public static void uploadCpuBakedVertexFog(ShaderProgram shader, Matrix4f bakedModelMatrix)
+    public static void uploadCpuBakedVertexFog(GlProgram shader, Matrix4f bakedModelMatrix)
     {
         if (shader == null)
         {
@@ -2099,7 +2095,7 @@ public class ModelVAORenderer
      * Camera-relative model matrix for fog — same space vanilla bakes into entity
      * {@code Position} and terrain {@code Position + ChunkOffset} (Y-up, no view rotation).
      */
-    private static void uploadFogMatUniform(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    private static void uploadFogMatUniform(PoseStack stack, GlProgram shader, boolean cpuPretransformed)
     {
         if (cpuPretransformed || stack == null)
         {
@@ -2116,7 +2112,7 @@ public class ModelVAORenderer
             return;
         }
 
-        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+        Matrix4f stackMatrix = stack.last().pose();
 
         if (deferredTranslucentPass)
         {
@@ -2167,18 +2163,18 @@ public class ModelVAORenderer
         BBSUniform.setMatrix4f(shader, "FogMat", SCRATCH_FOG_MAT);
     }
 
-    private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
+    private static void setModelViewUniform(PoseStack stack, GlProgram shader)
     {
         if (usesCapturedModelView())
         {
             /* Overlay/deferred stack already carries the full terrain + entity transform captured
              * at enqueue; RenderSystem model-view is identity during these draws. */
-            BBSUniform.setMatrix4f(shader, "ModelViewMat", stack.peek().getPositionMatrix());
+            BBSUniform.setMatrix4f(shader, "ModelViewMat", stack.last().pose());
 
             return;
         }
 
-        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+        Matrix4f stackMatrix = stack.last().pose();
 
         if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
         {

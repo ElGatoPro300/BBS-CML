@@ -20,8 +20,8 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 /* GameRules was restructured in 1.21.11; WorldPropertiesHelper.readGamerule now accepts String keys directly */
 
@@ -283,8 +283,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
 
     private void syncFromWorld()
     {
-        ClientWorld world = MinecraftClient.getInstance().world;
-        long timeOfDay = world == null ? 6000L : world.getTimeOfDay() % 24000L;
+        ClientLevel world = Minecraft.getInstance().level;
+        long timeOfDay = world == null ? 6000L : world.getOverworldClockTime() % 24000L;
 
         if (timeOfDay < 0L)
         {

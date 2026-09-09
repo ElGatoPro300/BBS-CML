@@ -21,7 +21,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemDisplayContext;
 
 public class UIItemFormPanel extends UIFormPanel<ItemForm>
 {
@@ -135,11 +135,11 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
                 {
                     if (this.form.modelTransform.get() == value)
                     {
-                        menu.action(Icons.LINE, IKey.constant(value.asString()), true, () -> {});
+                        menu.action(Icons.LINE, IKey.constant(value.getSerializedName()), true, () -> {});
                     }
                     else
                     {
-                        menu.action(Icons.LINE, IKey.constant(value.asString()), () -> this.setModelTransform(value));
+                        menu.action(Icons.LINE, IKey.constant(value.getSerializedName()), () -> this.setModelTransform(value));
                     }
                 }
             });
@@ -168,7 +168,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
     {
         this.form.modelTransform.set(value);
 
-        this.modelTransform.label = IKey.constant(value.asString());
+        this.modelTransform.label = IKey.constant(value.getSerializedName());
     }
 
     @Override
@@ -195,7 +195,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
 
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
-        this.modelTransform.label = IKey.constant(form.modelTransform.get().asString());
+        this.modelTransform.label = IKey.constant(form.modelTransform.get().getSerializedName());
         this.sameAnimationWhenDropped.setValue(form.sameAnimationWhenDropped.get());
         this.itemStackEditor.setStack(form.stack.get());
     }

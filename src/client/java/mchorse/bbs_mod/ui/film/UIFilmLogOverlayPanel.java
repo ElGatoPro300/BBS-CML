@@ -10,12 +10,11 @@ import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
 import com.mojang.authlib.GameProfile;
 
@@ -153,15 +152,15 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                 return;
             }
 
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
 
             try
             {
                 GameProfile profile = null;
 
-                if (mc.getNetworkHandler() != null)
+                if (mc.getConnection() != null)
                 {
-                    for (PlayerListEntry entry : mc.getNetworkHandler().getPlayerList())
+                    for (PlayerInfo entry : mc.getConnection().getOnlinePlayers())
                     {
                         if (entry.getProfile().name().equalsIgnoreCase(this.contributor.name.get()))
                         {
@@ -177,7 +176,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                     profile = new GameProfile(uuid, this.contributor.name.get());
                 }
 
-                this.skinTexture = mc.getSkinProvider().supplySkinTextures(profile, true).get().body().id();
+                this.skinTexture = mc.getSkinManager().createLookup(profile, true).get().body().id();
             }
             catch (Exception e)
             {}
@@ -185,10 +184,10 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
             this.profileResolved = true;
         }
 
-        private void drawPlayerHead(DrawContext drawContext, Identifier texture, int x, int y, int size)
+        private void drawPlayerHead(GuiGraphicsExtractor drawContext, Identifier texture, int x, int y, int size)
         {
-            drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
-            drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
+            drawContext.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+            drawContext.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
         }
 
         @Override

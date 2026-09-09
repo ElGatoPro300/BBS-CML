@@ -61,7 +61,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
@@ -1418,18 +1418,18 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
             @Override
             public void render(UIContext context)
             {
-                context.batcher.getContext().getMatrices().pushMatrix();
+                context.batcher.getContext().pose().pushMatrix();
                 
                 int cx = this.area.mx();
                 int cy = this.area.my();
                 
-                context.batcher.getContext().getMatrices().translate((float) cx, (float) cy);
-                context.batcher.getContext().getMatrices().scale(2F, 2F);
-                context.batcher.getContext().getMatrices().translate((float) -cx, (float) -cy);
+                context.batcher.getContext().pose().translate((float) cx, (float) cy);
+                context.batcher.getContext().pose().scale(2F, 2F);
+                context.batcher.getContext().pose().translate((float) -cx, (float) -cy);
                 
                 super.render(context);
                 
-                context.batcher.getContext().getMatrices().popMatrix();
+                context.batcher.getContext().pose().popMatrix();
             }
         }.background();
         
@@ -1582,7 +1582,7 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.sectionsView.resize();
         this.rightView.resize();
 
-        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
+        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
 
         if (morph != null)
         {
@@ -1633,7 +1633,7 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
             return;
         }
 
-        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
+        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
 
         if (morph != null)
         {

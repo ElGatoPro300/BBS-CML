@@ -2,18 +2,18 @@ package mchorse.bbs_mod.graphics;
 
 import mchorse.bbs_mod.client.BBSRendering;
 
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.render.fog.FogRenderer;
-import net.minecraft.client.texture.GlTexture;
+import net.minecraft.client.renderer.fog.FogRenderer;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
 
@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
  */
 public class ModelPreviewRenderer implements AutoCloseable
 {
-    private SimpleFramebuffer framebuffer;
+    private TextureTarget framebuffer;
     private GpuBuffer projection;
     private GpuBuffer fog;
     private GpuTextureView previousColor;
@@ -54,9 +54,9 @@ public class ModelPreviewRenderer implements AutoCloseable
          * RenderLayer sees through output overrides, including after target resize. */
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.guiFramebuffer);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL30.GL_TEXTURE_2D,
-            ((GlTexture) this.framebuffer.getColorAttachment()).getGlId(), 0);
+            ((GlTexture) this.framebuffer.getColorTexture()).glId(), 0);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_TEXTURE_2D,
-            ((GlTexture) this.framebuffer.getDepthAttachment()).getGlId(), 0);
+            ((GlTexture) this.framebuffer.getDepthTexture()).glId(), 0);
         GL30.glViewport(0, 0, width, height);
     }
 
@@ -82,7 +82,7 @@ public class ModelPreviewRenderer implements AutoCloseable
         BBSRendering.projection.set(projectionMatrix);
 
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
-            this.framebuffer.getColorAttachment(), 0, this.framebuffer.getDepthAttachment(), 1D);
+            this.framebuffer.getColorTexture(), 0, this.framebuffer.getDepthTexture(), 1D);
 
         this.previousColor = RenderSystem.outputColorTextureOverride;
         this.previousDepth = RenderSystem.outputDepthTextureOverride;
@@ -97,8 +97,8 @@ public class ModelPreviewRenderer implements AutoCloseable
         try
         {
             RenderSystem.getModelViewStack().identity();
-            RenderSystem.outputColorTextureOverride = this.framebuffer.getColorAttachmentView();
-            RenderSystem.outputDepthTextureOverride = this.framebuffer.getDepthAttachmentView();
+            RenderSystem.outputColorTextureOverride = this.framebuffer.getColorTextureView();
+            RenderSystem.outputDepthTextureOverride = this.framebuffer.getDepthTextureView();
             RenderSystem.setProjectionMatrix(this.projection.slice(), ProjectionType.PERSPECTIVE);
             RenderSystem.setShaderFog(this.fog.slice());
         }
@@ -114,9 +114,9 @@ public class ModelPreviewRenderer implements AutoCloseable
     {
         if (this.framebuffer == null)
         {
-            this.framebuffer = new SimpleFramebuffer("BBS model preview", width, height, true);
+            this.framebuffer = new TextureTarget("BBS model preview", width, height, true);
         }
-        else if (this.framebuffer.textureWidth != width || this.framebuffer.textureHeight != height)
+        else if (this.framebuffer.width != width || this.framebuffer.height != height)
         {
             this.framebuffer.resize(width, height);
         }
@@ -163,7 +163,7 @@ public class ModelPreviewRenderer implements AutoCloseable
 
     public GpuTextureView getColorView()
     {
-        return this.framebuffer == null ? null : this.framebuffer.getColorAttachmentView();
+        return this.framebuffer == null ? null : this.framebuffer.getColorTextureView();
     }
 
     public void end()
@@ -203,7 +203,7 @@ public class ModelPreviewRenderer implements AutoCloseable
 
         if (this.framebuffer != null)
         {
-            this.framebuffer.delete();
+            this.framebuffer.destroyBuffers();
             this.framebuffer = null;
         }
 

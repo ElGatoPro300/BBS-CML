@@ -27,7 +27,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import org.lwjgl.opengl.GL11;
 
@@ -130,7 +130,7 @@ public class GLTFModelLoader implements IModelLoader
                             
                             /* RenderSystem.recordRenderCall(...) was removed in 1.21.11; MinecraftClient.execute(...)
                              * schedules this on the client/render thread the same way. */
-                            MinecraftClient.getInstance().execute(() ->
+                            Minecraft.getInstance().execute(() ->
                             {
                                 try
                                 {

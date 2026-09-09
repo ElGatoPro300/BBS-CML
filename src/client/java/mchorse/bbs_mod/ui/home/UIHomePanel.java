@@ -42,10 +42,7 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.repos.IRepository;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix4f;
 
@@ -623,7 +620,7 @@ public class UIHomePanel extends UIDashboardPanel
                             this.prefetchBannerImage(entry.link);
                         }
 
-                        MinecraftClient.getInstance().execute(() -> this.homeBanners.addAll(remote));
+                        Minecraft.getInstance().execute(() -> this.homeBanners.addAll(remote));
                     }
                 }
             }
@@ -650,7 +647,7 @@ public class UIHomePanel extends UIDashboardPanel
 
                     if (pixels != null)
                     {
-                        MinecraftClient.getInstance().execute(() ->
+                        Minecraft.getInstance().execute(() ->
                         {
                             Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
 
@@ -779,25 +776,25 @@ public class UIHomePanel extends UIDashboardPanel
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
 
-            mesh.vertex(x1, yTop1f, 0).color(colTop);
-            mesh.vertex(x1, yMid1[i], 0).color(cMid1[i]);
-            mesh.vertex(x2, yMid1[i + 1], 0).color(cMid1[i + 1]);
-            mesh.vertex(x2, yTop1f, 0).color(colTop);
+            mesh.addVertex(x1, yTop1f, 0).setColor(colTop);
+            mesh.addVertex(x1, yMid1[i], 0).setColor(cMid1[i]);
+            mesh.addVertex(x2, yMid1[i + 1], 0).setColor(cMid1[i + 1]);
+            mesh.addVertex(x2, yTop1f, 0).setColor(colTop);
 
-            mesh.vertex(x1, yMid1[i], 0).color(cMid1[i]);
-            mesh.vertex(x1, yBot1[i], 0).color(colBot);
-            mesh.vertex(x2, yBot1[i + 1], 0).color(colBot);
-            mesh.vertex(x2, yMid1[i + 1], 0).color(cMid1[i + 1]);
+            mesh.addVertex(x1, yMid1[i], 0).setColor(cMid1[i]);
+            mesh.addVertex(x1, yBot1[i], 0).setColor(colBot);
+            mesh.addVertex(x2, yBot1[i + 1], 0).setColor(colBot);
+            mesh.addVertex(x2, yMid1[i + 1], 0).setColor(cMid1[i + 1]);
 
-            mesh.vertex(x1, yTop2f, 0).color(colTop);
-            mesh.vertex(x1, yMid2[i], 0).color(cMid2[i]);
-            mesh.vertex(x2, yMid2[i + 1], 0).color(cMid2[i + 1]);
-            mesh.vertex(x2, yTop2f, 0).color(colTop);
+            mesh.addVertex(x1, yTop2f, 0).setColor(colTop);
+            mesh.addVertex(x1, yMid2[i], 0).setColor(cMid2[i]);
+            mesh.addVertex(x2, yMid2[i + 1], 0).setColor(cMid2[i + 1]);
+            mesh.addVertex(x2, yTop2f, 0).setColor(colTop);
 
-            mesh.vertex(x1, yMid2[i], 0).color(cMid2[i]);
-            mesh.vertex(x1, yBot2[i], 0).color(colBot);
-            mesh.vertex(x2, yBot2[i + 1], 0).color(colBot);
-            mesh.vertex(x2, yMid2[i + 1], 0).color(cMid2[i + 1]);
+            mesh.addVertex(x1, yMid2[i], 0).setColor(cMid2[i]);
+            mesh.addVertex(x1, yBot2[i], 0).setColor(colBot);
+            mesh.addVertex(x2, yBot2[i + 1], 0).setColor(colBot);
+            mesh.addVertex(x2, yMid2[i + 1], 0).setColor(cMid2[i + 1]);
         }
 
         context.batcher.drawQuadMesh(mesh);
@@ -1180,12 +1177,12 @@ public class UIHomePanel extends UIDashboardPanel
                     int iconX = this.area.mx();
                     int iconY = this.area.y + CARD_SIZE / 2;
 
-                    context.batcher.getContext().getMatrices().pushMatrix();
-                    context.batcher.getContext().getMatrices().translate((float) iconX, (float) iconY);
-                    context.batcher.getContext().getMatrices().scale(2F, 2F);
-                    context.batcher.getContext().getMatrices().translate((float) -iconX, (float) -iconY);
+                    context.batcher.getContext().pose().pushMatrix();
+                    context.batcher.getContext().pose().translate((float) iconX, (float) iconY);
+                    context.batcher.getContext().pose().scale(2F, 2F);
+                    context.batcher.getContext().pose().translate((float) -iconX, (float) -iconY);
                     context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
-                    context.batcher.getContext().getMatrices().popMatrix();
+                    context.batcher.getContext().pose().popMatrix();
                 }
             };
 

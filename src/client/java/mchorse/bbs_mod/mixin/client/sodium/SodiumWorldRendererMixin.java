@@ -5,8 +5,9 @@ import mchorse.bbs_mod.client.BBSRendering;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
-import net.minecraft.client.gl.GpuSampler;
-import net.minecraft.client.render.BlockRenderLayerGroup;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
+
+import com.mojang.blaze3d.textures.GpuSampler;
 
 import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
 import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
@@ -23,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class SodiumWorldRendererMixin
 {
     @Inject(method = "drawChunkLayer", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onDrawChunkLayer(BlockRenderLayerGroup group, ChunkRenderMatrices matrices, double x, double y, double z, GpuSampler sampler, CallbackInfo info)
+    public void onDrawChunkLayer(ChunkSectionLayerGroup group, ChunkRenderMatrices matrices, double x, double y, double z, GpuSampler sampler, CallbackInfo info)
     {
         if (BBSRendering.shouldHideChromaTerrain())
         {

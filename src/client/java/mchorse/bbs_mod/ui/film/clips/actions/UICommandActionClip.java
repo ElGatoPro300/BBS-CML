@@ -10,6 +10,8 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.undo.TextEditUndo;
 import mchorse.bbs_mod.ui.framework.elements.input.text.utils.TextLine;
 import mchorse.bbs_mod.ui.utils.UI;
 
+import java.util.function.Consumer;
+
 public class UICommandActionClip extends UIActionClip<CommandActionClip>
 {
     private static final int BASE_COMMAND_HEIGHT = 72;
@@ -18,6 +20,20 @@ public class UICommandActionClip extends UIActionClip<CommandActionClip>
     private static final int DEFAULT_COMMAND_WIDTH = 140;
     private static final int DEFAULT_COMMAND_HEIGHT = 20;
     private static final boolean DEFAULT_COMMAND_WRAP = true;
+
+    public static class CommandTextarea extends UITextarea<TextLine>
+    {
+        public CommandTextarea(Consumer<String> callback)
+        {
+            super(callback);
+        }
+
+        @Override
+        public void writeString(String string)
+        {
+            super.writeString(string.replace("\n", ""));
+        }
+    }
 
     public UITextarea<TextLine> command;
 
@@ -31,14 +47,7 @@ public class UICommandActionClip extends UIActionClip<CommandActionClip>
     {
         super.registerUI();
 
-        this.command = new UITextarea<>((t) -> this.clip.command.set(t.replace("\n", "")))
-        {
-            @Override
-            public void writeString(String string)
-            {
-                super.writeString(string.replace("\n", ""));
-            }
-        };
+        this.command = new CommandTextarea((t) -> this.clip.command.set(t.replace("\n", "")));
         this.command.w(BBSSettings.editorCommandWidth == null ? DEFAULT_COMMAND_WIDTH : BBSSettings.editorCommandWidth.get());
         this.command.h(BBSSettings.editorCommandHeight == null ? DEFAULT_COMMAND_HEIGHT : BBSSettings.editorCommandHeight.get());
         this.command.wrap(BBSSettings.editorCommandAutoWrap == null ? DEFAULT_COMMAND_WRAP : BBSSettings.editorCommandAutoWrap.get());

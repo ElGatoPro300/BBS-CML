@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.client;
 
-import net.minecraft.client.gl.ShaderProgram;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.opengl.GlProgram;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL20;
@@ -15,9 +15,9 @@ import java.nio.FloatBuffer;
  *
  * In 1.21.11 the vanilla {@code GlUniform} interface no longer carries
  * {@code set()} methods.  This helper resolves uniform locations by name
- * from a {@link ShaderProgram} and writes values with
+ * from a {@link GlProgram} and writes values with
  * {@code GL20.glUniform*} calls.  Always call
- * {@link BBSRendering#bindProgram(ShaderProgram)} before setting uniforms.
+ * {@link BBSRendering#bindProgram(GlProgram)} before setting uniforms.
  */
 public final class BBSUniform
 {
@@ -28,22 +28,22 @@ public final class BBSUniform
     {
     }
 
-    private static boolean ensureProgram(ShaderProgram program)
+    private static boolean ensureProgram(GlProgram program)
     {
-        if (program == null || program.getGlRef() <= 0)
+        if (program == null || program.getProgramId() <= 0)
         {
             return false;
         }
 
-        if (GL20.glGetInteger(GL20.GL_CURRENT_PROGRAM) != program.getGlRef())
+        if (GL20.glGetInteger(GL20.GL_CURRENT_PROGRAM) != program.getProgramId())
         {
-            GL20.glUseProgram(program.getGlRef());
+            GL20.glUseProgram(program.getProgramId());
         }
 
         return true;
     }
 
-    public static boolean hasUniform(ShaderProgram program, String name)
+    public static boolean hasUniform(GlProgram program, String name)
     {
         return ModelEffectUniforms.contains(program, name) || (program != null && getLocation(program, name) >= 0);
     }
@@ -54,19 +54,19 @@ public final class BBSUniform
      * Returns the GL uniform location for the given name inside the program,
      * or {@code -1} if the program is null or the uniform is not found.
      */
-    public static int getLocation(ShaderProgram program, String name)
+    public static int getLocation(GlProgram program, String name)
     {
         if (program == null)
         {
             return -1;
         }
 
-        return GL20.glGetUniformLocation(program.getGlRef(), name);
+        return GL20.glGetUniformLocation(program.getProgramId(), name);
     }
 
     /* ---- scalar / vector setters ---- */
 
-    public static void set(ShaderProgram program, String name, int value)
+    public static void set(GlProgram program, String name, int value)
     {
         if (ModelEffectUniforms.set(program, name, value))
         {
@@ -86,7 +86,7 @@ public final class BBSUniform
         }
     }
 
-    public static void set(ShaderProgram program, String name, float value)
+    public static void set(GlProgram program, String name, float value)
     {
         if (ModelEffectUniforms.set(program, name, value))
         {
@@ -106,7 +106,7 @@ public final class BBSUniform
         }
     }
 
-    public static void set(ShaderProgram program, String name, float x, float y)
+    public static void set(GlProgram program, String name, float x, float y)
     {
         if (ModelEffectUniforms.set(program, name, x, y))
         {
@@ -126,7 +126,7 @@ public final class BBSUniform
         }
     }
 
-    public static void set(ShaderProgram program, String name, float x, float y, float z)
+    public static void set(GlProgram program, String name, float x, float y, float z)
     {
         if (ModelEffectUniforms.set(program, name, x, y, z))
         {
@@ -146,7 +146,7 @@ public final class BBSUniform
         }
     }
 
-    public static void set(ShaderProgram program, String name, float x, float y, float z, float w)
+    public static void set(GlProgram program, String name, float x, float y, float z, float w)
     {
         if (ModelEffectUniforms.set(program, name, x, y, z, w))
         {
@@ -168,7 +168,7 @@ public final class BBSUniform
 
     /* ---- matrix setters ---- */
 
-    public static void setMatrix4f(ShaderProgram program, String name, Matrix4f matrix)
+    public static void setMatrix4f(GlProgram program, String name, Matrix4f matrix)
     {
         if (ModelEffectUniforms.set(program, name, matrix))
         {
@@ -194,7 +194,7 @@ public final class BBSUniform
         }
     }
 
-    public static void setMatrix3f(ShaderProgram program, String name, Matrix3f matrix)
+    public static void setMatrix3f(GlProgram program, String name, Matrix3f matrix)
     {
         if (ModelEffectUniforms.set(program, name, matrix))
         {

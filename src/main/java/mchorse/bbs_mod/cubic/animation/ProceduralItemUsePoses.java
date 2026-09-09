@@ -8,13 +8,13 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.MathUtils;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.CrossbowItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.consume.UseAction;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.Items;
 
 /**
  * Vanilla third-person item-use arm poses for procedural player models.
@@ -45,7 +45,7 @@ public final class ProceduralItemUsePoses
             return false;
         }
 
-        boolean rightHand = target.getActiveHand() != Hand.OFF_HAND;
+        boolean rightHand = target.getActiveHand() != InteractionHand.OFF_HAND;
         ItemStack active = rightHand ? main : offhand;
 
         if (target.isUsingItem() && active != null && !active.isEmpty())
@@ -78,33 +78,33 @@ public final class ProceduralItemUsePoses
 
     private static boolean applyUseAction(IEntity target, ArmRotations left, ArmRotations right, ItemStack active, boolean rightHand, float pitchDeg, float yawDeg, float transition)
     {
-        UseAction action = active.getUseAction();
+        ItemUseAnimation action = active.getUseAnimation();
 
-        if (action == UseAction.BOW)
+        if (action == ItemUseAnimation.BOW)
         {
             applyBow(left, right, target, pitchDeg, yawDeg, rightHand, transition);
         }
-        else if (action == UseAction.CROSSBOW)
+        else if (action == ItemUseAnimation.CROSSBOW)
         {
             applyCrossbowCharge(target, left, right, active, rightHand, transition);
         }
-        else if (action == UseAction.SPEAR)
+        else if (action == ItemUseAnimation.SPEAR)
         {
             applySpear(activeArm(left, right, rightHand), target, rightHand, transition);
         }
-        else if (action == UseAction.SPYGLASS)
+        else if (action == ItemUseAnimation.SPYGLASS)
         {
             applySpyglass(activeArm(left, right, rightHand), pitchDeg, yawDeg, rightHand, target.isSneaking());
         }
-        else if (action == UseAction.TOOT_HORN)
+        else if (action == ItemUseAnimation.TOOT_HORN)
         {
             applyHorn(activeArm(left, right, rightHand), pitchDeg, yawDeg, rightHand);
         }
-        else if (action == UseAction.BRUSH)
+        else if (action == ItemUseAnimation.BRUSH)
         {
             applyBrush(target, activeArm(left, right, rightHand), active, rightHand, transition);
         }
-        else if (action == UseAction.EAT || action == UseAction.DRINK)
+        else if (action == ItemUseAnimation.EAT || action == ItemUseAnimation.DRINK)
         {
             if (!BBSSettings.shouldAnimateEatingArm())
             {
@@ -157,8 +157,8 @@ public final class ProceduralItemUsePoses
         float pull = crossbowPull(target, stack, transition);
         float holdingYaw = rightHand ? 45.837F : -45.837F;
         float holdingPitch = 55.62F;
-        float pullingYaw = MathHelper.lerp(pull, 22.918F, 48.701F) * (rightHand ? -1F : 1F);
-        float pullingPitch = MathHelper.lerp(pull, holdingPitch, 90F);
+        float pullingYaw = Mth.lerp(pull, 22.918F, 48.701F) * (rightHand ? -1F : 1F);
+        float pullingPitch = Mth.lerp(pull, holdingPitch, 90F);
 
         if (rightHand)
         {
@@ -188,7 +188,7 @@ public final class ProceduralItemUsePoses
          *   arm.yaw   = head.yaw ∓ 0.2617994   (right subtracts, left adds)
          * BBS arm X is opposite ModelPart pitch (positive X = arm forward). */
         float sneak = sneaking ? 15F : 0F;
-        float vanillaArmPitchDeg = MathHelper.clamp(pitchDeg - 110F - sneak, -137.5F, 189F);
+        float vanillaArmPitchDeg = Mth.clamp(pitchDeg - 110F - sneak, -137.5F, 189F);
         float yawOffset = rightHand ? 15F : -15F;
 
         /* Vanilla skips swingArm for SPYGLASS — no idle on that arm. */
@@ -197,21 +197,21 @@ public final class ProceduralItemUsePoses
 
     private static void applyHorn(ArmRotations arm, float pitchDeg, float yawDeg, boolean rightHand)
     {
-        float pitch = 85F - MathHelper.clamp(pitchDeg, -68.75F, 68.75F);
+        float pitch = 85F - Mth.clamp(pitchDeg, -68.75F, 68.75F);
 
         arm.set(pitch, (rightHand ? 30F : -30F) - yawDeg, 0F);
     }
 
     private static void applyBrush(IEntity target, ArmRotations arm, ItemStack stack, boolean rightHand, float transition)
     {
-        float stroke = MathHelper.sin((elapsedUse(target, stack) + transition) * 1.2F) * 22F;
+        float stroke = Mth.sin((elapsedUse(target, stack) + transition) * 1.2F) * 22F;
 
         arm.set(36F + stroke, rightHand ? 10F : -10F, rightHand ? 25F : -25F);
     }
 
     private static void applyConsume(IEntity target, ArmRotations arm, ItemStack stack, boolean rightHand, float transition)
     {
-        float chew = MathHelper.sin((elapsedUse(target, stack) + transition) * 1.8F) * 8F;
+        float chew = Mth.sin((elapsedUse(target, stack) + transition) * 1.8F) * 8F;
 
         arm.set(72F + chew, rightHand ? 22F : -22F, rightHand ? 40F : -40F);
     }
@@ -225,7 +225,7 @@ public final class ProceduralItemUsePoses
     {
         float sigma = rightHand ? 1F : -1F;
 
-        return MathUtils.toDeg(sigma * MathHelper.sin(-age * 0.067F) * 0.05F);
+        return MathUtils.toDeg(sigma * Mth.sin(-age * 0.067F) * 0.05F);
     }
 
     private static ArmRotations wrap(ModelGroup group)
@@ -240,7 +240,7 @@ public final class ProceduralItemUsePoses
 
     private static boolean isChargedCrossbow(ItemStack stack)
     {
-        return stack != null && !stack.isEmpty() && stack.isOf(Items.CROSSBOW) && CrossbowItem.isCharged(stack);
+        return stack != null && !stack.isEmpty() && stack.is(Items.CROSSBOW) && CrossbowItem.isCharged(stack);
     }
 
     private static float crossbowPull(IEntity target, ItemStack stack, float transition)
@@ -249,10 +249,10 @@ public final class ProceduralItemUsePoses
 
         if (target instanceof MCEntity mc && mc.getMcEntity() instanceof LivingEntity living)
         {
-            pullTime = Math.max(1F, CrossbowItem.getPullTime(stack, living));
+            pullTime = Math.max(1F, CrossbowItem.getChargeDuration(stack, living));
         }
 
-        return MathHelper.clamp((elapsedUse(target, stack) + transition) / pullTime, 0F, 1F);
+        return Mth.clamp((elapsedUse(target, stack) + transition) / pullTime, 0F, 1F);
     }
 
     /**
@@ -272,7 +272,7 @@ public final class ProceduralItemUsePoses
 
         if (target instanceof MCEntity mc && mc.getMcEntity() instanceof LivingEntity living)
         {
-            max = Math.max(1, stack.getMaxUseTime(living));
+            max = Math.max(1, stack.getUseDuration(living));
         }
 
         return Math.max(0, max - stored);

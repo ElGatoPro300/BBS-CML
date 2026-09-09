@@ -6,70 +6,70 @@ import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.forms.forms.BlockForm;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.material.Fluids;
 
 public class BlockPickerItem extends Item
 {
-    public BlockPickerItem(Settings settings)
+    public BlockPickerItem(Properties settings)
     {
         super(settings);
     }
 
     @Override
-    public boolean hasGlint(ItemStack stack)
+    public boolean isFoil(ItemStack stack)
     {
         return true;
     }
 
     @Override
-    public ActionResult useOnBlock(ItemUsageContext context)
+    public InteractionResult useOn(UseOnContext context)
     {
-        World world = context.getWorld();
+        Level world = context.getLevel();
 
-        if (world.isClient())
+        if (world.isClientSide())
         {
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
 
         if (context.getPlayer() == null)
         {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
-        BlockPos pos = context.getBlockPos();
+        BlockPos pos = context.getClickedPos();
         BlockState sourceState = world.getBlockState(pos);
 
-        if (sourceState.isOf(BBSMod.MODEL_BLOCK))
+        if (sourceState.is(BBSMod.MODEL_BLOCK))
         {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         BlockForm form = createBlockForm(world, pos, sourceState);
 
-        BlockState modelState = BBSMod.MODEL_BLOCK.getDefaultState()
-            .with(Properties.WATERLOGGED, world.getFluidState(pos).isOf(Fluids.WATER))
-            .with(ModelBlock.LIGHT_LEVEL, 0);
+        BlockState modelState = BBSMod.MODEL_BLOCK.defaultBlockState()
+            .setValue(BlockStateProperties.WATERLOGGED, world.getFluidState(pos).is(Fluids.WATER))
+            .setValue(ModelBlock.LIGHT_LEVEL, 0);
 
-        if (!world.setBlockState(pos, modelState, 3))
+        if (!world.setBlock(pos, modelState, 3))
         {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         BlockEntity blockEntity = world.getBlockEntity(pos);
 
         if (!(blockEntity instanceof ModelBlockEntity modelBlockEntity))
         {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
         ModelProperties properties = modelBlockEntity.getProperties();
@@ -78,20 +78,20 @@ public class BlockPickerItem extends Item
         properties.setName(sourceState.getBlock().getName().getString());
         properties.setHitbox(true);
 
-        float hardness = sourceState.getHardness(world, pos);
+        float hardness = sourceState.getDestroySpeed(world, pos);
 
         if (hardness >= 0F)
         {
             properties.setHardness(hardness);
         }
 
-        modelBlockEntity.markDirty();
-        world.updateListeners(pos, modelState, modelState, 3);
+        modelBlockEntity.setChanged();
+        world.sendBlockUpdated(pos, modelState, modelState, 3);
 
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
-    public static BlockForm createBlockForm(World world, BlockPos pos, BlockState state)
+    public static BlockForm createBlockForm(Level world, BlockPos pos, BlockState state)
     {
         BlockForm form = new BlockForm();
 
@@ -101,7 +101,7 @@ public class BlockPickerItem extends Item
 
         if (sourceEntity != null)
         {
-            NbtCompound nbt = sourceEntity.createNbt(world.getRegistryManager());
+            CompoundTag nbt = sourceEntity.saveWithoutMetadata(world.registryAccess());
 
             nbt.putInt("x", 0);
             nbt.putInt("y", 0);

@@ -1,28 +1,37 @@
-accessWidener v2 named
+accessWidener v2 official
 
-accessible field net/minecraft/client/MinecraftClient framebuffer Lnet/minecraft/client/gl/Framebuffer;
-mutable field net/minecraft/client/MinecraftClient framebuffer Lnet/minecraft/client/gl/Framebuffer;
+accessible field net/minecraft/client/Minecraft mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
+mutable field net/minecraft/client/Minecraft mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
 
-accessible method net/minecraft/entity/LivingEntity setLivingFlag (IZ)V
-accessible method net/minecraft/entity/Entity setFlag (IZ)V
+accessible method net/minecraft/world/entity/LivingEntity setLivingEntityFlag (IZ)V
+accessible method net/minecraft/world/entity/Entity setSharedFlag (IZ)V
 
-accessible field net/minecraft/client/render/entity/model/ElytraEntityModel leftWing Lnet/minecraft/client/model/ModelPart;
-accessible field net/minecraft/client/render/entity/model/ElytraEntityModel rightWing Lnet/minecraft/client/model/ModelPart;
-
-accessible method net/minecraft/client/particle/BillboardParticle setAlpha (F)V
-accessible field net/minecraft/client/particle/BillboardParticle alpha F
-mutable field net/minecraft/client/particle/BillboardParticle alpha F
+accessible method net/minecraft/client/particle/SingleQuadParticle setAlpha (F)V
+accessible field net/minecraft/client/particle/SingleQuadParticle alpha F
+mutable field net/minecraft/client/particle/SingleQuadParticle alpha F
 accessible field net/minecraft/client/particle/Particle age I
-accessible field net/minecraft/client/particle/Particle maxAge I
-accessible field net/minecraft/client/particle/Particle dead Z
+accessible field net/minecraft/client/particle/Particle lifetime I
+accessible field net/minecraft/client/particle/Particle removed Z
 accessible method net/minecraft/client/particle/Particle isAlive ()Z
 
-accessible field net/minecraft/client/util/math/MatrixStack stack Ljava/util/List;
+accessible field com/mojang/blaze3d/vertex/PoseStack poses Ljava/util/List;
 
-accessible field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
-mutable field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;
+accessible field net/minecraft/client/player/ClientInput moveVector Lnet/minecraft/world/phys/Vec2;
+mutable field net/minecraft/client/player/ClientInput moveVector Lnet/minecraft/world/phys/Vec2;
 
-accessible field net/minecraft/client/render/GameRenderer guiRenderer Lnet/minecraft/client/gui/render/GuiRenderer;
-accessible field net/minecraft/client/render/GameRenderer guiState Lnet/minecraft/client/gui/render/state/GuiRenderState;
-accessible field net/minecraft/client/render/GameRenderer fogRenderer Lnet/minecraft/client/render/fog/FogRenderer;
-accessible field net/minecraft/client/gl/RenderPipelines POSITION_TEX_COLOR_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+accessible field net/minecraft/client/renderer/GameRenderer guiRenderer Lnet/minecraft/client/gui/render/GuiRenderer;
+accessible field net/minecraft/client/renderer/GameRenderer fogRenderer Lnet/minecraft/client/renderer/fog/FogRenderer;
+
+accessible field net/minecraft/client/renderer/special/SpecialModelRenderers ID_MAPPER Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
+
+accessible field net/minecraft/client/model/object/equipment/ElytraModel leftWing Lnet/minecraft/client/model/geom/ModelPart;
+accessible field net/minecraft/client/model/object/equipment/ElytraModel rightWing Lnet/minecraft/client/model/geom/ModelPart;
+
+accessible method net/minecraft/world/level/block/state/BlockBehaviour getLightDampening (Lnet/minecraft/world/level/block/state/BlockState;)I
+
+accessible field net/minecraft/client/renderer/RenderPipelines ENTITY_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+accessible field net/minecraft/client/renderer/RenderPipelines PARTICLE_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+accessible field net/minecraft/client/renderer/RenderPipelines GUI_TEXTURED_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+accessible field net/minecraft/client/renderer/RenderPipelines GUI_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+accessible field net/minecraft/client/renderer/RenderPipelines DEBUG_FILLED_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;
+accessible field net/minecraft/client/renderer/RenderPipelines LINES_SNIPPET Lcom/mojang/blaze3d/pipeline/RenderPipeline$Snippet;

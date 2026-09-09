@@ -3,10 +3,12 @@ package mchorse.bbs_mod.film;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.ItemUseRenderState;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
+import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
@@ -62,37 +64,35 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.consume.UseAction;
-import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.ItemStackParticleEffect;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.LightType;
-import net.minecraft.world.World;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ItemParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
+import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -103,6 +103,7 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
 
@@ -147,7 +148,7 @@ public abstract class BaseFilmController
         IntObjectMap<IEntity> entities = context.entities;
         IEntity entity = context.entity;
         Camera camera = context.camera;
-        MatrixStack stack = context.stack;
+        PoseStack stack = context.stack;
         float transition = context.transition;
 
         Form form = entity.getForm();
@@ -169,7 +170,7 @@ public abstract class BaseFilmController
         }
     }
 
-    private static void renderEntityBody(FilmControllerContext context, IntObjectMap<IEntity> entities, IEntity entity, Camera camera, MatrixStack stack, float transition, Form form)
+    private static void renderEntityBody(FilmControllerContext context, IntObjectMap<IEntity> entities, IEntity entity, Camera camera, PoseStack stack, float transition, Form form)
     {
         applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
         applyGroupColorGrade(form, context.groupColorGrade);
@@ -181,9 +182,9 @@ public abstract class BaseFilmController
             Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition)
         );
 
-        double cx = camera.getCameraPos().x;
-        double cy = camera.getCameraPos().y;
-        double cz = camera.getCameraPos().z;
+        double cx = camera.position().x;
+        double cy = camera.position().y;
+        double cz = camera.position().z;
 
         boolean relative = context.replay != null && context.relative;
 
@@ -204,9 +205,9 @@ public abstract class BaseFilmController
 
             if (context.isShadowPass)
             {
-                cx += camera.getCameraPos().x;
-                cy += camera.getCameraPos().y;
-                cz += camera.getCameraPos().z;
+                cx += camera.position().x;
+                cy += camera.position().y;
+                cz += camera.position().z;
             }
         }
 
@@ -247,11 +248,11 @@ public abstract class BaseFilmController
             target.mul(context.localGroupTransform);
         }
 
-        World world = entity.getWorld();
+        Level world = entity.getWorld();
 
         if (world == null)
         {
-            world = MinecraftClient.getInstance().world;
+            world = Minecraft.getInstance().level;
         }
 
         if (world == null)
@@ -265,20 +266,20 @@ public abstract class BaseFilmController
 
         if (form instanceof MobForm)
         {
-            BlockPos pos = BlockPos.ofFloored(position.x, position.y + entity.getEyeHeight(), position.z);
+            BlockPos pos = BlockPos.containing(position.x, position.y + entity.getEyeHeight(), position.z);
 
-            light = WorldRenderer.getLightmapCoordinates(world, pos);
+            light = LevelRenderer.getLightCoords(world, pos);
         }
         else
         {
-            BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
-            int sky = world.getLightLevel(LightType.SKY, pos);
-            int torch = world.getLightLevel(LightType.BLOCK, pos);
+            BlockPos pos = BlockPos.containing(position.x, position.y + 0.5D, position.z);
+            int sky = world.getBrightness(LightLayer.SKY, pos);
+            int torch = world.getBrightness(LightLayer.BLOCK, pos);
 
-            light = LightmapTextureManager.pack(torch, sky);
+            light = LightTexture.pack(torch, sky);
         }
 
-        int overlay = OverlayTexture.packUv(OverlayTexture.getU(0F), OverlayTexture.getV(entity.getHurtTimer() > 0));
+        int overlay = OverlayTexture.pack(OverlayTexture.u(0F), OverlayTexture.v(entity.getHurtTimer() > 0));
 
         FormRenderingContext formContext = new FormRenderingContext()
             .set(FormRenderType.ENTITY, entity, stack, light, overlay, transition)
@@ -294,7 +295,7 @@ public abstract class BaseFilmController
          * Stencil pass (map != null): still draw the form so bone pick/highlight match the actor. */
         boolean drawBody = !context.physicalActor || context.map != null;
 
-        stack.push();
+        stack.pushPose();
 
         try
         {
@@ -302,13 +303,13 @@ public abstract class BaseFilmController
             {
                 if (!context.isShadowPass)
                 {
-                    stack.peek().getPositionMatrix().identity();
-                    stack.peek().getNormalMatrix().identity();
+                    stack.last().pose().identity();
+                    stack.last().normal().identity();
                 }
 
                 if (context.map == null)
                 {
-                    stack.multiply(camera.getRotation());
+                    stack.mulPose(camera.rotation());
                 }
             }
 
@@ -430,7 +431,7 @@ public abstract class BaseFilmController
 
                     if (matrix != null)
                     {
-                        stack.push();
+                        stack.pushPose();
                         MatrixStackUtils.multiply(stack, matrix);
 
                         if (context.map == null)
@@ -443,7 +444,7 @@ public abstract class BaseFilmController
                         }
 
                         GlStateManager._enableDepthTest();
-                        stack.pop();
+                        stack.popPose();
                     }
                 }
                 if (context.bone != null) renderAxes(context.bone, context.orientation, context.map, form, entity, transition, stack);
@@ -452,7 +453,7 @@ public abstract class BaseFilmController
         }
         finally
         {
-            stack.pop();
+            stack.popPose();
         }
 
         /* Soft-opacity / glow / UI-style form passes can leave depthMask false or
@@ -478,23 +479,23 @@ public abstract class BaseFilmController
                 double sy = position.y;
                 double sz = position.z + context.shadowOffsetZ;
 
-                stack.push();
+                stack.pushPose();
                 stack.translate(sx - cx, sy - cy, sz - cz);
 
                 ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, context.shadowOffsetY, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
 
-                stack.pop();
+                stack.popPose();
             }
         }
 
         if (drawBody && !relative && !context.nameTag.isEmpty())
         {
-            stack.push();
+            stack.pushPose();
             stack.translate(position.x - cx, position.y - cy, position.z - cz);
 
-            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            renderNameTag(entity, Component.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, LightTexture.FULL_BRIGHT);
 
-            stack.pop();
+            stack.popPose();
         }
 
         restoreFilmOverlayDepthState();
@@ -871,7 +872,7 @@ public abstract class BaseFilmController
         return renderer;
     }
 
-    private static void renderGizmo(MatrixStack stack, StencilMap stencilMap)
+    private static void renderGizmo(PoseStack stack, StencilMap stencilMap)
     {
         if (stencilMap == null)
         {
@@ -884,7 +885,7 @@ public abstract class BaseFilmController
         }
     }
 
-    private static void renderAxes(String bone, TransformOrientation space, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
+    private static void renderAxes(String bone, TransformOrientation space, StencilMap stencilMap, Form form, IEntity entity, float transition, PoseStack stack)
     {
         Form root = FormUtils.getRoot(form);
         MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
@@ -904,7 +905,7 @@ public abstract class BaseFilmController
         if (matrix != null)
         {
             Gizmo.INSTANCE.setActiveOrientation(space);
-            stack.push();
+            stack.pushPose();
             MatrixStackUtils.multiply(stack, matrix);
 
             if (stencilMap == null)
@@ -917,7 +918,7 @@ public abstract class BaseFilmController
             }
 
             GlStateManager._enableDepthTest();
-            stack.pop();
+            stack.popPose();
         }
     }
 
@@ -1114,8 +1115,8 @@ public abstract class BaseFilmController
             worldTarget.mul(context.localGroupTransform);
         }
 
-        formContext.world.peek().getPositionMatrix().set(worldTarget);
-        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldTarget));
+        formContext.world.last().pose().set(worldTarget);
+        formContext.world.last().normal().set(new Matrix3f(worldTarget));
     }
 
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
@@ -1141,27 +1142,27 @@ public abstract class BaseFilmController
      * standing = SEE_THROUGH fade behind walls + NORMAL on top; sneaking = NORMAL only
      * (hidden when occluded). Do not disable depth test (that caused permanent x-ray).
      */
-    private static void renderNameTag(IEntity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
+    private static void renderNameTag(IEntity entity, Component text, PoseStack matrices, MultiBufferSource vertexConsumers, int light)
     {
         boolean seeThrough = !entity.isSneaking();
         float hitboxH = (float) entity.getPickingHitbox().h + (entity.isSneaking() ? 0.25F : 0.5F);
 
-        matrices.push();
+        matrices.pushPose();
         matrices.translate(0F, hitboxH, 0F);
-        matrices.multiply(MinecraftClient.getInstance().gameRenderer.getCamera().getRotation());
+        matrices.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().rotation());
         matrices.scale(0.025F, -0.025F, 0.025F);
 
-        Matrix4f matrix4f = matrices.peek().getPositionMatrix();
-        TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
+        Matrix4f matrix4f = matrices.last().pose();
+        Font textRenderer = Minecraft.getInstance().font;
 
-        float opacity = MinecraftClient.getInstance().options.getTextBackgroundOpacity(0.25F);
+        float opacity = Minecraft.getInstance().options.getBackgroundOpacity(0.25F);
         int background = (int) (opacity * 255F) << 24;
-        float h = (float) (-textRenderer.getWidth(text) / 2);
+        float h = (float) (-textRenderer.width(text) / 2);
         /* Same translucent white vanilla uses for the see-through / background pass. */
         int translucentColor = 0x20FFFFFF;
-        TextRenderer.TextLayerType firstLayer = seeThrough
-            ? TextRenderer.TextLayerType.SEE_THROUGH
-            : TextRenderer.TextLayerType.NORMAL;
+        Font.DisplayMode firstLayer = seeThrough
+            ? Font.DisplayMode.SEE_THROUGH
+            : Font.DisplayMode.NORMAL;
 
         GlStateManager._enableBlend();
         GlStateManager._disableCull();
@@ -1170,19 +1171,19 @@ public abstract class BaseFilmController
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-        textRenderer.draw(text, h, 0, translucentColor, false, matrix4f, consumers, firstLayer, background, light);
+        textRenderer.drawInBatch(text, h, 0, translucentColor, false, matrix4f, consumers, firstLayer, background, light);
         consumers.draw();
 
         if (seeThrough)
         {
-            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+            textRenderer.drawInBatch(text, h, 0, -1, false, matrix4f, consumers, Font.DisplayMode.NORMAL, 0, light);
             consumers.draw();
         }
 
         GlStateManager._enableCull();
         GlStateManager._disableBlend();
 
-        matrices.pop();
+        matrices.popPose();
     }
 
     /* Film controller */
@@ -1228,7 +1229,7 @@ public abstract class BaseFilmController
 
             if (this.isReplayEnabled(replay))
             {
-                World world = MinecraftClient.getInstance().world;
+                Level world = Minecraft.getInstance().level;
                 IEntity entity = new StubEntity(world);
                 int replayTick = replay.getTick(tick);
 
@@ -1267,7 +1268,7 @@ public abstract class BaseFilmController
 
         Map<String, Integer> actors = this.getActors();
 
-        if (actors == null || MinecraftClient.getInstance().world == null)
+        if (actors == null || Minecraft.getInstance().level == null)
         {
             return null;
         }
@@ -1279,14 +1280,14 @@ public abstract class BaseFilmController
             return null;
         }
 
-        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+        Entity anEntity = Minecraft.getInstance().level.getEntity(entityId);
 
         if (anEntity instanceof ActorEntity actor)
         {
             return actor.getBbsEntity();
         }
 
-        if (anEntity instanceof PlayerEntity player)
+        if (anEntity instanceof Player player)
         {
             Morph morph = Morph.getMorph(player);
 
@@ -1322,7 +1323,7 @@ public abstract class BaseFilmController
 
         Map<String, Integer> actors = this.getActors();
 
-        if (actors == null || MinecraftClient.getInstance().world == null)
+        if (actors == null || Minecraft.getInstance().level == null)
         {
             return true;
         }
@@ -1334,14 +1335,14 @@ public abstract class BaseFilmController
             return true;
         }
 
-        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+        Entity anEntity = Minecraft.getInstance().level.getEntity(entityId);
 
         if (!(anEntity instanceof LivingEntity living) || living.isRemoved())
         {
             return true;
         }
 
-        if (living.isDead() || living.getHealth() <= 0F || living.deathTime > 0)
+        if (living.isDeadOrDying() || living.getHealth() <= 0F || living.deathTime > 0)
         {
             return true;
         }
@@ -1413,7 +1414,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        boolean mounted = actor.hasVehicle();
+        boolean mounted = actor.isPassenger();
         int steps = this.getPausedAnimationAdvanceSteps();
 
         if (steps > 0)
@@ -1422,10 +1423,10 @@ public abstract class BaseFilmController
             double y = keyframes.y.interpolate(toReplayTick);
             double z = keyframes.z.interpolate(toReplayTick);
 
-            actor.setPosition(x, y, z);
-            actor.lastRenderX = x;
-            actor.lastRenderY = y;
-            actor.lastRenderZ = z;
+            actor.setPos(x, y, z);
+            actor.xOld = x;
+            actor.yOld = y;
+            actor.zOld = z;
         }
         else
         {
@@ -1434,16 +1435,16 @@ public abstract class BaseFilmController
             double y = actor.getY();
             double z = actor.getZ();
 
-            actor.lastRenderX = x;
-            actor.lastRenderY = y;
-            actor.lastRenderZ = z;
+            actor.xOld = x;
+            actor.yOld = y;
+            actor.zOld = z;
         }
 
-        actor.lastYaw = actor.getYaw();
-        actor.lastHeadYaw = actor.headYaw;
-        actor.lastBodyYaw = actor.bodyYaw;
-        actor.lastPitch = actor.getPitch();
-        actor.setVelocity(0D, 0D, 0D);
+        actor.yRotO = actor.getYRot();
+        actor.yHeadRotO = actor.yHeadRot;
+        actor.yBodyRotO = actor.yBodyRot;
+        actor.xRotO = actor.getXRot();
+        actor.setDeltaMovement(0D, 0D, 0D);
 
         if (steps > 0)
         {
@@ -1517,7 +1518,7 @@ public abstract class BaseFilmController
                     }
                     else
                     {
-                        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+                        Entity anEntity = Minecraft.getInstance().level.getEntity(entityId);
 
                         if (anEntity instanceof ActorEntity actor)
                         {
@@ -1529,14 +1530,14 @@ public abstract class BaseFilmController
                             /* HP syncs on scrub revive; deathTime does not — clear leftover corpse visuals. */
                             actor.clearStaleCombatDeathIfAlive();
 
-                            boolean combatDead = actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0;
+                            boolean combatDead = !actor.isAlive() || actor.getHealth() <= 0F || actor.deathTime > 0;
 
                             if (combatDead)
                             {
                                 /* Keep server combat-death pose; do not overlay alive keyframes. */
                                 actor.updateTick(replayTick);
                                 actor.setPauseNaturalAnimations(false);
-                                actor.setVelocity(0D, 0D, 0D);
+                                actor.setDeltaMovement(0D, 0D, 0D);
                                 actor.syncNameTag(replay);
                                 actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
 
@@ -1561,10 +1562,10 @@ public abstract class BaseFilmController
                                 actor.setPauseNaturalAnimations(pauseAnims);
 
                                 /* IEntity already has mount rotation applied by MorphMountSync */
-                                actor.setYaw(entity.getYaw());
-                                actor.setHeadYaw(entity.getHeadYaw());
-                                actor.setBodyYaw(entity.getBodyYaw());
-                                actor.setPitch(entity.getPitch());
+                                actor.setYRot(entity.getYaw());
+                                actor.setYHeadRot(entity.getHeadYaw());
+                                actor.setYBodyRot(entity.getBodyYaw());
+                                actor.setXRot(entity.getPitch());
                                 /* Actor-control: copy the live player's LimbAnimator (vanilla).
                                  * Playback: do not hard-copy stub limbs — that fights forward
                                  * coast velocity and snaps swing. LivingEntity.tick + server
@@ -1597,7 +1598,7 @@ public abstract class BaseFilmController
                                      * old server pose while yaw/limbs already follow the stub.
                                      * Do not heal every tick — that fights walk velocity. */
                                     this.syncActorWorldPositionFromStub(actor, entity);
-                                    actor.setVelocity(0D, 0D, 0D);
+                                    actor.setDeltaMovement(0D, 0D, 0D);
                                 }
 
                                 if (pauseAnims)
@@ -1612,12 +1613,12 @@ public abstract class BaseFilmController
                                      * slide on top of the snap. Pass the live velocity as an
                                      * animation hint so emoticons/procedural jump+fall still fire. */
                                     this.syncActorWorldPositionFromStub(actor, entity);
-                                    actor.setVelocity(0D, 0D, 0D);
+                                    actor.setDeltaMovement(0D, 0D, 0D);
                                     actor.setAnimationVelocityHint(entity.getVelocity());
                                 }
                                 else if (!this.isActorPlaybackActive())
                                 {
-                                    actor.setVelocity(0D, 0D, 0D);
+                                    actor.setDeltaMovement(0D, 0D, 0D);
 
                                     /* Toggle off: clear sprint so emoticon/BOBJ leave run for
                                      * idle (unless legacy run-in-place is enabled). Limb swing is
@@ -1652,7 +1653,7 @@ public abstract class BaseFilmController
                                 spawned = true;
                             }
                         }
-                        else if (anEntity instanceof PlayerEntity player)
+                        else if (anEntity instanceof Player player)
                         {
                             if (!mounted)
                             {
@@ -1663,7 +1664,7 @@ public abstract class BaseFilmController
                                 double prevY = replay.keyframes.y.interpolate(replayTick - 1);
                                 double prevZ = replay.keyframes.z.interpolate(replayTick - 1);
 
-                                player.setVelocity(x - prevX, y - prevY, z - prevZ);
+                                player.setDeltaMovement(x - prevX, y - prevY, z - prevZ);
 
                                 if (this.shouldEmitReplayMotionFx(entity))
                                 {
@@ -1672,7 +1673,7 @@ public abstract class BaseFilmController
                             }
                             else
                             {
-                                player.setVelocity(0D, 0D, 0D);
+                                player.setDeltaMovement(0D, 0D, 0D);
                             }
 
                             spawned = true;
@@ -1682,7 +1683,7 @@ public abstract class BaseFilmController
 
                 if (!spawned && !mounted && this.shouldEmitReplayMotionFx(entity))
                 {
-                    World world = MinecraftClient.getInstance().world;
+                    Level world = Minecraft.getInstance().level;
                     Form form = replay.form.get();
                     double width = form != null ? form.hitboxWidth.get() : 0.6D;
 
@@ -1722,9 +1723,9 @@ public abstract class BaseFilmController
 
                     if (entityId != null)
                     {
-                        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+                        Entity anEntity = Minecraft.getInstance().level.getEntity(entityId);
 
-                        if (anEntity instanceof PlayerEntity player)
+                        if (anEntity instanceof Player player)
                         {
                             double x = replay.keyframes.x.interpolate(replayTick);
                             double y = replay.keyframes.y.interpolate(replayTick);
@@ -1741,7 +1742,7 @@ public abstract class BaseFilmController
                             boolean riptide = replay.keyframes.riptide.interpolate(replayTick) > 0;
                             boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
 
-                            Vec3d pos = player.getEntityPos();
+                            Vec3 pos = player.position();
                             double dx = x - pos.x;
                             double dy = y - pos.y;
                             double dz = z - pos.z;
@@ -1760,31 +1761,31 @@ public abstract class BaseFilmController
                                 {
                                     this.lastStepSoundTicks.put(replayId, replayTick);
                                     player.setOnGround(grounded);
-                                    player.move(MovementType.SELF, new Vec3d(dx, dy, dz));
+                                    player.move(MoverType.SELF, new Vec3(dx, dy, dz));
                                 }
                             }
 
-                            player.setPosition(x, y, z);
+                            player.setPos(x, y, z);
 
-                            player.setSneaking(sneaking);
+                            player.setShiftKeyDown(sneaking);
                             player.setSprinting(sprinting);
                             player.setSwimming(swimming);
                             player.getAbilities().flying = flying;
-                            player.setFlag(7, fallFlying);
-                            player.setFlag(4, riptide);
+                            player.setSharedFlag(7, fallFlying);
+                            player.setSharedFlag(4, riptide);
 
                             if (crawling)
                             {
-                                player.setPose(EntityPose.SWIMMING);
+                                player.setPose(net.minecraft.world.entity.Pose.SWIMMING);
                             }
                             else if (sleeping)
                             {
-                                player.setPose(EntityPose.SLEEPING);
+                                player.setPose(net.minecraft.world.entity.Pose.SLEEPING);
                             }
 
                             if (blocking)
                             {
-                                player.setLivingFlag(1, true);
+                                player.setLivingEntityFlag(1, true);
                             }
 
                             player.setOnGround(grounded);
@@ -1794,11 +1795,11 @@ public abstract class BaseFilmController
                                 accessor.bbs$setIsSneakingPose(sneaking);
                             }
 
-                            if (player instanceof ClientPlayerEntity playerEntity && playerEntity.input != null && playerEntity.input.playerInput != null)
+                            if (player instanceof LocalPlayer playerEntity && playerEntity.input != null && playerEntity.input.keyPresses != null)
                             {
-                                PlayerInput pi = playerEntity.input.playerInput;
+                                Input pi = playerEntity.input.keyPresses;
 
-                                playerEntity.input.playerInput = new PlayerInput(pi.forward(), pi.backward(), pi.left(), pi.right(), pi.jump(), sneaking, pi.sprint());
+                                playerEntity.input.keyPresses = new Input(pi.forward(), pi.backward(), pi.left(), pi.right(), pi.jump(), sneaking, pi.sprint());
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
@@ -1823,9 +1824,9 @@ public abstract class BaseFilmController
                                 player.hurtTime = hurtTimer;
                             }
 
-                            if (player.hurtTime > 0 && player.maxHurtTime < player.hurtTime)
+                            if (player.hurtTime > 0 && player.hurtDuration < player.hurtTime)
                             {
-                                player.maxHurtTime = Math.max(10, player.hurtTime);
+                                player.hurtDuration = Math.max(10, player.hurtTime);
                             }
                         }
                     }
@@ -1853,22 +1854,22 @@ public abstract class BaseFilmController
 
     private void syncActorEquipmentFromStub(ActorEntity actor, IEntity stub)
     {
-        actor.equipStack(EquipmentSlot.MAINHAND, stub.getEquipmentStack(EquipmentSlot.MAINHAND));
-        actor.equipStack(EquipmentSlot.OFFHAND, stub.getEquipmentStack(EquipmentSlot.OFFHAND));
-        actor.equipStack(EquipmentSlot.HEAD, stub.getEquipmentStack(EquipmentSlot.HEAD));
-        actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
-        actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
-        actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+        actor.setItemSlot(EquipmentSlot.MAINHAND, stub.getEquipmentStack(EquipmentSlot.MAINHAND));
+        actor.setItemSlot(EquipmentSlot.OFFHAND, stub.getEquipmentStack(EquipmentSlot.OFFHAND));
+        actor.setItemSlot(EquipmentSlot.HEAD, stub.getEquipmentStack(EquipmentSlot.HEAD));
+        actor.setItemSlot(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
+        actor.setItemSlot(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
+        actor.setItemSlot(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
     }
 
     /**
      * Push replay item-use onto the bound player so vanilla first-person
      * eating/drinking transforms can run while the replay stub body is hidden.
      */
-    private void syncFirstPersonItemUse(PlayerEntity player, IEntity source)
+    private void syncFirstPersonItemUse(Player player, IEntity source)
     {
-        Hand hand = source.getActiveHand();
-        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        InteractionHand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == InteractionHand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
         ItemStack stack = source.getEquipmentStack(slot);
 
         ItemUseRenderState.syncItemUse(player, source, hand, stack);
@@ -1880,8 +1881,8 @@ public abstract class BaseFilmController
      */
     private void syncActorItemUseFromSource(ActorEntity actor, IEntity source)
     {
-        Hand hand = source.getActiveHand();
-        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        InteractionHand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == InteractionHand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
         ItemStack stack = source.getEquipmentStack(slot);
 
         ItemUseRenderState.syncItemUse(actor, source, hand, stack);
@@ -1893,10 +1894,10 @@ public abstract class BaseFilmController
      */
     private void syncActorWorldPositionFromStub(ActorEntity actor, IEntity stub)
     {
-        actor.setPosition(stub.getX(), stub.getY(), stub.getZ());
-        actor.lastRenderX = stub.getPrevX();
-        actor.lastRenderY = stub.getPrevY();
-        actor.lastRenderZ = stub.getPrevZ();
+        actor.setPos(stub.getX(), stub.getY(), stub.getZ());
+        actor.xOld = stub.getPrevX();
+        actor.yOld = stub.getPrevY();
+        actor.zOld = stub.getPrevZ();
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
@@ -1912,15 +1913,15 @@ public abstract class BaseFilmController
         }
 
         /* Prefer the visible body pose (actor hold can lag the playhead keyframe). */
-        this.spawnSprintParticles(replay, ticks, entity.getEntityWorld(), entity.getWidth(), force, entity);
+        this.spawnSprintParticles(replay, ticks, entity.level(), entity.getBbWidth(), force, entity);
     }
 
-    private void spawnSprintParticles(Replay replay, int ticks, World world, double width)
+    private void spawnSprintParticles(Replay replay, int ticks, Level world, double width)
     {
         this.spawnSprintParticles(replay, ticks, world, width, false, null);
     }
 
-    private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
+    private void spawnSprintParticles(Replay replay, int ticks, Level world, double width, boolean force, Entity atEntity)
     {
         if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
@@ -1954,18 +1955,18 @@ public abstract class BaseFilmController
         double yPos = atEntity != null ? atEntity.getY() : replay.keyframes.y.interpolate(ticks);
         double zPos = atEntity != null ? atEntity.getZ() : replay.keyframes.z.interpolate(ticks);
 
-        BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
+        BlockPos pos = BlockPos.containing(xPos, yPos - 0.2D, zPos);
 
-        if (world.isAir(pos))
+        if (world.isEmptyBlock(pos))
         {
             return;
         }
 
-        double x = xPos + (world.random.nextDouble() - 0.5D) * width;
+        double x = xPos + (world.getRandom().nextDouble() - 0.5D) * width;
         double y = yPos + 0.1D;
-        double z = zPos + (world.random.nextDouble() - 0.5D) * width;
+        double z = zPos + (world.getRandom().nextDouble() - 0.5D) * width;
 
-        world.addParticleClient(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
+        world.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
     }
 
     private void spawnReplayItemUseParticles(Replay replay, int ticks, IEntity source, Entity atEntity)
@@ -1980,8 +1981,8 @@ public abstract class BaseFilmController
             return;
         }
 
-        Hand hand = source.getActiveHand();
-        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        InteractionHand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == InteractionHand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
         ItemStack stack = source.getEquipmentStack(slot);
 
         if (stack == null || stack.isEmpty())
@@ -1989,9 +1990,9 @@ public abstract class BaseFilmController
             return;
         }
 
-        UseAction action = stack.getUseAction();
+        ItemUseAnimation action = stack.getUseAnimation();
 
-        if (action != UseAction.EAT && action != UseAction.DRINK)
+        if (action != ItemUseAnimation.EAT && action != ItemUseAnimation.DRINK)
         {
             return;
         }
@@ -2014,7 +2015,7 @@ public abstract class BaseFilmController
 
         this.lastItemUseParticleTicks.put(replayId, ticks);
 
-        ClientWorld world = atEntity != null ? (ClientWorld) atEntity.getEntityWorld() : MinecraftClient.getInstance().world;
+        ClientLevel world = atEntity != null ? (ClientLevel) atEntity.level() : Minecraft.getInstance().level;
 
         if (world == null)
         {
@@ -2023,34 +2024,34 @@ public abstract class BaseFilmController
 
         /* Match LivingEntity.spawnItemParticles: local-space offset + velocity,
          * then rotate by pitch/yaw so crumbs fan out from the eating pose. */
-        float pitch = atEntity != null ? atEntity.getPitch() : source.getPitch();
-        float yaw = atEntity != null ? atEntity.getYaw() : source.getYaw();
+        float pitch = atEntity != null ? atEntity.getXRot() : source.getPitch();
+        float yaw = atEntity != null ? atEntity.getYRot() : source.getYaw();
         double originX = atEntity != null ? atEntity.getX() : source.getX();
         double originY = atEntity != null ? atEntity.getEyeY() : source.getY() + source.getEyeHeight();
         double originZ = atEntity != null ? atEntity.getZ() : source.getZ();
-        ItemStackParticleEffect effect = new ItemStackParticleEffect(ParticleTypes.ITEM, stack.copy());
+        ItemParticleOption effect = new ItemParticleOption(ParticleTypes.ITEM, ItemStackTemplate.fromNonEmptyStack(stack.copy()));
 
         for (int i = 0; i < 5; i++)
         {
-            Vec3d velocity = new Vec3d(
-                ((double) world.random.nextFloat() - 0.5D) * 0.1D,
-                world.random.nextDouble() * 0.1D + 0.1D,
+            Vec3 velocity = new Vec3(
+                ((double) world.getRandom().nextFloat() - 0.5D) * 0.1D,
+                world.getRandom().nextDouble() * 0.1D + 0.1D,
                 0D
             );
-            velocity = velocity.rotateX(-MathUtils.toRad(pitch));
-            velocity = velocity.rotateY(-MathUtils.toRad(yaw));
+            velocity = velocity.xRot(-MathUtils.toRad(pitch));
+            velocity = velocity.yRot(-MathUtils.toRad(yaw));
 
-            double localY = (double) (-world.random.nextFloat()) * 0.6D - 0.3D;
-            Vec3d pos = new Vec3d(
-                ((double) world.random.nextFloat() - 0.5D) * 0.3D,
+            double localY = (double) (-world.getRandom().nextFloat()) * 0.6D - 0.3D;
+            Vec3 pos = new Vec3(
+                ((double) world.getRandom().nextFloat() - 0.5D) * 0.3D,
                 localY,
                 0.6D
             );
-            pos = pos.rotateX(-MathUtils.toRad(pitch));
-            pos = pos.rotateY(-MathUtils.toRad(yaw));
+            pos = pos.xRot(-MathUtils.toRad(pitch));
+            pos = pos.yRot(-MathUtils.toRad(yaw));
             pos = pos.add(originX, originY, originZ);
 
-            world.addParticleClient(effect, pos.x, pos.y, pos.z, velocity.x, velocity.y + 0.05D, velocity.z);
+            world.addParticle(effect, pos.x, pos.y, pos.z, velocity.x, velocity.y + 0.05D, velocity.z);
         }
     }
 
@@ -2073,7 +2074,7 @@ public abstract class BaseFilmController
         return true;
     }
 
-    private void spawnReplayStepSound(Replay replay, int ticks, World world)
+    private void spawnReplayStepSound(Replay replay, int ticks, Level world)
     {
         if (BBSSettings.editorReplayStepSound == null || !BBSSettings.editorReplayStepSound.get() || replay == null || world == null)
         {
@@ -2123,21 +2124,21 @@ public abstract class BaseFilmController
         double xPos = replay.keyframes.x.interpolate(ticks);
         double yPos = replay.keyframes.y.interpolate(ticks);
         double zPos = replay.keyframes.z.interpolate(ticks);
-        BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
+        BlockPos pos = BlockPos.containing(xPos, yPos - 0.2D, zPos);
 
-        if (world.isAir(pos))
+        if (world.isEmptyBlock(pos))
         {
             return;
         }
 
-        var soundGroup = world.getBlockState(pos).getSoundGroup();
+        var soundGroup = world.getBlockState(pos).getSoundType();
 
-        world.playSoundClient(
+        world.playLocalSound(
             xPos,
             yPos,
             zPos,
             soundGroup.getStepSound(),
-            SoundCategory.PLAYERS,
+            SoundSource.PLAYERS,
             soundGroup.getVolume() * 0.15F,
             soundGroup.getPitch(),
             false
@@ -2275,7 +2276,7 @@ public abstract class BaseFilmController
 
                 if (entityId != null)
                 {
-                    Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+                    Entity anEntity = Minecraft.getInstance().level.getEntity(entityId);
 
                     if (anEntity instanceof ActorEntity actor)
                     {
@@ -2283,7 +2284,7 @@ public abstract class BaseFilmController
                         replay.properties.resetProperties(form);
                         replay.properties.applyProperties(form, tick + delta);
                     }
-                    else if (anEntity instanceof PlayerEntity player)
+                    else if (anEntity instanceof Player player)
                     {
                         Morph morph = Morph.getMorph(player);
 
@@ -2298,14 +2299,14 @@ public abstract class BaseFilmController
                         float yawBody = replay.keyframes.bodyYaw.interpolate(tick + delta).floatValue();
                         float pitch = replay.keyframes.pitch.interpolate(tick + delta).floatValue();
 
-                        player.setYaw(yawHead);
-                        player.setHeadYaw(yawHead);
-                        player.setPitch(pitch);
-                        player.setBodyYaw(yawBody);
-                        player.lastYaw = yawHead;
-                        player.lastHeadYaw = yawHead;
-                        player.lastPitch = pitch;
-                        player.lastBodyYaw = yawBody;
+                        player.setYRot(yawHead);
+                        player.setYHeadRot(yawHead);
+                        player.setXRot(pitch);
+                        player.setYBodyRot(yawBody);
+                        player.yRotO = yawHead;
+                        player.yHeadRotO = yawHead;
+                        player.xRotO = pitch;
+                        player.yBodyRotO = yawBody;
                     }
                 }
             }
@@ -2327,14 +2328,14 @@ public abstract class BaseFilmController
         return i != this.exception;
     }
 
-    public void render(WorldRenderContext context)
+    public void render(LevelRenderContext context)
     {
         GlStateManager._enableDepthTest();
 
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false);
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        float transition = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
 
         sorted.sort(Comparator
             .comparing((Map.Entry<Integer, IEntity> entry) ->
@@ -2363,14 +2364,14 @@ public abstract class BaseFilmController
         double x = Lerps.lerp(entity.getPrevX(), entity.getX(), transition);
         double y = Lerps.lerp(entity.getPrevY(), entity.getY(), transition);
         double z = Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition);
-        double dx = x - camera.getCameraPos().x;
-        double dy = y - camera.getCameraPos().y;
-        double dz = z - camera.getCameraPos().z;
+        double dx = x - camera.position().x;
+        double dy = y - camera.position().y;
+        double dz = z - camera.position().z;
 
         return dx * dx + dy * dy + dz * dz;
     }
 
-    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
+    protected void renderEntity(LevelRenderContext context, Replay replay, IEntity entity, int index)
     {
         if (!replay.actor.get())
         {
@@ -2383,9 +2384,9 @@ public abstract class BaseFilmController
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
-            filmContext.transition = getTransition(entity, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
+            filmContext.transition = getTransition(entity, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
 
-            filmContext.stack.push();
+            filmContext.stack.pushPose();
 
             try
             {
@@ -2398,7 +2399,7 @@ public abstract class BaseFilmController
             }
             finally
             {
-                filmContext.stack.pop();
+                filmContext.stack.popPose();
             }
         }
     }
@@ -2861,9 +2862,9 @@ public abstract class BaseFilmController
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
+    protected FilmControllerContext getFilmControllerContext(LevelRenderContext context, Replay replay, IEntity entity)
     {
-        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
+        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
         ShadowSettings shadow = resolveShadowSettings(replay, tick);
 
         return FilmControllerContext.instance

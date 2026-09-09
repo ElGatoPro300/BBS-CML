@@ -3,14 +3,14 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.title.UIBBSTitleFilmsMenu;
 
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class TitleScreenMixin
 {
     @Shadow
-    protected <T extends Element & Drawable & Selectable> T addDrawableChild(T drawableElement)
+    protected <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T drawableElement)
     {
         throw new AssertionError();
     }
@@ -39,9 +39,9 @@ public class TitleScreenMixin
         int x = screen.width / 2 - buttonWidth / 2;
         int maxY = screen.height / 4 + 48;
 
-        for (Element element : screen.children())
+        for (GuiEventListener element : screen.children())
         {
-            if (element instanceof ClickableWidget widget)
+            if (element instanceof AbstractWidget widget)
             {
                 maxY = Math.max(maxY, widget.getY() + widget.getHeight());
             }
@@ -49,8 +49,8 @@ public class TitleScreenMixin
 
         int buttonY = maxY + 4;
 
-        this.addDrawableChild(ButtonWidget.builder(Text.translatable("bbs.ui.title_menu.bbs"), (button) -> UIScreen.open(new UIBBSTitleFilmsMenu()))
-            .dimensions(x, buttonY, buttonWidth, 20)
+        this.addRenderableWidget(Button.builder(Component.translatable("bbs.ui.title_menu.bbs"), (button) -> UIScreen.open(new UIBBSTitleFilmsMenu()))
+            .bounds(x, buttonY, buttonWidth, 20)
             .build());
     }
 }

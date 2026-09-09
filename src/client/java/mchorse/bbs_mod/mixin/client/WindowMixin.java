@@ -5,8 +5,9 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.framework.BbsGuiScale;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
+import net.minecraft.client.Minecraft;
+
+import com.mojang.blaze3d.platform.Window;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -25,12 +26,12 @@ public class WindowMixin
      * mutates Minecraft's GUI scale; whole-number and "auto" scales keep Minecraft's normal
      * (clamped) behaviour.
      */
-    @ModifyVariable(method = "setScaleFactor", at = @At("HEAD"), argsOnly = true)
+    @ModifyVariable(method = "setGuiScale", at = @At("HEAD"), argsOnly = true)
     private int bbs_overrideUIScaleFactor(int scaleFactor)
     {
         double uiScale = BBSModClient.getUIScaleFactor();
 
-        if (uiScale > 0D && uiScale != Math.floor(uiScale) && MinecraftClient.getInstance().currentScreen instanceof UIScreen
+        if (uiScale > 0D && uiScale != Math.floor(uiScale) && Minecraft.getInstance().screen instanceof UIScreen
             && BbsGuiScale.isLinkedToGame() && !BbsGuiScale.isRestoringGameScale())
         {
             return (int) Math.round(uiScale);
@@ -52,25 +53,25 @@ public class WindowMixin
     private int framebufferHeight;
 
     @Shadow
-    private int scaledWidth;
+    private int guiScaledWidth;
 
     @Shadow
-    private int scaledHeight;
+    private int guiScaledHeight;
 
     @Shadow
-    private int scaleFactor;
+    private int guiScale;
 
-    @Inject(method = "getScaleFactor", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getGuiScale", at = @At("HEAD"), cancellable = true)
     public void onGetScaleFactor(CallbackInfoReturnable<Integer> info)
     {
-        if (MinecraftClient.getInstance().currentScreen instanceof UIScreen && !BbsGuiScale.isLinkedToGame()
+        if (Minecraft.getInstance().screen instanceof UIScreen && !BbsGuiScale.isLinkedToGame()
             && !BbsGuiScale.isRestoringGameScale() && BbsGuiScale.getFactor() > 0D)
         {
             info.setReturnValue((int) BbsGuiScale.getFactor());
         }
     }
 
-    @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getScreenWidth", at = @At("HEAD"), cancellable = true)
     public void onGetWidth(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -79,7 +80,7 @@ public class WindowMixin
         }
     }
 
-    @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getScreenHeight", at = @At("HEAD"), cancellable = true)
     public void onGetHeight(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -88,7 +89,7 @@ public class WindowMixin
         }
     }
 
-    @Inject(method = "getFramebufferWidth", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
     public void onGetFramebufferWidth(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -97,7 +98,7 @@ public class WindowMixin
         }
     }
 
-    @Inject(method = "getFramebufferHeight", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true)
     public void onGetFramebufferHeight(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -106,27 +107,27 @@ public class WindowMixin
         }
     }
 
-    @Inject(method = "getScaledWidth", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getGuiScaledWidth", at = @At("HEAD"), cancellable = true)
     public void onGetScaledWidth(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
         {
-            info.setReturnValue((int) (BBSRendering.getVideoWidth() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
+            info.setReturnValue((int) (BBSRendering.getVideoWidth() / (double) this.guiScale * BBSModClient.getOriginalFramebufferScale()));
         }
-        else if (MinecraftClient.getInstance().currentScreen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
+        else if (Minecraft.getInstance().screen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
         {
             info.setReturnValue(BbsGuiScale.getScaledWidth());
         }
     }
 
-    @Inject(method = "getScaledHeight", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getGuiScaledHeight", at = @At("HEAD"), cancellable = true)
     public void onGetScaledHeight(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
         {
-            info.setReturnValue((int) (BBSRendering.getVideoHeight() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
+            info.setReturnValue((int) (BBSRendering.getVideoHeight() / (double) this.guiScale * BBSModClient.getOriginalFramebufferScale()));
         }
-        else if (MinecraftClient.getInstance().currentScreen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
+        else if (Minecraft.getInstance().screen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
         {
             info.setReturnValue(BbsGuiScale.getScaledHeight());
         }

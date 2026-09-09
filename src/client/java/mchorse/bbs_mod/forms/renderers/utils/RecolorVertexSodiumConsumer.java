@@ -3,10 +3,9 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.render.VertexConsumer;
-
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
 
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.system.MemoryStack;
@@ -48,7 +47,7 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
-    public VertexConsumer color(int red, int green, int blue, int alpha)
+    public VertexConsumer setColor(int red, int green, int blue, int alpha)
     {
         Color savedColor = newColor;
         Color savedPaint = newPaintColor;
@@ -58,7 +57,7 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
 
         try
         {
-            return super.color(red, green, blue, alpha);
+            return super.setColor(red, green, blue, alpha);
         }
         finally
         {

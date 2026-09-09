@@ -22,7 +22,7 @@ import mchorse.bbs_mod.utils.manager.storage.CompressedDataStorage;
 import mchorse.bbs_mod.utils.resources.FilteredLink;
 import mchorse.bbs_mod.utils.resources.MultiLink;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.awt.EventQueue;
 import java.awt.FileDialog;
@@ -241,7 +241,7 @@ public class FilmProjectHandler
 
                 if (filmEntry == null)
                 {
-                    MinecraftClient.getInstance().execute(() ->
+                    Minecraft.getInstance().execute(() ->
                         filmPanel.getContext().notifyError(UIKeys.FILM_IMPORT_ERROR_INVALID)
                     );
 
@@ -323,7 +323,7 @@ public class FilmProjectHandler
                 }
             }
 
-            MinecraftClient.getInstance().execute(() ->
+            Minecraft.getInstance().execute(() ->
             {
                 filmPanel.requestNames();
                 filmPanel.getContext().notifySuccess(UIKeys.FILM_IMPORT_SUCCESS.format(projectName));
@@ -332,7 +332,7 @@ public class FilmProjectHandler
         catch (Exception e)
         {
             e.printStackTrace();
-            MinecraftClient.getInstance().execute(() ->
+            Minecraft.getInstance().execute(() ->
                 filmPanel.getContext().notifyError(UIKeys.FILM_IMPORT_ERROR.format(e.getMessage()))
             );
         }

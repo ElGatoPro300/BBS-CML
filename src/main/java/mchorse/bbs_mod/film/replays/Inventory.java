@@ -5,8 +5,8 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,13 +26,13 @@ public class Inventory extends BaseValue
         return Collections.unmodifiableList(this.stacks);
     }
 
-    public void fromPlayer(PlayerEntity player)
+    public void fromPlayer(Player player)
     {
         this.stacks.clear();
 
-        for (int i = 0; i < player.getInventory().size(); i++)
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++)
         {
-            this.stacks.add(player.getInventory().getStack(i).copy());
+            this.stacks.add(player.getInventory().getItem(i).copy());
         }
     }
 

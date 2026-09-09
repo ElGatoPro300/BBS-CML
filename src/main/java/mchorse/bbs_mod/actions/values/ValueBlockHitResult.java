@@ -6,11 +6,11 @@ import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.EnumUtils;
 
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class ValueBlockHitResult extends ValueGroup
 {
@@ -42,23 +42,23 @@ public class ValueBlockHitResult extends ValueGroup
         this.x.set(result.getBlockPos().getX());
         this.y.set(result.getBlockPos().getY());
         this.z.set(result.getBlockPos().getZ());
-        this.hitX.set(result.getPos().x);
-        this.hitY.set(result.getPos().y);
-        this.hitZ.set(result.getPos().z);
-        this.inside.set(result.isInsideBlock());
-        this.direction.set(result.getSide().ordinal());
+        this.hitX.set(result.getLocation().x);
+        this.hitY.set(result.getLocation().y);
+        this.hitZ.set(result.getLocation().z);
+        this.inside.set(result.isInside());
+        this.direction.set(result.getDirection().ordinal());
     }
 
-    public void setHitResult(ItemUsageContext context)
+    public void setHitResult(UseOnContext context)
     {
-        this.x.set(context.getBlockPos().getX());
-        this.y.set(context.getBlockPos().getY());
-        this.z.set(context.getBlockPos().getZ());
-        this.hitX.set(context.getHitPos().x);
-        this.hitY.set(context.getHitPos().y);
-        this.hitZ.set(context.getHitPos().z);
-        this.inside.set(context.hitsInsideBlock());
-        this.direction.set(context.getSide().ordinal());
+        this.x.set(context.getClickedPos().getX());
+        this.y.set(context.getClickedPos().getY());
+        this.z.set(context.getClickedPos().getZ());
+        this.hitX.set(context.getClickLocation().x);
+        this.hitY.set(context.getClickLocation().y);
+        this.hitZ.set(context.getClickLocation().z);
+        this.inside.set(context.isInside());
+        this.direction.set(context.getClickedFace().ordinal());
     }
 
     public void shift(double x, double y, double z)
@@ -74,7 +74,7 @@ public class ValueBlockHitResult extends ValueGroup
     public BlockHitResult getHitResult()
     {
         BlockPos pos = new BlockPos(this.x.get(), this.y.get(), this.z.get());
-        Vec3d vec = new Vec3d(this.hitX.get(), this.hitY.get(), this.hitZ.get());
+        Vec3 vec = new Vec3(this.hitX.get(), this.hitY.get(), this.hitZ.get());
 
         return new BlockHitResult(vec, EnumUtils.getValue(this.direction.get(), Direction.values(), Direction.UP), pos, this.inside.get());
     }

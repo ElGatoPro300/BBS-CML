@@ -1,9 +1,10 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemDisplayContext;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 /**
  * Adapts vanilla head-mounted item placement
@@ -37,23 +38,23 @@ public final class BbsHeadItemSpace
 
     public static float clampSpyglassLookPitch(float lookPitchDeg)
     {
-        return MathHelper.clamp(lookPitchDeg, SPYGLASS_LOOK_PITCH_MIN, SPYGLASS_LOOK_PITCH_MAX);
+        return Mth.clamp(lookPitchDeg, SPYGLASS_LOOK_PITCH_MIN, SPYGLASS_LOOK_PITCH_MAX);
     }
 
     /**
      * Align BBS head-bone attachment space with vanilla {@code ModelPart} head space
      * (same fix armor uses after {@code captureMatrices}).
      */
-    private static void alignBoneToModelPart(MatrixStack stack)
+    private static void alignBoneToModelPart(PoseStack stack)
     {
-        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180F));
+        stack.mulPose(Axis.XP.rotationDegrees(180F));
     }
 
     /**
      * Vanilla {@code HeadFeatureRenderer.translate} adapted for ModelForm head bones (non-skull
      * items). Call after {@code MatrixStackUtils.multiply(stack, headBoneMatrix)}.
      */
-    public static void applyHeadItem(MatrixStack stack)
+    public static void applyHeadItem(PoseStack stack)
     {
         alignBoneToModelPart(stack);
 
@@ -66,7 +67,7 @@ public final class BbsHeadItemSpace
      * Vanilla skull branch pre-transform in {@code HeadFeatureRenderer} (scale 1.1875 +
      * {@code T(-0.5,0,-0.5)} before {@code SkullBlockEntityRenderer.renderSkull}).
      */
-    public static void applySkull(MatrixStack stack)
+    public static void applySkull(PoseStack stack)
     {
         alignBoneToModelPart(stack);
 
@@ -87,12 +88,12 @@ public final class BbsHeadItemSpace
      * @param lookPitchDeg entity look pitch in degrees (positive = look down)
      * @param leftArm whether the active arm is the left (main-arm aware)
      */
-    public static void applySpyglass(MatrixStack stack, float lookPitchDeg, boolean leftArm)
+    public static void applySpyglass(PoseStack stack, float lookPitchDeg, boolean leftArm)
     {
         float clamped = clampSpyglassLookPitch(lookPitchDeg);
 
         /* captureMatrices attachment space: M_want = M * Rx(clamped − actual). */
-        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(clamped - lookPitchDeg));
+        stack.mulPose(Axis.XP.rotationDegrees(clamped - lookPitchDeg));
 
         /* Neck → eye. Do not use HeadFeatureRenderer's T(0,−0.25) / applyHeadItem here. */
         stack.translate(0F, EYE_Y, 0F);
@@ -104,7 +105,7 @@ public final class BbsHeadItemSpace
         stack.translate(leftArm ? ARM_BIAS : -ARM_BIAS, HAT_Y, 0F);
 
         /* Cancel extra 180° barrel/texture roll without moving the eyepiece. */
-        stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180F));
+        stack.mulPose(Axis.ZP.rotationDegrees(180F));
     }
 
     /**

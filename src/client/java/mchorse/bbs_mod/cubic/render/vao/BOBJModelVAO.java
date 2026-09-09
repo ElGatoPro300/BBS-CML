@@ -16,18 +16,17 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL15;
@@ -269,12 +268,12 @@ public class BOBJModelVAO
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
     }
 
-    public void renderLayer(MatrixStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull)
+    public void renderLayer(PoseStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull)
     {
         this.renderLayer(stack, color, light, overlay, defaultTexture, cull, null, null);
     }
 
-    public void renderLayer(MatrixStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull, ShaderProgram shader, StencilMap stencilMap)
+    public void renderLayer(PoseStack stack, Color color, int light, int overlay, Link defaultTexture, boolean cull, GlProgram shader, StencilMap stencilMap)
     {
         /* Reuse weighted skinning and the simple-player joint deformation without
          * requiring the legacy transform-feedback program or raw VAO draw. */
@@ -378,7 +377,7 @@ public class BOBJModelVAO
         return true;
     }
 
-    private void drawLayerRange(MatrixStack stack, Color color, int light, int overlay, Link link, boolean cull, int first, int end, float factor, ShaderProgram shader, StencilMap stencilMap)
+    private void drawLayerRange(PoseStack stack, Color color, int light, int overlay, Link link, boolean cull, int first, int end, float factor, GlProgram shader, StencilMap stencilMap)
     {
         Texture texture = BBSModClient.getTextures().getTexture(link);
         float alpha = color.a * factor;
@@ -388,24 +387,24 @@ public class BOBJModelVAO
             return;
         }
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-        MatrixStack.Entry entry = stack.peek();
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+            DefaultVertexFormat.ENTITY);
+        PoseStack.Pose entry = stack.last();
 
         for (int i = first; i < end; i++)
         {
             int xyz = i * 3;
             int uv = i * 2;
 
-            builder.vertex(entry.getPositionMatrix(), this.tmpVertices[xyz], this.tmpVertices[xyz + 1], this.tmpVertices[xyz + 2])
-                .color(color.r, color.g, color.b, alpha).texture(this.data.texData[uv], this.data.texData[uv + 1])
-                .overlay(overlay).light(light)
-                .normal(entry, this.tmpNormals[xyz], this.tmpNormals[xyz + 1], this.tmpNormals[xyz + 2]);
+            builder.addVertex(entry.pose(), this.tmpVertices[xyz], this.tmpVertices[xyz + 1], this.tmpVertices[xyz + 2])
+                .setColor(color.r, color.g, color.b, alpha).setUv(this.data.texData[uv], this.data.texData[uv + 1])
+                .setOverlay(overlay).setLight(light)
+                .setNormal(entry, this.tmpNormals[xyz], this.tmpNormals[xyz + 1], this.tmpNormals[xyz + 2]);
         }
 
         if (shader != null)
         {
-            ModelVAORenderer.setupUniformsCpuPretransformed(shader, new Matrix4f(stack.peek().getPositionMatrix()).invert());
+            ModelVAORenderer.setupUniformsCpuPretransformed(shader, new Matrix4f(stack.last().pose()).invert());
             BBSUniform.set(shader, "TextureBlendActive", 0F);
 
             if (stencilMap != null)
@@ -414,12 +413,12 @@ public class BOBJModelVAO
             }
 
             boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();
-            ModelEffectPass.draw(builder.end(), texture, shader, stencilMap != null,
+            ModelEffectPass.draw(builder.buildOrThrow(), texture, shader, stencilMap != null,
                 stencilMap != null || (!overlayPass && alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA), cull, overlayPass);
         }
         else
         {
-            BillboardRenderLayers.draw(builder.end(), texture, texture.isLinear(), false,
+            BillboardRenderLayers.draw(builder.buildOrThrow(), texture, texture.isLinear(), false,
                 alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, cull);
         }
     }
@@ -580,7 +579,7 @@ public class BOBJModelVAO
         this.overridden.addAll(this.colorOverrideBones);
     }
 
-    protected void drawBoneOverride(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture, BOBJBone bone)
+    protected void drawBoneOverride(GlProgram shader, PoseStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture, BOBJBone bone)
     {
         Link fullTexture = this.fullOverrides.get(bone.index);
         Float blend = this.partialOverrides.get(bone.index);
@@ -640,7 +639,7 @@ public class BOBJModelVAO
     }
 
     /**
-     * BBS {@link ShaderProgram#bind()} snapshots Sampler* from {@link RenderSystem} at
+     * BBS {@link GlProgram#bind()} snapshots Sampler* from {@link RenderSystem} at
      * {@link ModelVAORenderer#setupUniforms}. Skin must be bound before that — binding after
      * leaves Sampler0 on whatever Iris left (featureless tinted silhouette, no skin).
      */
@@ -652,7 +651,7 @@ public class BOBJModelVAO
         }
     }
 
-    protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    protected void rebindShaderSamplers(GlProgram shader, PoseStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         BBSRendering.bindProgram(shader);
         ModelVAORenderer.setupUniforms(stack, shader);
@@ -667,7 +666,7 @@ public class BOBJModelVAO
         GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
     }
 
-    public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
+    public void render(GlProgram shader, PoseStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
 

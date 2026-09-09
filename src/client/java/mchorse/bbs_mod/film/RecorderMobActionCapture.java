@@ -129,6 +129,6 @@ public final class RecorderMobActionCapture
         clip.tick.set(tick);
         clip.duration.set(1);
 
-        BaseValue.edit(replay.actions, (actions) -> actions.addClip(clip));
+        BaseValue.edit(replay.actions, (val) -> val.addClip(clip));
     }
 }
