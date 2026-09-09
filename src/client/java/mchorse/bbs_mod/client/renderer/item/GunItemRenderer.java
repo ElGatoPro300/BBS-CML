@@ -16,6 +16,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.LoadedEntityModels;
@@ -23,6 +24,8 @@ import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ModelTransformationMode;
+
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.MapCodec;
@@ -97,16 +100,31 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 try
                 {
-                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        DiffuseLighting.method_34742();
+                    }
 
-                    FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
-                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    FormRenderingContext context = new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false));
+
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        context.inUI();
+                    }
+                    else
+                    {
+                        context.camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+                    }
+
+                    FormUtilsClient.render(form, context);
                 }
                 finally
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
+                        DiffuseLighting.disableGuiDepthLighting();
                         BBSRendering.restoreAfterGuiItemForm();
                     }
                     else
