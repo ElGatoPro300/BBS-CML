@@ -2408,12 +2408,18 @@ public class ModelVAORenderer
                 SCRATCH_FOG_MAT.set(stackMatrix);
             }
         }
-        else
+        else if (BBSRendering.isRenderingWorld())
         {
-            /* Iris / UI: best-effort strip view from composed model-view. */
+            /* Iris world pass: best-effort strip view from composed model-view. */
             SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
             MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
             SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
+        }
+        else
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
         }
 
         fogMatUniform.set(SCRATCH_FOG_MAT);
