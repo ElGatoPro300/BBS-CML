@@ -148,7 +148,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
         builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha);
 
         GlStateManager._disableCull();
-        builder.end().close();
+        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
         GlStateManager._enableCull();
     }
 

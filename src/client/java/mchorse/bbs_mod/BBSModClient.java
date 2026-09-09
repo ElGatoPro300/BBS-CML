@@ -759,10 +759,10 @@ public class BBSModClient implements ClientModInitializer
                     float dd = d * (float) Math.pow(fov / 40F, 2F);
 
                     Draw.fillQuad(builder, stack,
-                        -dd, -dd, 0,
-                        dd, -dd, 0,
-                        dd, dd, 0,
-                        -dd, dd, 0,
+                        -dd, -dd, 0F,
+                        dd, -dd, 0F,
+                        dd, dd, 0F,
+                        -dd, dd, 0F,
                         color.r, color.g, color.b, 1F
                     );
 
@@ -771,7 +771,7 @@ public class BBSModClient implements ClientModInitializer
                     mvStack.identity();
                     MatrixStackUtils.applyModelViewMatrix();
 
-                    builder.end().close();
+                    Draw.flush(builder, Draw.getPositionColorLayer());
 
                     mvStack.popMatrix();
                     MatrixStackUtils.applyModelViewMatrix();
