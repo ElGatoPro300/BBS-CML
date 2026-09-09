@@ -4,6 +4,7 @@ import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
@@ -76,13 +77,13 @@ public class UIBossBarRenderer
 
         GuiGraphicsExtractor context = batcher.getContext();
 
-        context.fill(x, barY, x + displayWidth, barY + displayHeight, 0xFFFFFFFF);
+        context.blitSprite(RenderPipelines.GUI_TEXTURED, BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight, applyAlpha(0xFFFFFF, alpha));
 
         if (progressWidth > 0)
         {
             int color = bossBar.color;
 
-            context.fill(x, barY, x + progressWidth, barY + displayHeight, color);
+            context.blitSprite(RenderPipelines.GUI_TEXTURED, BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight, applyAlpha(color, alpha));
         }
 
         if (hasText)

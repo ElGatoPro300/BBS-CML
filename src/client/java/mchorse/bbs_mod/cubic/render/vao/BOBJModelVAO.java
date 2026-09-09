@@ -15,7 +15,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
-import mchorse.bbs_mod.utils.joml.Matrices;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -191,7 +190,7 @@ public class BOBJModelVAO
                     result.add(sum.mul(weight));
 
                     sumNormal.set(oldNormals[i * 3], oldNormals[i * 3 + 1], oldNormals[i * 3 + 2]);
-                    Matrices.TEMP_3F.set(matrices[index]).transform(sumNormal);
+                    matrices[index].transformDirection(sumNormal);
                     resultNormal.add(sumNormal.mul(weight));
 
                     count++;
@@ -285,6 +284,20 @@ public class BOBJModelVAO
             ModelVAORenderer.beginCpuGeometry(shader);
         }
 
+        /* Bone ownership changes skinning, not draw state. Keep triangle order but
+         * submit neutral meshes once instead of opening a pass for every bone run. */
+        if (stencilMap == null && this.canBatchLayer())
+        {
+            if (shader != null)
+            {
+                BobjBoneDrawEffects.restoreGroupUniforms();
+            }
+
+            this.drawLayerRange(stack, color, light, overlay, defaultTexture, cull, 0, this.count, 1F, shader, null);
+
+            return;
+        }
+
         for (int first = 0; first < this.dominantBonePerTriangle.length;)
         {
             int boneIndex = this.dominantBonePerTriangle[first];
@@ -342,6 +355,26 @@ public class BOBJModelVAO
 
             first = end;
         }
+    }
+
+    private boolean canBatchLayer()
+    {
+        /* Global glow may change light differently for weighted/unweighted faces. */
+        if (ModelVAORenderer.getBaseGlowingStrength() != 0F)
+        {
+            return false;
+        }
+
+        for (BOBJBone bone : this.armature.orderedBones)
+        {
+            if (BobjBoneDrawEffects.hasCustomColorEffects(bone)
+                || (bone.texture != null && bone.textureBlend > 0F))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void drawLayerRange(PoseStack stack, Color color, int light, int overlay, Link link, boolean cull, int first, int end, float factor, GlProgram shader, StencilMap stencilMap)

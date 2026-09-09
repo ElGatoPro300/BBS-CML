@@ -2362,6 +2362,7 @@ public class UIFilmController extends UIElement
             GlStateManager._enableDepthTest();
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
             GlStateManager._depthMask(true);
+            this.stencil.bindForPick();
 
             if (altPressed)
             {
@@ -2482,6 +2483,7 @@ public class UIFilmController extends UIElement
             int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
             int y = mainTexture.height - 1 - (int) ((context.mouseY() - viewport.y) / (float) viewport.h * mainTexture.height);
 
+            this.stencil.bindForPick();
             this.stencil.pick(x, y);
             this.stencil.unbind(this.stencilMap);
             this.panel.replayEditor.updateGizmoHover();

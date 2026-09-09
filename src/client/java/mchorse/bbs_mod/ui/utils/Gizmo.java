@@ -831,6 +831,7 @@ public class Gizmo
 
         boolean iris = BBSRendering.isIrisShadersEnabled();
         Matrix4f savedModelView = new Matrix4f();
+        ProjectionType savedProjectionType = ProjectionType.PERSPECTIVE;
 
         if (iris)
         {
@@ -1054,6 +1055,9 @@ public class Gizmo
         {
             return;
         }
+
+        /* Keep pick FBO bound — POSITION_COLOR draws skip RenderLayer hijacks. */
+        StencilFormFramebuffer.rebindActive();
 
         Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.last().pose()));
         stack.last().pose().set(normalized);

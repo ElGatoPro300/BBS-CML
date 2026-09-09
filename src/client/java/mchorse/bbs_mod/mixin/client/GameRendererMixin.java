@@ -196,6 +196,17 @@ public class GameRendererMixin
         BBSRendering.onWorldRenderEnd();
     }
 
+    /**
+     * Pause / screen background blur runs after the world pass. World model-block forms can
+     * leave ColorModulator, TU0, or blend (DST_COLOR from color masks). {@link GameRenderer#processBlurEffect()} then samples that
+     * state and the pause-menu world goes solid dark while buttons still draw fine.
+     */
+    @Inject(method = "processBlurEffect", at = @At("HEAD"), require = 0)
+    private void bbsPrepareMenuBlurState(CallbackInfo callbackInfo)
+    {
+        BBSRendering.prepareMenuBackgroundState();
+    }
+
     @Inject(method = "extractGui", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V"), require = 0)
     private void onBeforeHudRendering(DeltaTracker tickCounter, boolean tick, boolean isPaused, CallbackInfo info)
     {

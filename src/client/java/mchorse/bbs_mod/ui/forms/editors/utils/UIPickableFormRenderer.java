@@ -40,6 +40,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 
 import java.util.function.Supplier;
 
@@ -247,7 +248,9 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
             GlStateManager._depthMask(true);
 
+            this.stencil.bindForPick();
             FormUtilsClient.render(this.form, formContext.stencilMap(this.stencilMap));
+            this.stencil.bindForPick();
 
             Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
             PoseStack stack = this.createCameraStack();
@@ -267,6 +270,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             if (Gizmo.isInteractive())
             {
                 GlStateManager._disableCull();
+                this.stencil.bindForPick();
                 Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
                 GlStateManager._enableCull();
             }
@@ -287,6 +291,13 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
+            /* resize()/texture.bind() leave the pick FBO color attachment on TU0. Same leak
+             * as film framebuffer.draw() — vanilla Block/Item (and later world) sample it and
+             * draw opaque black. Clear before rebinding the main target. */
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
+
+            /* beginWrite(true) wiped the just-drawn preview mesh (see UIFilmController). */
             GlStateManager._glBindFramebuffer(36160, 0);
 
             GlStateManager._enableScissorTest();

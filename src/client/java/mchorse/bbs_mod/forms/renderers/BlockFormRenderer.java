@@ -580,6 +580,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             this.blockMainPassGlowEmission = null;
             CustomVertexConsumerProvider.clearRunnables();
             BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+            /* Keep the shared ItemForm scratch neutral after BE/atlas color bake. */
+            color.set(1F, 1F, 1F, 1F);
 
             if (context.isPicking())
             {

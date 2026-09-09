@@ -481,7 +481,7 @@ public class ModelVAORenderer
         {
             paintOverlaySynced = entry.synced;
 
-            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.PERSPECTIVE);
 
             MatrixStackUtils.pushIdentityModelView();
 

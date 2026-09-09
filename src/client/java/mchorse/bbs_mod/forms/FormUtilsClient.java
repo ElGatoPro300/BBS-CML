@@ -38,6 +38,7 @@ import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -419,7 +420,17 @@ public class FormUtilsClient
 
             try
             {
+                if (context.isPicking())
+                {
+                    StencilFormFramebuffer.rebindActive();
+                }
+
                 renderer.render(context);
+
+                if (context.isPicking())
+                {
+                    StencilFormFramebuffer.rebindActive();
+                }
             }
             catch (Exception e)
             {}

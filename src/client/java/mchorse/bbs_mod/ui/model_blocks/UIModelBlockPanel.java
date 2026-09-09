@@ -88,6 +88,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
@@ -2508,7 +2509,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.gizmoStencil.unbind(this.gizmoStencilMap);
         this.gizmoController.updateHover();
 
-        // mc.getFramebuffer().beginWrite(true);
+        /* Same teardown as UIPickableFormRenderer / UIFilmController: beginWrite(true) cleared
+         * the just-drawn world behind the dashboard and left a black pause present. */
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+        GlStateManager._bindTexture(0);
+        BBSRendering.ensureMainFramebuffer();
+        BBSRendering.bindMainFramebuffer(false);
     }
 
     @Override

@@ -204,6 +204,10 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
+            /* Shared scratch with BlockForm — must reset every draw or a prior BlockForm bake
+             * (e.g. hanging-sign tint without color transform) leaks into this ItemForm. */
+            BlockFormRenderer.color.set(context.color);
+
             if (shadowPass)
             {
                 BlockFormRenderer.color.a *= storedFormColor.a;
@@ -361,6 +365,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                         {
                             BBSRendering.enableBlend();
                             BBSRendering.defaultBlendFunc();
+                            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
                         }
                         BBSRendering.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
@@ -618,6 +623,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
         else
         {
+            /* Match BlockForm: never leave a leftover ColorModulator from a prior form. */
             BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
         }
     }

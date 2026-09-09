@@ -40,6 +40,8 @@ import net.irisshaders.iris.shadows.ShadowRenderer;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.ArrayList;
@@ -48,6 +50,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -73,6 +76,29 @@ public class ShadowRendererMixin
             return;
         }
 
+        GpuTextureView previousColor = RenderSystem.outputColorTextureOverride;
+        GpuTextureView previousDepth = RenderSystem.outputDepthTextureOverride;
+
+        /* The film viewport's attachments are not shadow targets. Keeping them
+         * also makes model renderers choose the BBS preview shader instead of Iris. */
+        RenderSystem.outputColorTextureOverride = null;
+        RenderSystem.outputDepthTextureOverride = null;
+
+        try
+        {
+            this.bbs$drawFormShadows(consumers, shadowStack, tickDelta, camX, camY, camZ);
+        }
+        finally
+        {
+            RenderSystem.outputColorTextureOverride = previousColor;
+            RenderSystem.outputDepthTextureOverride = previousDepth;
+        }
+    }
+
+    @Unique
+    private void bbs$drawFormShadows(MultiBufferSource.BufferSource consumers, PoseStack shadowStack,
+                                   float tickDelta, double camX, double camY, double camZ)
+    {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
         Camera gameCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
         BBSRendering.enableDepthTest();
