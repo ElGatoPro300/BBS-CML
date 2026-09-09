@@ -1,10 +1,24 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to all AI assistants (Cursor, Antigravity, Claude Code, Codex, Copilot) and developers working in this repository.
 
 ## Project Overview
 
 BBS CML EDITION is a Minecraft animation/video-production mod for Fabric 1.20.4 (also 1.20.1, 1.21.1). It enables creating animated films, controlling cameras, morphing entities, and more within Minecraft.
+
+## ⚠️ Mandatory Engineering Standards (Read First)
+
+ALL AI agents (Cursor, Antigravity, Claude Code, Copilot) and developers **MUST** strictly follow the two-part Feature Development Rules before writing, proposing, or modifying any code:
+
+- **Part 1: Planning Protocol & AI Interaction**
+  - Antigravity / Generic: `.agents/rules/feature-rules-protocol.md`
+  - Cursor: `.cursor/rules/FEATURE-RULES-PROTOCOL.mdc`
+  *(Enforces mandatory Phase 0–4 planning, NO code on first turn, search before create, and interrogation)*
+
+- **Part 2: Architecture & Multi-Version Standards**
+  - Antigravity / Generic: `.agents/rules/feature-rules-architecture.md`
+  - Cursor: `.cursor/rules/FEATURE-RULES-ARCHITECTURE.mdc`
+  *(Enforces Domain/Adapter separation, DRY centralization, zero mutable global state, and multi-version compatibility)*
 
 ## Build Commands
 
@@ -96,6 +110,8 @@ When adding mixins, register them in the appropriate JSON file and use the acces
 
 ## Key Docs
 
+- `.agents/rules/feature-rules-protocol.md` (Cursor: `.cursor/rules/FEATURE-RULES-PROTOCOL.mdc`) — **Mandatory** Part 1: Engineering planning protocol, AI workflow, and pre-implementation checklist
+- `.agents/rules/feature-rules-architecture.md` (Cursor: `.cursor/rules/FEATURE-RULES-ARCHITECTURE.mdc`) — **Mandatory** Part 2: Domain/Adapter separation, DRY, state management, multi-version portability, and 3.0 readiness
 - `docs/ADDONS.md` — Full addon API reference (forms, clips, UI, Molang, networking)
 - `docs/FILM_FRAME_TIMELINE.md` — Frame/tick timeline model and export FPS conversion
 - `docs/FLUID_SIMULATION.md` — Fluid simulation subsystem internals
