@@ -4,6 +4,8 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.ui.framework.UIBaseMenu;
+import mchorse.bbs_mod.ui.framework.UIScreen;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
@@ -21,8 +23,9 @@ public class InGameHudMixin
     public void render(GuiGraphicsExtractor drawContext, DeltaTracker tickCounter, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
 
-        if (current instanceof PlayCameraController)
+        if (current instanceof PlayCameraController || (menu != null && menu.canHideHUD()))
         {
             BBSRendering.onRenderBeforeScreen();
 
