@@ -5,10 +5,13 @@ import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.UniformType;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.Identifier;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
@@ -60,12 +63,17 @@ public class BBSShaders
             .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
 
-        subtitlesPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
+        subtitlesPipeline = RenderPipelines.register(RenderPipeline.builder()
             .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/subtitles"))
             .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/subtitles"))
             .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/subtitles"))
             .withSampler("Sampler0")
             .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .withUniform("SubtitleParameters", UniformType.UNIFORM_BUFFER)
+            .withBlend(BlendFunction.TRANSLUCENT)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withDepthWrite(false)
+            .withCull(false)
             .build());
 
         imageOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
