@@ -18,6 +18,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
@@ -36,8 +37,8 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 
@@ -702,7 +703,7 @@ public class Gizmo
         context.batcher.flush();
 
         MatrixStackUtils.cacheMatrices();
-        RenderSystem.setProjectionMatrix(projection, VertexSorter.BY_Z);
+        RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE);
 
         /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional
          * scales like 1.5 up to 2, which offset/stretched the gizmo viewport and could push vy/vh
@@ -777,7 +778,7 @@ public class Gizmo
         MinecraftClient mc = MinecraftClient.getInstance();
 
         MatrixStackUtils.cacheMatrices();
-        RenderSystem.setProjectionMatrix(projection, VertexSorter.BY_Z);
+        RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE);
 
         /* Keep in sync with renderInterface: fractional UI scales must not be rounded. */
         float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
@@ -819,10 +820,12 @@ public class Gizmo
         boolean iris = BBSRendering.isIrisShadersEnabled();
         Matrix4f savedProjection = new Matrix4f();
         Matrix4f savedModelView = new Matrix4f();
+        ProjectionType savedProjectionType = ProjectionType.PERSPECTIVE;
 
         if (iris)
         {
             savedProjection.set(RenderSystem.getProjectionMatrix());
+            savedProjectionType = RenderSystem.getProjectionType();
             savedModelView.set(RenderSystem.getModelViewMatrix());
         }
 
@@ -834,7 +837,7 @@ public class Gizmo
                  * longer carries the same projection matrix as RenderLayer#getSolid(), where
                  * the gizmo transform was captured. Re-binding the saved projection keeps the
                  * deferred draw aligned with the hitbox/stencil pass on the ground. */
-                RenderSystem.setProjectionMatrix(deferred.projection, VertexSorter.BY_Z);
+                RenderSystem.setProjectionMatrix(deferred.projection, ProjectionType.PERSPECTIVE);
             }
 
             stack.push();
@@ -861,15 +864,13 @@ public class Gizmo
 
         if (iris)
         {
-            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
+            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
 
             Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
             mvStack.pushMatrix();
             mvStack.set(savedModelView);
-            RenderSystem.applyModelViewMatrix();
             mvStack.popMatrix();
-            RenderSystem.applyModelViewMatrix();
         }
 
         this.deferredGizmos.clear();
@@ -1013,7 +1014,8 @@ public class Gizmo
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
         /* Explicitly reset the shader color multiplier: a shader pack's own compositing pass
          * (run just before WorldRenderEvents.LAST, which is when a shader pack is active and
          * this call is reached via renderDeferred()) can leave it at something other than
@@ -1052,6 +1054,9 @@ public class Gizmo
             return;
         }
 
+        /* Keep pick FBO bound — POSITION_COLOR draws skip RenderLayer hijacks. */
+        StencilFormFramebuffer.rebindActive();
+
         Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
         stack.peek().getPositionMatrix().set(normalized);
 
@@ -1069,7 +1074,7 @@ public class Gizmo
         else if (this.mode == Mode.TOP) this.drawTop(builder, stack, scale, thickness, true, map);
         else this.drawTranslate(builder, stack, scale, thickness, true, map);
 
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);

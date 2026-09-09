@@ -1314,39 +1314,47 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
                         return false;
                     }
 
+                    private ModelForm modelForm;
+
                     @Override
                     public void render(UIContext context)
                     {
                         boolean selected = id.equals(UIModelMosaicGrid.this.selectedId);
                         int border = selected ? BBSSettings.primaryColor.get() : Colors.setA(Colors.WHITE, 0.1F);
                         int bg = selected ? Colors.setA(BBSSettings.primaryColor.get(), 0.1F) : Colors.setA(0, 0.2F);
-                        
+
                         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);
                         context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);
+
+                        if (this.modelForm == null)
+                        {
+                            this.modelForm = new ModelForm();
+                            this.modelForm.model.set(id);
+                        }
+
+                        FormUtilsClient.renderUICachedStatic(this.modelForm, context, this.area.x, this.area.y, this.area.x + CARD_SIZE, this.area.y + CARD_SIZE);
 
                         super.render(context);
 
                         String label = new DataPath(id).getLast();
                         int maxW = this.area.w - 4;
+
                         if (context.batcher.getFont().getWidth(label) > maxW)
                         {
                             while (label.length() > 1 && context.batcher.getFont().getWidth(label + "...") > maxW)
                             {
                                 label = label.substring(0, label.length() - 1);
                             }
+
                             label = label + "...";
                         }
+
                         context.batcher.textShadow(label, this.area.x + 2, this.area.y + CARD_SIZE + 2);
                     }
                 };
 
                 card.relative(this).x(cx).y(cy).w(CARD_SIZE).h(CARD_SIZE + CARD_LABEL_H);
 
-                UIModelPreviewRenderer renderer = new UIModelPreviewRenderer();
-                renderer.relative(card).x(0).y(0).w(CARD_SIZE).h(CARD_SIZE);
-                renderer.setModel(id);
-
-                card.add(renderer);
                 this.add(card);
             }
 

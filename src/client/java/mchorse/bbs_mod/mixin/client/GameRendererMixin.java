@@ -108,13 +108,13 @@ public class GameRendererMixin
      * This injection replaces the camera FOV when camera controller takes over
      */
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    public void onGetFov(CallbackInfoReturnable<Double> info)
+    public void onGetFov(CallbackInfoReturnable<Float> info)
     {
         GunZoom gunZoom = BBSModClient.getGunZoom();
 
         if (gunZoom != null)
         {
-            info.setReturnValue((double) gunZoom.getFOV(info.getReturnValue().floatValue()));
+            info.setReturnValue(gunZoom.getFOV(info.getReturnValue()));
 
             return;
         }
@@ -123,7 +123,7 @@ public class GameRendererMixin
 
         if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
         {
-            info.setReturnValue(controller.getFOV());
+            info.setReturnValue((float) controller.getFOV());
         }
     }
 
@@ -216,6 +216,17 @@ public class GameRendererMixin
     private void onWorldRenderEnd(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderEnd();
+    }
+
+    /**
+     * Pause / screen background blur runs after the world pass. World model-block forms can
+     * leave ColorModulator, TU0, or blend (DST_COLOR) dirty — blur then presents a black world
+     * while menu buttons still look fine.
+     */
+    @Inject(method = "renderBlur", at = @At("HEAD"))
+    private void bbsPrepareMenuBlurState(CallbackInfo callbackInfo)
+    {
+        BBSRendering.prepareMenuBackgroundState();
     }
 
     @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))

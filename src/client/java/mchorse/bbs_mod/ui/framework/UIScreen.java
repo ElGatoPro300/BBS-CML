@@ -82,10 +82,15 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
+    public void onFilesDropped(List<Path> paths)
+    {
+        super.onFilesDropped(paths);
+
+        this.filesDragged(paths);
+    }
+
     public void filesDragged(List<Path> paths)
     {
-        super.filesDragged(paths);
-
         String[] filePaths = new String[paths.size()];
         int i = 0;
 
@@ -118,6 +123,10 @@ public class UIScreen extends Screen implements IFileDropListener
 
         this.menu.onClose(null);
         DiscordPresenceManager.INSTANCE.onBbsUiClosed();
+
+        /* Stencil unbind leaves FBO 0; preview/pick can leave TU0 / lightmap / ColorModulator
+         * dirty. Next world/pause present would be solid black without this. */
+        BBSRendering.prepareWorldPresentState();
 
         MinecraftClient.getInstance().options.hudHidden = false;
     }

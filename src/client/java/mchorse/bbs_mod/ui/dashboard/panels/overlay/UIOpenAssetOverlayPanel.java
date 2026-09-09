@@ -22,8 +22,9 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UICreateAssetOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
+import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.ui.home.UIHomePanel;
-import mchorse.bbs_mod.ui.model.UIModelPreviewRenderer;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
 import mchorse.bbs_mod.ui.utils.UIDataUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
@@ -1331,6 +1332,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         private final String id;
         private final ContentType type;
         private final UIOpenAssetOverlayPanel owner;
+        private ModelForm modelForm;
 
         public UIFileCard(String id, ContentType type, UIOpenAssetOverlayPanel owner)
         {
@@ -1339,14 +1341,6 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             this.id = id;
             this.type = type;
             this.owner = owner;
-
-            if (type == ContentType.MODELS)
-            {
-                UIModelPreviewRenderer renderer = new UIModelPreviewRenderer();
-                renderer.relative(this).x(2).y(2).w(1F, -4).h(CARD_THUMB_H - 4);
-                renderer.setModel(id);
-                this.add(renderer);
-            }
 
             /* Right-click context menu (only for types with a repository) */
             if (type != null)
@@ -1421,11 +1415,25 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             {
                 this.renderCenteredIcon(context, Icons.PARTICLE);
             }
+            else if (this.type == ContentType.MODELS)
+            {
+                if (this.modelForm == null)
+                {
+                    this.modelForm = new ModelForm();
+                    this.modelForm.model.set(this.id);
+                }
+
+                int tx = this.area.x + 2;
+                int ty = this.area.y + 2;
+                int tw = this.area.w - 4;
+                int th = CARD_THUMB_H - 4;
+
+                FormUtilsClient.renderUICachedStatic(this.modelForm, context, tx, ty, tx + tw, ty + th);
+            }
             else if (this.type == null)
             {
                 this.renderCenteredIcon(context, Icons.SOUND);
             }
-            /* Models: renderer child handles it */
 
             /* Hover overlay */
             if (this.hover)
