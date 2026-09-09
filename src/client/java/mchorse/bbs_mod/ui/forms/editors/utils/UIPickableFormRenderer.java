@@ -298,7 +298,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             GlStateManager._bindTexture(0);
 
             /* beginWrite(true) wiped the just-drawn preview mesh (see UIFilmController). */
-            BBSRendering.bindMainFramebuffer(false);
+            GlStateManager._glBindFramebuffer(36160, 0);
 
             GlStateManager._enableScissorTest();
         }
