@@ -40,13 +40,13 @@ import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.TridentEntityModel;
 import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Util;
 
@@ -54,6 +54,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SequencedMap;
 import java.util.Stack;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
@@ -64,7 +65,7 @@ public class FormUtilsClient
      * Bump when {@link #createIsolatedProvider()} layer order changes so cached
      * Immediates are rebuilt (trim must draw before armor glint for EQUAL depth).
      */
-    private static final int PROVIDER_LAYER_LAYOUT = 3;
+    private static final int PROVIDER_LAYER_LAYOUT = 2;
     private static int activeProviderLayerLayout = -1;
 
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
@@ -155,13 +156,12 @@ public class FormUtilsClient
      */
     private static CustomVertexConsumerProvider createIsolatedProvider()
     {
-        Map<RenderLayer, BufferBuilder> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
+        SequencedMap<RenderLayer, BufferAllocator> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
         {
-            map.put(TexturedRenderLayers.getEntitySolid(), new BufferBuilder(RenderLayer.getSolid().getExpectedBufferSize()));
-            map.put(TexturedRenderLayers.getEntityCutout(), new BufferBuilder(RenderLayer.getCutout().getExpectedBufferSize()));
-            map.put(TexturedRenderLayers.getBannerPatterns(), new BufferBuilder(RenderLayer.getCutoutMipped().getExpectedBufferSize()));
-            map.put(TexturedRenderLayers.getEntityTranslucentCull(), new BufferBuilder(RenderLayer.getTranslucent().getExpectedBufferSize()));
-            map.put(TexturedRenderLayers.getItemEntityTranslucentCull(), new BufferBuilder(RenderLayer.getTranslucent().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getEntitySolid(), new BufferAllocator(RenderLayer.getSolid().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getEntityCutout(), new BufferAllocator(RenderLayer.getCutout().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getBannerPatterns(), new BufferAllocator(RenderLayer.getCutoutMipped().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getEntityTranslucentCull(), new BufferAllocator(RenderLayer.getTranslucent().getExpectedBufferSize()));
             FormUtilsClient.assignBuffer(map, RenderLayer.getSolid());
             FormUtilsClient.assignBuffer(map, RenderLayer.getCutout());
             FormUtilsClient.assignBuffer(map, RenderLayer.getTranslucent());
@@ -171,15 +171,13 @@ public class FormUtilsClient
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getShulkerBoxes());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getSign());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getHangingSign());
-            map.put(TexturedRenderLayers.getChest(), new BufferBuilder(786432));
+            map.put(TexturedRenderLayers.getChest(), new BufferAllocator(786432));
             /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
              * has no trim entry; our dual-shell trim must depth-write first). */
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(false));
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(true));
-            FormUtilsClient.assignBuffer(map, RenderLayer.getArmorGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getArmorEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlint());
-            FormUtilsClient.assignBuffer(map, RenderLayer.getDirectGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlintTranslucent());
             FormUtilsClient.assignBuffer(map, RenderLayer.getEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getDirectEntityGlint());
@@ -189,13 +187,13 @@ public class FormUtilsClient
         });
 
         return new CustomVertexConsumerProvider(
-            VertexConsumerProvider.immediate(layers, new BufferBuilder(512 * 1024))
+            VertexConsumerProvider.immediate(layers, new BufferAllocator(512 * 1024))
         );
     }
 
-    private static void assignBuffer(Map<RenderLayer, BufferBuilder> storage, RenderLayer layer)
+    private static void assignBuffer(SequencedMap<RenderLayer, BufferAllocator> storage, RenderLayer layer)
     {
-        storage.put(layer, new BufferBuilder(layer.getExpectedBufferSize()));
+        storage.put(layer, new BufferAllocator(layer.getExpectedBufferSize()));
     }
 
     /**

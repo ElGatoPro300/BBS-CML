@@ -102,6 +102,7 @@ import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector2d;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
@@ -188,6 +189,7 @@ public class UIFilmController extends UIElement
     private boolean paused;
 
     private WorldRenderContext worldRenderContext;
+    private final Matrix4f gizmoInterfaceMatrix = new Matrix4f();
 
     public UIFilmController(UIFilmPanel panel)
     {
@@ -1193,9 +1195,9 @@ public class UIFilmController extends UIElement
      */
     private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
     {
-        double maxRange = MinecraftClient.getInstance().interactionManager != null
-            ? (double) MinecraftClient.getInstance().interactionManager.getReachDistance()
-            : 4.5D;
+        double entityRange = player.getEntityInteractionRange();
+        double blockRange = player.getBlockInteractionRange();
+        double maxRange = Math.max(entityRange, blockRange);
         Vec3d origin = player.getCameraPosVec(1F);
         Vec3d rotation = player.getRotationVec(1F);
         Vec3d end = origin.add(rotation.x * maxRange, rotation.y * maxRange, rotation.z * maxRange);
@@ -1211,8 +1213,9 @@ public class UIFilmController extends UIElement
         if (entityHit != null)
         {
             double entityDist = entityHit.getPos().distanceTo(origin);
+            double allowed = forAttack ? entityRange : Math.max(entityRange, blockRange);
 
-            if (entityDist <= maxRange + 1.0E-4D)
+            if (entityDist <= allowed + 1.0E-4D)
             {
                 return entityHit;
             }
@@ -1222,7 +1225,7 @@ public class UIFilmController extends UIElement
         {
             double blockDist = blockHit.getPos().distanceTo(origin);
 
-            if (blockDist <= maxRange + 1.0E-4D)
+            if (blockDist <= blockRange + 1.0E-4D)
             {
                 return blockHit;
             }
@@ -1928,12 +1931,10 @@ public class UIFilmController extends UIElement
         {
             if (this.panel.hasLastGizmoMatrix)
             {
-                /* 1.20.4 film world pass already bakes the preview view into the capture
-                 * (Fabric matrixStack / lastView). Re-composing with BBSRendering.camera
-                 * (frustum camera, often a different matrix) parks the gizmo off-screen.
-                 * Master still composes because its FilmControllerContext uses an empty
-                 * camera-relative stack. */
-                Gizmo.INSTANCE.lastGizmoMatrix.set(this.panel.lastGizmoMatrix);
+                /* Resolve camera-baked vs camera-free capture so the colored gizmo stays
+                 * on the bone instead of sticking to the screen when orbiting. */
+                Gizmo.composeVisualMatrix(this.panel.lastGizmoMatrix, BBSRendering.camera, this.panel.lastProjection, this.gizmoInterfaceMatrix);
+                Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
                 Gizmo.INSTANCE.hasGizmoMatrix = true;
                 Gizmo.INSTANCE.renderInterface(context, this.panel.lastProjection, this.panel.preview.getViewport());
             }
@@ -1971,28 +1972,54 @@ public class UIFilmController extends UIElement
 
         RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
 
-        /* Render the stencil — use the same view baked into lastGizmoMatrix (panel.lastView),
-         * not BBSRendering.camera, so handle picks line up with the colored gizmo. */
+        /* Render the stencil.
+         * Without Iris, FilmControllerContext uses an empty (camera-relative) stack and
+         * ignores worldStack — forms still land via ModelVAORenderer (renderingWorld ×
+         * BBSRendering.camera). Gizmo stencil uses PositionColorProgram + ModelView, so
+         * after cacheMatrices() (identity MV) put the camera on ModelView as well. */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
         if (worldStack != null)
         {
             worldStack.push();
             worldStack.loadIdentity();
-            MatrixStackUtils.multiply(worldStack, this.panel.lastView);
-            this.renderStencil(this.worldRenderContext, context, altPressed);
+            MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
+
+            if (!BBSRendering.isIrisShadersEnabled())
+            {
+                Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+
+                mvStack.pushMatrix();
+                mvStack.set(BBSRendering.camera);
+                RenderSystem.applyModelViewMatrix();
+
+                try
+                {
+                    this.renderStencil(this.worldRenderContext, context, altPressed);
+                }
+                finally
+                {
+                    mvStack.popMatrix();
+                    RenderSystem.applyModelViewMatrix();
+                }
+            }
+            else
+            {
+                this.renderStencil(this.worldRenderContext, context, altPressed);
+            }
+
             worldStack.pop();
         }
         else
         {
-            MatrixStack mvStack = RenderSystem.getModelViewStack();
-            mvStack.push();
-            mvStack.loadIdentity();
-            MatrixStackUtils.multiply(mvStack, this.panel.lastView);
+            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+            mvStack.pushMatrix();
+            mvStack.identity();
+            mvStack.set(BBSRendering.camera);
             RenderSystem.applyModelViewMatrix();
 
             this.renderStencil(this.worldRenderContext, context, altPressed);
 
-            mvStack.pop();
+            mvStack.popMatrix();
             RenderSystem.applyModelViewMatrix();
         }
 
@@ -2096,7 +2123,7 @@ public class UIFilmController extends UIElement
                 int tick = runner.ticks;
                 int duration = runner.getContext().clips == null ? 0 : runner.getContext().clips.calculateDuration();
 
-                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, context.tickDelta(), duration, runner.getPosition(), context.camera(), context.matrixStack());
+                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, context.tickCounter().getTickDelta(true), duration, runner.getPosition(), context.camera(), context.matrixStack());
             }
         }
 
@@ -2166,8 +2193,7 @@ public class UIFilmController extends UIElement
         double cy = context.camera().getPos().y;
         double cz = context.camera().getPos().z;
         Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         /* Preview path follows ItemEntity-like drag and gravity and stops on first block hit. */
         int primaryColor = BBSSettings.primaryColor.get() & 0x00FFFFFF;
@@ -2375,7 +2401,7 @@ public class UIFilmController extends UIElement
 
                     IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                     boolean physicalActor = renderEntity != entry.getValue();
-                    float transition = isPlaying ? renderContext.tickDelta() : 0F;
+                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
                     float propertyTick = replay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
@@ -2454,7 +2480,7 @@ public class UIFilmController extends UIElement
                             }
                         }
 
-                        float transition = isPlaying ? renderContext.tickDelta() : 0F;
+                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
                         float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
                         BaseFilmController.renderEntity(FilmControllerContext.instance

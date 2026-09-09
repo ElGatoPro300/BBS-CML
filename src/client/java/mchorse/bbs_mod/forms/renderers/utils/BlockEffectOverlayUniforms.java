@@ -115,7 +115,6 @@ public final class BlockEffectOverlayUniforms
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
             bindPaintMultiplyDarken(program, multiplyDarken);
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         if (bindBlockAtlas)
@@ -166,8 +165,6 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
-
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         if (bindBlockAtlas)
@@ -198,8 +195,6 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
-
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -240,7 +235,6 @@ public final class BlockEffectOverlayUniforms
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
             bindPaintMultiplyDarken(program, multiplyDarken);
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
@@ -287,11 +281,25 @@ public final class BlockEffectOverlayUniforms
     private static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource, boolean structureSized, float sizeX, float sizeY, float sizeZ, boolean bindBlockAtlas)
     {
         boolean wantGrade = gradeSource != null && gradeSource.hasColorAdjustments();
-        boolean sceneCaptured = ModelVAORenderer.captureGradeSceneColor();
-        boolean gradeActive = wantGrade && sceneCaptured;
+        boolean gradeActive = wantGrade && ModelVAORenderer.captureGradeSceneColor();
 
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+
+        if (gradeActive)
+        {
+            /* Replace lit pixels with graded lit pixels — never leave DST_COLOR for UI. */
+            RenderSystem.defaultBlendFunc();
+        }
+        else
+        {
+            RenderSystem.blendFuncSeparate(
+                GlStateManager.SrcFactor.DST_COLOR,
+                GlStateManager.DstFactor.ZERO,
+                GlStateManager.SrcFactor.DST_ALPHA,
+                GlStateManager.DstFactor.ZERO
+            );
+        }
+
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
@@ -316,9 +324,7 @@ public final class BlockEffectOverlayUniforms
                 bindFormColorGrade(program, gradeActive ? gradeSource : null, bottomAnchored, maskHalfBase);
             }
 
-            uploadFlatOverlayFog(program, rootInverse);
-
-            if (sceneCaptured)
+            if (gradeActive)
             {
                 ModelVAORenderer.bindGradeSceneColorTexture();
             }
@@ -554,8 +560,6 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
-
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);

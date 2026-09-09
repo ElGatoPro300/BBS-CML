@@ -36,6 +36,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
@@ -102,12 +103,12 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Matrix4f matrix4f = stack.peek().getPositionMatrix();
 
         /* 1 - BR, 2 - BL, 3 - TL, 4 - TR */
-        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a).next();
-        builder.vertex(matrix4f, x2, y2, z2).color(r, g, b, a).next();
-        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a).next();
-        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a).next();
-        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a).next();
-        builder.vertex(matrix4f, x4, y4, z4).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix4f, x2, y2, z2).color(r, g, b, a);
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a);
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a);
+        builder.vertex(matrix4f, x4, y4, z4).color(r, g, b, a);
     }
 
     public LabelFormRenderer(LabelForm form)
@@ -192,101 +193,101 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         context.stack.push();
 
-        try
+        if (this.form.billboard.get())
         {
-            if (this.form.billboard.get())
+            Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
+            Vector3f scale = new Vector3f();
+
+            modelMatrix.getScale(scale);
+
+            modelMatrix.m00(1).m01(0).m02(0);
+            modelMatrix.m10(0).m11(1).m12(0);
+            modelMatrix.m20(0).m21(0).m22(1);
+
+            if (!context.modelRenderer && !context.isPicking())
             {
-                Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
-                Vector3f scale = new Vector3f();
-
-                modelMatrix.getScale(scale);
-
-                modelMatrix.m00(1).m01(0).m02(0);
-                modelMatrix.m10(0).m11(1).m12(0);
-                modelMatrix.m20(0).m21(0).m22(1);
-
-                modelMatrix.scale(scale);
-
-                context.stack.peek().getNormalMatrix().identity();
-                context.stack.peek().getNormalMatrix().scale(
-                    MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
-                    MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
-                    MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
-                );
+                modelMatrix.mul(context.camera.view);
             }
 
-            TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-            float fontSize = this.form.fontSize.get();
-            float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
-            int light = context.light;
+            modelMatrix.scale(scale);
 
-            this.nametagAlpha = 1F;
+            context.stack.peek().getNormalMatrix().identity();
+            context.stack.peek().getNormalMatrix().scale(
+                MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
+                MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
+                MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
+            );
+        }
 
-            boolean shadowPass = this.isShadowPass(context);
+        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+        float fontSize = this.form.fontSize.get();
+        float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
+        int light = context.light;
 
-            if (shadowPass)
-            {
-                RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(true);
-            }
+        this.nametagAlpha = 1F;
 
-            if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
-            {
-                context.stack.translate(0F, -0.5F, 0F);
-                this.nametagAlpha = 0.125F;
-            }
+        boolean shadowPass = this.isShadowPass(context);
 
-            MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
-
-            RenderSystem.disableCull();
-
-            if (context.isPicking())
-            {
-                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-                {
-                    /* startDrawing may re-enable culling; keep both sides of the label visible. */
-                    RenderSystem.disableCull();
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-                });
-
-                light = 0;
-            }
-            else
-            {
-                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-                {
-                    RenderSystem.disableCull();
-                    RenderSystem.enableBlend();
-                    RenderSystem.defaultBlendFunc();
-                });
-            }
-
-            if (this.form.max.get() <= 0)
-            {
-                this.renderString(context, consumers, renderer, light);
-            }
-            else
-            {
-                this.renderLimitedString(context, consumers, renderer, light);
-            }
-
-            /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
-             * flush so the last label keeps both faces when WorldRenderer draws later. */
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
-            this.flushLabelConsumers(consumers);
-
-            CustomVertexConsumerProvider.clearRunnables();
-            RenderSystem.defaultBlendFunc();
-
+        if (shadowPass)
+        {
             RenderSystem.enableDepthTest();
-            RenderSystem.enableCull();
+            RenderSystem.depthMask(true);
         }
-        finally
+
+        if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
         {
-            context.stack.pop();
+            context.stack.translate(0F, -0.5F, 0F);
+            this.nametagAlpha = 0.125F;
         }
+
+        MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
+
+        RenderSystem.disableCull();
+
+        if (context.isPicking())
+        {
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                /* startDrawing may re-enable culling; keep both sides of the label visible. */
+                RenderSystem.disableCull();
+                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+            });
+
+            light = 0;
+        }
+        else
+        {
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                RenderSystem.disableCull();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+            });
+        }
+
+        if (this.form.max.get() <= 0)
+        {
+            this.renderString(context, consumers, renderer, light);
+        }
+        else
+        {
+            this.renderLimitedString(context, consumers, renderer, light);
+        }
+
+        /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
+         * flush so the last label keeps both faces when WorldRenderer draws later. */
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
+        this.flushLabelConsumers(consumers);
+
+        CustomVertexConsumerProvider.clearRunnables();
+        RenderSystem.defaultBlendFunc();
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
+
+        context.stack.pop();
     }
 
     /**
@@ -549,8 +550,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tessellator.getInstance().getBuffer();
-                builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1284,8 +1284,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tessellator.getInstance().getBuffer();
-                builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1337,8 +1336,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatPaintOverlay(formRootInverse, paintTransform, false, this.maskHalfExtents);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tessellator.getInstance().getBuffer();
-                builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1374,12 +1372,12 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz)
     {
-        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz).next();
+        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
     private void fillLabelPaint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz, Color paintColor)
     {
-        builder.vertex(matrix, x, y, z).color(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz).next();
+        builder.vertex(matrix, x, y, z).color(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
     /**
@@ -1472,8 +1470,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         context.stack.push();
         context.stack.translate(0, 0, -0.2F);
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillQuad(
             builder, context.stack,

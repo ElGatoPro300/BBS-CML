@@ -270,7 +270,7 @@ public class UIScreen extends Screen implements IFileDropListener
 
         BbsGuiScale.withBbsWindowScale(() ->
         {
-            this.menu.context.setTransition(this.client.getTickDelta());
+            this.menu.context.setTransition(this.client.getRenderTickCounter().getTickDelta(false));
             this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
             this.menu.context.render.executeRunnables();
         });

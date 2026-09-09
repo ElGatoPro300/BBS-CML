@@ -20,6 +20,8 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
@@ -78,10 +80,19 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
                 try
                 {
                     int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    FormRenderingContext context = new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false));
 
-                    FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getTickDelta())
-                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        context.inUI();
+                    }
+                    else
+                    {
+                        context.camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+                    }
+
+                    FormUtilsClient.render(form, context);
                 }
                 finally
                 {
@@ -114,18 +125,23 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
             return this.map.get(stack);
         }
 
-        NbtCompound nbt = stack.getNbt();
         ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ORIGIN, BBSMod.MODEL_BLOCK.getDefaultState());
         Item item = new Item(entity);
 
         this.map.put(stack, item);
 
-        if (nbt == null)
+        NbtComponent nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
+        if (nbtComponent == null)
         {
             return item;
         }
 
-        entity.readNbt(nbt.getCompound("BlockEntityTag"));
+        NbtCompound nbt = nbtComponent.getNbt();
+        var world = MinecraftClient.getInstance().world;
+        if (world != null)
+        {
+            entity.readNbt(nbt, world.getRegistryManager());
+        }
 
         return item;
     }
