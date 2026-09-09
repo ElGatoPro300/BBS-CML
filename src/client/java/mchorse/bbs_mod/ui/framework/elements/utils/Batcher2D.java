@@ -38,6 +38,7 @@ import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -59,15 +60,15 @@ public class Batcher2D
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
 
     private static final RenderPipeline GUI_QUADS = RenderPipelines.register(
-        guiColorBuilder("gui_color_quads", VertexFormat.Mode.QUADS).build()
+        guiColorBuilder("gui_color_quads", VertexFormat.DrawMode.QUADS).build()
     );
 
     private static final RenderPipeline GUI_TRIANGLES = RenderPipelines.register(
-        guiColorBuilder("gui_color_triangles", VertexFormat.Mode.TRIANGLES).build()
+        guiColorBuilder("gui_color_triangles", VertexFormat.DrawMode.TRIANGLES).build()
     );
 
     private static final RenderPipeline GUI_TRIANGLE_FAN = RenderPipelines.register(
-        guiColorBuilder("gui_color_triangle_fan", VertexFormat.Mode.TRIANGLE_FAN).build()
+        guiColorBuilder("gui_color_triangle_fan", VertexFormat.DrawMode.TRIANGLE_FAN).build()
     );
 
     private static RenderType guiQuadsLayer;
@@ -77,18 +78,16 @@ public class Batcher2D
     private static FontRenderer fontRenderer = new FontRenderer();
     private static FontRenderer vanillaFontRenderer = new FontRenderer();
 
-    private GuiGraphicsExtractor context;
+    private GuiGraphics context;
     private FontRenderer font;
 
     private static RenderPipeline.Builder guiColorBuilder(String name, VertexFormat.Mode mode)
     {
-        return RenderPipeline.builder()
+        return RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/" + name))
-            .withVertexShader("core/position_color")
-            .withFragmentShader("core/position_color")
             .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, mode)
-            .withColorTargetState(new ColorTargetState(BLEND))
-            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
             .withCull(false);
     }
 
@@ -152,18 +151,18 @@ public class Batcher2D
         return vanillaFontRenderer;
     }
 
-    public Batcher2D(GuiGraphicsExtractor context)
+    public Batcher2D(GuiGraphics context)
     {
         this.context = context;
         this.font = Batcher2D.getDefaultTextRenderer();
     }
 
-    public GuiGraphicsExtractor getContext()
+    public GuiGraphics getContext()
     {
         return this.context;
     }
 
-    public void setContext(GuiGraphicsExtractor context)
+    public void setContext(GuiGraphics context)
     {
         this.context = context;
     }
@@ -183,7 +182,7 @@ public class Batcher2D
             return;
         }
 
-        this.context.guiRenderState.addGuiElement(new GuiQuadMesh.State(
+        this.context.guiRenderState.submitGuiElement(new GuiQuadMesh.State(
             RenderPipelines.GUI, TextureSetup.noTexture(),
             mesh.xs(), mesh.ys(), mesh.colors(), mesh.count(),
             scissor, bounds));
@@ -464,7 +463,7 @@ public class Batcher2D
             color = darkenWhite(color);
         }
 
-        this.texturedBox(BBSModClient.getTextures().getTexture(icon.texture), color, x, y, w, h, icon.x, icon.y, icon.x + icon.w, icon.y + icon.h, icon.textureW, icon.textureH);
+        this.texturedArea(BBSModClient.getTextures().getTexture(icon.texture), color, x, y, w, h, icon.x, icon.y, icon.w, icon.h, icon.textureW, icon.textureH);
     }
 
     public void outlinedIcon(Icon icon, float x, float y, float ax, float ay)
@@ -498,40 +497,28 @@ public class Batcher2D
         this.texturedBox(texture, color, x, y, w, h, u1, v1, u2, v2, texture.width, texture.height);
     }
 
-    public void texturedBox(Texture texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    public void texturedBox(Texture texture, int color, float x, float y, float w, float h, float u, float v)
     {
-        if (texture == null)
-        {
-            return;
-        }
-
-        try
-        {
-            this.texturedBox(AdoptedTexture.identifier(texture), color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-        }
-        finally
-        {
-            texture.bind(0);
-        }
+        this.texturedBox(texture, color, x, y, w, h, u, v, u + w, v + h, texture.width, texture.height);
     }
 
-    public void texturedBox(Identifier texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    public void texturedBox(Texture texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        if (texture == null || textureW <= 0 || textureH <= 0 || w <= 0F || h <= 0F)
+        Identifier id = AdoptedTexture.identifier(texture);
+
+        if (id == null)
         {
             return;
         }
 
-        this.context.blit(
-            RenderPipelines.GUI_TEXTURED,
-            texture,
-            (int) x, (int) y,
-            u1 / textureW, v1 / textureH,
-            (int) w, (int) h,
-            (int) (u2 - u1), (int) (v2 - v1),
-            textureW, textureH,
-            color
-        );
+        if (Colors.getA(color) <= 0F)
+        {
+            color = Colors.opaque(color);
+        }
+
+        this.context.blit(RenderPipelines.GUI_TEXTURED, id,
+            (int) x, (int) y, u1, v1, (int) w, (int) h,
+            (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
     }
 
     public void texturedBox(GpuTextureView texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
@@ -541,7 +528,7 @@ public class Batcher2D
             return;
         }
 
-        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().getSampler(
+        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
         BlitRenderState state = new BlitRenderState(RenderPipelines.GUI_TEXTURED,
             setup, new Matrix3x2f(this.context.pose()), (int) x, (int) y, (int) (x + w), (int) (y + h),
@@ -549,7 +536,7 @@ public class Batcher2D
 
         if (state.bounds() != null)
         {
-            this.context.guiRenderState.addGuiElement(state);
+            this.context.guiRenderState.submitGuiElement(state);
         }
     }
 
@@ -563,129 +550,116 @@ public class Batcher2D
         this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH, linear);
     }
 
-    private void drawAdoptedGlTexture(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH, boolean linear)
+    @Deprecated
+    public void texturedBox(Supplier<RenderPipeline> shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        if (texture <= 0 || textureW <= 0 || textureH <= 0 || w <= 0F || h <= 0F)
+        this.drawAdoptedGlTexture(texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH, false);
+    }
+
+    private void drawAdoptedGlTexture(int glId, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH, boolean linear)
+    {
+        Identifier id = AdoptedTexture.identifier(glId, textureW, textureH, linear);
+
+        if (id == null)
         {
             return;
-        }
-
-        Identifier id = AdoptedTexture.identifier(texture, textureW, textureH, linear, false);
-
-        if (id != null)
-        {
-            this.texturedBox(id, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-        }
-    }
-
-    public void fullBlit(Texture texture, int color, float x, float y, float w, float h)
-    {
-        if (texture == null)
-        {
-            return;
-        }
-
-        this.texturedBox(texture, color, x, y, w, h, 0F, 0F, texture.width, texture.height, texture.width, texture.height);
-    }
-
-    /* Text rendering */
-
-    public void text(String label, float x, float y)
-    {
-        this.text(this.font, label, x, y, Colors.WHITE, false);
-    }
-
-    public void text(String label, float x, float y, int color)
-    {
-        this.text(this.font, label, x, y, color, false);
-    }
-
-    public void text(String label, float x, float y, int color, boolean shadow)
-    {
-        this.text(this.font, label, x, y, color, shadow);
-    }
-
-    public void textShadow(String label, float x, float y)
-    {
-        this.text(this.font, label, x, y, Colors.WHITE, true);
-    }
-
-    public void textShadow(String label, float x, float y, int color)
-    {
-        this.text(this.font, label, x, y, color, true);
-    }
-
-    public void textShadow(FontRenderer font, String label, float x, float y)
-    {
-        this.text(font, label, x, y, Colors.WHITE, true);
-    }
-
-    public void textShadow(FontRenderer font, String label, float x, float y, int color)
-    {
-        this.text(font, label, x, y, color, true);
-    }
-
-    public void textCenter(String label, float x, float y)
-    {
-        this.textCenter(this.font, label, x, y, Colors.WHITE, false);
-    }
-
-    public void textCenter(String label, float x, float y, int color)
-    {
-        this.textCenter(this.font, label, x, y, color, false);
-    }
-
-    public void textCenter(String label, float x, float y, int color, boolean shadow)
-    {
-        this.textCenter(this.font, label, x, y, color, shadow);
-    }
-
-    public void textCenter(FontRenderer font, String label, float x, float y, int color, boolean shadow)
-    {
-        this.text(font, label, x - font.getWidth(label) / 2F, y, color, shadow);
-    }
-
-    public void textCenterShadow(String label, float x, float y)
-    {
-        this.textCenter(this.font, label, x, y, Colors.WHITE, true);
-    }
-
-    public void textCenterShadow(String label, float x, float y, int color)
-    {
-        this.textCenter(this.font, label, x, y, color, true);
-    }
-
-    public void textCenterShadow(FontRenderer font, String label, float x, float y, int color)
-    {
-        this.textCenter(font, label, x, y, color, true);
-    }
-
-    public void textRtl(String label, float x, float y, int color, boolean shadow)
-    {
-        if (RtlTextEngine.isActive())
-        {
-            if (RtlAwtTextRenderer.draw(this, label, x, y, color, shadow))
-            {
-                return;
-            }
-        }
-
-        if (BBSSettings.isLightTheme())
-        {
-            shadow = false;
-            color = darkenWhite(color);
         }
 
         if (Colors.getA(color) <= 0F)
         {
             color = Colors.opaque(color);
         }
-        this.context.text(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
+
+        this.context.blit(RenderPipelines.GUI_TEXTURED, id,
+            (int) x, (int) y, u1, v1, (int) w, (int) h,
+            (int) (u2 - u1), (int) (v2 - v1), textureW, textureH, color);
+    }
+
+    private void fillTexturedBox(BufferBuilder builder, Matrix3x2fc matrix, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    {
+        builder.addVertexWith2DPose(matrix, x, y + h).setUv(u1 / (float) textureW, v2 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x + w, y + h).setUv(u2 / (float) textureW, v2 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x + w, y).setUv(u2 / (float) textureW, v1 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x, y + h).setUv(u1 / (float) textureW, v2 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x + w, y).setUv(u2 / (float) textureW, v1 / (float) textureH).setColor(color);
+        builder.addVertexWith2DPose(matrix, x, y).setUv(u1 / (float) textureW, v1 / (float) textureH).setColor(color);
+    }
+
+    /* Repeatable textured box */
+
+    public void texturedArea(Texture texture, int color, float x, float y, float w, float h, float u, float v, float tileW, float tileH, int tw, int th)
+    {
+        if (tileW <= 0 || tileH <= 0)
+        {
+            return;
+        }
+
+        for (float dy = 0; dy < h; dy += tileH)
+        {
+            float ph = Math.min(tileH, h - dy);
+
+            for (float dx = 0; dx < w; dx += tileW)
+            {
+                float pw = Math.min(tileW, w - dx);
+
+                this.texturedBox(texture, color, x + dx, y + dy, pw, ph, u, v, u + pw, v + ph, tw, th);
+            }
+        }
+    }
+
+    /* Text with default font */
+
+    public void text(String label, float x, float y, int color)
+    {
+        this.text(label, x, y, color, false);
     }
 
     public void flushDraw()
     {
-        this.flush();
+        if (BBSRendering.renderingWorld)
+        {
+            BBSRendering.flushGuiRenderState();
+        }
+        else
+        {
+            this.newRootLayer();
+        }
+    }
+
+    public void text(String label, float x, float y)
+    {
+        this.text(label, x, y, Colors.WHITE, false);
+    }
+
+    public void textShadow(String label, float x, float y)
+    {
+        this.text(label, x, y, Colors.WHITE, true);
+    }
+
+    public void textShadow(String label, float x, float y, int color)
+    {
+        this.text(label, x, y, color, true);
+    }
+
+    public void text(String label, float x, float y, int color, boolean shadow)
+    {
+        if (BBSSettings.isLightTheme())
+        {
+            shadow = false;
+            color = darkenWhite(color);
+        }
+
+        this.drawTextDirect(label, x, y, color, shadow);
+    }
+
+    private void drawTextDirect(String label, float x, float y, int color, boolean shadow)
+    {
+        if (Colors.getA(color) <= 0F)
+        {
+            color = Colors.opaque(color);
+        }
+
+        this.context.drawString(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     /* Text helpers */
@@ -772,7 +746,7 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.text(font.getRenderer(), label, (int) x, (int) y, color, shadow);
+        this.context.drawString(font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     public void drawPickerPreview(GpuTextureView texture, int index, int highlightColor, int x, int y, int w, int h)
@@ -782,14 +756,14 @@ public class Batcher2D
             return;
         }
 
-        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().getSampler(
+        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
         PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.pose(),
             x, y, w, h, index, highlightColor, this.context.scissorStack.peek());
 
         if (state.bounds() != null)
         {
-            this.context.guiRenderState.addGuiElement(state);
+            this.context.guiRenderState.submitGuiElement(state);
         }
     }
 
