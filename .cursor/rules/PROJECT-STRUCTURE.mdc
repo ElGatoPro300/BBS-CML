@@ -1,0 +1,138 @@
+---
+alwaysApply: true
+---
+
+# BBS Mod — agent map
+
+You are an expert developer for the **BBS Mod** (Blockbuster Successor), a complex Minecraft mod for Fabric (1.20.x / 1.21.x) focused on machinima, filming, and custom forms.
+
+## How to use this document
+
+This document is intended to make the ai agent understand a general overview/summary of the proyect and a set of rules for understanding properly what to do when users asks about certain features and where to look for a better understanding of the project and its general features before modifying or updating them.
+
+This file is a **short always-on map**, not a full manual.
+
+1. Use the paragraphs below to recognize which subsystem a request touches.
+2. **Before changing that area**, open the linked deep-dive under `docs/architecture/`.
+3. For brand-new Forms / Clips / Keybinds (or similar), also read the wiki first: `bbs-mod-wiki.wiki/`.
+
+Operational checklists, class tables, and pitfalls live in the deep-dives — keep them out of this file.
+
+## Porting
+
+Sometimes delevoper users may want to bring their changes to another branches, which most times just consist of resolving merge conflicts, but sometimes it also requires an adaptation of the code/commits to match the API of the correspondent version.
+
+Porting changes/commits to another branch mustn't happen automatically, but only when users asks specifically for porting changes to another different branch with a different version, which sometimes would require to resolve merge conflicts and, most importantly, review and adapt the changes to match the API of each version. Take this as a guide for when users ask for porting changes to another branches.
+
+In other words, do **not** port commits or adapt changes to another version branch unless the user **explicitly** asks: When they do ask, porting may include merge-conflict resolution and — more importantly — reviewing and adapting code to that branch’s API. Do not invent a port “to be helpful.”
+
+## Hard rules (always)
+
+- UI strings use `IKey` / `UIKeys`; never hardcode user-facing text.
+- Respect the client/server split: `src/main` = shared/server, `src/client` = UI and rendering.
+- New serializable data goes through the `Value` system (`ValueFloat`, `ValueBoolean`, `ValueGroup`, …).
+- Form/Clip/renderer work must follow Iris/shadow rendering constraints.
+- Bug fixes shouldn't bring invasive solutions, unless it would be the only way to fix a bug.
+
+Details:
+
+- Localization → `docs/architecture/ui-localization.md`
+- Values & registration → `docs/architecture/values-and-registration.md`
+- Rendering / Iris → `docs/architecture/rendering-iris.md`
+
+---
+
+## Feature map
+
+### UI localization (UIKey)
+
+User-facing copy is wrapped in `IKey`, defined as static keys (typically in a `UIKeys` class), and resolved from the localization JSON. UI widgets take keys for labels and tooltips; raw English strings in panels are incorrect.
+
+Detail: `docs/architecture/ui-localization.md`
+
+### UI framework
+
+The in-mod editor is a custom widget tree centered on `UIElement`, with common controls (buttons, toggles, colors, icons), flex-style `UI.row` / `UI.column` layouts, and `UIContext` for input and drawing. Full-screen work uses dashboard/panel bases; modals use overlay panels.
+
+Detail: `docs/architecture/ui-framework.md`
+
+### Values, registration, and model formats
+
+Features register on common and client sides. Persistent form/replay/clip fields use the `Value` system for NBT/JSON and UI sync. Supported model asset formats include BBS, BOBJ, GEO, OBJ, and VOX, each with different rig/animation strengths.
+
+Detail: `docs/architecture/values-and-registration.md`
+
+### Forms
+
+Forms define how actors and objects look. A form is data (`Form` + `Value` properties), a client renderer, and usually an editor panel. Body parts attach child forms to parent bones. Standard types include Model, Billboard, Label, Extruded, Block, Item, Mob, and Particle.
+
+Detail: `docs/architecture/forms.md`
+
+### ModelForm
+
+`ModelForm` is the main animated-rig form: model id, base/overlay poses, action mappings, and shape keys. Rendering goes through an animator pipeline and a bone matrix cache used for attachments (body parts, items).
+
+Detail: `docs/architecture/model-form.md`
+
+### Particle form
+
+Particle forms use a Bedrock-style subset, editable in-mod or via Snowstorm. Timeline tracks can pause emission and swap textures; MoLang user variables drive math-based effects from the film timeline.
+
+Detail: `docs/architecture/particle-form.md`
+
+### Replays
+
+A replay stores motion keyframes and form property animation for an entity on the film timeline. Editing supports multi-replay bulk changes, onion-skin ghosts on stubs, and an optional Actor Mode flag that changes how the body exists in the world.
+
+Detail: `docs/architecture/replays.md`
+
+### Actor Mode
+
+Actor Mode keeps two representations: a client stub (recording/onion/puppeteer source) and a physical world entity (`ActorEntity`, or the real player when `fp`). They must not be collapsed; toggling Actor never deletes the stub. This area covers spawn, draw vs skip, server/client sync, combat/death, relative camera rules, Iris shadows, and editor gizmos/UI toggle order.
+
+Detail: `docs/architecture/actor-mode.md`
+
+### Keyframes
+
+Keyframes interpolate typed values over (sub-)ticks via channels, interpolation modes (including Bezier), and factories registered per type. Extending animatable data means implementing and registering an `IKeyframeFactory`. Related features include texture-sequence animation and anchor tracks between replays/bones.
+
+Detail: `docs/architecture/keyframes.md`
+
+### Clips
+
+Clips are timeline segments for camera paths, effects, media, and utilities (remap, envelope, curves, dolly zoom, etc.). Camera clips cover path/keyframe/dolly/idle/look/orbit/tracker-style behaviors; action clips can run server and/or client logic on a frequency.
+
+Detail: `docs/architecture/clips.md`
+
+### Keybinds
+
+BBS uses its own `KeyCombo` / `Keybind` / `KeybindManager` stack, separate from vanilla `KeyMapping`. Combos are declared (e.g. in `Keys.java`) and bound to actions in UI contexts; some important editor shortcuts are global rather than panel-local.
+
+Detail: `docs/architecture/keybinds.md`
+
+---
+
+## How-tos
+
+- New UI element → `docs/architecture/how-to-ui-element.md`
+- New Form (data + renderer + editor panel + registration) → `docs/architecture/how-to-form.md`
+- New Clip (data + factory + UI + registration) → `docs/architecture/how-to-clip.md`
+
+## UI redesign branch
+
+Work on the FS ~1.10–based UI redesign branch, or migrating current CML features onto it → read `docs/architecture/ui-redesign-migration.md` and `docs/architecture/code-organization.md` first. Short agent rule: `.cursor/rules/ui-redesign-migration.mdc`.
+
+Folder index: `docs/architecture/README.md`
+
+---
+
+## Related long docs (do not duplicate here)
+
+- `docs/ADDONS.md` — addon API (forms, clips, UI, Molang, networking)
+- `docs/FILM_FRAME_TIMELINE.md` — frame/tick timeline and export FPS
+- `docs/LIMB_TRANSPARENCY.md`, `docs/SOFT_OPACITY_*.md`, `docs/SOFT_LIMB_BONE_SORT.md` — opacity / limb rendering notes
+- `docs/FLUID_SIMULATION.md`, `docs/GECKO_ANIMATIONS_MIGRATION.md` — specialized subsystems
+- `docs/architecture/ui-redesign-migration.md` — redesign branch migration plan
+- `docs/architecture/code-organization.md` — structural maintainability patterns
+- `AGENTS.md` — build commands, code style, module split overview
+- `CONTRIBUTING.md` — contribution and style enforcement
