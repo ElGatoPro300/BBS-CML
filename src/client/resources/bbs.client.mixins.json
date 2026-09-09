@@ -35,6 +35,7 @@
         "RenderLayerTextureOverrideMixin",
         "ClientWorldPropertiesMixin",
         "sodium.ColorAttributeMixin",
+        "sodium.SodiumWorldRendererMixin",
         "KeyboardInputMixin",
         "MinecraftClientInvoker",
         "EntityRendererMixin",
