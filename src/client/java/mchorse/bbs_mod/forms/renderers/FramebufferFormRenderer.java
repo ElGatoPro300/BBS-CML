@@ -100,6 +100,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         Vector3f light0 = RenderSystem.shaderLightDirections[0];
         Vector3f light1 = RenderSystem.shaderLightDirections[1];
         Matrix4f projectionMatrix = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType previousProjectionType = RenderSystem.getProjectionType();
 
         GL30.glCullFace(GL30.GL_FRONT);
         RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, 1F));
@@ -132,7 +133,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setShaderLights(light0, light1);
         RenderSystem.getModelViewStack().popMatrix();
         MatrixStackUtils.applyModelViewMatrix();
-        RenderSystem.setProjectionMatrix(projectionMatrix, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(projectionMatrix, previousProjectionType);
         GL30.glCullFace(GL30.GL_BACK);
 
         boolean shading = !context.isPicking();

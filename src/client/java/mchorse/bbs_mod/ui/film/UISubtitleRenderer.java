@@ -78,6 +78,7 @@ public class UISubtitleRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
 
         Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType cacheType = RenderSystem.getProjectionType();
 
         width /= 2;
         height /= 2;
@@ -224,7 +225,7 @@ public class UISubtitleRenderer
             blur.set(0F, 0F);
         }
 
-        RenderSystem.setProjectionMatrix(cache, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(cache, cacheType);
         RenderSystem.enableCull();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.defaultBlendFunc();

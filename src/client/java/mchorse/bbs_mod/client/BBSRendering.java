@@ -414,6 +414,63 @@ public class BBSRendering
         restoreWorldRenderState();
         DiffuseLighting.enableGuiDepthLighting();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        clearTextureUnit0();
+    }
+
+    /**
+     * Model-block / world forms can leave TU0 on a form atlas, ColorModulator tinted, or blend
+     * enabled (DST_COLOR from color masks). {@link GameRenderer#renderBlur()} then samples that
+     * state and the pause-menu world goes solid dark while buttons still draw fine.
+     */
+    public static void prepareMenuBackgroundState()
+    {
+        ensureMainFramebuffer();
+        restoreWorldRenderState();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        clearTextureUnit0();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
+
+        /* Blur post-chain expects blend off (see Forge pause-screen blend fixes). */
+        RenderSystem.disableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.depthMask(true);
+        RenderSystem.colorMask(true, true, true, true);
+    }
+
+    public static void clearTextureUnit0()
+    {
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+        GlStateManager._bindTexture(0);
+        RenderSystem.setShaderTexture(0, 0);
+    }
+
+    /**
+     * Call before terrain/entities draw. Preview/pick can leave the main FB unbound (FBO 0),
+     * TU0 on a pick texture, lightmap off, or ColorModulator dirty — the next world pass
+     * (including the freeze behind the pause menu) then presents solid black while UI chrome
+     * still looks fine. {@link #prepareHudRenderState()} runs too late for that geometry.
+     */
+    public static void prepareWorldPresentState()
+    {
+        /* Film offscreen sessions can leave toggleFramebuffer true; restore window target. */
+        ensureMainFramebuffer();
+        restoreWorldRenderState();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
+
+        clearTextureUnit0();
     }
 
     /**
@@ -676,6 +733,9 @@ public class BBSRendering
 
     public static void onWorldRenderBegin()
     {
+        /* Always sanitize before world (or before skip): pause presents this buffer. */
+        prepareWorldPresentState();
+
         if (BBSRendering.shouldSkipWorldRender())
         {
             return;
@@ -763,7 +823,7 @@ public class BBSRendering
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
-            RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(cache, cacheType);
         }
 
         if (!customSize)

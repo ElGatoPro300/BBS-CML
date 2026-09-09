@@ -893,6 +893,7 @@ public class ShaderOpacityPatch
     private static void runEntry(PostDeferredEntry entry)
     {
         Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType savedProjectionType = RenderSystem.getProjectionType();
         Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
         Matrix4f savedModelView = new Matrix4f(modelViewStack);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -900,7 +901,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.PERSPECTIVE);
             flushingDepthWrite = entry.depthWrite;
             RenderSystem.depthMask(entry.depthWrite);
 
@@ -964,7 +965,7 @@ public class ShaderOpacityPatch
                 reassertPostDeferredDepthState(entry.depthWrite);
             }
 
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
             modelViewStack.set(savedModelView);
         }
     }

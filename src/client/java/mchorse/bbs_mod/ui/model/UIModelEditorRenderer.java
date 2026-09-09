@@ -72,6 +72,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -614,7 +615,11 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
+            /* beginWrite(true) wiped the preview mesh; clear TU0 like form/film pick teardown. */
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
+            RenderSystem.setShaderTexture(0, 0);
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
 
             GlStateManager._enableScissorTest();
         }

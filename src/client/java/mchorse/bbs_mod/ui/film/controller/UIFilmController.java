@@ -1972,7 +1972,7 @@ public class UIFilmController extends UIElement
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.PERSPECTIVE);
 
         /* Render the stencil.
          * Without Iris, FilmControllerContext uses an empty (camera-relative) stack and
@@ -2382,6 +2382,7 @@ public class UIFilmController extends UIElement
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
             RenderSystem.depthMask(true);
+            this.stencil.bindForPick();
 
             if (altPressed)
             {
@@ -2502,6 +2503,7 @@ public class UIFilmController extends UIElement
             int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
             int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
 
+            this.stencil.bindForPick();
             this.stencil.pick(x, y);
             this.stencil.unbind(this.stencilMap);
             this.panel.replayEditor.updateGizmoHover();
