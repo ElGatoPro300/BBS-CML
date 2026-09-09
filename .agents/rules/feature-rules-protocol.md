@@ -1,0 +1,136 @@
+---
+trigger: always_on
+glob:
+description: Part 1 of 2 of BBS Engineering Standards — Mandatory planning protocol, AI agent behavior, and pre-implementation workflow.
+---
+
+# Feature Development Rules (Part 1/2) — Engineering Protocol & AI Workflow
+
+> [!IMPORTANT]
+> **This is Part 1 of a 2-part engineering constitution.**
+> - **Part 1 (This document)**: `.agents/rules/feature-rules-protocol.md` — Planning phases, AI interaction rules, and review process.
+> - **Part 2**: `.agents/rules/feature-rules-architecture.md` — Domain/Adapter separation, DRY, state management, multi-version portability, and 3.0 readiness.
+>
+> **Both documents are mandatory and must be followed together for every code modification.**
+
+---
+
+## §0 — Scope and Enforcement
+
+These rules apply to **every** code change — features, improvements, bugfixes, refactors — regardless of size.
+
+- **Developers** must follow the planning protocol (§1) before writing code.
+- **AI agents** must strictly obey agent rules (§2). An agent that skips planning or interrogation produces non-compliant code that must be rejected.
+- **Exemptions**: Trivial changes (typo fixes, comment updates, single-line format fixes) are exempt from the full planning phases but must still adhere to Part 2 architecture rules.
+
+---
+
+## §1 — Mandatory Planning Protocol: Plan Before Code
+
+**No implementation code may be written until planning phases are complete.** Jumping directly to coding is the root cause of accumulated technical debt and version-porting breakages.
+
+### Phase 0 — Impact Analysis
+
+Before proposing any implementation, answer these 5 questions:
+
+1. **Which subsystems does this change touch?** Cross-reference with the feature map in `project-structure.md`. List every affected subsystem explicitly.
+2. **Which classes/files will be modified?** If more than 5 files are affected, the change is architecturally significant and requires extra scrutiny.
+3. **Does similar functionality already exist?** Search `*Utils`, `*Helper`, `Draw`, and existing pipelines. If reusable code exists, extend it — never duplicate.
+4. **What is the blast radius?** Could this break other forms, clips, renderers, or shader compatibility? List all potential side effects.
+5. **Is this change version-specific?** Does it touch APIs that differ between branches (1.21.1, 1.20.4, 1.20.1)?
+
+### Phase 1 — Blueprint (Design Document)
+
+For any change touching more than 2 files or modifying more than a single method, produce a design blueprint before coding:
+
+- **Problem statement**: What is being solved or added, and why.
+- **Proposed approach**: High-level design and architectural pattern.
+- **Affected classes and roles**: Exact responsibilities of each modified/created class.
+- **Public API surface**: Signatures and contracts of new methods, fields, or interfaces.
+- **Risks and trade-offs**: What could go wrong? What alternatives were considered?
+- **Multi-version impact**: How the design accommodates differences between 1.21.1, 1.20.4, and 1.20.1.
+
+### Phase 2 — Interrogation of Unknowns
+
+**Ambiguity must be resolved before implementation, not during.** Explicitly list:
+
+- Assumptions being made and whether they have been verified.
+- Unspecified edge cases, interactions, or user preferences.
+- Behavior variations (e.g., vanilla vs. Iris shaders).
+
+AI agents **must** present these questions to the developer and wait for answers before writing any code.
+
+### Phase 3 — Incremental Implementation
+
+- Implement in small, atomic steps. Each step must compile cleanly.
+- After each significant step, verify that existing features remain unbroken.
+- Keep commits granular and descriptive (as mandated by `CONTRIBUTING.md` §8).
+
+### Phase 4 — Verification and Review
+
+- **In-game testing** via `./gradlew runClient` is mandatory (there are no automated tests).
+- If rendering is touched, test **with and without shaders** (Iris/Sodium).
+- If multiple form types are affected, test each form type individually.
+- Verify that changes do not introduce unintended diffs or formatting changes in unrelated files.
+
+---
+
+## §2 — Rules for AI Agents
+
+These rules are **mandatory behavioral constraints** for any AI agent working on this codebase.
+
+### §2.1 — No Code on First Turn
+
+When requested to implement a feature, improvement, or non-trivial bugfix, the AI agent **must not** produce implementation code in its first response. It must:
+1. Complete Phase 0 (Impact Analysis).
+2. Present a concise Blueprint (Phase 1).
+3. List clarifying questions (Phase 2).
+4. Wait for developer approval before writing any code.
+
+*Exception*: If the developer explicitly instructs to "skip planning" for a trivial fix, the agent may proceed directly.
+
+### §2.2 — Mandatory Interrogation (Ask Before Assuming)
+
+If the developer's prompt is ambiguous or underspecified, the agent must ask:
+- Which forms, clips, or renderers should be affected.
+- Desired behavior with vs. without shaders.
+- Whether a change could affect existing user animations or saved files.
+- Never guess user intent on architectural decisions.
+
+### §2.3 — Search Before Create
+
+Before creating any new class, method, or helper, the agent must actively search the codebase for existing utilities (`*Utils`, `*Helper`, `Draw`, existing pipelines/shaders). Propose extending existing code before creating new files.
+
+### §2.4 — Multi-Version Awareness
+
+When touching rendering, shaders, mixins, or Minecraft APIs, the agent must:
+1. Identify which API surfaces differ between 1.21.1, 1.20.4, and 1.20.1 (see Part 2 §4 for API tables).
+2. Explicitly document version differences in its response.
+3. Propose adapter patterns to isolate version-specific code.
+4. Never assume code working on one branch will work on another.
+
+### §2.5 — No Invented Ports
+
+Do not port changes to another branch unless the developer **explicitly** asks. When porting is requested, it requires API adaptation and manual testing — never blind copying.
+
+### §2.6 — Respect Existing Architecture
+
+Never introduce a parallel pattern if an established system already exists (e.g., use the `Value` system for data, `IKey` for UI, established render passes for graphics).
+
+### §2.7 — Surgical Bugfixes
+
+Bugfixes must be minimal and localized. Never refactor unrelated code or alter public APIs during a bugfix unless fundamentally required. If deeper architectural debt is discovered, fix the immediate bug minimally and propose the refactor separately.
+
+---
+
+## §3 — Protocol Quick Checklist
+
+Before any commit or PR:
+
+- [ ] Completed Phase 0 Impact Analysis (subsystems, files, blast radius).
+- [ ] Submitted Blueprint and obtained developer sign-off.
+- [ ] Clarified all ambiguities and edge cases beforehand.
+- [ ] Searched codebase for existing reusable helpers before adding new ones.
+- [ ] Tested manually in-game (`./gradlew runClient`).
+- [ ] Validated rendering with shaders ON and shaders OFF.
+- [ ] Confirmed compliance with Part 2 (Architecture Standards).
