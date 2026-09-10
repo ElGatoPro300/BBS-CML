@@ -93,7 +93,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
 
         if (item != null)
         {
-            ItemDisplayContext mode = ItemDisplayContext.NONE;
+            ItemDisplayContext mode = ItemDisplayContextTracker.resolve();
             GunProperties properties = item.properties;
             Form form = properties.getForm(mode);
             Transform transform = properties.getTransform(mode);

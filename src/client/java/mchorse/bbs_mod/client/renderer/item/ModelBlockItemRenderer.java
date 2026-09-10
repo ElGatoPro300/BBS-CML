@@ -100,7 +100,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
         if (item != null)
         {
-            ItemDisplayContext mode = ItemDisplayContext.NONE;
+            ItemDisplayContext mode = ItemDisplayContextTracker.resolve();
             ModelProperties properties = item.entity.getProperties();
             Form form = properties.getForm(mode);
 
