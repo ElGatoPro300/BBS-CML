@@ -68,7 +68,6 @@
         "ModelPartMixin",
         "YggdrasilServicesKeyInfoMixin",
         "GuiRendererMixin",
-        "GuiRendererAccessor",
         "lambdynlights.LambDynLightsSettingsScreenMixin"
     ],
     "injectors": {
