@@ -47,7 +47,7 @@ public class Draw
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
 
     private static final RenderPipeline POSITION_COLOR_TRIS = RenderPipelines.register(
-        RenderPipeline.builder()
+        RenderPipelineUtils.withUniforms(RenderPipelines.DEBUG_FILLED_BOX)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
@@ -59,7 +59,7 @@ public class Draw
     );
 
     private static final RenderPipeline POSITION_COLOR_TRIS_NO_DEPTH = RenderPipelines.register(
-        RenderPipeline.builder()
+        RenderPipelineUtils.withUniforms(RenderPipelines.DEBUG_FILLED_BOX)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color_no_depth"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
@@ -71,7 +71,7 @@ public class Draw
     );
 
     private static final RenderPipeline POSITION_COLOR_LINES = RenderPipelines.register(
-        RenderPipeline.builder()
+        RenderPipelineUtils.withUniforms(RenderPipelines.DEBUG_FILLED_BOX)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color_lines"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")

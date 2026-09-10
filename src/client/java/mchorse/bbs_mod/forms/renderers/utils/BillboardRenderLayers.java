@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
@@ -42,7 +43,7 @@ public class BillboardRenderLayers
                 ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
                 : BlendFunction.TRANSLUCENT;
 
-            RenderPipeline.Builder builder = RenderPipeline.builder()
+            RenderPipeline.Builder builder = RenderPipelineUtils.withUniforms(source)
                 .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/billboard_" + index))
                 .withVertexShader(source.getVertexShader())
                 .withFragmentShader(source.getFragmentShader())

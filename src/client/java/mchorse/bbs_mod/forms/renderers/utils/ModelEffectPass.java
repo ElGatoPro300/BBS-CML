@@ -200,6 +200,7 @@ public final class ModelEffectPass
             .withLocation(Identifier.fromNamespaceAndPath("bbs", "pipeline/model_effect_" + PIPELINES.size()))
             .withVertexShader(vertex).withFragmentShader(fragment)
             .withVertexFormat(key.format(), key.mode())
+            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform("BbsModelEffects", UniformType.UNIFORM_BUFFER)
             .withSampler("Sampler0");
 
@@ -207,7 +208,9 @@ public final class ModelEffectPass
 
         if (!key.picking())
         {
-            builder.withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3");
+            builder.withUniform("Fog", UniformType.UNIFORM_BUFFER)
+                .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
+                .withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3");
             blend = key.multiply()
                 ? new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE)
                 : key.additive() || key.shader().equals("block_glow_overlay")

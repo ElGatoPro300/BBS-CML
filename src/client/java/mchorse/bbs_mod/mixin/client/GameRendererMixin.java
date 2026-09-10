@@ -8,10 +8,12 @@ import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.graphics.WorldOverlayRenderer;
 
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
@@ -21,19 +23,52 @@ import org.joml.Matrix4fc;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
-public class GameRendererMixin
+public class GameRendererMixin implements WorldOverlayRenderer.Provider
 {
+    @Shadow
+    @Final
+    private SubmitNodeStorage submitNodeStorage;
+    @Shadow
+    @Final
+    private FeatureRenderDispatcher featureRenderDispatcher;
+    @Unique
+    private WorldOverlayRenderer bbs$worldOverlays;
+
     private long bbs$lastFpBobbingTick = Long.MIN_VALUE;
     private float bbs$fpBobPhase;
     private float bbs$fpBobPrevPhase;
     private float bbs$fpBobStride;
     private float bbs$fpBobPrevStride;
+
+    @Override
+    public WorldOverlayRenderer bbs$getWorldOverlays()
+    {
+        if (this.bbs$worldOverlays == null)
+        {
+            this.bbs$worldOverlays = new WorldOverlayRenderer(this.submitNodeStorage, this.featureRenderDispatcher);
+        }
+
+        return this.bbs$worldOverlays;
+    }
+
+    @Inject(method = "close", at = @At("HEAD"))
+    private void bbs$closeWorldOverlays(CallbackInfo info)
+    {
+        if (this.bbs$worldOverlays != null)
+        {
+            this.bbs$worldOverlays.close();
+            this.bbs$worldOverlays = null;
+        }
+    }
 
     /**
      * This injection cancels bobbing when camera controller takes over
@@ -207,14 +242,4 @@ public class GameRendererMixin
         BBSRendering.prepareMenuBackgroundState();
     }
 
-    @Inject(method = "extractGui", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V"), require = 0)
-    private void onBeforeHudRendering(DeltaTracker tickCounter, boolean tick, boolean isPaused, CallbackInfo info)
-    {
-        ICameraController current = BBSModClient.getCameraController().getCurrent();
-
-        if (Minecraft.getInstance().options.hideGui && current == null)
-        {
-            BBSRendering.onRenderBeforeScreen();
-        }
-    }
 }

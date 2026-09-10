@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
@@ -48,7 +49,7 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.TRANSLUCENT_PARTICLE;
 
-                builder = RenderPipeline.builder()
+                builder = RenderPipelineUtils.withUniforms(source)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
@@ -63,7 +64,7 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.ENTITY_TRANSLUCENT;
 
-                builder = RenderPipeline.builder()
+                builder = RenderPipelineUtils.withUniforms(source)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
@@ -81,7 +82,7 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.GUI_TEXTURED;
 
-                builder = RenderPipeline.builder()
+                builder = RenderPipelineUtils.withUniforms(source)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_glow"))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
@@ -95,7 +96,7 @@ public class ParticleRenderLayers
             {
                 RenderPipeline source = RenderPipelines.GUI_TEXTURED;
 
-                builder = RenderPipeline.builder()
+                builder = RenderPipelineUtils.withUniforms(source)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_ui"))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())

@@ -13,6 +13,7 @@ import mchorse.bbs_mod.utils.Pair;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.ScissorState;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
@@ -31,7 +32,7 @@ import java.util.Map;
  */
 public class StencilFormFramebuffer
 {
-    private static Framebuffer activePickTarget;
+    private static StencilFormFramebuffer activePickTarget;
 
     private Framebuffer framebuffer;
 
@@ -51,6 +52,12 @@ public class StencilFormFramebuffer
     private GpuTextureView previousColorView;
     private GpuTextureView previousDepthView;
     private boolean applied;
+    private final int[] previousViewport = new int[4];
+    private boolean previousScissorEnabled;
+    private int previousScissorX;
+    private int previousScissorY;
+    private int previousScissorWidth;
+    private int previousScissorHeight;
 
     /**
      * 1.21.4 vanilla Immediate/RenderLayer draws can rebind the main client framebuffer mid-pass.
@@ -61,7 +68,7 @@ public class StencilFormFramebuffer
     {
         if (activePickTarget != null)
         {
-            activePickTarget.bind();
+            activePickTarget.bindForPick();
         }
     }
 
@@ -188,6 +195,14 @@ public class StencilFormFramebuffer
         this.ensureGpuTargets();
 
         this.previousDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, this.previousViewport);
+        ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
+        this.previousScissorEnabled = scissor.enabled();
+        this.previousScissorX = scissor.x();
+        this.previousScissorY = scissor.y();
+        this.previousScissorWidth = scissor.width();
+        this.previousScissorHeight = scissor.height();
+        RenderSystem.disableScissorForRenderTypeDraws();
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, 0, this.depthTexture, 1D);
         GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
 
@@ -200,15 +215,18 @@ public class StencilFormFramebuffer
 
         RenderSystem.outputColorTextureOverride = this.colorView;
         RenderSystem.outputDepthTextureOverride = this.depthView;
-        activePickTarget = this.framebuffer;
+        activePickTarget = this;
+        this.bindForPick();
     }
 
     public void bindForPick()
     {
-        if (this.framebuffer != null)
+        if (this.applied)
         {
-            activePickTarget = this.framebuffer;
-            this.framebuffer.bind();
+            /* Raw GL geometry and RenderPass geometry must write the texture read by pick(). */
+            activePickTarget = this;
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
+            GlStateManager._viewport(0, 0, this.gpuWidth, this.gpuHeight);
         }
     }
 
@@ -296,6 +314,12 @@ public class StencilFormFramebuffer
             this.previousColorView = null;
             this.previousDepthView = null;
             this.applied = false;
+            GlStateManager._viewport(this.previousViewport[0], this.previousViewport[1], this.previousViewport[2], this.previousViewport[3]);
+
+            if (this.previousScissorEnabled)
+            {
+                RenderSystem.enableScissorForRenderTypeDraws(this.previousScissorX, this.previousScissorY, this.previousScissorWidth, this.previousScissorHeight);
+            }
         }
 
         if (this.previousDrawFbo >= 0)

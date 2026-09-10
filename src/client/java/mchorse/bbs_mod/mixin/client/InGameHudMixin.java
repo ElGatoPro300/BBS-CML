@@ -24,8 +24,6 @@ public class InGameHudMixin
 
         if (current instanceof PlayCameraController)
         {
-            BBSRendering.onRenderBeforeScreen();
-
             info.cancel();
 
             return;
@@ -36,9 +34,4 @@ public class InGameHudMixin
         BBSRendering.prepareHudRenderState();
     }
 
-    @Inject(method = "extractRenderState", at = @At("TAIL"))
-    public void onRenderEnd(GuiGraphicsExtractor drawContext, DeltaTracker tickCounter, CallbackInfo info)
-    {
-        BBSRendering.onRenderBeforeScreen();
-    }
 }
