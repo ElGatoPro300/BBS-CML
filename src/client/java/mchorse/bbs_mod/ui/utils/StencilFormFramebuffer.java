@@ -114,9 +114,9 @@ public class StencilFormFramebuffer
 
             renderbuffer.resize(2, 2);
 
-            fb.deleteTextures().attach(texture, GL30.GL_COLOR_ATTACHMENT0);
-            fb.attach(renderbuffer);
-            fb.unbind();
+            framebuffer.deleteTextures().attach(texture, GL30.GL_COLOR_ATTACHMENT0);
+            framebuffer.attach(renderbuffer);
+            framebuffer.unbind();
         });
     }
 

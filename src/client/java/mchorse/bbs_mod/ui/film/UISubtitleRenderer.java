@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -14,7 +15,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 
 import org.joml.Matrix4f;
@@ -170,7 +170,7 @@ public class UISubtitleRenderer
         float x = -textureWidth * subtitle.anchorX;
         float y = -textureHeight * subtitle.anchorY;
         int color = Colors.setA(Colors.WHITE, Colors.getA(subtitle.color));
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
         builder.addVertex(x, y, 0F).setUv(0F, 1F).setColor(color);
         builder.addVertex(x, y + textureHeight, 0F).setUv(0F, 0F).setColor(color);
@@ -183,8 +183,8 @@ public class UISubtitleRenderer
                 .putFloat(subtitle.shadow).putFloat(subtitle.shadowOpaque ? 1F : 0F)
                 .putFloat(textureWidth).putFloat(textureHeight).get();
             GpuBuffer vertices = DefaultVertexFormat.POSITION_TEX_COLOR.uploadImmediateVertexBuffer(buffer.vertexBuffer());
-            RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(VertexFormat.DrawMode.QUADS);
-            GpuBuffer indexBuffer = indices.getIndexBuffer(6);
+            RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(VertexFormat.Mode.QUADS);
+            GpuBuffer indexBuffer = indices.getBuffer(6);
             GpuTextureView destination = RenderSystem.outputColorTextureOverride != null
                 ? RenderSystem.outputColorTextureOverride : Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
 
@@ -193,9 +193,9 @@ public class UISubtitleRenderer
             {
                 pass.setPipeline(BBSShaders.subtitlesPipeline);
                 pass.setUniform("SubtitleParameters", uniforms);
-                pass.bindTexture("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().get(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+                pass.bindTexture("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().getSampler(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
                 pass.setVertexBuffer(0, vertices);
-                pass.setIndexBuffer(indexBuffer, indices.getIndexType());
+                pass.setIndexBuffer(indexBuffer, indices.type());
                 pass.drawIndexed(0, 0, 6, 1);
             }
         }

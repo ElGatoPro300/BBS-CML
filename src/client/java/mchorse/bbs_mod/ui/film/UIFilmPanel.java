@@ -995,7 +995,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             menu.action(Icons.LINE, UIKeys.FILM_REPLACE_INVENTORY, () ->
             {
-                BaseValue.edit(this.getData().inventory, (inv) -> inv.fromPlayer(MinecraftClient.getInstance().player));
+                BaseValue.edit(this.getData().inventory, (inv) -> inv.fromPlayer(Minecraft.getInstance().player));
             });
         };
 
