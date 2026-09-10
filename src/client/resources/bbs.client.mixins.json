@@ -45,6 +45,7 @@
         "iris.IrisRenderingPipelineAccessor",
         "iris.IrisPipelinesAccessor",
         "iris.IrisRenderingPipelineMixin",
+        "iris.RenderTargetsMixin",
         "iris.CustomUniformsBuilderMixin",
         "iris.CustomUniformsAccessor",
         "iris.JcppProcessorMixin",
