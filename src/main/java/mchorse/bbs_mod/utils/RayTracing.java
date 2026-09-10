@@ -9,7 +9,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -98,7 +97,7 @@ public class RayTracing
         double dist1 = blockHit != null ? blockHit.getLocation().distanceToSqr(pos) : d * d;
         Vec3 dir = direction.normalize();
         Vec3 posDir = pos.add(dir.x * d, dir.y * d, dir.z * d);
-        AABB box = new AABB(pos.x - 0.5D, pos.y - 0.5D, pos.z - 0.5D, pos.x + 0.5D, pos.y + 0.5D, pos.z + 0.5D)
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(pos.x - 0.5D, pos.y - 0.5D, pos.z - 0.5D, pos.x + 0.5D, pos.y + 0.5D, pos.z + 0.5D)
             .expandTowards(dir.scale(d))
             .inflate(1D, 1D, 1D);
 

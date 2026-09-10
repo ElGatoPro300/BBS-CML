@@ -341,7 +341,7 @@ public class GunProjectileEntity extends Projectile implements IEntityFormProvid
         DamageSource source = this.damageSources().indirectMagic(this, owner);
 
         int fireTicks = entity.getRemainingFireTicks();
-        boolean deflectsArrows = entity.getType().is(EntityTypeTags.DEFLECTS_PROJECTILES);
+        boolean deflectsArrows = entity.getType().builtInRegistryHolder().is(EntityTypeTags.DEFLECTS_PROJECTILES);
 
         if (this.isOnFire() && !deflectsArrows)
         {

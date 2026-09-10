@@ -339,7 +339,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                                                 if (item != Items.AIR)
                                                 {
-                                                    effect = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(item));
+                                                    effect = new ItemParticleOption(ParticleTypes.ITEM, item);
                                                 }
                                             }
                                         }

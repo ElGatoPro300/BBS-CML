@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Map;
@@ -69,7 +70,7 @@ public class MobCemItemCapture
         {
             keyframes.usingItem.insertIfChanged(tick, stats.usingItem ? 1D : 0D);
             keyframes.itemUseTime.insertIfChanged(tick, (double) stats.itemUseElapsed);
-            keyframes.activeHand.insertIfChanged(tick, stats.activeHand == Hand.OFF_HAND ? 1D : 0D);
+            keyframes.activeHand.insertIfChanged(tick, stats.activeHand == InteractionHand.OFF_HAND ? 1D : 0D);
             keyframes.mainHand.insertIfChanged(tick, stats.mainHand.copy());
             keyframes.offHand.insertIfChanged(tick, stats.offHand.copy());
         });

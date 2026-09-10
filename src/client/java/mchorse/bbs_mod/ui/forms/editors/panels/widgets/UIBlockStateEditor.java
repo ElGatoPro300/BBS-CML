@@ -139,13 +139,13 @@ public class UIBlockStateEditor extends UIElement
             {
                 this.getContext().replaceContextMenu((menu) ->
                 {
-                    for (Object v : p.getValues())
+                    for (Object v : p.getPossibleValues())
                     {
                         IKey raw = IKey.constant(v.toString());
 
                         menu.action(Icons.BLOCK, raw, () ->
                         {
-                            this.acceptBlockState(this.blockState.with(p, (Comparable) v));
+                            this.acceptBlockState(this.blockState.setValue(p, (Comparable) v));
 
                             b.label = raw;
                         });

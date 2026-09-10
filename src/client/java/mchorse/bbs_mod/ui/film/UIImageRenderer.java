@@ -20,8 +20,9 @@ import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -77,7 +78,7 @@ public class UIImageRenderer
 
             RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
                 .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/image_overlay_" + mode))
-                .withBlend(blend)
+                .withColorTargetState(new ColorTargetState(blend))
                 .withCull(false);
 
             PIPELINES[mode] = RenderPipelines.register(builder.build());
@@ -166,13 +167,13 @@ public class UIImageRenderer
 
                 if (id != null)
                 {
-                    batcher.getContext().drawTexture(
+                    batcher.getContext().blit(
                         pipeline,
                         id,
                         (int) drawX,
                         (int) drawY,
-                        uv[0],
-                        uv[1],
+                        uv[0] / texture.width,
+                        uv[1] / texture.height,
                         (int) fw,
                         (int) fh,
                         (int) (uv[2] - uv[0]),

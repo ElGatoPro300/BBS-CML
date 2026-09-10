@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.render.BufferRenderer;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
@@ -25,7 +26,6 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
@@ -85,7 +85,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
         BBSRendering.setupLevelLighting();
 
-        VertexFormat format = DefaultVertexFormat.NEW_ENTITY;
+        VertexFormat format = DefaultVertexFormat.ENTITY;
         
         this.renderFluid(format, BBSRendering.getEntityTranslucentProgram(),
             stack,
@@ -99,7 +99,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
     @Override
     protected void render3D(FormRenderingContext context)
     {
-        VertexFormat format = DefaultVertexFormat.NEW_ENTITY;
+        VertexFormat format = DefaultVertexFormat.ENTITY;
         GlProgram shader = BBSRendering.getEntityTranslucentProgram();
 
         this.renderFluid(format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition());
@@ -115,7 +115,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         BBSRendering.bindProgram(BBSRendering.getProgram(RenderPipelines.LINES));
         GL11.glLineWidth(2.0F);
         
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
         
         PoseStack stack = context.stack;
         
@@ -191,7 +191,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         }
 
         Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, format);
+        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, format);
 
         Color color = this.form.color.get();
         Color finalColor = color.copy();

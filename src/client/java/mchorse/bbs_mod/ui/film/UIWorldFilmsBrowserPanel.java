@@ -198,12 +198,12 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         worldsFuture.thenCombine(filmsFuture, (worlds, films) ->
         {
-            MinecraftClient.getInstance().execute(() -> this.applyScanResults(worlds, films));
+            Minecraft.getInstance().execute(() -> this.applyScanResults(worlds, films));
 
             return null;
         }).exceptionally((error) ->
         {
-            MinecraftClient.getInstance().execute(() ->
+            Minecraft.getInstance().execute(() ->
             {
                 this.scanning = false;
                 error.printStackTrace();

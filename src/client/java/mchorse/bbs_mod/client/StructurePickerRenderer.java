@@ -6,7 +6,7 @@ import mchorse.bbs_mod.items.StructurePickerRegionMerger;
 import mchorse.bbs_mod.items.StructurePickerSelection;
 import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -21,7 +21,7 @@ import java.util.Set;
 
 public class StructurePickerRenderer
 {
-    public static void render(WorldRenderContext context)
+    public static void render(LevelRenderContext context)
     {
         if (!StructurePickerClient.isActive() && !UIStructurePickerPanel.isOpened())
         {
@@ -35,7 +35,7 @@ public class StructurePickerRenderer
 
         Minecraft mc = Minecraft.getInstance();
 
-        if (context.matrices() == null)
+        if (context.poseStack() == null)
         {
             return;
         }
@@ -47,7 +47,7 @@ public class StructurePickerRenderer
         GlStateManager._disableDepthTest();
         GlStateManager._depthMask(false);
 
-        PoseStack stack = context.matrices();
+        PoseStack stack = context.poseStack();
 
         stack.pushPose();
         stack.translate(-camera.x, -camera.y, -camera.z);

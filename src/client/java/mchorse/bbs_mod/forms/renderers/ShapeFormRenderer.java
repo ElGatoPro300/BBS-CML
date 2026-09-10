@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.shape.ShapeGraphEvaluator;
@@ -28,7 +29,6 @@ import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.math.Noise;
 
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix3f;
@@ -289,7 +289,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             try
             {
-                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.NEW_ENTITY);
+                BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
@@ -309,7 +309,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.unshadedVertices = true;
 
-                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
                 this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightTexture.FULL_BRIGHT);
 
@@ -381,8 +381,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         Tesselator tessellator = Tesselator.getInstance();
         BufferBuilder builder = tessellator.begin(
-            VertexFormat.DrawMode.QUADS,
-            unshaded ? DefaultVertexFormat.POSITION_TEX_COLOR : DefaultVertexFormat.NEW_ENTITY
+            VertexFormat.Mode.QUADS,
+            unshaded ? DefaultVertexFormat.POSITION_TEX_COLOR : DefaultVertexFormat.ENTITY
         );
 
         this.buildShapeGeometry(builder, stack, type, color, overlay, light);
@@ -394,7 +394,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             this.unshadedVertices = true;
 
-            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightTexture.FULL_BRIGHT);
             BillboardRenderLayers.draw(glowBuilder.buildOrThrow(), texObj, false, false, false, false, true);
@@ -999,10 +999,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             /* Paint RGB/A from verts; spatial mask is applied in flat_paint_overlay. */
             builder.addVertex(matrix, x, y, z)
                    .setColor(c.r, c.g, c.b, c.a)
-                   .texture(u, v)
-                   .overlay(overlay)
-                   .light(light)
-                   .normal(normal.x, normal.y, normal.z);
+                   .setUv(u, v)
+                   .setOverlay(overlay)
+                   .setLight(light)
+                   .setNormal(normal.x, normal.y, normal.z);
         }
         else if (this.overlayVertexMode == OverlayVertexMode.COLOR_TINT)
         {
@@ -1018,10 +1018,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         {
             builder.addVertex(matrix, x, y, z)
                    .setColor(c.r, c.g, c.b, c.a)
-                   .texture(u, v)
-                   .overlay(overlay)
-                   .light(light)
-                   .normal(normal.x, normal.y, normal.z);
+                   .setUv(u, v)
+                   .setOverlay(overlay)
+                   .setLight(light)
+                   .setNormal(normal.x, normal.y, normal.z);
         }
     }
 
@@ -1123,12 +1123,12 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             () ->
             {
                 Texture texObj = this.resolveTexture(texture);
-                Tessellator tessellator = Tessellator.getInstance();
-                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-                int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+                Tesselator tessellator = Tesselator.getInstance();
+                BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
+                int paintLight = LightTexture.FULL_BRIGHT;
 
                 this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
-                BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
+                BillboardRenderLayers.draw(builder.buildOrThrow(), texObj, false, false, false, false);
             }
         );
 
@@ -1188,12 +1188,12 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             () ->
             {
                 Texture texObj = this.resolveTexture(texture);
-                Tessellator tessellator = Tessellator.getInstance();
-                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-                int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+                Tesselator tessellator = Tesselator.getInstance();
+                BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
+                int tintLight = LightTexture.FULL_BRIGHT;
 
                 this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);
-                BillboardRenderLayers.draw(builder.end(), texObj, false, false, false, false);
+                BillboardRenderLayers.draw(builder.buildOrThrow(), texObj, false, false, false, false);
             }
         );
 

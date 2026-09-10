@@ -357,11 +357,9 @@ public class BBSCommands
 
                         accessor.bbs$setLevelInfo(new LevelSettings(levelInfo.levelName(),
                             levelInfo.gameType(),
-                            levelInfo.hardcore(),
-                            levelInfo.difficulty(),
+                            levelInfo.difficultySettings(),
                             enabled,
-                            levelInfo.gameRules(),
-                            levelInfo.getDataConfiguration()
+                            levelInfo.dataConfiguration()
                         ));
 
                         for (ServerPlayer serverPlayerEntity : server.getPlayerList().getPlayers())

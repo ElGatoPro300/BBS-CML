@@ -186,7 +186,7 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
     private void syncFromWorld()
     {
         ClientLevel world = Minecraft.getInstance().level;
-        long timeOfDay = world == null ? 6000L : world.getDayTime() % 24000L;
+        long timeOfDay = world == null ? 6000L : world.getOverworldClockTime() % 24000L;
 
         if (timeOfDay < 0L)
         {

@@ -151,7 +151,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
                 }
                 else
                 {
-                    this.setEffect(Identifier.of(l));
+                    this.setEffect(Identifier.parse(l));
                 }
             });
 
@@ -159,9 +159,9 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
             strings.add("none");
 
-            for (RegistryKey<StatusEffect> key : Registries.STATUS_EFFECT.getKeys())
+            for (ResourceKey<MobEffect> key : BuiltInRegistries.MOB_EFFECT.registryKeySet())
             {
-                strings.add(key.getValue().toString());
+                strings.add(key.identifier().toString());
             }
 
             overlayPanel.addValues(strings);

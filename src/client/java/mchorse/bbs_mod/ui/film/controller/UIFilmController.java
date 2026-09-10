@@ -72,7 +72,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
@@ -105,7 +105,6 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -188,7 +187,7 @@ public class UIFilmController extends UIElement
     private int pov;
     private boolean paused;
 
-    private WorldRenderContext worldRenderContext;
+    private LevelRenderContext worldRenderContext;
     private final Matrix4f gizmoInterfaceMatrix = new Matrix4f();
 
     public UIFilmController(UIFilmPanel panel)
@@ -290,7 +289,7 @@ public class UIFilmController extends UIElement
 
     private void toggleMousePointer(boolean disable)
     {
-        Window window = Minecraft.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         if (disable)
         {
@@ -1148,16 +1147,7 @@ public class UIFilmController extends UIElement
             if (hit.getType() == HitResult.Type.ENTITY)
             {
                 EntityHitResult entityHit = (EntityHitResult) hit;
-                InteractionResult atLocation = interactions.interactAt(player, entityHit.getEntity(), entityHit, hand);
-
-                if (atLocation.consumesAction())
-                {
-                    this.finishControlUse(player, hand, atLocation);
-
-                    return;
-                }
-
-                InteractionResult onEntity = interactions.interact(player, entityHit.getEntity(), hand);
+                InteractionResult onEntity = interactions.interact(player, entityHit.getEntity(), entityHit, hand);
 
                 if (onEntity.consumesAction())
                 {
@@ -1977,7 +1967,7 @@ public class UIFilmController extends UIElement
          * ignores worldStack — forms still land via ModelVAORenderer (renderingWorld ×
          * BBSRendering.camera). Gizmo stencil uses PositionColorProgram + ModelView, so
          * after cacheMatrices() (identity MV) put the camera on ModelView as well. */
-        PoseStack worldStack = this.worldRenderContext.matrices();
+        PoseStack worldStack = this.worldRenderContext != null ? this.worldRenderContext.poseStack() : null;
         if (worldStack != null)
         {
             worldStack.pushPose();
@@ -2102,7 +2092,7 @@ public class UIFilmController extends UIElement
         }
     }
 
-    public void renderFrame(WorldRenderContext context)
+    public void renderFrame(LevelRenderContext context)
     {
         this.worldRenderContext = context;
 
@@ -2120,7 +2110,7 @@ public class UIFilmController extends UIElement
                 int tick = runner.ticks;
                 int duration = runner.getContext().clips == null ? 0 : runner.getContext().clips.calculateDuration();
 
-                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), duration, runner.getPosition(), Minecraft.getInstance().gameRenderer.getMainCamera(), context.matrices());
+                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), duration, runner.getPosition(), Minecraft.getInstance().gameRenderer.getMainCamera(), context.poseStack());
             }
         }
 
@@ -2158,7 +2148,7 @@ public class UIFilmController extends UIElement
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 
-    private void renderDropItemTrajectory(WorldRenderContext context)
+    private void renderDropItemTrajectory(LevelRenderContext context)
     {
         Clip clip = this.panel.actionEditor == null ? null : this.panel.actionEditor.getClip();
 
@@ -2190,7 +2180,7 @@ public class UIFilmController extends UIElement
         double cy = Minecraft.getInstance().gameRenderer.getMainCamera().position().y;
         double cz = Minecraft.getInstance().gameRenderer.getMainCamera().position().z;
         Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         /* Preview path follows ItemEntity-like drag and gravity and stops on first block hit. */
         int primaryColor = BBSSettings.primaryColor.get() & 0x00FFFFFF;
@@ -2198,7 +2188,7 @@ public class UIFilmController extends UIElement
         float baseG = ((primaryColor >> 8) & 0xFF) / 255F;
         float baseB = (primaryColor & 0xFF) / 255F;
 
-        PoseStack stack = context.matrices();
+        PoseStack stack = context.poseStack();
 
         final int maxSteps = 80;
         final int subSteps = 4;
@@ -2314,7 +2304,7 @@ public class UIFilmController extends UIElement
             || !this.editorController.isActorPickingBlocked(replay);
     }
 
-    private void renderStencil(WorldRenderContext renderContext, UIContext context, boolean altPressed)
+    private void renderStencil(LevelRenderContext renderContext, UIContext context, boolean altPressed)
     {
         if (this.panel.getData() == null)
         {

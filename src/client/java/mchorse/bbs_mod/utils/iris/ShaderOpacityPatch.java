@@ -9,7 +9,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.GraphicsPreset;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
+import net.minecraft.client.renderer.ProjectionMatrixBuffer;
 
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
@@ -24,6 +24,7 @@ import org.joml.Matrix4fStack;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.MainTarget;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -601,7 +602,7 @@ public class ShaderOpacityPatch
             flushingPostDeferred = false;
             /* Soft-opacity flushes can leave depthMask dirty for later world draws. */
             GlStateManager._depthMask(true);
-            GlStateManager._colorMask(true, true, true, true);
+            GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
         }
     }
 
@@ -940,7 +941,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            RenderSystem.setProjectionMatrix(new PerspectiveProjectionMatrixBuffer("shader_opacity_deferred").getBuffer(entry.projection), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(new ProjectionMatrixBuffer("shader_opacity_deferred").getBuffer(entry.projection), ProjectionType.ORTHOGRAPHIC);
             flushingDepthWrite = entry.depthWrite;
             GL11.glDepthMask(entry.depthWrite);
 
@@ -985,7 +986,7 @@ public class ShaderOpacityPatch
 
             /* Isolate entries: soft Block/Structure can leave lightmap off, additive blend,
              * or colorMask false — that darkens soft limbs drawn later in the same flush. */
-            GlStateManager._colorMask(true, true, true, true);
+            GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
             GlStateManager._enableBlend();
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
             GlStateManager._depthMask(savedDepthMask);

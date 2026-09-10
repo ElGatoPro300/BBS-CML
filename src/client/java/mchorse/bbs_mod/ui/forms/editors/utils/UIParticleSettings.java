@@ -8,6 +8,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
@@ -27,12 +28,12 @@ public class UIParticleSettings extends UIElement
     {
         this.particle = new UIButton(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_PICK, (b) ->
         {
-            UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_TITLE, (l) -> this.setParticle(Identifier.of(l)));
+            UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_TITLE, (l) -> this.setParticle(Identifier.parse(l)));
             List<String> strings = new ArrayList<>();
 
-            for (RegistryKey<ParticleType<?>> key : Registries.PARTICLE_TYPE.getKeys())
+            for (Identifier key : BuiltInRegistries.PARTICLE_TYPE.keySet())
             {
-                strings.add(key.getValue().toString());
+                strings.add(key.toString());
             }
 
             overlayPanel.addValues(strings);

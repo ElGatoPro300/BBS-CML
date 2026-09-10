@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.client.render.BufferRenderer;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -15,8 +16,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
-
-import net.minecraft.client.renderer.LightTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -192,7 +191,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(this.r, this.g, this.b, alpha);
 
-        BufferBuilder groupBuilder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.NEW_ENTITY);
+        BufferBuilder groupBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
 
         ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
@@ -244,8 +243,8 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
                 MathUtils.clamp(vb, 0F, 1F),
                 MathUtils.clamp(va, 0F, 1F)
             )
-            .texture(vertex.uv.x, vertex.uv.y)
-            .overlay(this.overlay);
+            .setUv(vertex.uv.x, vertex.uv.y)
+            .setOverlay(this.overlay);
 
         if (this.stencilMap != null)
         {

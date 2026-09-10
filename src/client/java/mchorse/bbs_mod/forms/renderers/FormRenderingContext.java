@@ -10,7 +10,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix4f;
@@ -96,7 +95,7 @@ public class FormRenderingContext
         return this;
     }
 
-    public FormRenderingContext camera(Camera camera)
+    public FormRenderingContext camera(net.minecraft.client.Camera camera)
     {
         this.camera.position.set(camera.position().x, camera.position().y, camera.position().z);
 

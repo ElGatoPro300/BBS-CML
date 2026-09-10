@@ -5,7 +5,11 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
+import mchorse.bbs_mod.data.DataStorageUtils;
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -16,7 +20,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.special.SpecialModelRenderer;
 import net.minecraft.core.BlockPos;
@@ -91,12 +94,13 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public void render(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean hasGlint, int outlineColor)
+    public void submit(ItemStack stack, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean hasGlint, int outlineColor)
     {
         Item item = this.get(stack);
 
         if (item != null)
         {
+            ItemDisplayContext mode = ItemDisplayContext.NONE;
             ModelProperties properties = item.entity.getProperties();
             Form form = properties.getForm(mode);
 
@@ -114,14 +118,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 try
                 {
-                    if (mode == ItemDisplayContext.GUI)
-                    {
-                        BBSRendering.depthMask(true);
-                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-                        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
-                    }
-
-                    int renderLight = mode == ItemDisplayContext.GUI ? LightTexture.FULL_BRIGHT : light;
+                    int renderLight = light;
 
                     FormUtilsClient.render(form, new FormRenderingContext()
                         .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false))
@@ -129,18 +126,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                 }
                 finally
                 {
-                    if (mode == ItemDisplayContext.GUI)
-                    {
-                        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
-                        BBSRendering.restoreAfterGuiItemForm();
-                        BBSRendering.depthMask(true);
-                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-                    }
-                    else
-                    {
-                        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-                    }
-
+                    BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
                     BBSRendering.disableDepthTest();
                 }
                 matrices.popPose();
@@ -160,7 +146,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
             return this.map.get(stack);
         }
 
-        ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ZERO, BBSMod.MODEL_BLOCK.getDefaultState());
+        ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ZERO, BBSMod.MODEL_BLOCK.defaultBlockState());
         Item item = new Item(entity);
 
         this.map.put(stack, item);
@@ -175,13 +161,17 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
         var world = Minecraft.getInstance().level;
         if (world != null)
         {
-            entity.read(TagValueInput.create(ProblemReporter.DISCARDING, world.registryAccess(), nbt));
+            BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
+            if (baseType instanceof MapType mapType)
+            {
+                entity.getProperties().fromData(mapType, world.registryAccess());
+            }
         }
 
         return item;
     }
 
-    public static class Unbaked implements SpecialModelRenderer.Unbaked
+    public static class Unbaked implements SpecialModelRenderer.Unbaked<ItemStack>
     {
         public static final MapCodec<ModelBlockItemRenderer.Unbaked> CODEC = MapCodec.unit(new ModelBlockItemRenderer.Unbaked());
 
@@ -192,7 +182,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
         }
 
         @Override
-        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakingContext context)
+        public SpecialModelRenderer<ItemStack> bake(SpecialModelRenderer.BakingContext context)
         {
             return BBSModClient.getModelBlockItemRenderer();
         }
