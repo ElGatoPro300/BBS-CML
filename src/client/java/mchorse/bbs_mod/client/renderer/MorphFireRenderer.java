@@ -58,7 +58,7 @@ public final class MorphFireRenderer
             return;
         }
 
-        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.level() != world)
+        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getEntityWorld() != world)
         {
             MorphFireRenderer.proxy = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
         }

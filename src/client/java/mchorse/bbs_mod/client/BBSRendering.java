@@ -37,7 +37,6 @@ import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexSodiumConsumer;
-import mchorse.bbs_mod.mixin.client.GuiRendererAccessor;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -65,18 +64,18 @@ import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.sodium.SodiumUtils;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.render.GuiRenderer;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.fog.FogRenderer;
-import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -95,7 +94,6 @@ import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlRenderPipeline;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
 import com.mojang.blaze3d.pipeline.MainTarget;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -118,7 +116,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class BBSRendering
@@ -133,14 +130,6 @@ public class BBSRendering
     private static final Vector3f WORLD_LEVEL_LIGHT_1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
 
     public static boolean canRender;
-
-    /**
-     * Off-screen / viewport overlays (image clips, screen effects) must not write into
-     * {@code GameRenderer}'s shared {@link GuiRenderState}: that buffer already holds the
-     * extracted BBS screen for the later GUI present. Resetting it after {@code renderLevel}
-     * made the film editor UI vanish in 26.1.
-     */
-    private static final GuiRenderState WORLD_OVERLAY_GUI_STATE = new GuiRenderState();
 
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
@@ -413,7 +402,7 @@ public class BBSRendering
         ensureMainFramebuffer();
         bindMainFramebuffer(false);
         restoreGuiRenderState();
-        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
+        GlStateManager._colorMask(true, true, true, true);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
     }
@@ -430,7 +419,7 @@ public class BBSRendering
     {
         ModelVAORenderer.clearFormColorGrade();
         /* Keep vanilla's GL state cache synchronized between preview render passes. */
-        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
+        GlStateManager._colorMask(true, true, true, true);
         GlStateManager._depthMask(true);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -448,7 +437,7 @@ public class BBSRendering
     public static void restoreWorldRenderState()
     {
         GlStateManager._depthMask(true);
-        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
+        GlStateManager._colorMask(true, true, true, true);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         GlStateManager._enableDepthTest();
@@ -489,7 +478,7 @@ public class BBSRendering
 
     /**
      * Model-block / world forms can leave TU0 on a form atlas, ColorModulator tinted, or blend
-     * enabled (DST_COLOR from color masks). {@link GameRenderer#renderBlur()} then samples that
+     * enabled (DST_COLOR from color masks). {@link GameRenderer#processBlurEffect()} then samples that
      * state and the pause-menu world goes solid dark while buttons still draw fine.
      */
     public static void prepareMenuBackgroundState()
@@ -606,7 +595,7 @@ public class BBSRendering
 
         BlockPos pos = BlockPos.containing(entity.getX(), entity.getY(), entity.getZ());
 
-        return LevelRenderer.getLightCoords(entity.getWorld(), pos);
+        return LevelRenderer.getLightColor(entity.getWorld(), pos);
     }
 
     /**
@@ -661,7 +650,7 @@ public class BBSRendering
 
         ModelBlockEntityUpdateCallback.EVENT.register((entity) ->
         {
-            if (entity.hasLevel() && entity.getLevel().isClientSide())
+            if (entity.hasWorld() && entity.getWorld().isClient())
             {
                 capturedModelBlocks.add(entity);
             }
@@ -669,7 +658,7 @@ public class BBSRendering
 
         TriggerBlockEntityUpdateCallback.EVENT.register((entity) ->
         {
-            if (entity.hasLevel() && entity.getLevel().isClientSide())
+            if (entity.hasWorld() && entity.getWorld().isClient())
             {
                 TriggerBlockEntityRenderer.capturedTriggerBlocks.add(entity);
             }
@@ -775,12 +764,9 @@ public class BBSRendering
         {
             RenderTarget target = clientFramebuffer != null ? clientFramebuffer : mc.getMainRenderTarget();
 
-            /* Full-window blit is for playback without the editor. With UIScreen open the
-             * film preview samples the snapshot texture; blitting here stretched the
-             * camera-resolution FBO across the window and the later GUI present drew
-             * into that same target (nested preview + elongated chrome). */
-            if ((width != 0 || customSize) && framebuffer != null && UIScreen.getCurrentMenu() == null)
+            if ((width != 0 || customSize) && framebuffer != null)
             {
+                /* 1.21.11: Framebuffer.draw(w, h) -> blitToScreen() */
                 framebuffer.blitToScreen();
             }
 
@@ -867,115 +853,113 @@ public class BBSRendering
 
         Minecraft mc = Minecraft.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
-
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
-            extractWorldGuiOverlays((batcher) ->
+            if (mc.gameRenderer != null && mc.gameRenderer.guiRenderState != null)
             {
-                Window window = mc.getWindow();
-                Area area = new Area(0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight());
+                BbsGuiScale.withBbsWindowScale(() ->
+                {
+                    Window window = mc.getWindow();
+                    int sw = window.getGuiScaledWidth();
+                    int sh = window.getGuiScaledHeight();
+                    Area area = new Area(0, 0, sw, sh);
 
-                VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-                ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
-            });
+                    mc.gameRenderer.guiRenderState.reset();
+                    GuiGraphics drawContext = new GuiGraphics(mc, mc.gameRenderer.guiRenderState, sw, sh);
+                    Batcher2D batcher = new Batcher2D(drawContext);
+
+                    VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+
+                    ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                    flushGuiRenderState();
+                });
+            }
         }
 
         if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
-            extractWorldGuiOverlays((batcher) ->
+            if (mc.gameRenderer != null && mc.gameRenderer.guiRenderState != null)
             {
-                Window window = mc.getWindow();
-                Area area = new Area(0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight());
-
-                VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-                ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
-            });
-        }
-
-        if (customSize && currentMenu instanceof UIDashboard dashboard
-            && dashboard.getPanels().panel instanceof UIFilmPanel panel
-            && panel.needsViewportRender()
-            && panel.getData() != null
-            && panel.getData().camera != null)
-        {
-            extractWorldGuiOverlays((offscreenBatcher) ->
-            {
-                Window window = mc.getWindow();
-                int sw = window.getGuiScaledWidth();
-                int sh = window.getGuiScaledHeight();
-                Area fullScreen = new Area(0, 0, sw, sh);
-                CameraClipContext context = panel.getRunner().getContext();
-
-                context.clipData.clear();
-                context.clips = panel.getData().camera;
-                context.setup(panel.getCursor(), panel.getRunner().isRunning() ? mc.getDeltaTracker().getGameTimeDeltaPartialTick(false) : 0F);
-
-                for (Clip clip : panel.getData().camera.getClips(panel.getCursor()))
+                BbsGuiScale.withBbsWindowScale(() ->
                 {
-                    context.apply(clip, panel.getRunner().getPosition());
-                }
+                    Window window = mc.getWindow();
+                    int sw = window.getGuiScaledWidth();
+                    int sh = window.getGuiScaledHeight();
+                    Area area = new Area(0, 0, sw, sh);
 
-                VideoRenderer.renderClips(new PoseStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, sw, sh, false);
-                ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
-            });
+                    mc.gameRenderer.guiRenderState.reset();
+                    GuiGraphics drawContext = new GuiGraphics(mc, mc.gameRenderer.guiRenderState, sw, sh);
+                    Batcher2D batcher = new Batcher2D(drawContext);
+
+                    VideoRenderer.renderClips(new PoseStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+
+                    ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                    flushGuiRenderState();
+                });
+            }
         }
 
-        /* 26.1 presents the extracted Screen after renderLevel. Snapshot the film FBO and
-         * rebind the window target first, otherwise GuiRenderer draws the dashboard into
-         * the camera-resolution buffer (preview shows the UI nested inside itself). */
-        renderingWorld = false;
-        onRenderBeforeScreen();
-        prepareHudRenderState();
-    }
-
-    private static void extractWorldGuiOverlays(Consumer<Batcher2D> draw)
-    {
-        Minecraft mc = Minecraft.getInstance();
-
-        if (mc == null || mc.gameRenderer == null || mc.gameRenderer.fogRenderer == null)
+        if (!customSize)
         {
+            renderingWorld = false;
+            /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
+             * HUD (hotbar) and the pause menu draw next and would go dark without this. */
+            prepareHudRenderState();
+
             return;
         }
 
-        BbsGuiScale.withBbsWindowScale(() ->
+        if (currentMenu instanceof UIDashboard dashboard)
         {
-            Window window = mc.getWindow();
-            GuiGraphicsExtractor drawContext = new GuiGraphicsExtractor(mc, WORLD_OVERLAY_GUI_STATE, window.getGuiScaledWidth(), window.getGuiScaledHeight());
+            if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
+            {
+                if (mc.gameRenderer != null && mc.gameRenderer.guiRenderState != null)
+                {
+                    BbsGuiScale.withBbsWindowScale(() ->
+                    {
+                        Window window = mc.getWindow();
+                        int sw = window.getGuiScaledWidth();
+                        int sh = window.getGuiScaledHeight();
+                        Area fullScreen = new Area(0, 0, sw, sh);
 
-            WORLD_OVERLAY_GUI_STATE.reset();
-            draw.accept(new Batcher2D(drawContext));
-            flushWorldOverlayGuiState();
-        });
+                        if (panel.getData() != null && panel.getData().camera != null)
+                        {
+                            mc.gameRenderer.guiRenderState.reset();
+                            GuiGraphics drawContext = new GuiGraphics(mc, mc.gameRenderer.guiRenderState, sw, sh);
+                            Batcher2D offscreenBatcher = new Batcher2D(drawContext);
+
+                            CameraClipContext context = panel.getRunner().getContext();
+
+                            context.clipData.clear();
+                            context.clips = panel.getData().camera;
+                            context.setup(panel.getCursor(), panel.getRunner().isRunning() ? mc.getDeltaTracker().getGameTimeDeltaPartialTick(false) : 0F);
+
+                            for (Clip clip : panel.getData().camera.getClips(panel.getCursor()))
+                            {
+                                context.apply(clip, panel.getRunner().getPosition());
+                            }
+
+                            VideoRenderer.renderClips(new PoseStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, sw, sh, false);
+
+                            ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
+                            flushGuiRenderState();
+                        }
+                    });
+                }
+            }
+        }
+
+        renderingWorld = false;
     }
 
     public static void flushGuiRenderState()
     {
-        flushWorldOverlayGuiState();
-    }
-
-    private static void flushWorldOverlayGuiState()
-    {
         Minecraft mc = Minecraft.getInstance();
 
-        if (mc == null || mc.gameRenderer == null || mc.gameRenderer.guiRenderer == null || mc.gameRenderer.fogRenderer == null)
+        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.guiRenderer != null && mc.gameRenderer.guiRenderState != null && mc.gameRenderer.fogRenderer != null)
         {
-            return;
-        }
-
-        GuiRenderer renderer = mc.gameRenderer.guiRenderer;
-        GuiRendererAccessor accessor = (GuiRendererAccessor) (Object) renderer;
-        GuiRenderState previous = accessor.bbs$getRenderState();
-
-        accessor.bbs$setRenderState(WORLD_OVERLAY_GUI_STATE);
-
-        try
-        {
-            renderer.render(mc.gameRenderer.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
-        }
-        finally
-        {
-            accessor.bbs$setRenderState(previous);
-            WORLD_OVERLAY_GUI_STATE.reset();
+            mc.gameRenderer.guiRenderer.render(mc.gameRenderer.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
+            mc.gameRenderer.guiRenderState.reset();
         }
     }
 
@@ -1070,7 +1054,7 @@ public class BBSRendering
     {
     }
 
-    public static void renderHud(GuiGraphicsExtractor drawContext, float tickDelta)
+    public static void renderHud(GuiGraphics drawContext, float tickDelta)
     {
         Batcher2D batcher2D = new Batcher2D(drawContext);
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
@@ -1103,7 +1087,7 @@ public class BBSRendering
         }
     }
 
-    private static void renderSelectedReplayHud(GuiGraphicsExtractor drawContext, Batcher2D batcher2D, int yOffset)
+    private static void renderSelectedReplayHud(GuiGraphics drawContext, Batcher2D batcher2D, int yOffset)
     {
         Replay replay = BBSModClient.getSelectedReplay();
 
@@ -1229,7 +1213,7 @@ public class BBSRendering
         return bottom ? screenH - margin - boxH : margin + extraTopLeft;
     }
 
-    public static void renderCoolStuff(LevelRenderContext worldRenderContext)
+    public static void renderCoolStuff(WorldRenderContext worldRenderContext)
     {
         if (Minecraft.getInstance().screen instanceof UIScreen screen)
         {
@@ -2000,8 +1984,7 @@ public class BBSRendering
 
     public static void colorMask(boolean red, boolean green, boolean blue, boolean alpha)
     {
-        int mask = (red ? ColorTargetState.WRITE_RED : 0) | (green ? ColorTargetState.WRITE_GREEN : 0) | (blue ? ColorTargetState.WRITE_BLUE : 0) | (alpha ? ColorTargetState.WRITE_ALPHA : 0);
-        GlStateManager._colorMask(mask);
+        GlStateManager._colorMask(red, green, blue, alpha);
     }
 
     public static void setShaderColor(float r, float g, float b, float a)
@@ -2057,7 +2040,7 @@ public class BBSRendering
 
         if (RenderSystem.getDynamicUniforms() != null && matrix != null)
         {
-            GpuBufferSlice slice = RenderSystem.getDynamicUniforms().writeTransform(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
+            GpuBufferSlice slice = RenderSystem.getDynamicUniforms().write(matrix, new Vector4f(), new Vector3f(), new Matrix4f());
             RenderSystem.setProjectionMatrix(slice, type);
         }
     }

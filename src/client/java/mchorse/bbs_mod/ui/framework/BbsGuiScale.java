@@ -3,7 +3,7 @@ package mchorse.bbs_mod.ui.framework;
 import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ProjectionMatrixBuffer;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
@@ -19,7 +19,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 public final class BbsGuiScale
 {
     private static boolean restoringGameScale;
-    private static ProjectionMatrixBuffer bbsGuiProjection;
+    private static PerspectiveProjectionMatrixBuffer bbsGuiProjection;
 
     private BbsGuiScale()
     {}
@@ -135,7 +135,7 @@ public final class BbsGuiScale
 
             if (bbsGuiProjection == null)
             {
-                bbsGuiProjection = new ProjectionMatrixBuffer("bbs_gui");
+                bbsGuiProjection = new PerspectiveProjectionMatrixBuffer("bbs_gui");
             }
 
             RenderSystem.backupProjectionMatrix();

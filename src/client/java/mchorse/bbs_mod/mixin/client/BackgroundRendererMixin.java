@@ -12,20 +12,19 @@ import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(FogRenderer.class)
 public class BackgroundRendererMixin
 {
     @Inject(method = "computeFogColor", at = @At("HEAD"), cancellable = true)
-    private void onGetFogColor(Camera camera, float tickDelta, ClientLevel world, int clampedViewDistance, float skyDarkness, Vector4f color, CallbackInfo info)
+    private void onGetFogColor(Camera camera, float tickDelta, ClientLevel world, int clampedViewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> info)
     {
         if (BBSRendering.isChromaSkyEnabled())
         {
-            Color chromaColor = Color.rgb(BBSRendering.getChromaSkyColor());
+            Color color = Color.rgb(BBSRendering.getChromaSkyColor());
 
-            color.set(chromaColor.r, chromaColor.g, chromaColor.b, 1F);
-            info.cancel();
+            info.setReturnValue(new Vector4f(color.r, color.g, color.b, 1F));
         }
     }
 }

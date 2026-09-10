@@ -27,6 +27,7 @@ import mchorse.bbs_mod.utils.PermissionUtils;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.repos.RepositoryOperation;
 
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
@@ -58,8 +59,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import io.netty.buffer.Unpooled;
 
 public class ServerNetwork
 {
@@ -147,7 +146,7 @@ public class ServerNetwork
 
         public FriendlyByteBuf asPacketByteBuf()
         {
-            FriendlyByteBuf out = new FriendlyByteBuf(Unpooled.buffer());
+            FriendlyByteBuf out = PacketByteBufs.create();
             out.writeBytes(this.data);
             return out;
         }
@@ -186,22 +185,22 @@ public class ServerNetwork
 
     public static void setup()
     {
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_MODEL_BLOCK_FORM_PACKET), BufPayload.codecFor(idFor(SERVER_MODEL_BLOCK_FORM_PACKET)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_MODEL_BLOCK_TRANSFORMS_PACKET), BufPayload.codecFor(idFor(SERVER_MODEL_BLOCK_TRANSFORMS_PACKET)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_PLAYER_FORM_PACKET), BufPayload.codecFor(idFor(SERVER_PLAYER_FORM_PACKET)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_MANAGER_DATA_PACKET), BufPayload.codecFor(idFor(SERVER_MANAGER_DATA_PACKET)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_ACTION_RECORDING), BufPayload.codecFor(idFor(SERVER_ACTION_RECORDING)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_TOGGLE_FILM), BufPayload.codecFor(idFor(SERVER_TOGGLE_FILM)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_ACTION_CONTROL), BufPayload.codecFor(idFor(SERVER_ACTION_CONTROL)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_FILM_DATA_SYNC), BufPayload.codecFor(idFor(SERVER_FILM_DATA_SYNC)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_PLAYER_TP), BufPayload.codecFor(idFor(SERVER_PLAYER_TP)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_ANIMATION_STATE_TRIGGER), BufPayload.codecFor(idFor(SERVER_ANIMATION_STATE_TRIGGER)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_SHARED_FORM), BufPayload.codecFor(idFor(SERVER_SHARED_FORM)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_ZOOM), BufPayload.codecFor(idFor(SERVER_ZOOM)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_PAUSE_FILM), BufPayload.codecFor(idFor(SERVER_PAUSE_FILM)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_TRIGGER_BLOCK_UPDATE), BufPayload.codecFor(idFor(SERVER_TRIGGER_BLOCK_UPDATE)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_TRIGGER_BLOCK_CLICK), BufPayload.codecFor(idFor(SERVER_TRIGGER_BLOCK_CLICK)));
-        PayloadTypeRegistry.serverboundPlay().register(idFor(SERVER_SET_GAME_MODE), BufPayload.codecFor(idFor(SERVER_SET_GAME_MODE)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_MODEL_BLOCK_FORM_PACKET), BufPayload.codecFor(idFor(SERVER_MODEL_BLOCK_FORM_PACKET)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_MODEL_BLOCK_TRANSFORMS_PACKET), BufPayload.codecFor(idFor(SERVER_MODEL_BLOCK_TRANSFORMS_PACKET)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_PLAYER_FORM_PACKET), BufPayload.codecFor(idFor(SERVER_PLAYER_FORM_PACKET)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_MANAGER_DATA_PACKET), BufPayload.codecFor(idFor(SERVER_MANAGER_DATA_PACKET)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_ACTION_RECORDING), BufPayload.codecFor(idFor(SERVER_ACTION_RECORDING)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_TOGGLE_FILM), BufPayload.codecFor(idFor(SERVER_TOGGLE_FILM)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_ACTION_CONTROL), BufPayload.codecFor(idFor(SERVER_ACTION_CONTROL)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_FILM_DATA_SYNC), BufPayload.codecFor(idFor(SERVER_FILM_DATA_SYNC)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_PLAYER_TP), BufPayload.codecFor(idFor(SERVER_PLAYER_TP)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_ANIMATION_STATE_TRIGGER), BufPayload.codecFor(idFor(SERVER_ANIMATION_STATE_TRIGGER)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_SHARED_FORM), BufPayload.codecFor(idFor(SERVER_SHARED_FORM)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_ZOOM), BufPayload.codecFor(idFor(SERVER_ZOOM)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_PAUSE_FILM), BufPayload.codecFor(idFor(SERVER_PAUSE_FILM)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_TRIGGER_BLOCK_UPDATE), BufPayload.codecFor(idFor(SERVER_TRIGGER_BLOCK_UPDATE)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_TRIGGER_BLOCK_CLICK), BufPayload.codecFor(idFor(SERVER_TRIGGER_BLOCK_CLICK)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_SET_GAME_MODE), BufPayload.codecFor(idFor(SERVER_SET_GAME_MODE)));
 
         try {
             Class<?> envTypeClass = Class.forName("net.fabricmc.api.EnvType");
@@ -211,26 +210,26 @@ public class ServerNetwork
             Object serverEnum = envTypeClass.getField("SERVER").get(null);
 
             if (envType == serverEnum) {
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_CLICKED_MODEL_BLOCK_PACKET), BufPayload.codecFor(idFor(CLIENT_CLICKED_MODEL_BLOCK_PACKET)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_PLAYER_FORM_PACKET), BufPayload.codecFor(idFor(CLIENT_PLAYER_FORM_PACKET)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_PLAY_FILM_PACKET), BufPayload.codecFor(idFor(CLIENT_PLAY_FILM_PACKET)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_MANAGER_DATA_PACKET), BufPayload.codecFor(idFor(CLIENT_MANAGER_DATA_PACKET)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_STOP_FILM_PACKET), BufPayload.codecFor(idFor(CLIENT_STOP_FILM_PACKET)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_HANDSHAKE), BufPayload.codecFor(idFor(CLIENT_HANDSHAKE)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_RECORDED_ACTIONS), BufPayload.codecFor(idFor(CLIENT_RECORDED_ACTIONS)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_ANIMATION_STATE_TRIGGER), BufPayload.codecFor(idFor(CLIENT_ANIMATION_STATE_TRIGGER)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_CHEATS_PERMISSION), BufPayload.codecFor(idFor(CLIENT_CHEATS_PERMISSION)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_SHARED_FORM), BufPayload.codecFor(idFor(CLIENT_SHARED_FORM)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_ENTITY_FORM), BufPayload.codecFor(idFor(CLIENT_ENTITY_FORM)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_ACTORS), BufPayload.codecFor(idFor(CLIENT_ACTORS)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_GUN_PROPERTIES), BufPayload.codecFor(idFor(CLIENT_GUN_PROPERTIES)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_PAUSE_FILM), BufPayload.codecFor(idFor(CLIENT_PAUSE_FILM)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_SELECTED_SLOT), BufPayload.codecFor(idFor(CLIENT_SELECTED_SLOT)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER), BufPayload.codecFor(idFor(CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_REFRESH_MODEL_BLOCKS), BufPayload.codecFor(idFor(CLIENT_REFRESH_MODEL_BLOCKS)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_CLICKED_TRIGGER_BLOCK_PACKET), BufPayload.codecFor(idFor(CLIENT_CLICKED_TRIGGER_BLOCK_PACKET)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_MOB_COMBAT_ACTION), BufPayload.codecFor(idFor(CLIENT_MOB_COMBAT_ACTION)));
-                PayloadTypeRegistry.clientboundPlay().register(idFor(CLIENT_MOB_CONVERSION), BufPayload.codecFor(idFor(CLIENT_MOB_CONVERSION)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_CLICKED_MODEL_BLOCK_PACKET), BufPayload.codecFor(idFor(CLIENT_CLICKED_MODEL_BLOCK_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_PLAYER_FORM_PACKET), BufPayload.codecFor(idFor(CLIENT_PLAYER_FORM_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_PLAY_FILM_PACKET), BufPayload.codecFor(idFor(CLIENT_PLAY_FILM_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_MANAGER_DATA_PACKET), BufPayload.codecFor(idFor(CLIENT_MANAGER_DATA_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_STOP_FILM_PACKET), BufPayload.codecFor(idFor(CLIENT_STOP_FILM_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_HANDSHAKE), BufPayload.codecFor(idFor(CLIENT_HANDSHAKE)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_RECORDED_ACTIONS), BufPayload.codecFor(idFor(CLIENT_RECORDED_ACTIONS)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_ANIMATION_STATE_TRIGGER), BufPayload.codecFor(idFor(CLIENT_ANIMATION_STATE_TRIGGER)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_CHEATS_PERMISSION), BufPayload.codecFor(idFor(CLIENT_CHEATS_PERMISSION)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_SHARED_FORM), BufPayload.codecFor(idFor(CLIENT_SHARED_FORM)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_ENTITY_FORM), BufPayload.codecFor(idFor(CLIENT_ENTITY_FORM)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_ACTORS), BufPayload.codecFor(idFor(CLIENT_ACTORS)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_GUN_PROPERTIES), BufPayload.codecFor(idFor(CLIENT_GUN_PROPERTIES)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_PAUSE_FILM), BufPayload.codecFor(idFor(CLIENT_PAUSE_FILM)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_SELECTED_SLOT), BufPayload.codecFor(idFor(CLIENT_SELECTED_SLOT)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER), BufPayload.codecFor(idFor(CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_REFRESH_MODEL_BLOCKS), BufPayload.codecFor(idFor(CLIENT_REFRESH_MODEL_BLOCKS)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_CLICKED_TRIGGER_BLOCK_PACKET), BufPayload.codecFor(idFor(CLIENT_CLICKED_TRIGGER_BLOCK_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_MOB_COMBAT_ACTION), BufPayload.codecFor(idFor(CLIENT_MOB_COMBAT_ACTION)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_MOB_CONVERSION), BufPayload.codecFor(idFor(CLIENT_MOB_CONVERSION)));
             }
         } catch (Throwable t) {
         }
@@ -746,7 +745,7 @@ public class ServerNetwork
     {
         String string = buf.readUtf();
         int type = buf.readInt();
-        FriendlyByteBuf newBuf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf newBuf = PacketByteBufs.create();
 
         newBuf.writeInt(player.getId());
         newBuf.writeUtf(string);
@@ -840,7 +839,7 @@ public class ServerNetwork
 
     public static void sendClickedModelBlock(ServerPlayer player, BlockPos pos)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeBlockPos(pos);
 
@@ -849,7 +848,7 @@ public class ServerNetwork
 
     public static void sendClickedTriggerBlock(ServerPlayer player, BlockPos pos)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeBlockPos(pos);
 
@@ -906,7 +905,7 @@ public class ServerNetwork
 
     public static void sendStopFilm(ServerPlayer player, String filmId)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeUtf(filmId);
 
@@ -934,7 +933,7 @@ public class ServerNetwork
 
     public static void sendMobCombatAction(ServerPlayer player, int victimEntityId, int sourceEntityId, float amount, byte kind)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeInt(victimEntityId);
         buf.writeInt(sourceEntityId);
@@ -946,7 +945,7 @@ public class ServerNetwork
 
     public static void sendMobConversion(ServerPlayer player, int oldEntityId, int newEntityId)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeInt(oldEntityId);
         buf.writeInt(newEntityId);
@@ -966,7 +965,7 @@ public class ServerNetwork
 
     private static FriendlyByteBuf createHandshakeBuf(MinecraftServer server)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
         String id = "";
 
         /* No need to do that in singleplayer */
@@ -982,7 +981,7 @@ public class ServerNetwork
 
     public static void sendCheatsPermission(ServerPlayer player, boolean cheats)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeBoolean(cheats);
 
@@ -1005,7 +1004,7 @@ public class ServerNetwork
 
     public static void sendActors(ServerPlayer player, String filmId, Map<String, LivingEntity> actors)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeUtf(filmId);
         buf.writeInt(actors.size());
@@ -1021,7 +1020,7 @@ public class ServerNetwork
 
     public static void sendGunProperties(ServerPlayer player, GunProjectileEntity projectile)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
         GunProperties properties = projectile.getProperties();
 
         buf.writeInt(projectile.getEntityId());
@@ -1032,7 +1031,7 @@ public class ServerNetwork
 
     public static void sendPauseFilm(ServerPlayer player, String filmId)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeUtf(filmId);
 
@@ -1043,7 +1042,7 @@ public class ServerNetwork
     {
         player.getInventory().setSelectedSlot(slot);
 
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeInt(slot);
 
@@ -1065,7 +1064,7 @@ public class ServerNetwork
 
     public static void sendModelBlockState(ServerPlayer player, BlockPos pos, String trigger)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeBlockPos(pos);
         buf.writeUtf(trigger);
@@ -1075,7 +1074,7 @@ public class ServerNetwork
 
     public static void sendReloadModelBlocks(ServerPlayer player, int tickRandom)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        FriendlyByteBuf buf = PacketByteBufs.create();
 
         buf.writeInt(tickRandom);
 

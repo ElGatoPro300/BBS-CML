@@ -3,6 +3,8 @@ package mchorse.bbs_mod.network;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
@@ -13,8 +15,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-
-import io.netty.buffer.Unpooled;
 
 public abstract class PacketCrusher
 {
@@ -86,7 +86,7 @@ public abstract class PacketCrusher
         {
             int offset = index * BUFFER_SIZE;
 
-            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            FriendlyByteBuf buf = PacketByteBufs.create();
             int size = Math.min(BUFFER_SIZE, bytes.length - offset);
 
             buf.writeInt(counter);

@@ -142,8 +142,8 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
                             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
                             /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
 
-                            context.batcher.getContext().item(stack, itemX, itemY);
-                            context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
+                            context.batcher.getContext().renderItem(stack, itemX, itemY);
+                            context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
                             /* TODO 1.21.11: context.draw() removed */
 

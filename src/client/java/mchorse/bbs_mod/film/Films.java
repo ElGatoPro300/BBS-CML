@@ -9,7 +9,6 @@ import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.client.ItemUseRenderState;
-import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
@@ -23,7 +22,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -38,6 +37,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import Film;
 
 public class Films
 {
@@ -66,7 +67,7 @@ public class Films
             {
                 ContentType.FILMS.getRepository().load(filmId, (data) ->
                 {
-                    Minecraft.getInstance().execute(() -> playFilm((Film) data, withCamera));
+                    MinecraftClient.getInstance().execute(() -> playFilm((Film) data, withCamera));
                 });
             }
         }
@@ -376,7 +377,7 @@ public class Films
         }
     }
 
-    public void render(LevelRenderContext context)
+    public void render(WorldRenderContext context)
     {
         Gizmo.INSTANCE.clearVisual();
 

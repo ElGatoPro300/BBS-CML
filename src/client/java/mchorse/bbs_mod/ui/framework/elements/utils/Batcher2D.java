@@ -19,14 +19,14 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.BlitRenderState;
+import net.minecraft.client.gui.render.state.GuiRenderState;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.state.gui.BlitRenderState;
-import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix3x2f;
@@ -34,10 +34,8 @@ import org.joml.Matrix3x2fStack;
 import org.joml.Matrix3x2fc;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -59,15 +57,15 @@ public class Batcher2D
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
 
     private static final RenderPipeline GUI_QUADS = RenderPipelines.register(
-        guiColorBuilder("gui_color_quads", VertexFormat.Mode.QUADS).build()
+        guiColorBuilder("gui_color_quads", VertexFormat.DrawMode.QUADS).build()
     );
 
     private static final RenderPipeline GUI_TRIANGLES = RenderPipelines.register(
-        guiColorBuilder("gui_color_triangles", VertexFormat.Mode.TRIANGLES).build()
+        guiColorBuilder("gui_color_triangles", VertexFormat.DrawMode.TRIANGLES).build()
     );
 
     private static final RenderPipeline GUI_TRIANGLE_FAN = RenderPipelines.register(
-        guiColorBuilder("gui_color_triangle_fan", VertexFormat.Mode.TRIANGLE_FAN).build()
+        guiColorBuilder("gui_color_triangle_fan", VertexFormat.DrawMode.TRIANGLE_FAN).build()
     );
 
     private static RenderType guiQuadsLayer;
@@ -77,7 +75,7 @@ public class Batcher2D
     private static FontRenderer fontRenderer = new FontRenderer();
     private static FontRenderer vanillaFontRenderer = new FontRenderer();
 
-    private GuiGraphicsExtractor context;
+    private GuiGraphics context;
     private FontRenderer font;
 
     private static RenderPipeline.Builder guiColorBuilder(String name, VertexFormat.Mode mode)
@@ -85,8 +83,8 @@ public class Batcher2D
         return RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/" + name))
             .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, mode)
-            .withColorTargetState(new ColorTargetState(BLEND))
-            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
             .withCull(false);
     }
 
@@ -150,18 +148,18 @@ public class Batcher2D
         return vanillaFontRenderer;
     }
 
-    public Batcher2D(GuiGraphicsExtractor context)
+    public Batcher2D(GuiGraphics context)
     {
         this.context = context;
         this.font = Batcher2D.getDefaultTextRenderer();
     }
 
-    public GuiGraphicsExtractor getContext()
+    public GuiGraphics getContext()
     {
         return this.context;
     }
 
-    public void setContext(GuiGraphicsExtractor context)
+    public void setContext(GuiGraphics context)
     {
         this.context = context;
     }
@@ -181,7 +179,7 @@ public class Batcher2D
             return;
         }
 
-        this.context.guiRenderState.addGuiElement(new GuiQuadMesh.State(
+        this.context.guiRenderState.submitGuiElement(new GuiQuadMesh.State(
             RenderPipelines.GUI, TextureSetup.noTexture(),
             mesh.xs(), mesh.ys(), mesh.colors(), mesh.count(),
             scissor, bounds));
@@ -527,7 +525,7 @@ public class Batcher2D
             return;
         }
 
-        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().getSampler(
+        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
         BlitRenderState state = new BlitRenderState(RenderPipelines.GUI_TEXTURED,
             setup, new Matrix3x2f(this.context.pose()), (int) x, (int) y, (int) (x + w), (int) (y + h),
@@ -535,7 +533,7 @@ public class Batcher2D
 
         if (state.bounds() != null)
         {
-            this.context.guiRenderState.addBlitToCurrentLayer(state);
+            this.context.guiRenderState.submitGuiElement(state);
         }
     }
 
@@ -658,7 +656,7 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.text(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
+        this.context.drawString(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     /* Text helpers */
@@ -745,7 +743,7 @@ public class Batcher2D
             color = Colors.opaque(color);
         }
 
-        this.context.text(font.getRenderer(), label, (int) x, (int) y, color, shadow);
+        this.context.drawString(font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
     public void drawPickerPreview(GpuTextureView texture, int index, int highlightColor, int x, int y, int w, int h)
@@ -755,14 +753,14 @@ public class Batcher2D
             return;
         }
 
-        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().getSampler(
+        TextureSetup setup = TextureSetup.singleTexture(texture, RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
         PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.pose(),
             x, y, w, h, index, highlightColor, this.context.scissorStack.peek());
 
         if (state.bounds() != null)
         {
-            this.context.guiRenderState.addGuiElement(state);
+            this.context.guiRenderState.submitGuiElement(state);
         }
     }
 

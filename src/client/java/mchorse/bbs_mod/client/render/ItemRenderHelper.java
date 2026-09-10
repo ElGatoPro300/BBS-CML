@@ -35,13 +35,12 @@ public final class ItemRenderHelper
             isolatedQueue = new SubmitNodeStorage();
             isolatedDispatcher = new FeatureRenderDispatcher(
                 isolatedQueue,
-                client.getModelManager(),
+                client.getBlockRenderer(),
                 client.renderBuffers().bufferSource(),
                 client.getAtlasManager(),
                 client.renderBuffers().outlineBufferSource(),
                 client.renderBuffers().crumblingBufferSource(),
-                client.font,
-                client.gameRenderer.getGameRenderState()
+                client.font
             );
         }
     }

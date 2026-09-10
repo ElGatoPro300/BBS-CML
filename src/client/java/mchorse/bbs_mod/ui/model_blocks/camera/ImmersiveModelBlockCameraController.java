@@ -38,7 +38,7 @@ public class ImmersiveModelBlockCameraController implements ICameraController
 
         renderer.setupPosition();
 
-        BlockPos pos = this.modelBlock.getBlockPos();
+        BlockPos pos = this.modelBlock.getPos();
 
         camera.position.set(pos.getX() + transform.translate.x + 0.5D, pos.getY() + transform.translate.y, pos.getZ() + transform.translate.z + 0.5D);
         camera.rotation.set(0, 0, 0);

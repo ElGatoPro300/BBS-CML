@@ -57,6 +57,7 @@ import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix4fStack;
@@ -914,12 +915,12 @@ public class UIFilmPreview extends UIElement
 
     private void renderCursor(UIContext context)
     {
-        net.minecraft.client.Camera mcCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera mcCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
         Matrix4fStack stack = RenderSystem.getModelViewStack();
 
         stack.pushMatrix();
 
-        stack.translate(this.area.x + 16, this.area.ey() - 12, 0F);
+        stack.translate(area.x + 16, area.ey() - 12, 0F);
         stack.rotate(Axis.XN.rotationDegrees(mcCamera.xRot()));
         stack.rotate(Axis.YP.rotationDegrees(mcCamera.yRot()));
         stack.scale(-1F, -1F, -1F);

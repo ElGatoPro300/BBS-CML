@@ -22,7 +22,7 @@ public class UITriggerBlockEntityList extends UIList<TriggerBlockEntity>
     @Override
     protected String elementToString(UIContext context, int i, TriggerBlockEntity element)
     {
-        BlockPos pos = element.getBlockPos();
+        BlockPos pos = element.getPos();
         
         return "(" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")";
     }

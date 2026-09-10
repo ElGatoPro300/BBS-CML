@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAOData;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
@@ -23,6 +22,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix3f;
@@ -30,11 +30,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -281,7 +278,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         /* Keep the CPU extrusion, including the side faces along opaque pixel edges.
          * Bake transforms into vertices; RenderLayer supplies the draw-time uniform buffers. */
         boolean shaded = this.form.shading.get();
-        VertexFormat format = (shaded || isEffectProgram) ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
+        VertexFormat format = (shaded || isEffectProgram) ? DefaultVertexFormat.NEW_ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
         PoseStack.Pose entry = matrices.last();
         Matrix4f position = entry.pose();
 
@@ -303,18 +300,18 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 float[] vertices = mesh.vertices();
                 float[] normals = mesh.normals();
                 float[] uvs = mesh.texCoords();
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
                 for (int vertex = 0; vertex < vertices.length / 3; vertex++)
                 {
                     int xyz = vertex * 3;
                     int uv = vertex * 2;
-                    VertexConsumer consumer = builder.addVertex(position, vertices[xyz], vertices[xyz + 1], vertices[xyz + 2])
-                        .setColor(color.r, color.g, color.b, alpha).setUv(uvs[uv], uvs[uv + 1]);
+                    VertexConsumer consumer = builder.vertex(position, vertices[xyz], vertices[xyz + 1], vertices[xyz + 2])
+                        .color(color.r, color.g, color.b, alpha).texture(uvs[uv], uvs[uv + 1]);
 
                     if (shaded || isEffectProgram)
                     {
-                        consumer.setOverlay(overlay).setLight(light).setNormal(entry, normals[xyz], normals[xyz + 1], normals[xyz + 2]);
+                        consumer.overlay(overlay).light(light).normal(entry, normals[xyz], normals[xyz + 1], normals[xyz + 2]);
                     }
                 }
 
@@ -325,12 +322,12 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 if (isEffectProgram)
                 {
-                    ModelEffectPass.draw(builder.buildOrThrow(), texture, program, renderContext != null && renderContext.isPicking(),
+                    ModelEffectPass.draw(builder.end(), texture, program, renderContext != null && renderContext.isPicking(),
                         preview || alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, false, ModelVAORenderer.isColorGradeOverlayPass());
                 }
                 else
                 {
-                    BillboardRenderLayers.draw(builder.buildOrThrow(), texture, false, false,
+                    BillboardRenderLayers.draw(builder.end(), texture, false, false,
                         preview || alpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA, false);
                 }
 
@@ -341,19 +338,19 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                     glowSettings.resolveColor(legacyGlow, resolvedGlow);
 
                     float glowAlpha = alpha * Math.min(1F, Math.abs(glowIntensity));
-                    BufferBuilder glowBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+                    BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
                     for (int vertex = 0; vertex < vertices.length / 3; vertex++)
                     {
                         int xyz = vertex * 3;
                         int uv = vertex * 2;
 
-                        glowBuilder.addVertex(position, vertices[xyz], vertices[xyz + 1], vertices[xyz + 2])
-                            .setColor(resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, glowAlpha)
-                            .setUv(uvs[uv], uvs[uv + 1]);
+                        glowBuilder.vertex(position, vertices[xyz], vertices[xyz + 1], vertices[xyz + 2])
+                            .color(resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, glowAlpha)
+                            .texture(uvs[uv], uvs[uv + 1]);
                     }
 
-                    BillboardRenderLayers.draw(glowBuilder.buildOrThrow(), texture, false, false, false, false, true);
+                    BillboardRenderLayers.draw(glowBuilder.end(), texture, false, false, false, false, true);
                 }
             });
         }

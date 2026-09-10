@@ -27,8 +27,8 @@ public class RenderTickCounterMixin
 
     private int heldFrames;
 
-    @Inject(method = "advanceGameTime", at = @At("HEAD"), cancellable = true)
-    public void onBeginRenderTick(long timeMillis, CallbackInfoReturnable<Integer> info)
+    @Inject(method = "advanceTime", at = @At("HEAD"), cancellable = true)
+    public void onBeginRenderTick(long timeMillis, boolean tick, CallbackInfoReturnable<Integer> info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
 

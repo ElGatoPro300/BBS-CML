@@ -7,10 +7,10 @@ import net.fabricmc.api.Environment;
 
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 
-import com.mojang.blaze3d.textures.GpuSampler;
-
 import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
 import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
+
+import com.mojang.blaze3d.textures.GpuSampler;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

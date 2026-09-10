@@ -139,8 +139,8 @@ public final class RecorderWorldEffectCapture
     public static String formatSetblockState(BlockState state)
     {
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        String properties = state.getValues()
-            .map((val) -> val.property().getName() + "=" + val.valueName())
+        String properties = state.getValues().entrySet().stream()
+            .map((entry) -> entry.getKey().getName() + "=" + entry.getValue().toString())
             .collect(Collectors.joining(","));
 
         if (properties.isEmpty())

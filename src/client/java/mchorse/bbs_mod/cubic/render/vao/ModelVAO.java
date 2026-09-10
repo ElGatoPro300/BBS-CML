@@ -108,7 +108,7 @@ public class ModelVAO implements IModelVAO
     public void render(VertexFormat format, float r, float g, float b, float a, int light, int overlay)
     {
         boolean hasShaders = isShadersEnabled();
-        int vao = hasShaders || format == DefaultVertexFormat.ENTITY ? this.vao : this.vao2;
+        int vao = hasShaders || format == DefaultVertexFormat.NEW_ENTITY ? this.vao : this.vao2;
 
         if (vao == 0 || !GL30.glIsVertexArray(vao))
         {

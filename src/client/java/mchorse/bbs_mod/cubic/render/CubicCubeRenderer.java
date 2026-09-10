@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.cubic.render;
 
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelData;
@@ -13,6 +12,8 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
+
+import net.minecraft.client.renderer.LightTexture;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -259,8 +260,8 @@ public class CubicCubeRenderer implements ICubicRenderer
                 MathUtils.clamp(this.b * group.color.b, 0F, 1F),
                 MathUtils.clamp(this.a * group.color.a, 0F, 1F)
             )
-            .setUv(vertex.uv.x, vertex.uv.y)
-            .setOverlay(this.overlay);
+            .texture(vertex.uv.x, vertex.uv.y)
+            .overlay(this.overlay);
 
         if (this.stencilMap != null)
         {

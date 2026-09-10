@@ -1,7 +1,7 @@
 {
     "required": true,
     "package": "mchorse.bbs_mod.mixin",
-    "compatibilityLevel": "JAVA_25",
+    "compatibilityLevel": "JAVA_21",
     "mixins": [
         "EntityMixin",
         "PlayerEntityMixin",
@@ -18,7 +18,8 @@
         "LevelPropertiesAccessor",
         "StructureTemplateAccessor",
         "StructureTemplatePalettedListAccessor",
-        "EntityAccessor"
+        "EntityAccessor",
+        "EntityMixin"
     ],
     "injectors": {
         "defaultRequire": 1

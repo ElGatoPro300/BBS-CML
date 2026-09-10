@@ -294,8 +294,8 @@ public class UIHotbarRenderer
                 int itemX = 3 + i * 20;
                 int itemY = 3;
 
-                batcher.getContext().item(stackItem, itemX, itemY);
-                batcher.getContext().itemDecorations(batcher.getFont().getRenderer(), stackItem, itemX, itemY);
+                batcher.getContext().renderItem(stackItem, itemX, itemY);
+                batcher.getContext().renderItemDecorations(batcher.getFont().getRenderer(), stackItem, itemX, itemY);
             }
 
             if (hasOffhandItem)
@@ -303,10 +303,12 @@ public class UIHotbarRenderer
                 int offhandX = hotbar.rightOffhand ? 192 : -26;
                 int offhandY = 3;
 
-                batcher.getContext().item(hotbar.offhandItem, offhandX, offhandY);
-                batcher.getContext().itemDecorations(batcher.getFont().getRenderer(), hotbar.offhandItem, offhandX, offhandY);
+                batcher.getContext().renderItem(hotbar.offhandItem, offhandX, offhandY);
+                batcher.getContext().renderItemDecorations(batcher.getFont().getRenderer(), hotbar.offhandItem, offhandX, offhandY);
             }
         }
+
+        batcher.getContext().renderDeferredElements();
 
         BBSRendering.disableDepthTest();
         BBSRendering.depthMask(false);

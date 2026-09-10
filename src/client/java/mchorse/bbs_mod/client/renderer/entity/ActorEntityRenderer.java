@@ -21,8 +21,7 @@ import net.minecraft.client.renderer.entity.ArmorModelSet;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
@@ -37,8 +36,7 @@ import org.lwjgl.opengl.GL11;
 
 public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntityRenderer.ActorEntityState>
 {
-    public static class ActorEntityState extends LivingEntityRenderState
-    {
+    public static class ActorEntityState extends LivingEntityRenderState {
         public ActorEntity entity;
         public float tickDelta;
         public float bodyYaw;
@@ -59,11 +57,13 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             new ElytraModel(ctx.bakeLayer(ModelLayers.ELYTRA)),
             Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.ARMOR_TRIMS)
         );
+
+        // this.shadowRadius = 0.5F;
     }
 
     /**
      * Keep dispatcher {@link #shadowRadius} in sync with this entity's film shadow.
-     * Without shaders the ground blob is drawn in {@link #submit} (size X/Z + offset);
+     * Without shaders the ground blob is drawn in {@link #render} (size X/Z + offset);
      * with a shader pack the vanilla radius is used so packs that still sample the
      * shadow {@code .png} can respect the replay toggle / size.
      */
@@ -107,21 +107,19 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     }
 
     @Override
-    public ActorEntityState createRenderState()
-    {
+    public ActorEntityState createRenderState() {
         return new ActorEntityState();
     }
 
     @Override
-    public void extractRenderState(ActorEntity entity, ActorEntityState state, float tickDelta)
-    {
+    public void updateRenderState(ActorEntity entity, ActorEntityState state, float tickDelta) {
         super.extractRenderState(entity, state, tickDelta);
         state.entity = entity;
         state.tickDelta = tickDelta;
-        state.bodyYaw = entity.yBodyRot;
-        state.prevBodyYaw = entity.yBodyRotO;
-        state.deathTime = (float) entity.deathTime;
-        state.isSleeping = entity.hasPose(Pose.SLEEPING);
+        state.bodyYaw = entity.getBodyYaw();
+        state.prevBodyYaw = entity.lastBodyYaw;
+        state.deathTime = (float)entity.deathTime;
+        state.isSleeping = entity.isInPose(Pose.SLEEPING);
     }
 
     public Identifier getTexture(ActorEntityState state)
@@ -130,14 +128,10 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     }
 
     @Override
-    public void submit(ActorEntityState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
+    public void render(ActorEntityState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
         ActorEntity livingEntity = state.entity;
-
-        if (livingEntity == null)
-        {
-            return;
-        }
+        if (livingEntity == null) return;
 
         float tickDelta = state.tickDelta;
 
@@ -147,7 +141,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         {
             this.renderFilmGroundShadow(livingEntity, tickDelta, matrices, Minecraft.getInstance().renderBuffers().bufferSource());
         }
-
         matrices.pushPose();
 
         float bodyYaw = Mth.rotLerp(tickDelta, state.prevBodyYaw, state.bodyYaw);
@@ -161,7 +154,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, state.lightCoords, overlay, animDelta)
+            .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, state.light, overlay, animDelta)
             .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
 
         if (livingEntity.getWrappingEntity().getFireTicks() > 0)
@@ -196,9 +189,9 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
     private void renderFilmGroundShadow(ActorEntity entity, float tickDelta, PoseStack matrices, MultiBufferSource vertexConsumers)
     {
-        double x = Mth.lerp(tickDelta, entity.xOld, entity.getX()) + entity.getFilmShadowOffsetX();
-        double y = Mth.lerp(tickDelta, entity.yOld, entity.getY());
-        double z = Mth.lerp(tickDelta, entity.zOld, entity.getZ()) + entity.getFilmShadowOffsetZ();
+        double x = Mth.lerp(tickDelta, entity.lastRenderX, entity.getX()) + entity.getFilmShadowOffsetX();
+        double y = Mth.lerp(tickDelta, entity.lastRenderY, entity.getY());
+        double z = Mth.lerp(tickDelta, entity.lastRenderZ, entity.getZ()) + entity.getFilmShadowOffsetZ();
 
         matrices.pushPose();
         /* X/Z follow the sample point; Y lifts the PNG (entity Y stays at feet to avoid fade). */
@@ -220,7 +213,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     }
 
     @Override
-    protected boolean shouldShowName(ActorEntity entity, double squaredDistanceToCamera)
+    protected boolean hasLabel(ActorEntity entity, double squaredDistanceToCamera)
     {
         /* Same visibility rules as stub film nametags / vanilla labels. */
         return entity.hasCustomName();
@@ -233,7 +226,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
     protected void setupTransforms(ActorEntity entity, PoseStack matrices, float bodyYaw, float tickDelta)
     {
-        if (!entity.hasPose(Pose.SLEEPING))
+        if (!entity.isInPose(Pose.SLEEPING))
         {
             matrices.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
         }

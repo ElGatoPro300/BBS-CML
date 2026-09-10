@@ -12,10 +12,8 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -46,42 +44,71 @@ public class ParticleRenderLayers
 
             if (type == TYPE_LIT)
             {
-                builder = RenderPipeline.builder(RenderPipelines.PARTICLE_SNIPPET)
+                RenderPipeline source = RenderPipelines.TRANSLUCENT_PARTICLE;
+
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_FOG_SNIPPET)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
-                    .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.Mode.TRIANGLES)
-                    .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-                    .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, depthWrite))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
+                    .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.DrawMode.TRIANGLES)
+                    .withSampler("Sampler0")
+                    .withSampler("Sampler2")
+                    .withBlend(BlendFunction.TRANSLUCENT)
+                    .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+                    .withDepthWrite(depthWrite)
                     .withCull(false);
             }
             else if (type == TYPE_SHADED)
             {
-                builder = RenderPipeline.builder(RenderPipelines.ENTITY_SNIPPET)
+                RenderPipeline source = RenderPipelines.ENTITY_TRANSLUCENT;
+
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
-                    .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.TRIANGLES)
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
+                    .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.TRIANGLES)
+                    .withSampler("Sampler0")
+                    .withSampler("Sampler1")
+                    .withSampler("Sampler2")
                     .withShaderDefine("PER_FACE_LIGHTING")
                     .withShaderDefine("ALPHA_CUTOUT", 0.001F)
-                    .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-                    .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, depthWrite))
+                    .withBlend(BlendFunction.TRANSLUCENT)
+                    .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+                    .withDepthWrite(depthWrite)
                     .withCull(false);
             }
             else if (type == TYPE_GLOW)
             {
-                builder = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+                RenderPipeline source = RenderPipelines.GUI_TEXTURED;
+
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_glow"))
-                    .withColorTargetState(new ColorTargetState(new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)))
-                    .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
+                    .withVertexFormat(source.getVertexFormat(), VertexFormat.DrawMode.TRIANGLES)
+                    .withSampler("Sampler0")
+                    .withBlend(new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO))
+                    .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+                    .withDepthWrite(false)
                     .withCull(false);
             }
             else
             {
-                builder = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+                RenderPipeline source = RenderPipelines.GUI_TEXTURED;
+
+                builder = RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_ui"))
-                    .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-                    .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
+                    .withVertexFormat(source.getVertexFormat(), VertexFormat.DrawMode.TRIANGLES)
+                    .withSampler("Sampler0")
+                    .withBlend(BlendFunction.TRANSLUCENT)
+                    .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+                    .withDepthWrite(false)
                     .withCull(false);
             }
 
-            PIPELINES[index] = builder.build();
+            PIPELINES[index] = RenderPipelines.register(builder.build());
 
             if (BBSRendering.isIrisLoaded())
             {
@@ -138,7 +165,7 @@ public class ParticleRenderLayers
         {
             type = TYPE_GLOW;
         }
-        else if (format == DefaultVertexFormat.ENTITY
+        else if (format == DefaultVertexFormat.NEW_ENTITY
             || (BBSRendering.isIrisLoaded() && IrisFormPipelines.isEntityFormat(format)))
         {
             type = TYPE_SHADED;
@@ -157,7 +184,7 @@ public class ParticleRenderLayers
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
 
         RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline(type, depthWrite))
-            .withTexture("Sampler0", id, () -> RenderSystem.getSamplerCache().getSampler(
+            .withTexture("Sampler0", id, () -> RenderSystem.getSamplerCache().get(
                 AddressMode.REPEAT, AddressMode.REPEAT, filter, filter, mipmap));
 
         if (type == TYPE_LIT)

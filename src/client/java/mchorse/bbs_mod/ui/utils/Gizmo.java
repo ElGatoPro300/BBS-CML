@@ -19,7 +19,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ProjectionMatrixBuffer;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
@@ -207,7 +207,7 @@ public class Gizmo
     private final Vector3f dragProgressStart = new Vector3f();
     private final Vector3f dragProgressEnd = new Vector3f();
 
-    private final ProjectionMatrixBuffer rawProjection = new ProjectionMatrixBuffer("bbs_gizmo");
+    private final PerspectiveProjectionMatrixBuffer rawProjection = new PerspectiveProjectionMatrixBuffer("bbs_gizmo");
 
     private Gizmo()
     {}
@@ -702,6 +702,7 @@ public class Gizmo
         }
 
         Minecraft mc = Minecraft.getInstance();
+
         float rx = (float) (mc.getWindow().getScreenWidth() / (double) context.menu.width);
         float ry = (float) (mc.getWindow().getScreenHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
@@ -1011,7 +1012,7 @@ public class Gizmo
             return;
         }
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, false, null);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, false, null);
@@ -1068,7 +1069,7 @@ public class Gizmo
         float scale = this.computeScale(stack);
         float thickness = this.resolveThickness(true);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, true, map);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, true, map);

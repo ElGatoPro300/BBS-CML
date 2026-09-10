@@ -26,7 +26,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.Minecraft;
 
@@ -252,7 +252,7 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected void renderEntity(LevelRenderContext context, Replay replay, IEntity entity, int index)
+    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
     {
         boolean current = this.isCurrent(entity);
 
@@ -322,7 +322,7 @@ public class FilmEditorController extends BaseFilmController
      * is removed and a stub fallback looked like a revived corpse following
      * the remaining keyframes. Scrub keeps world clips; combat HP is silent.
      */
-    private void renderActorModeEntity(LevelRenderContext context, Replay replay, IEntity stub)
+    private void renderActorModeEntity(WorldRenderContext context, Replay replay, IEntity stub)
     {
         int replayTick = replay.getTick(this.getTick());
 
@@ -367,7 +367,7 @@ public class FilmEditorController extends BaseFilmController
         }
     }
 
-    private void renderOnion(Replay replay, int index, int direction, KeyframeChannel<?> pose, int color, int frames, LevelRenderContext context, boolean isPlaying, IEntity entity)
+    private void renderOnion(Replay replay, int index, int direction, KeyframeChannel<?> pose, int color, int frames, WorldRenderContext context, boolean isPlaying, IEntity entity)
     {
         List<? extends Keyframe<?>> keyframes = pose.getKeyframes();
         float alpha = Colors.getA(color);
@@ -402,7 +402,7 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected FilmControllerContext getFilmControllerContext(LevelRenderContext context, Replay replay, IEntity entity)
+    protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
         Pair<String, TransformOrientation> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
         String aBone = bone == null ? null : bone.a;

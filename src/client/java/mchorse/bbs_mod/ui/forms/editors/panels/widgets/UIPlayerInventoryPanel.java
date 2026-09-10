@@ -228,8 +228,8 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
                 /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
                 // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                context.batcher.getContext().item(stack, itemX, itemY);
-                context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
+                context.batcher.getContext().renderItem(stack, itemX, itemY);
+                context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
                 /* 1.21.11: DrawContext.draw() removed */
                 // context.batcher.getContext().draw();
@@ -313,8 +313,8 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
                 /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
                 // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                context.batcher.getContext().item(stack, itemX, itemY);
-                context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
+                context.batcher.getContext().renderItem(stack, itemX, itemY);
+                context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
                 /* 1.21.11: DrawContext.draw() removed */
                 // context.batcher.getContext().draw();

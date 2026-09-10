@@ -114,7 +114,7 @@ public final class AdoptedTexture extends AbstractTexture
 
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
 
-        this.sampler = RenderSystem.getSamplerCache().getSampler(
+        this.sampler = RenderSystem.getSamplerCache().get(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, filter, filter, mipmap);
     }
 

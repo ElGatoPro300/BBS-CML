@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.client.gui;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.CommonComponents;
@@ -16,7 +16,7 @@ public class BBSLogoButtonWidget extends Button
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta)
+    protected void renderContents(GuiGraphics context, int mouseX, int mouseY, float delta)
     {
         int x1 = this.getX();
         int y1 = this.getY();

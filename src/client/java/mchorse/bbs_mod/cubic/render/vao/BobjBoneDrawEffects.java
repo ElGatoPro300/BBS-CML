@@ -1,13 +1,14 @@
 package mchorse.bbs_mod.cubic.render.vao;
 
 import mchorse.bbs_mod.bobj.BOBJBone;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
+
+import net.minecraft.client.renderer.LightTexture;
 
 /**
  * Per-bone paint / glow / tint / grade uniforms for BOBJ skinned meshes. BOBJ shares one VAO

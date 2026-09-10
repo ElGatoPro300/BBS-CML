@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.particles.components.appearance;
 
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
@@ -19,6 +18,7 @@ import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.core.BlockPos;
 
 import org.joml.Matrix4f;
@@ -622,7 +622,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             builder.addVertex(matrix, vertex.x, vertex.y, vertex.z)
                 .setUv(u, v)
                 .setColor(color.r, color.g, color.b, color.a)
-                .setLight(this.light);
+                .light(this.light);
         }
         else if (format == DefaultVertexFormat.POSITION_TEX_COLOR)
         {
@@ -636,10 +636,10 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             /* VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL */
             builder.addVertex(matrix, vertex.x, vertex.y, vertex.z)
                 .setColor(color.r, color.g, color.b, color.a)
-                .setUv(u, v)
-                .setOverlay(overlay)
-                .setLight(this.light)
-                .setNormal(this.n.x, this.n.y, this.n.z);
+                .texture(u, v)
+                .overlay(overlay)
+                .light(this.light)
+                .normal(this.n.x, this.n.y, this.n.z);
         }
     }
 
@@ -744,7 +744,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
         {
             Vector3d pos = particle.getGlobalPosition(emitter);
             BlockPos blockPos = new BlockPos((int) pos.x, (int) pos.y, (int) pos.z);
-            int lightLevel = LevelRenderer.getLightCoords(emitter.world, blockPos);
+            int lightLevel = LevelRenderer.getLightColor(emitter.world, blockPos);
 
             this.light = lightLevel;
         }

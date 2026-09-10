@@ -4,7 +4,6 @@ import mchorse.bbs_mod.bridge.IRenderLayerBridge;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.render.BufferRenderer;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -31,8 +30,8 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -47,6 +46,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 
+import java.awt.Font;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -550,20 +550,20 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         FlatGlowOverlayPass.renderMasked(polygonOffsetFactor, offsetUnits, formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale, () ->
         {
-            int glowLight = LightTexture.FULL_BRIGHT;
-            int overlay = OverlayTexture.NO_OVERLAY;
+            int glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
             float glowNz = glowZ >= 0F ? 1F : -1F;
 
             BBSRendering.disableCull();
 
-            for (Map.Entry<RenderType, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
                 this.bindTextLayerTexture(layerEntry.getKey());
                 BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -576,12 +576,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelPaint(builder, glowMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, glowZ, quad.u3, quad.v3, overlay, glowLight, glowNz, glowColor);
                 }
 
-                BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
             BBSRendering.enableCull();
         });
     }
+
+
 
     private void renderString(FormRenderingContext context, CustomVertexConsumerProvider consumers, Font renderer, int light)
     {
@@ -591,9 +593,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         
         if (!fontName.isEmpty())
         {
-            int style = java.awt.Font.PLAIN;
-            if (this.form.fontWeight.get() >= 700) style |= java.awt.Font.BOLD;
-            if (this.form.fontStyle.get() >= 1) style |= java.awt.Font.ITALIC;
+            int style = Font.PLAIN;
+            if (this.form.fontWeight.get() >= 700) style |= Font.BOLD;
+            if (this.form.fontStyle.get() >= 1) style |= Font.ITALIC;
             
             customFont = FontUtils.getFont(fontName, style);
         }
@@ -805,9 +807,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         
         if (!fontName.isEmpty())
         {
-            int style = java.awt.Font.PLAIN;
-            if (this.form.fontWeight.get() >= 700) style |= java.awt.Font.BOLD;
-            if (this.form.fontStyle.get() >= 1) style |= java.awt.Font.ITALIC;
+            int style = Font.PLAIN;
+            if (this.form.fontWeight.get() >= 700) style |= Font.BOLD;
+            if (this.form.fontStyle.get() >= 1) style |= Font.ITALIC;
             
             customFont = FontUtils.getFont(fontName, style);
         }
@@ -1281,21 +1283,21 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         FlatColorTintOverlayPass.render(polygonOffsetFactor, offsetUnits, formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor, () ->
         {
-            int tintLight = LightTexture.FULL_BRIGHT;
-            int overlay = OverlayTexture.NO_OVERLAY;
+            int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
             float tintZ = this.resolveOverlayFaceZ(tintMatrix);
             float tintNz = tintZ >= 0F ? 1F : -1F;
 
             BBSRendering.disableCull();
 
-            for (Map.Entry<RenderType, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
                 this.bindTextLayerTexture(layerEntry.getKey());
                 /* Text RenderLayer.startDrawing replaces the FlatColorTint program — restore it. */
                 BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1308,7 +1310,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, tintZ, quad.u3, quad.v3, overlay, tintLight, tintNz);
                 }
 
-                BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
             BBSRendering.enableCull();
@@ -1334,20 +1336,20 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         FlatPaintOverlayPass.render(polygonOffsetFactor, offsetUnits, formRootInverse, paintTransform, false, this.maskHalfExtents, () ->
         {
-            int paintLight = LightTexture.FULL_BRIGHT;
-            int overlay = OverlayTexture.NO_OVERLAY;
+            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
             float paintZ = this.resolveOverlayFaceZ(paintMatrix);
             float paintNz = paintZ >= 0F ? 1F : -1F;
 
             BBSRendering.disableCull();
 
-            for (Map.Entry<RenderType, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
                 this.bindTextLayerTexture(layerEntry.getKey());
                 BlockEffectOverlayUniforms.configureFlatPaintOverlay(formRootInverse, paintTransform, false, this.maskHalfExtents);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1360,7 +1362,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelPaint(builder, paintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, paintZ, quad.u3, quad.v3, overlay, paintLight, paintNz, resolvedPaint);
                 }
 
-                BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
 
             BBSRendering.enableCull();
@@ -1389,7 +1391,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     private void fillLabelPaint(BufferBuilder builder, Matrix4f matrix, PoseStack.Pose entry, float x, float y, float z, float u, float v, int overlay, int light, float nz, Color paintColor)
     {
-        builder.addVertex(matrix, x, y, z).setColor(paintColor.r, paintColor.g, paintColor.b, paintColor.a).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, 0F, 0F, nz);
+        builder.addVertex(matrix, x, y, z).setColor(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
     /**
@@ -1482,7 +1484,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         context.stack.pushPose();
         context.stack.translate(0, 0, -0.2F);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillQuad(
             builder, context.stack,

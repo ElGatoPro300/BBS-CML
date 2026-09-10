@@ -112,7 +112,7 @@ public class UIFormCategory extends UIElement
                 {
                     MapType data = FormUtils.toData(this.selected);
                     DataStringifier stringifier = new DataStringifier();
-                    String name = Minecraft.getInstance().player.getGameProfile().name();
+                    String name = MinecraftClient.getInstance().player.getGameProfile().name();
 
                     stringifier.jsonLike();
                     stringifier.indent = "";
@@ -128,9 +128,9 @@ public class UIFormCategory extends UIElement
                     {
                         this.getContext().replaceContextMenu((newMenu) ->
                         {
-                            for (PlayerInfo entry : playerList)
+                            for (PlayerListEntry entry : playerList)
                             {
-                                if (entry.getProfile().id().equals(Minecraft.getInstance().player.getGameProfile().id()))
+                                if (entry.getProfile().id().equals(MinecraftClient.getInstance().player.getGameProfile().id()))
                                 {
                                     continue;
                                 }

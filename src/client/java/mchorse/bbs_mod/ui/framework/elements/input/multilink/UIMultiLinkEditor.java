@@ -253,7 +253,7 @@ public class UIMultiLinkEditor extends UICanvasEditor
 
                         texture.bind(0);
 
-                        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+                        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
                         Matrix3x2fStack matrices = context.batcher.getContext().pose();
 
                         builder.addVertexWith2DPose(matrices, (float) area.x, (float) area.ey()).setUv(0F, 1F).setColor(child.color);

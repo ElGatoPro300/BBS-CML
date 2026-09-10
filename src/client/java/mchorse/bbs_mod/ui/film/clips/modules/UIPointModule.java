@@ -30,13 +30,13 @@ public class UIPointModule extends UISection
 
         this.editor = editor;
 
-        this.x = new UITrackpad((value) -> BaseValue.edit(this.point, (val) -> val.get().x = value));
+        this.x = new UITrackpad((value) -> BaseValue.edit(this.point, (point) -> point.get().x = value));
         this.x.tooltip(UIKeys.GENERAL_X);
 
-        this.y = new UITrackpad((value) -> BaseValue.edit(this.point, (val) -> val.get().y = value));
+        this.y = new UITrackpad((value) -> BaseValue.edit(this.point, (point) -> point.get().y = value));
         this.y.tooltip(UIKeys.GENERAL_Y);
 
-        this.z = new UITrackpad((value) -> BaseValue.edit(this.point, (val) -> val.get().z = value));
+        this.z = new UITrackpad((value) -> BaseValue.edit(this.point, (point) -> point.get().z = value));
         this.z.tooltip(UIKeys.GENERAL_Z);
 
         this.x.values(0.1F);

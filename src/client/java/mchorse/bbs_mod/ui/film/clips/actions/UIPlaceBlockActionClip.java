@@ -26,14 +26,14 @@ public class UIPlaceBlockActionClip extends UIActionClip<PlaceBlockActionClip>
     {
         super.registerUI();
 
-        this.x = new UITrackpad((v) -> this.editor.editMultiple(this.clip.x, (val) -> val.set(v.intValue())));
+        this.x = new UITrackpad((v) -> this.editor.editMultiple(this.clip.x, (x) -> x.set(v.intValue())));
         this.x.integer();
-        this.y = new UITrackpad((v) -> this.editor.editMultiple(this.clip.y, (val) -> val.set(v.intValue())));
+        this.y = new UITrackpad((v) -> this.editor.editMultiple(this.clip.y, (x) -> x.set(v.intValue())));
         this.y.integer();
-        this.z = new UITrackpad((v) -> this.editor.editMultiple(this.clip.z, (val) -> val.set(v.intValue())));
+        this.z = new UITrackpad((v) -> this.editor.editMultiple(this.clip.z, (x) -> x.set(v.intValue())));
         this.z.integer();
-        this.drop = new UIToggle(UIKeys.ACTIONS_BLOCK_DROP, (b) -> this.editor.editMultiple(this.clip.drop, (val) -> val.set(b.getValue())));
-        this.blockState = new UIBlockStateEditor((state) -> this.editor.editMultiple(this.clip.state, (val) -> val.set(state)));
+        this.drop = new UIToggle(UIKeys.ACTIONS_BLOCK_DROP, (b) -> this.editor.editMultiple(this.clip.drop, (drop) -> drop.set(b.getValue())));
+        this.blockState = new UIBlockStateEditor((state) -> this.editor.editMultiple(this.clip.state, (x) -> x.set(state)));
     }
 
     @Override

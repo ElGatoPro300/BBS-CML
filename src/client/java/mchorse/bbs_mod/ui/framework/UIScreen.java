@@ -14,15 +14,15 @@ import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.render.state.GuiRenderState;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.network.chat.Component;
 
 import org.lwjgl.glfw.GLFW;
@@ -67,7 +67,7 @@ public class UIScreen extends Screen implements IFileDropListener
         /* Placeholder DrawContext just so the UIRenderingContext/Batcher2D exist for layout/event wiring.
          * It is NEVER drawn into: render() swaps in vanilla's live per-frame DrawContext via
          * this.context.setContext(...) before any drawing happens (two-phase GUI, 1.21.6+). */
-        this.context = new UIRenderingContext(new GuiGraphicsExtractor(mc, new GuiRenderState(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()));
+        this.context = new UIRenderingContext(new GuiGraphics(mc, new GuiRenderState(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()));
 
         this.menu.context.setup(this.context);
     }
@@ -82,7 +82,7 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.update();
     }
 
-    public void renderInWorld(LevelRenderContext context)
+    public void renderInWorld(WorldRenderContext context)
     {
         this.menu.renderInWorld(context);
     }
@@ -134,6 +134,11 @@ public class UIScreen extends Screen implements IFileDropListener
         /* Stencil unbind leaves FBO 0; preview/pick can leave TU0 / lightmap / ColorModulator
          * dirty. Next world/pause present would be solid black without this. */
         BBSRendering.prepareWorldPresentState();
+
+        if (this.menu.canHideHUD())
+        {
+            Minecraft.getInstance().options.hideGui = false;
+        }
     }
 
     @Override
@@ -148,6 +153,8 @@ public class UIScreen extends Screen implements IFileDropListener
 
         this.menu.onOpen(null);
         DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
+
+        client.options.hideGui = this.menu.canHideHUD();
     }
 
     /**
@@ -180,7 +187,7 @@ public class UIScreen extends Screen implements IFileDropListener
         Minecraft client = Minecraft.getInstance();
 
         client.options.guiScale().set(scale);
-        client.resizeGui();
+        client.resizeDisplay();
     }
 
     private void restoreGuiScale()
@@ -269,13 +276,13 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta)
+    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta)
     {}
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta)
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
     {
-        super.extractRenderState(context, mouseX, mouseY, delta);
+        super.render(context, mouseX, mouseY, delta);
 
         this.context.setContext(context);
         int bbsMouseX = BbsGuiScale.toBbsMouseX(mouseX);
@@ -287,6 +294,7 @@ public class UIScreen extends Screen implements IFileDropListener
             this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
             this.menu.context.render.executeRunnables();
         });
+        this.minecraft.options.hideGui = this.menu.canHideHUD();
     }
 
     @Override

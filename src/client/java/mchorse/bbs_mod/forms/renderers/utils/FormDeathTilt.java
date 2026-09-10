@@ -97,7 +97,7 @@ public final class FormDeathTilt
             }
 
             /* Combat death still advances LivingEntity.deathTime — keep vanilla sub-tick ease. */
-            if (actor.deathTime > 0 || !actor.isAlive() || actor.getHealth() <= 0F)
+            if (actor.deathTime > 0 || actor.isDead() || actor.getHealth() <= 0F)
             {
                 progress = Math.max(progress, actor.deathTime + tickDelta);
             }

@@ -9,9 +9,11 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -33,7 +35,7 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
     }
 
     @Override
-    public void extractRenderState(TriggerBlockEntity entity, TriggerBlockEntityRenderState state, float tickDelta, Vec3 cameraPosition, ModelFeatureRenderer.CrumblingOverlay crumblingOverlay)
+    public void updateRenderState(TriggerBlockEntity entity, TriggerBlockEntityRenderState state, float tickDelta, Vec3 cameraPosition, ModelFeatureRenderer.CrumblingOverlay crumblingOverlay)
     {
         BlockEntityRenderState.extractBase(entity, state, crumblingOverlay);
         state.entity = entity;
@@ -41,7 +43,7 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
     }
 
     @Override
-    public void submit(TriggerBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
+    public void render(TriggerBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
         TriggerBlockEntity entity = state.entity;
 
@@ -51,13 +53,13 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
         }
 
         Minecraft mc = Minecraft.getInstance();
-
+        
         if (mc.getDebugOverlay().showDebugScreen())
         {
             matrices.pushPose();
-            matrices.translate(0.5D, 0D, 0.5D);
+            matrices.translate(0.5D, 0, 0.5D);
             /* Render green debug box for triggers */
-            Draw.renderBox(matrices, -0.5D, 0D, -0.5D, 1D, 1D, 1D, 0F, 1F, 0.5F, 0.5F);
+            Draw.renderBox(matrices, -0.5D, 0, -0.5D, 1, 1, 1, 0, 1F, 0.5F, 0.5F);
             matrices.popPose();
 
             if (entity.region.get())

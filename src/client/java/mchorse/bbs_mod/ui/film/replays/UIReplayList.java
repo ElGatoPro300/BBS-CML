@@ -1213,7 +1213,7 @@ public class UIReplayList extends UIList<Replay> {
                                 Replay replay = this.list.get(index);
                                 float tickv = (float) (order * step);
 
-                                BaseValue.edit(replay, (val) -> val.shift(tickv));
+                                BaseValue.edit(replay, (r) -> r.shift(tickv));
                             }
 
                             return;
@@ -1232,7 +1232,7 @@ public class UIReplayList extends UIList<Replay> {
                                 Replay replay = this.list.get(index);
                                 float tickv = (float) ((order % 2 == 0 ? 1D : -1D) * step);
 
-                                BaseValue.edit(replay, (val) -> val.shift(tickv));
+                                BaseValue.edit(replay, (r) -> r.shift(tickv));
                             }
 
                             return;
@@ -1256,7 +1256,7 @@ public class UIReplayList extends UIList<Replay> {
                                 Replay replay = this.list.get(index);
                                 float tickv = (float) (start + (end - start) * random.nextDouble());
 
-                                BaseValue.edit(replay, (val) -> val.shift(tickv));
+                                BaseValue.edit(replay, (r) -> r.shift(tickv));
                             }
 
                             return;
@@ -1287,7 +1287,7 @@ public class UIReplayList extends UIList<Replay> {
 
                             float tickv = parse == null ? 0F : (float) parse.doubleValue();
 
-                            BaseValue.edit(replay, (val) -> val.shift(tickv));
+                            BaseValue.edit(replay, (r) -> r.shift(tickv));
                         }
                     }
                 })
@@ -1557,7 +1557,7 @@ public class UIReplayList extends UIList<Replay> {
         for (BaseType replayType : copied) {
             Replay replay = film.replays.addReplay();
 
-            BaseValue.edit(replay, (val) -> val.fromData(replayType));
+            BaseValue.edit(replay, (r) -> r.fromData(replayType));
 
             String oldUuid = replay.uuid.get();
             String oldParentPath = replay.group.get();
@@ -1698,7 +1698,7 @@ public class UIReplayList extends UIList<Replay> {
             Replay replay = film.replays.addReplay();
             String oldId = ids != null && ids.has(i) ? ids.getString(i) : "";
 
-            BaseValue.edit(replay, (val) -> val.fromData(replayType));
+            BaseValue.edit(replay, (r) -> r.fromData(replayType));
             replay.uuid.set(UUID.randomUUID().toString());
 
             if (oldId != null && !oldId.isEmpty()) {
@@ -1889,11 +1889,10 @@ public class UIReplayList extends UIList<Replay> {
         UIOverlay.addOverlay(this.getContext(), panel, 300, 300);
     }
 
-    private void fromModelBlock(ModelBlockEntity modelBlock)
-    {
+    private void fromModelBlock(ModelBlockEntity modelBlock) {
         Film film = this.panel.getData();
         Replay replay = film.replays.addReplay();
-        BlockPos blockPos = modelBlock.getBlockPos();
+        BlockPos blockPos = modelBlock.getPos();
         ModelProperties properties = modelBlock.getProperties();
         Transform transform = properties.getTransform().copy();
         double x = blockPos.getX() + transform.translate.x + 0.5D;

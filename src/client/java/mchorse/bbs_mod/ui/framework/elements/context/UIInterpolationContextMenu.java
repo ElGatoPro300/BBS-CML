@@ -156,7 +156,7 @@ public class UIInterpolationContextMenu extends UIContextMenu
                 return;
             }
 
-            BaseValue.edit(this.interpolation, (val) -> val.fromData(copy.get("interp")));
+            BaseValue.edit(this.interpolation, (v) -> v.fromData(copy.get("interp")));
 
             if (this.callback != null)
             {

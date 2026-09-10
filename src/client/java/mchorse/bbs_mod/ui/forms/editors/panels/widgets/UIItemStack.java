@@ -17,8 +17,6 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
 import org.joml.Vector3f;
@@ -42,19 +40,22 @@ public class UIItemStack extends UIElement
     {
         this.stack = ItemStack.EMPTY;
         this.callback = callback;
-        this.optionsButton = new UIIcon(Icons.MORE, (b) ->
+        this.optionsButton = new UIIcon(Icons.CHEST, (b) ->
         {
-            this.getContext().replaceContextMenu(this::createOptions);
+            if (this.getContext() != null)
+            {
+                this.getContext().replaceContextMenu(this::fillContextMenu);
+            }
         });
         this.optionsButton.tooltip(UIKeys.ITEM_STACK_CONTEXT_OPTIONS);
 
-        this.context(this::createOptions);
+        this.context(this::fillContextMenu);
 
         this.add(this.optionsButton);
         this.h(20);
     }
 
-    protected void createOptions(ContextMenuManager menu)
+    private void fillContextMenu(ContextMenuManager menu)
     {
         menu.action(Icons.SPHERE, UIKeys.ITEM_STACK_CONTEXT_INVENTORY, this::openInventoryPanel);
         menu.action(Icons.SEARCH, UIKeys.ITEM_STACK_CONTEXT_ALL_ITEMS, this::openCreativeItemSelectorPanel);
@@ -63,13 +64,13 @@ public class UIItemStack extends UIElement
         {
             this.getContext().replaceContextMenu((newMenu) ->
             {
-                Inventory inventory = Minecraft.getInstance().player.getInventory();
+                PlayerInventory inventory = MinecraftClient.getInstance().player.getInventory();
 
                 for (int i = 0; i < 9; i++)
                 {
-                    ItemStack s = inventory.getItem(i);
+                    ItemStack s = inventory.getStack(i);
 
-                    newMenu.action(new ItemStackContextAction(s, IKey.constant(s.getHoverName().getString()), () ->
+                    newMenu.action(new ItemStackContextAction(s, IKey.constant(s.getName().getString()), () ->
                     {
                         if (this.callback != null)
                         {
@@ -84,7 +85,7 @@ public class UIItemStack extends UIElement
 
         menu.action(Icons.PASTE, UIKeys.ITEM_STACK_CONTEXT_PASTE, () ->
         {
-            ItemStack stack = Minecraft.getInstance().player.getMainHandItem().copy();
+            ItemStack stack = MinecraftClient.getInstance().player.getMainHandStack().copy();
 
             if (this.callback != null)
             {
@@ -222,8 +223,8 @@ public class UIItemStack extends UIElement
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
             /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting() removed */
 
-            context.batcher.getContext().item(this.stack, stackCenterX - 8, this.area.my() - 8);
-            context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().renderItem(this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
 
             /* TODO 1.21.11: context.draw() removed */
 

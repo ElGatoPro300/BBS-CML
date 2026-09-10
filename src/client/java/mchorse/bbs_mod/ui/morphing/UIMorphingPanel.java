@@ -65,7 +65,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.demorph.tooltip(UIKeys.MORPHING_DEMORPH, Direction.TOP);
         this.fromMob = new UIIcon(Icons.MORPH, (b) ->
         {
-            Form form = Morph.getMobForm(Minecraft.getInstance().player);
+            Form form = Morph.getMobForm(MinecraftClient.getInstance().player);
 
             if (form != null)
             {

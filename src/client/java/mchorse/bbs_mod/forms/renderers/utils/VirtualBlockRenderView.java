@@ -1,13 +1,12 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.level.CardinalLighting;
+import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
@@ -36,11 +35,6 @@ import java.util.Queue;
  */
 public class VirtualBlockRenderView implements BlockAndTintGetter
 {
-    @Override
-    public CardinalLighting cardinalLighting()
-    {
-        return CardinalLighting.DEFAULT;
-    }
     private final Map<BlockPos, BlockState> states = new HashMap<>();
     /* Precomputed local block light (max per position) */
     private final Map<BlockPos, Integer> localBlockLight = new HashMap<>();
@@ -306,7 +300,7 @@ public class VirtualBlockRenderView implements BlockAndTintGetter
             return 15;
         }
 
-        int opacity = state.getLightDampening();
+        int opacity = state.getLightBlock();
 
         return Math.max(0, Math.min(15, opacity));
     }

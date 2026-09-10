@@ -18,10 +18,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.GrassBlock;
 import net.minecraft.world.level.block.LeavesBlock;
-import net.minecraft.world.level.block.LilyPadBlock;
 import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.StemBlock;
 import net.minecraft.world.level.block.VineBlock;
+import net.minecraft.world.level.block.WaterlilyBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.FluidState;
@@ -524,7 +524,7 @@ public class StructureData
         return (b instanceof LeavesBlock)
             || (b instanceof GrassBlock)
             || (b instanceof VineBlock)
-            || (b instanceof LilyPadBlock)
+            || (b instanceof WaterlilyBlock)
             || (b instanceof RedStoneWireBlock)
             || (b instanceof StemBlock)
             || (b instanceof AttachedStemBlock)

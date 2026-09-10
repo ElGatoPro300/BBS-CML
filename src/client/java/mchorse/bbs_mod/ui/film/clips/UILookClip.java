@@ -105,14 +105,14 @@ public class UILookClip extends UIClip<LookClip>
         {
             BlockPos pos = bhr.getBlockPos();
 
-            BaseValue.edit(this.clip.block, (val) -> val.get().set(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+            BaseValue.edit(this.clip.block, (block) -> block.get().set(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
             this.fillData();
         }
         else if (!center && result instanceof EntityHitResult ehr && ehr.getType() != HitResult.Type.MISS)
         {
             Vec3 vec = ehr.getLocation();
 
-            BaseValue.edit(this.clip.block, (val) -> val.get().set(vec.x, vec.y, vec.z));
+            BaseValue.edit(this.clip.block, (block) -> block.get().set(vec.x, vec.y, vec.z));
             this.fillData();
         }
     }

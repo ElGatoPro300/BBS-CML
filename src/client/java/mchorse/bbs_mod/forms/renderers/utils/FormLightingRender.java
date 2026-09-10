@@ -1,10 +1,11 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
+
+import net.minecraft.client.renderer.LightTexture;
 
 /**
  * Client-side packing of form lighting into Minecraft lightmap coordinates.

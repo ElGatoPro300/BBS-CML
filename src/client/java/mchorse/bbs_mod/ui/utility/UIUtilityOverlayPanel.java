@@ -140,7 +140,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 {
                     CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
                     {
-                        Minecraft.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
+                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
                     });
 
                     syncService.syncOnce();
@@ -152,7 +152,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
                 BBSResources.setupWatchdog();
                 
-                Minecraft.getInstance().execute(() ->
+                MinecraftClient.getInstance().execute(() ->
                 {
                     BBSModClient.getTextures().delete();
                     BBSModClient.getSounds().deleteSounds();
@@ -175,7 +175,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 {
                     CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
                     {
-                        Minecraft.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
+                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
                     });
 
                     syncService.pushChangedFiles(BBSSettings.cdnToken.get());

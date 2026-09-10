@@ -5,7 +5,6 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.render.BufferRenderer;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
@@ -30,6 +29,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Intersectionf;
@@ -144,7 +144,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         BBSRendering.setupLevelLighting();
 
-        VertexFormat format = DefaultVertexFormat.ENTITY;
+        VertexFormat format = DefaultVertexFormat.NEW_ENTITY;
 
         this.renderModel(format, BBSRendering::getEntityTranslucentProgram,
             stack,
@@ -166,7 +166,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
          * the billboard pulse bright/dark when the orbit camera moves. Respect form.shading. */
         boolean shading = this.form.shading.get();
 
-        VertexFormat format = shading ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
+        VertexFormat format = shading ? DefaultVertexFormat.NEW_ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
         Supplier<GlProgram> shader = this.getShader(
             context,
             shading ? BBSRendering::getEntityTranslucentProgram : BBSRendering::getPositionTexColorProgram,
@@ -447,7 +447,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
              * Note: unshaded soft still uses position_tex_color (no fog in that shader) —
              * that is a separate limitation, not the yaw-dependent cylindrical-fog bug. */
             VertexFormat deferredFormat = gradeOnDeferredDraw
-                ? DefaultVertexFormat.ENTITY
+                ? DefaultVertexFormat.NEW_ENTITY
                 : format;
             Supplier<GlProgram> deferredShader = gradeOnDeferredDraw
                 ? BBSShaders::getModel
@@ -630,7 +630,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
             boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
-            VertexFormat deferredFormat = DefaultVertexFormat.ENTITY;
+            VertexFormat deferredFormat = DefaultVertexFormat.NEW_ENTITY;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
             Supplier<GlProgram> deferredShader = gradeOnDeferredDraw
                 ? () -> BBSShaders.getModel()
@@ -754,7 +754,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
             boolean touchedDepthMask = false;
 
-            if (format == DefaultVertexFormat.ENTITY)
+            if (format == DefaultVertexFormat.NEW_ENTITY)
             {
                 if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
                 {
@@ -787,7 +787,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
             try
             {
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
+                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
                 float quadWidth = Math.abs(quad.p2.x - quad.p1.x);
                 float quadHeight = Math.abs(quad.p1.y - quad.p3.y);
@@ -952,9 +952,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         BBSRendering.enableCull();
 
         texture.setFilterMipmap(false, false);
-        if (format == DefaultVertexFormat.ENTITY)
+        if (format == DefaultVertexFormat.NEW_ENTITY)
         {
-        }
+                                }
     }
 
     /**
@@ -966,7 +966,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     {
         Matrix4f matrix = matrices.last().pose();
         PoseStack.Pose entry = matrices.last();
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
         boolean dualSided = !singleSided && !ModelVAORenderer.isPaintOverlayPass();
         float faceZ = singleSided ? this.resolveOverlayFaceZ(matrix) : 0F;
         float frontNz = faceZ >= 0F ? 1F : -1F;
@@ -1041,7 +1041,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             return consumer.addVertex(matrix, x, y, z).setUv(u, v).setColor(color.r, color.g, color.b, color.a);
         }
 
-        return consumer.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, 0F, 0F, nz);
+        return consumer.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
     private void submitDeferredBillboardPaintOverlay(Texture texture, Link textureLink, Supplier<GlProgram> shader, PoseStack matrices, Color resolvedPaint, float alpha, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
@@ -1128,8 +1128,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FlatPaintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, transform, false, MASK_HALF, () ->
         {
-            BufferBuilder paintBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
-            int paintLight = LightTexture.FULL_BRIGHT;
+            BufferBuilder paintBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             float paintZ = this.resolveOverlayFaceZ(paintMatrix);
             float paintNz = paintZ >= 0F ? 1F : -1F;
 
@@ -1145,7 +1145,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fillPaint(paintBuilder, paintMatrix, drawQuad.p4.x, drawQuad.p4.y, paintZ, paintOverlay, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, paintLight, entry, paintNz);
             this.fillPaint(paintBuilder, paintMatrix, drawQuad.p2.x, drawQuad.p2.y, paintZ, paintOverlay, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, paintLight, entry, paintNz);
 
-            BufferRenderer.drawWithGlobalProgram(paintBuilder.buildOrThrow());
+            BufferRenderer.drawWithGlobalProgram(paintBuilder.end());
 
             BBSRendering.enableCull();
         });
@@ -1157,7 +1157,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
     private void fillPaint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, PoseStack.Pose entry, float nz)
     {
-        builder.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, 0F, 0F, nz);
+        builder.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
     private void submitDeferredBillboardColorTintOverlay(Texture texture, Link textureLink, Supplier<GlProgram> shader, PoseStack matrices, Color formTintColor, EffectTransform colorTransform)
@@ -1258,7 +1258,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 ModelVAORenderer.setupUniforms(uniformStack, gradeShader);
 
                 this.drawBillboardFaces(
-                    DefaultVertexFormat.ENTITY,
+                    DefaultVertexFormat.NEW_ENTITY,
                     deferredTexture,
                     BBSShaders::getModel,
                     overlayStack,
@@ -1306,8 +1306,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FlatColorTintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, transform, false, MASK_HALF, formTintColor, () ->
         {
-            BufferBuilder tintBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
-            int tintLight = LightTexture.FULL_BRIGHT;
+            BufferBuilder tintBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             float tintZ = this.resolveOverlayFaceZ(tintMatrix);
             float tintNz = tintZ >= 0F ? 1F : -1F;
 
@@ -1323,7 +1323,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p4.x, drawQuad.p4.y, tintZ, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, tintLight, entry, tintNz);
             this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p2.x, drawQuad.p2.y, tintZ, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, tintLight, entry, tintNz);
 
-            BufferRenderer.drawWithGlobalProgram(tintBuilder.buildOrThrow());
+            BufferRenderer.drawWithGlobalProgram(tintBuilder.end());
 
             BBSRendering.enableCull();
         });
@@ -1452,23 +1452,23 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FlatGlowOverlayPass.renderMasked(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, glowTransform, false, MASK_HALF, shaderScale, () ->
         {
-            BufferBuilder glowBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
-            int glowLight = LightTexture.FULL_BRIGHT;
+            BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            int glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
             float glowNz = glowZ >= 0F ? 1F : -1F;
 
             /* One camera-facing plane, both sides via disableCull — same as paint. */
             BBSRendering.disableCull();
 
-            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y, OverlayTexture.NO_OVERLAY, glowLight, entry, glowNz);
-            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y, OverlayTexture.NO_OVERLAY, glowLight, entry, glowNz);
-            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p1.x, drawQuad.p1.y, glowZ, glowColor, drawUvQuad.p1.x, drawUvQuad.p1.y, OverlayTexture.NO_OVERLAY, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p1.x, drawQuad.p1.y, glowZ, glowColor, drawUvQuad.p1.x, drawUvQuad.p1.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
 
-            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y, OverlayTexture.NO_OVERLAY, glowLight, entry, glowNz);
-            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p4.x, drawQuad.p4.y, glowZ, glowColor, drawUvQuad.p4.x, drawUvQuad.p4.y, OverlayTexture.NO_OVERLAY, glowLight, entry, glowNz);
-            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y, OverlayTexture.NO_OVERLAY, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p4.x, drawQuad.p4.y, glowZ, glowColor, drawUvQuad.p4.x, drawUvQuad.p4.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
 
-            BufferRenderer.drawWithGlobalProgram(glowBuilder.buildOrThrow());
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
 
             BBSRendering.enableCull();
         });
@@ -1495,7 +1495,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
         {
-            BufferBuilder glowBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
             BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
@@ -1511,7 +1511,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fillGlow(glowBuilder, glowMatrix, drawQuad.p4.x, drawQuad.p4.y, glowZ, glowColor, drawUvQuad.p4.x, drawUvQuad.p4.y);
             this.fillGlow(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y);
 
-            BufferRenderer.drawWithGlobalProgram(glowBuilder.buildOrThrow());
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
 
             BBSRendering.enableCull();
         });

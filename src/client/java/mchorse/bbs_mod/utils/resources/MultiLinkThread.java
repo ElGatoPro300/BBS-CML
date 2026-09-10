@@ -9,6 +9,8 @@ import net.minecraft.client.Minecraft;
 import java.io.IOException;
 import java.util.Stack;
 
+import Pixels;
+
 public class MultiLinkThread implements Runnable
 {
     private static MultiLinkThread instance;

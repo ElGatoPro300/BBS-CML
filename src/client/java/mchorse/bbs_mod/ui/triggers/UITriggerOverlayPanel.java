@@ -25,11 +25,6 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.world.entity.player.Player;
-
 public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
 {
     private ValueList<Trigger> triggers;
@@ -60,7 +55,7 @@ public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
                 {
                     try
                     {
-                        Minecraft.getInstance().keyboardHandler.setClipboard(DataStorageUtils.toNbt(this.item.toData()).toString());
+                        MinecraftClient.getInstance().keyboard.setClipboard(DataStorageUtils.toNbt(this.item.toData()).toString());
                     }
                     catch (Exception e)
                     {}
@@ -69,8 +64,8 @@ public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
 
             try
             {
-                String clipboard = Minecraft.getInstance().keyboardHandler.getClipboard();
-                CompoundTag element = TagParser.parseCompoundFully(clipboard);
+                String clipboard = MinecraftClient.getInstance().keyboard.getClipboard();
+                NbtCompound element = StringNbtReader.readCompound(clipboard);
 
                 if (element != null)
                 {
@@ -250,7 +245,7 @@ public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
 
                     if (f == null)
                     {
-                        Player player = Minecraft.getInstance().player;
+                        PlayerEntity player = MinecraftClient.getInstance().player;
 
                         if (player != null)
                         {
@@ -307,13 +302,13 @@ public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
                 {
                     ModelBlockEntity entity = l.get(0);
 
-                    item.x.set(entity.getBlockPos().getX());
-                    item.y.set(entity.getBlockPos().getY());
-                    item.z.set(entity.getBlockPos().getZ());
+                    item.x.set(entity.getPos().getX());
+                    item.y.set(entity.getPos().getY());
+                    item.z.set(entity.getPos().getZ());
 
-                    x.setValue(entity.getBlockPos().getX());
-                    y.setValue(entity.getBlockPos().getY());
-                    z.setValue(entity.getBlockPos().getZ());
+                    x.setValue(entity.getPos().getX());
+                    y.setValue(entity.getPos().getY());
+                    z.setValue(entity.getPos().getZ());
 
                     panel.close();
                 });

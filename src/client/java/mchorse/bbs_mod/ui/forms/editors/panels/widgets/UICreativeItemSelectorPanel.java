@@ -381,8 +381,8 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                     /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
                     // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                    context.batcher.getContext().item(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().renderItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
                     /* 1.21.11: DrawContext.draw() removed */
                     // context.batcher.getContext().draw();
@@ -486,8 +486,8 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                     /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
                     // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                    context.batcher.getContext().item(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().renderItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().renderItemDecorations(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
                     /* 1.21.11: DrawContext.draw() removed */
                     // context.batcher.getContext().draw();

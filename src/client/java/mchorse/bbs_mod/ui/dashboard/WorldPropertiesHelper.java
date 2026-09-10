@@ -11,7 +11,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.gamerules.GameRule;
 import net.minecraft.world.level.gamerules.GameRules;
-import net.minecraft.world.level.storage.ServerLevelData;
 
 import java.util.function.IntConsumer;
 
@@ -165,6 +164,25 @@ public class WorldPropertiesHelper
     public static void setTimeOfDay(long time)
     {
         setClientTimeOverride(time);
+
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
+
+        if (server != null)
+        {
+            server.execute(() ->
+            {
+                ServerLevel world = server.overworld();
+
+                if (world != null)
+                {
+                    world.setDayTime(time);
+                }
+            });
+
+            return;
+        }
+
         sendSilentCommand("time set " + time);
     }
 

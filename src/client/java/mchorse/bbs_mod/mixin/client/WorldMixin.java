@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class WorldMixin
 {
     @Inject(method = "getRainLevel", at = @At("HEAD"), cancellable = true)
-    public void onGetRainGradient(float delta, CallbackInfoReturnable<Float> info)
+    public void onGetRainGradient(CallbackInfoReturnable<Float> info)
     {
         Double rainFactor = BBSRendering.getWeather();
 

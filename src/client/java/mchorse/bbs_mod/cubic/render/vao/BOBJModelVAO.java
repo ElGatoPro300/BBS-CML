@@ -387,8 +387,8 @@ public class BOBJModelVAO
             return;
         }
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
-            DefaultVertexFormat.ENTITY);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
+            DefaultVertexFormat.NEW_ENTITY);
         PoseStack.Pose entry = stack.last();
 
         for (int i = first; i < end; i++)
@@ -397,9 +397,9 @@ public class BOBJModelVAO
             int uv = i * 2;
 
             builder.addVertex(entry.pose(), this.tmpVertices[xyz], this.tmpVertices[xyz + 1], this.tmpVertices[xyz + 2])
-                .setColor(color.r, color.g, color.b, alpha).setUv(this.data.texData[uv], this.data.texData[uv + 1])
-                .setOverlay(overlay).setLight(light)
-                .setNormal(entry, this.tmpNormals[xyz], this.tmpNormals[xyz + 1], this.tmpNormals[xyz + 2]);
+                .setColor(color.r, color.g, color.b, alpha).texture(this.data.texData[uv], this.data.texData[uv + 1])
+                .overlay(overlay).light(light)
+                .normal(entry, this.tmpNormals[xyz], this.tmpNormals[xyz + 1], this.tmpNormals[xyz + 2]);
         }
 
         if (shader != null)

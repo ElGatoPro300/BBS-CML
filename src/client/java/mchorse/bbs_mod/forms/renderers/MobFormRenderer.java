@@ -33,7 +33,7 @@ import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -46,6 +46,7 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.ValueInput;
@@ -487,18 +488,18 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         return MobFormRenderer.resolveModelParts(model, this.entity.getClass());
     }
 
-    private net.minecraft.world.entity.Pose getMorphPose(IEntity source)
+    private Pose getMorphPose(IEntity source)
     {
-        net.minecraft.world.entity.Pose pose = source.getEntityPose();
+        Pose pose = source.getEntityPose();
 
-        if ((source.getMountTarget() != null || source.isSitting()) && pose == net.minecraft.world.entity.Pose.STANDING)
+        if ((source.getMountTarget() != null || source.isSitting()) && pose == Pose.STANDING)
         {
-            return net.minecraft.world.entity.Pose.SITTING;
+            return Pose.SITTING;
         }
 
-        if (source.isSneaking() && pose == net.minecraft.world.entity.Pose.STANDING)
+        if (source.isSneaking() && pose == Pose.STANDING)
         {
-            return net.minecraft.world.entity.Pose.CROUCHING;
+            return Pose.CROUCHING;
         }
 
         return pose;

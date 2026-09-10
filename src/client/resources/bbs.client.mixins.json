@@ -1,7 +1,7 @@
 {
     "required": true,
     "package": "mchorse.bbs_mod.mixin.client",
-    "compatibilityLevel": "JAVA_25",
+    "compatibilityLevel": "JAVA_21",
     "client": [
         "ClientWorldMixin",
         "ClientPlayerInteractionManagerMixin",
@@ -61,14 +61,12 @@
         "iris.ShadowRendererMixin",
         "iris.ShadowMatricesMixin",
         "iris.CelestialUniformsMixin",
-        "audio.CallbackDeviceTrackerMixin",
         "audio.SoundEngineMixin",
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
         "ModelPartMixin",
         "YggdrasilServicesKeyInfoMixin",
         "GuiRendererMixin",
-        "GuiRendererAccessor",
         "lambdynlights.LambDynLightsSettingsScreenMixin"
     ],
     "injectors": {

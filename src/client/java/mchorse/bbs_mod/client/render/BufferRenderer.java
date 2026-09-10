@@ -58,7 +58,7 @@ public class BufferRenderer
         VertexFormat format = params.format();
         VertexFormat.Mode mode = params.mode();
 
-        if (mode == VertexFormat.Mode.LINES || mode == VertexFormat.Mode.DEBUG_LINES || mode == VertexFormat.Mode.DEBUG_LINE_STRIP)
+        if (mode == VertexFormat.DrawMode.LINES || mode == VertexFormat.DrawMode.DEBUG_LINES || mode == VertexFormat.DrawMode.DEBUG_LINE_STRIP)
         {
             if (defaultLinesLayer == null)
             {

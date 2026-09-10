@@ -33,7 +33,7 @@ public class BbsFormGuiElementRenderer extends PictureInPictureRenderer<BbsFormG
     }
 
     @Override
-    protected void renderToTexture(BbsFormGuiElementRenderState state, PoseStack matrices)
+    protected void render(BbsFormGuiElementRenderState state, PoseStack matrices)
     {
         Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
 

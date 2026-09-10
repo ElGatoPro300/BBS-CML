@@ -19,11 +19,9 @@ import org.joml.Matrix4f;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.shaders.UniformType;
@@ -196,34 +194,35 @@ public final class ModelEffectPass
 
         Identifier vertex = Identifier.fromNamespaceAndPath("bbs", "core/" + (key.shader().equals("block_glow_overlay") ? "block_paint_overlay" : key.shader()));
         Identifier fragment = Identifier.fromNamespaceAndPath("bbs", "core/" + key.shader());
-        RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.ENTITY_SNIPPET)
+        RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath("bbs", "pipeline/model_effect_" + PIPELINES.size()))
             .withVertexShader(vertex).withFragmentShader(fragment)
             .withVertexFormat(key.format(), key.mode())
             .withUniform("BbsModelEffects", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0");
-
-        BlendFunction blend = null;
+            .withSampler("Sampler0")
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withDepthWrite(key.depthWrite()).withCull(key.cull());
 
         if (!key.picking())
         {
-            builder.withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3");
-            blend = key.multiply()
-                ? new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE)
-                : key.additive() || key.shader().equals("block_glow_overlay")
-                ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
-                : BlendFunction.TRANSLUCENT;
+            builder.withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3")
+                .withBlend(key.multiply()
+                    ? new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE)
+                    : key.additive() || key.shader().equals("block_glow_overlay")
+                    ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
+                    : BlendFunction.TRANSLUCENT);
         }
 
-        builder.withColorTargetState(blend != null ? new ColorTargetState(blend) : ColorTargetState.DEFAULT)
-            .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, key.depthWrite(), 0F, key.overlay() ? -4F : 0F))
-            .withCull(key.cull());
+        if (key.overlay())
+        {
+            builder.withDepthBias(0F, -4F);
+        }
 
         RenderPipeline pipeline = RenderPipelines.register(builder.build());
 
         if (BBSRendering.isIrisLoaded())
         {
-            IrisFormPipelines.register(pipeline, key.picking() ? null : (key.depthWrite() ? RenderPipelines.ENTITY_CUTOUT : RenderPipelines.ENTITY_TRANSLUCENT), key.depthWrite());
+            IrisFormPipelines.register(pipeline, key.picking() ? null : (key.depthWrite() ? RenderPipelines.ENTITY_CUTOUT_NO_CULL : RenderPipelines.ENTITY_TRANSLUCENT), key.depthWrite());
         }
 
         PIPELINES.put(key, pipeline);
@@ -256,7 +255,7 @@ public final class ModelEffectPass
     private static GlProgram createProgram(String name)
     {
         GlProgram shader = ModelEffectUniforms.register(BBSRendering.getProgram(pipeline(new Key(
-            DefaultVertexFormat.ENTITY, VertexFormat.Mode.TRIANGLES,
+            DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.TRIANGLES,
             name.startsWith("picker_"), true, false, false, name, false, false))));
 
         if (shader != null && shader != GlProgram.INVALID_PROGRAM)
@@ -396,8 +395,8 @@ public final class ModelEffectPass
             if (buffer.indexBuffer() == null)
             {
                 RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(draws.mode());
-                indices = sequential.getBuffer(draws.indexCount());
-                indexType = sequential.type();
+                indices = sequential.getIndexBuffer(draws.indexCount());
+                indexType = sequential.getIndexType();
             }
             else
             {
