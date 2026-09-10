@@ -4,20 +4,15 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.CloudStatus;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LevelTargetBundle;
-import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.phys.Vec3;
 
-import org.joml.Matrix4fc;
-import org.joml.Vector4f;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.blaze3d.framegraph.FramePass;
-import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 
 import org.lwjgl.opengl.GL11;
 
@@ -67,32 +62,6 @@ public class WorldRendererMixin
         if (BBSRendering.shouldHideChromaTerrain())
         {
             info.cancel();
-        }
-    }
-
-    @Inject(method = "renderLevel", at = @At("HEAD"))
-    public void onCaptureWorldMatrices(
-        GraphicsResourceAllocator allocator,
-        DeltaTracker tickCounter,
-        boolean renderBlockOutline,
-        CameraRenderState camera,
-        Matrix4fc projectionMatrix,
-        GpuBufferSlice fogBuffer,
-        Vector4f fogColor,
-        boolean renderSky,
-        ChunkSectionsToRender chunkSectionsToRender,
-        CallbackInfo info
-    )
-    {
-        /* The frustum projection omits camera effects. Rendering must match the terrain projection. */
-        if (camera != null && camera.viewRotationMatrix != null)
-        {
-            BBSRendering.camera.set(camera.viewRotationMatrix);
-        }
-
-        if (projectionMatrix != null)
-        {
-            BBSRendering.projection.set(projectionMatrix);
         }
     }
 

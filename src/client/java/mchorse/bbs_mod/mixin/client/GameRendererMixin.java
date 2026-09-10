@@ -18,6 +18,7 @@ import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
 
+import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -29,6 +30,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
@@ -198,6 +200,22 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         {
             info.cancel();
         }
+    }
+
+    /**
+     * Capture the perspective uploaded for the world, including camera effects.
+     * LevelRenderer's Matrix4fc argument is the view rotation in 26.1.
+     */
+    @ModifyArg(method = "renderLevel", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"), index = 0)
+    private Matrix4f bbs$captureWorldProjection(Matrix4f projection)
+    {
+        CameraRenderState camera = Minecraft.getInstance().gameRenderer.getGameRenderState().levelRenderState.cameraRenderState;
+
+        BBSRendering.camera.set(camera.viewRotationMatrix);
+        BBSRendering.projection.set(projection);
+
+        return projection;
     }
 
     @Inject(at = @At("HEAD"), method = "renderLevel")
