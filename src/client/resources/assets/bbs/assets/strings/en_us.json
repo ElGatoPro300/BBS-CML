@@ -1498,6 +1498,7 @@
     "bbs.ui.forms.categories.context.share_form": "Share form...",
     "bbs.ui.forms.categories.extra": "Miscellaneous",
     "bbs.ui.forms.categories.mobs_animals": "Mobs (animals)",
+    "bbs.ui.forms.categories.mobs_baby": "Mobs (baby)",
     "bbs.ui.forms.categories.mobs_hostile": "Mobs (hostile)",
     "bbs.ui.forms.categories.mobs_misc": "Mobs (miscellaneous)",
     "bbs.ui.forms.categories.mobs_neutral": "Mobs (neutral)",

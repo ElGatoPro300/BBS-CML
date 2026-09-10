@@ -32,11 +32,13 @@ public class ExtraFormSection extends FormSection
     private static final List<String> mobAnimalsIds = Arrays.asList("minecraft:armadillo", "minecraft:axolotl", "minecraft:bat", "minecraft:bee", "minecraft:camel", "minecraft:camel_husk", "minecraft:cat", "minecraft:chicken", "minecraft:cod", "minecraft:cow", "minecraft:dolphin", "minecraft:donkey", "minecraft:fox", "minecraft:frog", "minecraft:glow_squid", "minecraft:goat", "minecraft:happy_ghast", "minecraft:horse", "minecraft:llama", "minecraft:mooshroom", "minecraft:mule", "minecraft:nautilus", "minecraft:ocelot", "minecraft:panda", "minecraft:parrot", "minecraft:pig", "minecraft:polar_bear", "minecraft:pufferfish", "minecraft:rabbit", "minecraft:salmon", "minecraft:sheep", "minecraft:skeleton_horse", "minecraft:sniffer", "minecraft:squid", "minecraft:tadpole", "minecraft:tropical_fish", "minecraft:turtle", "minecraft:wolf", "minecraft:zombie_horse");
     private static final List<String> mobNeutralIds = Arrays.asList("minecraft:allay", "minecraft:copper_golem", "minecraft:enderman", "minecraft:iron_golem", "minecraft:piglin", "minecraft:piglin_brute", "minecraft:snow_golem", "minecraft:strider", "minecraft:trader_llama", "minecraft:villager", "minecraft:wandering_trader");
     private static final List<String> mobHostileIds = Arrays.asList("minecraft:blaze", "minecraft:bogged", "minecraft:breeze", "minecraft:cave_spider", "minecraft:creaking", "minecraft:creeper", "minecraft:drowned", "minecraft:elder_guardian", "minecraft:ender_dragon", "minecraft:endermite", "minecraft:evoker", "minecraft:ghast", "minecraft:guardian", "minecraft:hoglin", "minecraft:husk", "minecraft:illusioner", "minecraft:magma_cube", "minecraft:parched", "minecraft:phantom", "minecraft:pillager", "minecraft:ravager", "minecraft:shulker", "minecraft:silverfish", "minecraft:skeleton", "minecraft:slime", "minecraft:spider", "minecraft:stray", "minecraft:vex", "minecraft:vindicator", "minecraft:warden", "minecraft:witch", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:zoglin", "minecraft:zombie", "minecraft:zombie_villager", "minecraft:zombie_nautilus", "minecraft:zombified_piglin");
+    private static final List<String> mobBabyIds = Arrays.asList("minecraft:armadillo", "minecraft:axolotl", "minecraft:camel", "minecraft:cat", "minecraft:chicken", "minecraft:cow", "minecraft:dolphin", "minecraft:donkey", "minecraft:fox", "minecraft:frog", "minecraft:glow_squid", "minecraft:goat", "minecraft:happy_ghast", "minecraft:hoglin", "minecraft:horse", "minecraft:husk", "minecraft:llama", "minecraft:mooshroom", "minecraft:mule", "minecraft:nautilus", "minecraft:ocelot", "minecraft:panda", "minecraft:pig", "minecraft:piglin", "minecraft:polar_bear", "minecraft:rabbit", "minecraft:sheep", "minecraft:sniffer", "minecraft:squid", "minecraft:strider", "minecraft:turtle", "minecraft:villager", "minecraft:wolf", "minecraft:zoglin", "minecraft:zombie", "minecraft:zombie_horse", "minecraft:zombie_villager", "minecraft:zombified_piglin");
     private static final List<String> mobMiscIds = Arrays.asList("minecraft:armor_stand", "minecraft:arrow", "minecraft:breeze_wind_charge", "minecraft:end_crystal", "minecraft:lightning_bolt", "minecraft:minecart", "minecraft:oak_boat", "minecraft:oak_chest_boat", "minecraft:shulker_bullet", "minecraft:spectral_arrow", "minecraft:trident", "minecraft:wind_charge");
 
     private FormCategory mobsAnimals;
     private FormCategory mobsNeutral;
     private FormCategory mobsHostile;
+    private FormCategory mobsBaby;
     private FormCategory mobsMisc;
     private FormCategory extra;
     private List<FormCategory> categories;
@@ -118,15 +120,17 @@ public class ExtraFormSection extends FormSection
         this.mobsAnimals = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_ANIMALS, this.parent.visibility.get("mobs_animals"));
         this.mobsNeutral = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_NEUTRAL, this.parent.visibility.get("mobs_neutral"));
         this.mobsHostile = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_HOSTILE, this.parent.visibility.get("mobs_hostile"));
+        this.mobsBaby = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_BABY, this.parent.visibility.get("mobs_baby"));
         this.mobsMisc = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_MISC, this.parent.visibility.get("mobs_misc"));
         this.extra = extra;
 
         this.fillMobs(this.mobsAnimals, mobAnimalsIds);
         this.fillMobs(this.mobsNeutral, mobNeutralIds);
         this.fillMobs(this.mobsHostile, mobHostileIds);
+        this.fillBabyMobs(this.mobsBaby, mobBabyIds);
         this.fillMobs(this.mobsMisc, mobMiscIds);
 
-        this.categories = Arrays.asList(this.extra, this.mobsAnimals, this.mobsNeutral, this.mobsHostile, this.mobsMisc);
+        this.categories = Arrays.asList(this.extra, this.mobsAnimals, this.mobsNeutral, this.mobsHostile, this.mobsBaby, this.mobsMisc);
     }
 
     private void fillMobs(FormCategory category, List<String> ids)
@@ -136,6 +140,18 @@ public class ExtraFormSection extends FormSection
             MobForm form = new MobForm();
 
             form.mobID.set(mobId);
+            category.addForm(form);
+        }
+    }
+
+    private void fillBabyMobs(FormCategory category, List<String> ids)
+    {
+        for (String mobId : ids)
+        {
+            MobForm form = new MobForm();
+
+            form.mobID.set(mobId);
+            form.mobNBT.set("{Age:-24000,IsBaby:1b}");
             category.addForm(form);
         }
     }

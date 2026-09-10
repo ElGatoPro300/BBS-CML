@@ -3810,6 +3810,7 @@ public class UIFormList extends UIElement
                 String key = langKey.key;
                 if ("bbs.ui.forms.categories.extra".equals(key) ||
                     "bbs.ui.forms.categories.mobs_animals".equals(key) ||
+                    "bbs.ui.forms.categories.mobs_baby".equals(key) ||
                     "bbs.ui.forms.categories.mobs_neutral".equals(key) ||
                     "bbs.ui.forms.categories.mobs_hostile".equals(key) ||
                     "bbs.ui.forms.categories.mobs_misc".equals(key))
@@ -3825,8 +3826,8 @@ public class UIFormList extends UIElement
                 return true;
             }
 
-            return title.equals("mobs (animales)") || title.equals("mobs (neutrales)") || title.equals("mobs (hostiles)") || title.equals("mobs (miscelaneos)") || title.equals("mobs (misceláneos)") ||
-                   title.equals("mobs (animals)") || title.equals("mobs (neutral)") || title.equals("mobs (hostile)") || title.equals("mobs (miscellaneous)");
+            return title.equals("mobs (animales)") || title.equals("mobs (crias)") || title.equals("mobs (crías)") || title.equals("mobs (bebes)") || title.equals("mobs (bebés)") || title.equals("mobs (neutrales)") || title.equals("mobs (hostiles)") || title.equals("mobs (miscelaneos)") || title.equals("mobs (misceláneos)") ||
+                   title.equals("mobs (animals)") || title.equals("mobs (baby)") || title.equals("mobs (neutral)") || title.equals("mobs (hostile)") || title.equals("mobs (miscellaneous)");
         }
 
         private String normalize(String value)
