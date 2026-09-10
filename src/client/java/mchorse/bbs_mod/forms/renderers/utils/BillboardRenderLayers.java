@@ -42,17 +42,21 @@ public class BillboardRenderLayers
                 ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
                 : BlendFunction.TRANSLUCENT;
 
-            RenderPipeline.Builder builder = RenderPipeline.builder(shaded ? RenderPipelines.ENTITY_SNIPPET : RenderPipelines.GUI_TEXTURED_SNIPPET)
+            RenderPipeline.Builder builder = RenderPipeline.builder()
                 .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/billboard_" + index))
+                .withVertexShader(source.getVertexShader())
+                .withFragmentShader(source.getFragmentShader())
                 .withVertexFormat(shaded ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR,
                     quads ? VertexFormat.Mode.QUADS : VertexFormat.Mode.TRIANGLES)
+                .withSampler("Sampler0")
                 .withColorTargetState(new ColorTargetState(blend))
                 .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, depthWrite))
                 .withCull(cull);
 
             if (shaded)
             {
-                builder.withShaderDefine("PER_FACE_LIGHTING")
+                builder.withSampler("Sampler1").withSampler("Sampler2")
+                    .withShaderDefine("PER_FACE_LIGHTING")
                     .withShaderDefine("ALPHA_CUTOUT", 0.001F);
             }
 

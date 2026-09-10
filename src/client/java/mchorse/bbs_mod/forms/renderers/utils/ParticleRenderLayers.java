@@ -46,18 +46,31 @@ public class ParticleRenderLayers
 
             if (type == TYPE_LIT)
             {
-                builder = RenderPipeline.builder(RenderPipelines.PARTICLE_SNIPPET)
+                RenderPipeline source = RenderPipelines.TRANSLUCENT_PARTICLE;
+
+                builder = RenderPipeline.builder()
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
                     .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.Mode.TRIANGLES)
+                    .withSampler("Sampler0")
+                    .withSampler("Sampler2")
                     .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, depthWrite))
                     .withCull(false);
             }
             else if (type == TYPE_SHADED)
             {
-                builder = RenderPipeline.builder(RenderPipelines.ENTITY_SNIPPET)
+                RenderPipeline source = RenderPipelines.ENTITY_TRANSLUCENT;
+
+                builder = RenderPipeline.builder()
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
                     .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.TRIANGLES)
+                    .withSampler("Sampler0")
+                    .withSampler("Sampler1")
+                    .withSampler("Sampler2")
                     .withShaderDefine("PER_FACE_LIGHTING")
                     .withShaderDefine("ALPHA_CUTOUT", 0.001F)
                     .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
@@ -66,16 +79,28 @@ public class ParticleRenderLayers
             }
             else if (type == TYPE_GLOW)
             {
-                builder = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+                RenderPipeline source = RenderPipelines.GUI_TEXTURED;
+
+                builder = RenderPipeline.builder()
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_glow"))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
+                    .withVertexFormat(source.getVertexFormat(), VertexFormat.Mode.TRIANGLES)
+                    .withSampler("Sampler0")
                     .withColorTargetState(new ColorTargetState(new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)))
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
                     .withCull(false);
             }
             else
             {
-                builder = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+                RenderPipeline source = RenderPipelines.GUI_TEXTURED;
+
+                builder = RenderPipeline.builder()
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_ui"))
+                    .withVertexShader(source.getVertexShader())
+                    .withFragmentShader(source.getFragmentShader())
+                    .withVertexFormat(source.getVertexFormat(), VertexFormat.Mode.TRIANGLES)
+                    .withSampler("Sampler0")
                     .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
                     .withCull(false);

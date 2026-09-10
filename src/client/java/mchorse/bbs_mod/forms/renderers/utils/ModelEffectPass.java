@@ -196,7 +196,7 @@ public final class ModelEffectPass
 
         Identifier vertex = Identifier.fromNamespaceAndPath("bbs", "core/" + (key.shader().equals("block_glow_overlay") ? "block_paint_overlay" : key.shader()));
         Identifier fragment = Identifier.fromNamespaceAndPath("bbs", "core/" + key.shader());
-        RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.ENTITY_SNIPPET)
+        RenderPipeline.Builder builder = RenderPipeline.builder()
             .withLocation(Identifier.fromNamespaceAndPath("bbs", "pipeline/model_effect_" + PIPELINES.size()))
             .withVertexShader(vertex).withFragmentShader(fragment)
             .withVertexFormat(key.format(), key.mode())
