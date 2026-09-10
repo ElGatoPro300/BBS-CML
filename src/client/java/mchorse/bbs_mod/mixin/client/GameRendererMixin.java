@@ -8,6 +8,8 @@ import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.ui.framework.UIBaseMenu;
+import mchorse.bbs_mod.ui.framework.UIScreen;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -158,8 +160,9 @@ public class GameRendererMixin
     public void onRenderHand(CameraRenderState cameraRenderState, float tickDelta, Matrix4fc positionMatrix, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
 
-        if (current instanceof PlayCameraController)
+        if (current instanceof PlayCameraController || (menu != null && menu.canHideHUD()))
         {
             info.cancel();
         }
