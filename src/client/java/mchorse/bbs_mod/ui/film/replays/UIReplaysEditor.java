@@ -5044,4 +5044,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             this.keyframeEditor.view.getGraph().pickSelected();
         }
     }
+
+    /**
+     * Hide the keyframe properties form without clearing dope-sheet selection.
+     */
+    public void hideKeyframeProperties()
+    {
+        if (this.keyframeEditor != null)
+        {
+            this.keyframeEditor.hidePropertiesPanel();
+        }
+    }
 }

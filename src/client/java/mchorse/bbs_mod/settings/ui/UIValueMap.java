@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.settings.ui;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -450,6 +451,48 @@ public class UIValueMap
                 return Arrays.asList(UIValueFactory.column(textbox, value), UI.row(4, browse, reset));
             }
 
+            if (value == BBSSettings.globalAssetsPath)
+            {
+                textbox.w(150);
+
+                UIButton browse = new UIButton(UIKeys.SETTINGS_FOLDER_BROWSE, (b) -> pickGlobalAssetsFolder(value, textbox));
+                UIButton sync = new UIButton(UIKeys.SETTINGS_FOLDER_SYNC, (b) ->
+                {
+                    String current = textbox.getText().trim();
+
+                    value.set(current);
+
+                    if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+                    {
+                        BBSModClient.reloadAllAssets();
+                        UIUtils.playClick(1.2F);
+                    }
+                });
+                UIButton open = new UIButton(UIKeys.SETTINGS_FOLDER_OPEN, (b) ->
+                {
+                    File dir = BBSMod.getAssetsFolder();
+
+                    UIUtils.openFolder(dir);
+                });
+                UIButton reset = new UIButton(UIKeys.SETTINGS_FOLDER_RESET, (b) ->
+                {
+                    value.set("");
+                    textbox.setText("");
+
+                    if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+                    {
+                        BBSModClient.reloadAllAssets();
+                    }
+                });
+
+                browse.tooltip(UIKeys.SETTINGS_FOLDER_BROWSE);
+                sync.tooltip(UIKeys.SETTINGS_FOLDER_SYNC);
+                open.tooltip(UIKeys.SETTINGS_FOLDER_OPEN);
+                reset.tooltip(UIKeys.SETTINGS_FOLDER_RESET);
+
+                return Arrays.asList(UIValueFactory.column(textbox, value), UI.row(4, browse, sync, open, reset));
+            }
+
             if (value == BBSSettings.videoEncoderPath && OS.CURRENT == OS.WINDOWS)
             {
                 textbox.context((menu) ->
@@ -629,6 +672,29 @@ public class UIValueMap
             CustomFontManager.invalidate();
             RtlFontManager.invalidate();
         }), 320, 240);
+    }
+
+    private static void pickGlobalAssetsFolder(ValueString value, UITextbox textbox)
+    {
+        String defaultPath = value.get().trim();
+
+        if (defaultPath.isEmpty())
+        {
+            defaultPath = BBSMod.getAssetsFolder().getAbsolutePath();
+        }
+
+        String chosen = UIUtils.selectFolder(UIKeys.SETTINGS_FOLDER_BROWSE.get(), defaultPath);
+
+        if (chosen != null && !chosen.isEmpty())
+        {
+            value.set(chosen);
+            textbox.setText(chosen);
+
+            if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+            {
+                BBSModClient.reloadAllAssets();
+            }
+        }
     }
 
     private static UIElement customColumn(UIElement control, IKey label, IKey tooltip)

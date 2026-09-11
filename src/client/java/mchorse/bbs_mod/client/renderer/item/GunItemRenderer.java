@@ -24,8 +24,6 @@ import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.HashMap;
@@ -92,17 +90,20 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
 
                 try
                 {
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    FormRenderingContext context = new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false));
+
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                        RenderSystem.setupGui3DDiffuseLighting(a, b);
+                        context.inUI();
+                    }
+                    else
+                    {
+                        context.camera(MinecraftClient.getInstance().gameRenderer.getCamera());
                     }
 
-                    int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
-                    FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
-                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    FormUtilsClient.render(form, context);
                 }
                 finally
                 {

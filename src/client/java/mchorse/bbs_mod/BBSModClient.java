@@ -120,6 +120,7 @@ import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.interps.CustomInterpolationManager;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
@@ -386,6 +387,40 @@ public class BBSModClient implements ClientModInitializer
         return Math.max(originalFramebufferScale, 1);
     }
 
+    public static void reloadAllAssets()
+    {
+        BBSMod.updateAssetsSourcePack();
+        BBSResources.restartWatchdog();
+
+        if (BBSMod.getSettings() != null)
+        {
+            BBSMod.getSettings().reload();
+        }
+
+        if (models != null)
+        {
+            models.reload();
+        }
+
+        if (textures != null)
+        {
+            textures.textures.clear();
+            textures.animatedTextures.clear();
+        }
+
+        if (sounds != null)
+        {
+            sounds.deleteSounds();
+        }
+
+        if (formCategories != null)
+        {
+            formCategories.setup();
+        }
+
+        CustomInterpolationManager.INSTANCE.load();
+    }
+
     public static ModelProperties getItemStackProperties(ItemStack stack)
     {
         ModelBlockItemRenderer.Item item = modelBlockItemRenderer.get(stack);
@@ -614,6 +649,23 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.discordPresence.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
         BBSSettings.discordApplicationId.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
+
+        if (BBSSettings.globalAssetsEnabled != null)
+        {
+            BBSSettings.globalAssetsEnabled.postCallback((v, f) -> reloadAllAssets());
+        }
+
+        if (BBSSettings.globalAssetsPath != null)
+        {
+            BBSSettings.globalAssetsPath.postCallback((v, f) ->
+            {
+                if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+                {
+                    reloadAllAssets();
+                }
+            });
+        }
+
         BBSSettings.optimizedMorphMenu.postCallback((v, f) ->
         {
             FormUIPreviewCache.clear();

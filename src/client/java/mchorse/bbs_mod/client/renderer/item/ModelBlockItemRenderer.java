@@ -26,8 +26,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.HashMap;
@@ -81,22 +79,25 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
 
                 try
                 {
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    FormRenderingContext context = new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false));
+
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                        Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                        RenderSystem.setupGui3DDiffuseLighting(a, b);
+                        context.inUI();
+                    }
+                    else
+                    {
+                        context.camera(MinecraftClient.getInstance().gameRenderer.getCamera());
                     }
 
-                    FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
-                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    FormUtilsClient.render(form, context);
                 }
                 finally
                 {
                     if (mode == ModelTransformationMode.GUI)
                     {
-                        /* Re-enable GUI lights — disable left hotbar widgets / later slots dark. */
                         BBSRendering.restoreAfterGuiItemForm();
                     }
                     else

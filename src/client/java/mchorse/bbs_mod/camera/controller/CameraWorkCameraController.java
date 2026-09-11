@@ -7,7 +7,6 @@ import mchorse.bbs_mod.camera.clips.screen.ColorClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
 
@@ -44,8 +43,8 @@ public abstract class CameraWorkCameraController implements ICameraController
     }
 
     /**
-     * @param applyTransform when false, clip position/rotation are evaluated but only
-     *        FOV is written back (free-camera preview still needs fisheye FOV overscan).
+     * @param applyTransform when false, clip position/rotation/FOV are evaluated for
+     *        timeline context (audio, screen effects) but not written back to the camera.
      */
     protected void apply(Camera camera, int ticks, float transition, boolean applyTransform)
     {
@@ -70,16 +69,9 @@ public abstract class CameraWorkCameraController implements ICameraController
 
         this.context.currentLayer = 0;
 
-        if (camera != null)
+        if (camera != null && applyTransform)
         {
-            if (applyTransform)
-            {
-                this.position.apply(camera);
-            }
-            else
-            {
-                camera.fov = MathUtils.toRad(this.position.angle.fov);
-            }
+            this.position.apply(camera);
         }
     }
 
