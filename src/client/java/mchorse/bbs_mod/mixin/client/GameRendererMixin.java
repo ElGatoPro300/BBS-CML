@@ -250,9 +250,9 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
     }
 
     /**
-     * Pause / screen background blur runs after the world pass. World model-block forms can
-     * leave ColorModulator, TU0, or blend (DST_COLOR) dirty — blur then presents a black world
-     * while menu buttons still look fine.
+     * Pause / screen background blur runs after the world pass. Hotbar model-block forms and
+     * world forms can leave ColorModulator, TU0, lightmap, or blend (DST_COLOR) dirty — blur
+     * then darkens hotbar / sky / leaves on NeoForge while menu buttons still look fine.
      */
     @Inject(method = "processBlurEffect", at = @At("HEAD"))
     private void bbsPrepareMenuBlurState(CallbackInfo callbackInfo)
