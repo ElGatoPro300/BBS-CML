@@ -42,7 +42,7 @@ Film stub renders sort by **camera distance** (far → near) for translucency. M
 
 Related pause/HUD darkness (model-block in hotbar): same GL-state family.
 * **1.21+:** `restoreAfterGuiItemForm` (re-enable lightmap) + `prepareMenuBackgroundState` before `GameRenderer.renderBlur` + `prepareWorldPresentState` at world-begin.
-* **1.20.1 / 1.20.4:** no menu blur — use `preparePauseScreenState` before `Screen.renderBackground` / `renderInGameBackground` (blend stays on for the gradient), plus the same HUD / world present restores. Do not inject `renderBlur` on these versions (`defaultRequire: 1` would fail boot).
+* **1.20.1 / 1.20.4:** no menu blur — use `preparePauseScreenState` before `Screen.renderBackground` (1.20.4 also hooks `renderInGameBackground`; blend stays on for the gradient), plus the same HUD / world present restores. Do not inject `renderBlur` on these versions (`defaultRequire: 1` would fail boot).
 
 ## Related
 
