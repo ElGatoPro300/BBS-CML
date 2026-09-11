@@ -11,7 +11,7 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 | [ui-localization.md](ui-localization.md) | `IKey` / `UIKeys` / `en_us.json` |
 | [ui-framework.md](ui-framework.md) | `UIElement`, layouts, dashboard/panels |
 | [values-and-registration.md](values-and-registration.md) | `Value` system, registration, model formats |
-| [rendering-iris.md](rendering-iris.md) | Iris/shadow/render-state rules |
+| [rendering-iris.md](rendering-iris.md) | Iris/shadow/render-state rules; film ModelForm lightmap isolation |
 
 ## Film / forms
 
