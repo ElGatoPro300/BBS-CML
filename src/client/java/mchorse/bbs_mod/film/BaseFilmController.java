@@ -2343,6 +2343,11 @@ public abstract class BaseFilmController
             .thenComparing(Map.Entry::getKey)
         );
 
+        /* NeoForge/Connector can leak lightmap/diffuse between ModelForm draws; Fabric usually
+         * tolerates it. Re-arm vanilla lighting before each replay and restore after so camera
+         * distance reorder cannot tint the next form. Skip Iris shadow (different GL contract). */
+        boolean isolateReplayLighting = !BBSRendering.isIrisShadowPass();
+
         for (Map.Entry<Integer, IEntity> entry : sorted)
         {
             int i = entry.getKey();
@@ -2354,7 +2359,27 @@ public abstract class BaseFilmController
                 continue;
             }
 
-            this.renderEntity(context, replay, entity, i);
+            if (isolateReplayLighting)
+            {
+                BBSRendering.prepareVanillaEntityLighting();
+            }
+
+            try
+            {
+                this.renderEntity(context, replay, entity, i);
+            }
+            finally
+            {
+                if (isolateReplayLighting)
+                {
+                    BBSRendering.restoreWorldRenderState();
+                }
+            }
+        }
+
+        if (isolateReplayLighting)
+        {
+            BBSRendering.prepareVanillaEntityLighting();
         }
     }
 
