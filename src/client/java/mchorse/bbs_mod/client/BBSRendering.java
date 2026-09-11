@@ -470,7 +470,8 @@ public class BBSRendering
 
     /**
      * Level diffuse + lightmap + overlay expected by LivingEntityRenderer cutout layers.
-     * Used for MobForm morph draws (private Immediate) and villager clothing flush.
+     * Used for MobForm morph draws (private Immediate), villager clothing flush, and
+     * per-replay isolation in {@code BaseFilmController#render} (NeoForge lightmap leaks).
      */
     public static void prepareVanillaEntityLighting()
     {
@@ -484,6 +485,7 @@ public class BBSRendering
         setupMatchingWorldDiffuseLighting();
         client.gameRenderer.getLightmapTextureManager().enable();
         client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static Texture getTexture()
