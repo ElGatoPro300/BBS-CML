@@ -83,10 +83,12 @@ import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
@@ -407,11 +409,73 @@ public class BBSRendering
         restoreWorldRenderState();
         DiffuseLighting.enableGuiDepthLighting();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        clearTextureUnit0();
+    }
+
+    /**
+     * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
+     * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
+     * {@link net.minecraft.client.render.GameRenderer#renderBlur()} then samples that state —
+     * NeoForge pause blur makes hotbar / sky / leaves go dark while menu buttons still draw fine.
+     */
+    public static void prepareMenuBackgroundState()
+    {
+        ensureMainFramebuffer();
+        restoreWorldRenderState();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        clearTextureUnit0();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
+
+        /* Blur post-chain expects blend off (see Forge pause-screen blend fixes). */
+        RenderSystem.disableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.depthMask(true);
+        RenderSystem.colorMask(true, true, true, true);
+    }
+
+    public static void clearTextureUnit0()
+    {
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+        GlStateManager._bindTexture(0);
+        RenderSystem.setShaderTexture(0, 0);
+    }
+
+    /**
+     * Call before terrain/entities draw. Preview/pick / GUI forms can leave the main FB unbound,
+     * TU0 on a form atlas, lightmap off, or ColorModulator dirty — the next world pass
+     * (including the freeze behind the pause menu) then presents dark while UI chrome
+     * still looks fine. {@link #prepareHudRenderState()} runs too late for that geometry.
+     */
+    public static void prepareWorldPresentState()
+    {
+        /* Film offscreen sessions can leave toggleFramebuffer true; restore window target. */
+        ensureMainFramebuffer();
+        restoreWorldRenderState();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
+
+        clearTextureUnit0();
     }
 
     /**
      * After a GUI {@link ModelTransformationMode#GUI} builtin form item: keep subsequent hotbar
      * slots / widgets on vanilla GUI lighting (do not leave {@code disableGuiDepthLighting}).
+     * <p>
+     * ModelForm always {@code lightmap.disable()}s at the end of {@code renderModel}, including
+     * UI/hotbar draws. Fabric often still draws widgets.png fine; NeoForge pause blur + HUD
+     * does not — re-enable lightmap/overlay here (same as {@link #prepareHudRenderState}).
      */
     public static void restoreAfterGuiItemForm()
     {
@@ -425,6 +489,16 @@ public class BBSRendering
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         DiffuseLighting.enableGuiDepthLighting();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        }
+
+        clearTextureUnit0();
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
@@ -475,7 +549,8 @@ public class BBSRendering
 
     /**
      * Level diffuse + lightmap + overlay expected by LivingEntityRenderer cutout layers.
-     * Used for MobForm morph draws (private Immediate) and villager clothing flush.
+     * Used for MobForm morph draws (private Immediate), villager clothing flush, and
+     * per-replay isolation in {@code BaseFilmController#render} (NeoForge lightmap leaks).
      */
     public static void prepareVanillaEntityLighting()
     {
@@ -489,6 +564,7 @@ public class BBSRendering
         setupMatchingWorldDiffuseLighting();
         client.gameRenderer.getLightmapTextureManager().enable();
         client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     public static Texture getTexture()
@@ -656,6 +732,9 @@ public class BBSRendering
 
     public static void onWorldRenderBegin()
     {
+        /* Always sanitize before world (or before skip): pause presents this buffer. */
+        prepareWorldPresentState();
+
         if (BBSRendering.shouldSkipWorldRender())
         {
             return;
