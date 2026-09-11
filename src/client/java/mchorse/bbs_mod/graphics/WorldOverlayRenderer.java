@@ -29,7 +29,7 @@ public final class WorldOverlayRenderer implements AutoCloseable
         return ((Provider) Minecraft.getInstance().gameRenderer).bbs$getWorldOverlays();
     }
 
-    public WorldOverlayRenderer(SubmitNodeStorage storage, FeatureRenderDispatcher dispatcher)
+    public WorldOverlayRenderer(FeatureRenderDispatcher dispatcher)
     {
         this.renderer = new GuiRenderer(this.state, dispatcher, List.of());
     }

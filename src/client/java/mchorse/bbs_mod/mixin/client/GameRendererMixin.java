@@ -38,9 +38,6 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
 {
     @Shadow
     @Final
-    private SubmitNodeStorage submitNodeStorage;
-    @Shadow
-    @Final
     private FeatureRenderDispatcher featureRenderDispatcher;
     @Unique
     private WorldOverlayRenderer bbs$worldOverlays;
@@ -56,7 +53,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
     {
         if (this.bbs$worldOverlays == null)
         {
-            this.bbs$worldOverlays = new WorldOverlayRenderer(this.submitNodeStorage, this.featureRenderDispatcher);
+            this.bbs$worldOverlays = new WorldOverlayRenderer(this.featureRenderDispatcher);
         }
 
         return this.bbs$worldOverlays;

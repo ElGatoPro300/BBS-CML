@@ -9,6 +9,8 @@ import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -62,7 +64,6 @@ public class ShadowRendererMixin
     @Inject(method = "renderEntities", at = @At("TAIL"))
     private void bbs$renderFormsShadows(LevelRendererAccessor levelRenderer,
                                         EntityRenderDispatcher dispatcher,
-                                        MultiBufferSource.BufferSource consumers,
                                         PoseStack shadowStack,
                                         float tickDelta,
                                         Frustum frustum,
@@ -86,7 +87,7 @@ public class ShadowRendererMixin
 
         try
         {
-            this.bbs$drawFormShadows(consumers, shadowStack, tickDelta, camX, camY, camZ);
+            this.bbs$drawFormShadows(shadowStack, tickDelta, camX, camY, camZ);
         }
         finally
         {
@@ -96,9 +97,10 @@ public class ShadowRendererMixin
     }
 
     @Unique
-    private void bbs$drawFormShadows(MultiBufferSource.BufferSource consumers, PoseStack shadowStack,
+    private void bbs$drawFormShadows(PoseStack shadowStack,
                                    float tickDelta, double camX, double camY, double camZ)
     {
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         UIBaseMenu menu = UIScreen.getCurrentMenu();
         Camera gameCamera = Minecraft.getInstance().gameRenderer.mainCamera();
         BBSRendering.enableDepthTest();
@@ -334,7 +336,7 @@ public class ShadowRendererMixin
             ModelBlockEntityRenderer.renderIntoShadowMap(modelBlock, shadowStack, consumers, tickDelta, camX, camY, camZ);
         }
 
-        consumers.endBatch();
+        consumers.draw();
     }
 
     private static void renderOnionGhostShadows(FilmEditorController editorController,
@@ -344,7 +346,7 @@ public class ShadowRendererMixin
                                                 KeyframeChannel<?> pose,
                                                 int direction,
                                                 PoseStack shadowStack,
-                                                MultiBufferSource.BufferSource consumers,
+                                                MultiBufferSource consumers,
                                                 Camera camera)
     {
         int cursor = controller.panel.getCursor();
