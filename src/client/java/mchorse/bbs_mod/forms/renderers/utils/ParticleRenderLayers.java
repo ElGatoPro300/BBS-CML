@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -12,13 +13,13 @@ import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.BlendFactor;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.platform.DestFactor;
-import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -53,9 +54,8 @@ public class ParticleRenderLayers
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_lit" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.Mode.TRIANGLES)
-                    .withSampler("Sampler0")
-                    .withSampler("Sampler2")
+                    .withVertexBinding(0, DefaultVertexFormat.PARTICLE)
+                    .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
                     .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, depthWrite))
                     .withCull(false);
@@ -68,10 +68,8 @@ public class ParticleRenderLayers
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_shaded" + (depthWrite ? "" : "_no_depth")))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.TRIANGLES)
-                    .withSampler("Sampler0")
-                    .withSampler("Sampler1")
-                    .withSampler("Sampler2")
+                    .withVertexBinding(0, DefaultVertexFormat.ENTITY)
+                    .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
                     .withShaderDefine("PER_FACE_LIGHTING")
                     .withShaderDefine("ALPHA_CUTOUT", 0.001F)
                     .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
@@ -86,9 +84,9 @@ public class ParticleRenderLayers
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_glow"))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(source.getVertexFormat(), VertexFormat.Mode.TRIANGLES)
-                    .withSampler("Sampler0")
-                    .withColorTargetState(new ColorTargetState(new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)))
+                    .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
+                    .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+                    .withColorTargetState(new ColorTargetState(new BlendFunction(BlendFactor.SRC_ALPHA, BlendFactor.ONE, BlendFactor.ONE, BlendFactor.ZERO)))
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
                     .withCull(false);
             }
@@ -100,8 +98,8 @@ public class ParticleRenderLayers
                     .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particle_ui"))
                     .withVertexShader(source.getVertexShader())
                     .withFragmentShader(source.getFragmentShader())
-                    .withVertexFormat(source.getVertexFormat(), VertexFormat.Mode.TRIANGLES)
-                    .withSampler("Sampler0")
+                    .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
+                    .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
                     .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
                     .withCull(false);
@@ -199,7 +197,7 @@ public class ParticleRenderLayers
          * A raw glBindTexture/glUseProgram does not configure a vanilla render pass. */
         try
         {
-            RenderType.create("bbs_particle", setup.createRenderSetup()).draw(buffer);
+            BufferRenderer.draw(RenderType.create("bbs_particle", setup.createRenderSetup()), buffer);
         }
         finally
         {

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.client;
 
+import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerSelection;
@@ -8,12 +9,12 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.HashSet;
 import java.util.List;
@@ -42,7 +43,7 @@ public class StructurePickerShapeOutline
 
     private static void renderFaces(PoseStack stack, Set<BlockPos> blocks, float r, float g, float b)
     {
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         for (BlockPos pos : blocks)
         {
@@ -81,7 +82,7 @@ public class StructurePickerShapeOutline
 
         if (built != null)
         {
-            RenderTypes.debugFilledBox().draw(built);
+            BufferRenderer.draw(RenderTypes.debugFilledBox(), built);
         }
     }
 

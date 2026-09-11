@@ -157,6 +157,7 @@ import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
@@ -165,7 +166,6 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.serialization.MapCodec;
 
 import org.lwjgl.glfw.GLFW;
@@ -396,7 +396,7 @@ public class BBSModClient implements ClientModInitializer
 
         LocalPlayer player = Minecraft.getInstance().player;
 
-        if (player == null || Minecraft.getInstance().screen != null)
+        if (player == null || Minecraft.getInstance().gui.screen() != null)
         {
             return;
         }
@@ -749,7 +749,7 @@ public class BBSModClient implements ClientModInitializer
                     stack.translate(0F, 0F, -d);
 
                     GlStateManager._enableDepthTest();
-                    BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+                    BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
                     float fov = Minecraft.getInstance().options.fov().get().floatValue();
                     float dd = d * (float) Math.pow(fov / 40F, 2F);
@@ -867,7 +867,7 @@ public class BBSModClient implements ClientModInitializer
         {
             Minecraft mc = Minecraft.getInstance();
 
-            if (mc.screen instanceof UIScreen screen)
+            if (mc.gui.screen() instanceof UIScreen screen)
             {
                 screen.update();
             }
@@ -1320,7 +1320,7 @@ public class BBSModClient implements ClientModInitializer
 
         if (menu != null && mc != null)
         {
-            Screen screen = mc.screen;
+            Screen screen = mc.gui.screen();
 
             if (screen instanceof UIScreen uiScreen)
             {
@@ -1349,7 +1349,7 @@ public class BBSModClient implements ClientModInitializer
 
         if (menu != null && mc != null)
         {
-            Screen screen = mc.screen;
+            Screen screen = mc.gui.screen();
 
             if (screen instanceof UIScreen uiScreen)
             {

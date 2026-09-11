@@ -145,7 +145,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         if (this.shouldDrawCustomGroundShadow(livingEntity))
         {
-            this.renderFilmGroundShadow(livingEntity, tickDelta, matrices, Minecraft.getInstance().renderBuffers().bufferSource());
+            this.renderFilmGroundShadow(livingEntity, tickDelta, matrices, FormUtilsClient.getProvider());
         }
 
         matrices.pushPose();
@@ -162,17 +162,17 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
             .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, state.lightCoords, overlay, animDelta)
-            .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
+            .camera(Minecraft.getInstance().gameRenderer.mainCamera()));
 
         if (livingEntity.getWrappingEntity().getFireTicks() > 0)
         {
             MorphFireRenderer.render(
                 matrices,
-                Minecraft.getInstance().renderBuffers().bufferSource(),
+                FormUtilsClient.getProvider(),
                 livingEntity.getWrappingEntity(),
                 livingEntity.getForm(),
                 animDelta,
-                Minecraft.getInstance().gameRenderer.getMainCamera(),
+                Minecraft.getInstance().gameRenderer.mainCamera(),
                 false
             );
         }
@@ -180,7 +180,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         BBSRendering.restoreWorldRenderState();
         GlStateManager._disableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._disableBlend();
+        GlStateManager._disableBlend(0);
 
         matrices.popPose();
 

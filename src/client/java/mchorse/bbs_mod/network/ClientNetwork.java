@@ -167,7 +167,7 @@ public class ClientNetwork
              * film panel (which would restart paused actor replays). */
             dashboard.setPanel(panel);
 
-            if (!(client.screen instanceof UIScreen screen) || screen.getMenu() != dashboard)
+            if (!(client.gui.screen() instanceof UIScreen screen) || screen.getMenu() != dashboard)
             {
                 UIScreen.open(dashboard);
             }

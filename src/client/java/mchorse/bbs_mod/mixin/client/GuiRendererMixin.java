@@ -20,12 +20,9 @@ public class GuiRendererMixin
     @ModifyVariable(method = "<init>", at = @At("HEAD"), argsOnly = true)
     private static List<PictureInPictureRenderer<?>> bbs$addBbsRenderers(List<PictureInPictureRenderer<?>> original)
     {
-        MultiBufferSource.BufferSource immediate =
-            Minecraft.getInstance().renderBuffers().bufferSource();
-
         List<PictureInPictureRenderer<?>> list = new ArrayList<>(original);
 
-        list.add(new BbsFormGuiElementRenderer(immediate));
+        list.add(new BbsFormGuiElementRenderer());
 
         return list;
     }

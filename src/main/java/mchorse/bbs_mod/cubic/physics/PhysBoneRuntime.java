@@ -1245,7 +1245,7 @@ public class PhysBoneRuntime
         }
 
         Vec3 delta = to.subtract(from);
-        Vec3 adjusted = Entity.collideBoundingBox(null, delta, new AABB(
+        Vec3 adjusted = Entity.collideBoundingBox((Entity) null, delta, new AABB(
             from.x - radius,
             from.y - radius,
             from.z - radius,

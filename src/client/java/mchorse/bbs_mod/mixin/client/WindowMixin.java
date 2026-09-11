@@ -31,7 +31,7 @@ public class WindowMixin
     {
         double uiScale = BBSModClient.getUIScaleFactor();
 
-        if (uiScale > 0D && uiScale != Math.floor(uiScale) && Minecraft.getInstance().screen instanceof UIScreen
+        if (uiScale > 0D && uiScale != Math.floor(uiScale) && Minecraft.getInstance().gui.screen() instanceof UIScreen
             && BbsGuiScale.isLinkedToGame() && !BbsGuiScale.isRestoringGameScale())
         {
             return (int) Math.round(uiScale);
@@ -64,7 +64,7 @@ public class WindowMixin
     @Inject(method = "getGuiScale", at = @At("HEAD"), cancellable = true)
     public void onGetScaleFactor(CallbackInfoReturnable<Integer> info)
     {
-        if (Minecraft.getInstance().screen instanceof UIScreen && !BbsGuiScale.isLinkedToGame()
+        if (Minecraft.getInstance().gui.screen() instanceof UIScreen && !BbsGuiScale.isLinkedToGame()
             && !BbsGuiScale.isRestoringGameScale() && BbsGuiScale.getFactor() > 0D)
         {
             info.setReturnValue((int) BbsGuiScale.getFactor());
@@ -114,7 +114,7 @@ public class WindowMixin
         {
             info.setReturnValue((int) (BBSRendering.getVideoWidth() / (double) this.guiScale * BBSModClient.getOriginalFramebufferScale()));
         }
-        else if (Minecraft.getInstance().screen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
+        else if (Minecraft.getInstance().gui.screen() instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
         {
             info.setReturnValue(BbsGuiScale.getScaledWidth());
         }
@@ -127,7 +127,7 @@ public class WindowMixin
         {
             info.setReturnValue((int) (BBSRendering.getVideoHeight() / (double) this.guiScale * BBSModClient.getOriginalFramebufferScale()));
         }
-        else if (Minecraft.getInstance().screen instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
+        else if (Minecraft.getInstance().gui.screen() instanceof UIScreen && !BbsGuiScale.isLinkedToGame())
         {
             info.setReturnValue(BbsGuiScale.getScaledHeight());
         }

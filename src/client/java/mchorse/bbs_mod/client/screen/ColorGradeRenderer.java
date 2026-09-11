@@ -639,7 +639,7 @@ public class ColorGradeRenderer
 
         if (fb == null)
         {
-            fb = mc.getMainRenderTarget();
+            fb = mc.gameRenderer.mainRenderTarget();
         }
 
         int fbW = fb.width;

@@ -31,7 +31,7 @@ public class UIBlockPickerModeOverlayPanel extends UIOverlayPanel
 
         UIBlockPickerModeOverlayPanel.opened = panel;
         Minecraft client = Minecraft.getInstance();
-        Screen returnScreen = client.screen;
+        Screen returnScreen = client.gui.screen();
 
         panel.onClose((event) ->
         {
@@ -39,11 +39,11 @@ public class UIBlockPickerModeOverlayPanel extends UIOverlayPanel
 
             if (returnScreen != null)
             {
-                client.setScreen(returnScreen);
+                client.gui.setScreen(returnScreen);
             }
             else
             {
-                client.setScreen(null);
+                client.gui.setScreen(null);
             }
         });
 
@@ -84,7 +84,7 @@ public class UIBlockPickerModeOverlayPanel extends UIOverlayPanel
             return true;
         }
 
-        Screen currentScreen = Minecraft.getInstance().screen;
+        Screen currentScreen = Minecraft.getInstance().gui.screen();
 
         if (!(currentScreen instanceof UIScreen uiScreen))
         {

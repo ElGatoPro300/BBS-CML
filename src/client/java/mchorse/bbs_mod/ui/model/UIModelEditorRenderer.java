@@ -60,12 +60,12 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
 
@@ -521,7 +521,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (this.viewportMode == ViewportMode.XRAY)
         {
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             this.renderer.render(formContext);
         }
         else if (this.viewportMode == ViewportMode.TEXTURED)
@@ -780,7 +780,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(PrimitiveTopology.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
 
         for (ModelQuad quad : this.selectedCube.quads)
         {
@@ -817,8 +817,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         Matrix4f uiMatrix = this.createCameraStack().last().pose();
         Tesselator tessellator = Tesselator.getInstance();
-        GlStateManager._enableBlend();
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        GlStateManager._enableBlend(0);
+        BufferBuilder builder = tessellator.begin(PrimitiveTopology.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
 
         for (ModelGroup group : model.getAllGroups())
         {

@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.PickerPreviewRenderState;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
@@ -33,6 +34,7 @@ import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix3x2fc;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
@@ -59,15 +61,15 @@ public class Batcher2D
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
 
     private static final RenderPipeline GUI_QUADS = RenderPipelines.register(
-        guiColorBuilder("gui_color_quads", VertexFormat.Mode.QUADS).build()
+        guiColorBuilder("gui_color_quads", PrimitiveTopology.QUADS).build()
     );
 
     private static final RenderPipeline GUI_TRIANGLES = RenderPipelines.register(
-        guiColorBuilder("gui_color_triangles", VertexFormat.Mode.TRIANGLES).build()
+        guiColorBuilder("gui_color_triangles", PrimitiveTopology.TRIANGLES).build()
     );
 
     private static final RenderPipeline GUI_TRIANGLE_FAN = RenderPipelines.register(
-        guiColorBuilder("gui_color_triangle_fan", VertexFormat.Mode.TRIANGLE_FAN).build()
+        guiColorBuilder("gui_color_triangle_fan", PrimitiveTopology.TRIANGLE_FAN).build()
     );
 
     private static RenderType guiQuadsLayer;
@@ -80,11 +82,12 @@ public class Batcher2D
     private GuiGraphicsExtractor context;
     private FontRenderer font;
 
-    private static RenderPipeline.Builder guiColorBuilder(String name, VertexFormat.Mode mode)
+    private static RenderPipeline.Builder guiColorBuilder(String name, PrimitiveTopology mode)
     {
         return RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/" + name))
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, mode)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+            .withPrimitiveTopology(mode)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
             .withCull(false);
@@ -121,7 +124,7 @@ public class Batcher2D
 
         if (built != null)
         {
-            renderLayer.draw(built);
+            BufferRenderer.draw(built);
         }
     }
 

@@ -3,15 +3,20 @@ package mchorse.bbs_mod.client.render;
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
+import com.mojang.blaze3d.IndexType;
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
- * Compatibility shim for 1.21.11 where vanilla {@code BufferRenderer} was removed.
+ * Compatibility shim for 26.2 where vanilla {@code BufferRenderer} was removed.
  * Routes {@link MeshData} draws to appropriate {@link RenderType} pipelines.
  */
 public class BufferRenderer
@@ -45,7 +50,57 @@ public class BufferRenderer
 
         RenderType layer = resolveLayer(params);
 
-        layer.draw(buffer);
+        draw(layer, buffer);
+    }
+
+    public static void draw(RenderType layer, MeshData buffer)
+    {
+        if (buffer == null)
+        {
+            return;
+        }
+
+        if (layer == null)
+        {
+            drawWithGlobalProgram(buffer);
+
+            return;
+        }
+
+        MeshData.DrawState params = buffer.drawState();
+
+        if (params == null || params.vertexCount() == 0)
+        {
+            buffer.close();
+
+            return;
+        }
+
+        try
+        {
+            PreparedRenderType prepared = layer.prepare();
+            GpuBuffer vertices = RenderSystem.getDevice().createBuffer(() -> "BBS immediate vertices", GpuBuffer.USAGE_VERTEX, buffer.vertexBuffer());
+            GpuBuffer indices;
+            IndexType indexType;
+
+            if (buffer.indexBuffer() == null)
+            {
+                RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(params.primitiveTopology());
+                indices = sequential.getBuffer(params.indexCount());
+                indexType = sequential.type();
+            }
+            else
+            {
+                indices = RenderSystem.getDevice().createBuffer(() -> "BBS immediate indices", GpuBuffer.USAGE_INDEX, buffer.indexBuffer());
+                indexType = params.indexType();
+            }
+
+            prepared.drawFromBuffer(vertices, indices, indexType, params.indexCount(), params.vertexCount(), 1);
+        }
+        finally
+        {
+            buffer.close();
+        }
     }
 
     public static void draw(MeshData buffer)
@@ -56,9 +111,9 @@ public class BufferRenderer
     private static RenderType resolveLayer(MeshData.DrawState params)
     {
         VertexFormat format = params.format();
-        VertexFormat.Mode mode = params.mode();
+        PrimitiveTopology mode = params.primitiveTopology();
 
-        if (mode == VertexFormat.Mode.LINES || mode == VertexFormat.Mode.DEBUG_LINES || mode == VertexFormat.Mode.DEBUG_LINE_STRIP)
+        if (mode == PrimitiveTopology.LINES || mode == PrimitiveTopology.DEBUG_LINES)
         {
             if (defaultLinesLayer == null)
             {

@@ -2078,7 +2078,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
         /* Reflections / odd MV×entity stacks invert winding — keep GL_BACK = camera-facing.
          * Use live ModelView (Iris restores it before this draw) × entity root. */
-        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 
         if (positionMatrix != null)
         {
@@ -2899,7 +2899,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         int savedCullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
         int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
-        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
 
         if (positionMatrix != null)
         {
@@ -3587,7 +3587,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BBSRendering.enableBlend());
         consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-        skullModel.renderToBuffer(stack, consumers.getBuffer(renderLayer), light, OverlayTexture.NO_OVERLAY);
+        skullModel.renderToBuffer(stack, consumers.getBuffer(renderLayer), light, OverlayTexture.NO_OVERLAY, -1);
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();

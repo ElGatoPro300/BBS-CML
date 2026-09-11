@@ -5,12 +5,16 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
 import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.MeshData;
 
+import java.util.List;
 import java.util.Map;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,40 +29,32 @@ public class RenderLayerMixin implements IRenderLayerBridge
     @Shadow
     private RenderSetup state;
 
-    @Inject(method = "draw", at = @At("HEAD"), cancellable = true)
-    public void onDraw(MeshData buffer, CallbackInfo info)
-    {
-        ModelEffectPass.bound(null);
-        CustomVertexConsumerProvider.drawLayer((RenderType) (Object) this);
-
-        if (ModelEffectPass.hasBinding())
-        {
-            RenderSetup.TextureAndSampler texture = this.state.getTextures().get("Sampler0");
-
-            if (texture != null && texture.textureView().texture() instanceof GlTexture glTexture
-                && ModelEffectPass.drawBound(buffer, AdoptedTexture.identifier(glTexture.glId(), glTexture.getWidth(0), glTexture.getHeight(0), false)))
-            {
-                info.cancel();
-            }
-        }
-    }
-
     @Override
     public int bbs$getTextureId()
     {
         if (this.state != null)
         {
-            Map<String, RenderSetup.TextureAndSampler> textures = this.state.getTextures();
-
-            if (textures != null)
+            try
             {
-                for (RenderSetup.TextureAndSampler texture : textures.values())
+                List<PreparedRenderType.Texture> textures =
+                    this.state.prepareTextures(
+                        Minecraft.getInstance().getTextureManager(),
+                        RenderSystem.getSamplerCache(),
+                        null, null);
+
+                if (textures != null)
                 {
-                    if (texture != null && texture.textureView() != null && texture.textureView().texture() instanceof GlTexture glTexture)
+                    for (PreparedRenderType.Texture texture : textures)
                     {
-                        return glTexture.glId();
+                        if (texture != null && texture.textureView() != null && texture.textureView().texture() instanceof GlTexture glTexture)
+                        {
+                            return glTexture.glId();
+                        }
                     }
                 }
+            }
+            catch (Throwable ignored)
+            {
             }
         }
 

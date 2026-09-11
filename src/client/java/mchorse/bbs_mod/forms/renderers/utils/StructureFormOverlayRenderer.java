@@ -147,7 +147,7 @@ public class StructureFormOverlayRenderer
             return;
         }
 
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
         Matrix4f exactStack = new Matrix4f(context.stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(context.stack.last().normal());
         GlowSettings glowSnapshot = glowSettings.copy();
@@ -216,7 +216,7 @@ public class StructureFormOverlayRenderer
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
         {
             BlockEffectOverlayUniforms.configureGlowOverlayRenderStateStructure(formRootInverse, glowTransform, true, structureSize.x, structureSize.y, structureSize.z, shaderScale);
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
             GlStateManager._enableDepthTest();
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
@@ -225,7 +225,7 @@ public class StructureFormOverlayRenderer
             GL11.glPolygonOffset(-1F, -16F);
         });
 
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
@@ -355,7 +355,7 @@ public class StructureFormOverlayRenderer
             ModelVAORenderer.setPaint(paintOverlay.r, paintOverlay.g, paintOverlay.b, paintOverlay.a);
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, transform, paintMaskHalf, true);
             BBSModClient.getTextures().bindTexture(new Link(TextureAtlas.LOCATION_BLOCKS.getNamespace(), TextureAtlas.LOCATION_BLOCKS.getPath()));
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
             GlStateManager._depthMask(false);
             ModelVAORenderer.render(BBSShaders.getModel(), vao, stack, tint.r, tint.g, tint.b, tint.a, light, overlay);
@@ -390,7 +390,7 @@ public class StructureFormOverlayRenderer
             BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z, darken);
         });
 
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
 
         if (darken)
         {
@@ -555,7 +555,7 @@ public class StructureFormOverlayRenderer
             BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z);
         });
 
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
         GlStateManager._depthMask(false);

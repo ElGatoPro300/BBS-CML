@@ -31,7 +31,7 @@ public final class WorldOverlayRenderer implements AutoCloseable
 
     public WorldOverlayRenderer(SubmitNodeStorage storage, FeatureRenderDispatcher dispatcher)
     {
-        this.renderer = new GuiRenderer(this.state, Minecraft.getInstance().renderBuffers().bufferSource(), storage, dispatcher, List.of());
+        this.renderer = new GuiRenderer(this.state, dispatcher, List.of());
     }
 
     public void render(Consumer<Batcher2D> draw)
@@ -39,7 +39,7 @@ public final class WorldOverlayRenderer implements AutoCloseable
         BbsGuiScale.withBbsWindowScale(() ->
         {
             Minecraft client = Minecraft.getInstance();
-            WindowRenderState window = client.gameRenderer.getGameRenderState().windowRenderState;
+            WindowRenderState window = client.gameRenderer.gameRenderState().windowRenderState;
             int previousWidth = window.width;
             int previousHeight = window.height;
             int previousScale = window.guiScale;
@@ -49,8 +49,8 @@ public final class WorldOverlayRenderer implements AutoCloseable
 
             try
             {
-                window.width = client.getMainRenderTarget().width;
-                window.height = client.getMainRenderTarget().height;
+                window.width = client.gameRenderer.mainRenderTarget().width;
+                window.height = client.gameRenderer.mainRenderTarget().height;
                 window.guiScale = client.getWindow().getGuiScale();
                 draw.accept(new Batcher2D(new GuiGraphicsExtractor(client, this.state,
                     client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight())));
@@ -72,7 +72,7 @@ public final class WorldOverlayRenderer implements AutoCloseable
     {
         if (this.active)
         {
-            this.renderer.render(Minecraft.getInstance().gameRenderer.fogRenderer.getBuffer(FogRenderer.FogMode.NONE));
+            this.renderer.render();
         }
     }
 

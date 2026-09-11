@@ -33,7 +33,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
 
     public static void open(UIQuickReplayOverlayPanel panel)
     {
-        panel.onClose((event) -> Minecraft.getInstance().setScreen(null));
+        panel.onClose((event) -> Minecraft.getInstance().gui.setScreen(null));
 
         UIScreen.open(new UIBaseMenu()
         {
@@ -61,7 +61,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
 
     public static UIQuickReplayOverlayPanel getOpened()
     {
-        Screen currentScreen = Minecraft.getInstance().screen;
+        Screen currentScreen = Minecraft.getInstance().gui.screen();
 
         if (!(currentScreen instanceof UIScreen uiScreen))
         {

@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film.clips.renderer;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
+import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -27,6 +28,7 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2fc;
 import org.joml.Vector2f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
@@ -36,7 +38,6 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
 {
@@ -50,7 +51,8 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
         .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/clip_envelope_triangles"))
         .withVertexShader(RenderPipelines.DEBUG_FILLED_BOX.getVertexShader())
         .withFragmentShader(RenderPipelines.DEBUG_FILLED_BOX.getFragmentShader())
-        .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+        .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+        .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
         .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
         .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
         .withCull(false)
@@ -148,7 +150,7 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
     {
         Matrix3x2fc matrix = context.batcher.getContext().pose();
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         if (envelope.keyframes.get())
         {
@@ -166,7 +168,7 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
 
         if (built != null)
         {
-            getTrianglesLayer().draw(built);
+            BufferRenderer.draw(getTrianglesLayer(), built);
         }
     }
 

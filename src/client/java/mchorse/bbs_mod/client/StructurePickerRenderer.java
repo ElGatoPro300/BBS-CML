@@ -40,9 +40,9 @@ public class StructurePickerRenderer
             return;
         }
 
-        Vec3 camera = mc.gameRenderer.getMainCamera().position();
+        Vec3 camera = mc.gameRenderer.mainCamera().position();
 
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         GlStateManager._disableDepthTest();
         GlStateManager._depthMask(false);
@@ -87,7 +87,7 @@ public class StructurePickerRenderer
 
         GlStateManager._depthMask(true);
         GlStateManager._enableDepthTest();
-        GlStateManager._disableBlend();
+        GlStateManager._disableBlend(0);
     }
 
     private static void renderRegionBox(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b)

@@ -11,26 +11,26 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fc;
 
+import com.mojang.blaze3d.GpuFormat;
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormatElement;
 
 import org.jspecify.annotations.Nullable;
 
 public class PickerPreviewRenderState implements GuiElementRenderState
 {
     /* UV1 carries the pick ID so differently highlighted previews can share a GUI batch. */
-    private static final VertexFormat FORMAT = VertexFormat.builder()
-        .add("Position", VertexFormatElement.POSITION)
-        .add("Color", VertexFormatElement.COLOR)
-        .add("UV0", VertexFormatElement.UV0)
-        .add("UV1", VertexFormatElement.UV1)
+    private static final VertexFormat FORMAT = VertexFormat.builder(1)
+        .addAttribute("Position", GpuFormat.RGB32_FLOAT)
+        .addAttribute("Color", GpuFormat.RGBA8_UNORM)
+        .addAttribute("UV0", GpuFormat.RG32_FLOAT)
+        .addAttribute("UV1", GpuFormat.RG32_FLOAT)
         .build();
 
     private static final RenderPipeline PIPELINE = RenderPipelines.register(
@@ -38,10 +38,8 @@ public class PickerPreviewRenderState implements GuiElementRenderState
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_preview"))
             .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
             .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
-            .withVertexFormat(FORMAT, VertexFormat.Mode.QUADS)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
+            .withVertexBinding(0, FORMAT)
+            .withPrimitiveTopology(PrimitiveTopology.QUADS)
             .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
             .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
             .withCull(false)

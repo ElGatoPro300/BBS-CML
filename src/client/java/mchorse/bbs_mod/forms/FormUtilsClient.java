@@ -164,10 +164,8 @@ public class FormUtilsClient
     {
         SequencedMap<RenderType, ByteBufferBuilder> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
         {
-            map.put(Sheets.cutoutBlockSheet(), new ByteBufferBuilder(786432));
             map.put(Sheets.cutoutBlockItemSheet(), new ByteBufferBuilder(786432));
             map.put(Sheets.cutoutItemSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.translucentBlockSheet(), new ByteBufferBuilder(786432));
             map.put(Sheets.translucentBlockItemSheet(), new ByteBufferBuilder(786432));
             map.put(Sheets.translucentItemSheet(), new ByteBufferBuilder(786432));
             FormUtilsClient.assignBuffer(map, RenderTypes.solidMovingBlock());
@@ -192,7 +190,7 @@ public class FormUtilsClient
 
     private static void assignBuffer(SequencedMap<RenderType, ByteBufferBuilder> storage, RenderType layer)
     {
-        storage.put(layer, new ByteBufferBuilder(layer.bufferSize()));
+        storage.put(layer, new ByteBufferBuilder(RenderType.SMALL_BUFFER_SIZE));
     }
 
     /**
@@ -229,7 +227,7 @@ public class FormUtilsClient
             return fallback;
         }
 
-        return Minecraft.getInstance().renderBuffers().bufferSource();
+        return fallback;
     }
 
     public static boolean isCrumblingLayer(RenderType layer)

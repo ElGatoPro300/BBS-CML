@@ -327,7 +327,7 @@ public final class RtlAwtTextRenderer
             return false;
         }
 
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
 
         if (shadow)
         {

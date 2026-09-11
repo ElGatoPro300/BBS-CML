@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.morphing.Morph;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -37,7 +38,12 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
         {
             registerContext.register(BBSMod.ACTOR_ENTITY, LUMINANCE_PROVIDER);
             registerContext.register(BBSMod.GUN_PROJECTILE_ENTITY, LUMINANCE_PROVIDER);
-            registerContext.register(EntityType.PLAYER, LUMINANCE_PROVIDER);
+            EntityType<?> playerType = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.fromNamespaceAndPath("minecraft", "player"));
+
+            if (playerType != null)
+            {
+                registerContext.register((EntityType) playerType, LUMINANCE_PROVIDER);
+            }
         });
     }
 

@@ -147,7 +147,7 @@ public class WorldFilmController extends BaseFilmController
         {
             int tick = Math.max(this.tick, 0);
 
-            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.poseStack());
+            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.mainCamera(), context.poseStack());
         }
 
         AudioClientClip.manageSounds(this.context);

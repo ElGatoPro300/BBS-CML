@@ -33,6 +33,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.golem.SnowGolem;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -1091,7 +1092,7 @@ public final class RecorderMobCapture
             return true;
         }
 
-        return living.getType() == EntityType.SNOW_GOLEM;
+        return living instanceof SnowGolem;
     }
 
     private static final List<String> MOB_NBT_STRIP_KEYS = Arrays.asList(

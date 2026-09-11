@@ -103,11 +103,11 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.zRot = -this.elytraModel.leftWing.zRot;
 
                 VertexConsumer consumer = vertexConsumers.getBuffer(RenderTypes.armorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY);
+                this.elytraModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY, -1);
 
                 if (itemStack.hasFoil())
                 {
-                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY);
+                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY, -1);
                 }
 
                 matrices.popPose();

@@ -130,7 +130,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         UIMobCaptureRecordOverlayPanel panel = new UIMobCaptureRecordOverlayPanel(callback, null);
 
-        panel.onClose((event) -> Minecraft.getInstance().setScreen(null));
+        panel.onClose((event) -> Minecraft.getInstance().gui.setScreen(null));
 
         UIScreen.open(new UIBaseMenu()
         {

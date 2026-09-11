@@ -33,6 +33,7 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -115,7 +116,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         BBSRendering.bindProgram(BBSRendering.getProgram(RenderPipelines.LINES));
         GL11.glLineWidth(2.0F);
         
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
         
         PoseStack stack = context.stack;
         
@@ -191,7 +192,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         }
 
         Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, format);
+        BufferBuilder builder = tessellator.begin(PrimitiveTopology.TRIANGLES, format);
 
         Color color = this.form.color.get();
         Color finalColor = color.copy();

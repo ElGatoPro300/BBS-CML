@@ -100,7 +100,7 @@ public class ShadowRendererMixin
                                    float tickDelta, double camX, double camY, double camZ)
     {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
-        Camera gameCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera gameCamera = Minecraft.getInstance().gameRenderer.mainCamera();
         BBSRendering.enableDepthTest();
 
         /* Case 1: film panel open – keep existing onion skin and panel-specific logic */

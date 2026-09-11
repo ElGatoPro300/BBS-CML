@@ -210,7 +210,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"), index = 0)
     private Matrix4f bbs$captureWorldProjection(Matrix4f projection)
     {
-        CameraRenderState camera = Minecraft.getInstance().gameRenderer.getGameRenderState().levelRenderState.cameraRenderState;
+        CameraRenderState camera = Minecraft.getInstance().gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
 
         BBSRendering.camera.set(camera.viewRotationMatrix);
         BBSRendering.projection.set(projection);

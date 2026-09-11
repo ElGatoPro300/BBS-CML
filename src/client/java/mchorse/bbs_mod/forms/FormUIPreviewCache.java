@@ -340,7 +340,7 @@ public final class FormUIPreviewCache
 
         matrices.popPose();
 
-        if (client != null && client.getMainRenderTarget() != null)
+        if (client != null && client.gameRenderer != null && client.gameRenderer.mainRenderTarget() != null)
         {
             /* Do not clear — wiping the main FB mid-UI causes white wash / text corruption. */
             BBSRendering.ensureMainFramebuffer();

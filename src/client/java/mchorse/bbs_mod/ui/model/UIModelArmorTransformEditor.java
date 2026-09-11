@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.OrbitDistanceCamera;
 import mchorse.bbs_mod.camera.controller.OrbitCameraController;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ArmorType;
@@ -223,7 +224,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
 
         this.lastPerspective = mc.options.getCameraType();
         mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-        mc.options.hideGui = false;
+        BBSRendering.setHudHidden(false);
 
         BBSModClient.getCameraController().remove(this.dashboard.camera);
         BBSModClient.getCameraController().add(this.orbitCameraController);
@@ -271,7 +272,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
         this.host.forceSave();
         this.restore();
 
-        Minecraft.getInstance().options.hideGui = true;
+        BBSRendering.setHudHidden(true);
 
         BBSModClient.getCameraController().remove(this.orbitCameraController);
         BBSModClient.getCameraController().add(this.dashboard.camera);

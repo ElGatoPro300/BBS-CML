@@ -21,6 +21,7 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
@@ -640,7 +641,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void submitDeferredItemColorTintOverlay(FormRenderingContext context, PoseStack stack, Color formColor, float alpha, int overlay, ItemDisplayContext mode, boolean leftHand, LivingEntity itemEntity, boolean ui, Color gradeSource)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
         Matrix4f exactStack = new Matrix4f(stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         Color formColorSnapshot = formColor.copy();
@@ -730,7 +731,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void submitDeferredItemPaintOverlay(FormRenderingContext context, PoseStack stack, Color resolvedPaint, float alpha, int overlay, ItemDisplayContext mode, boolean leftHand, LivingEntity itemEntity, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean ui)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
         Matrix4f exactStack = new Matrix4f(stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         Color paintOverlay = FormColorEffects.resolvePaintOverlayDrawColor(resolvedPaint, alpha);
@@ -871,12 +872,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             itemModelManager.updateForTopItem(itemRenderState, itemStack, mode, world, null, 0);
         }
 
-        FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-        itemRenderState.submit(stack, dispatcher.getSubmitNodeStorage(), light, overlay, 0);
-        dispatcher.renderAllFeatures();
+        FeatureRenderDispatcher dispatcher = client.gameRenderer.featureRenderDispatcher();
+        SubmitNodeStorage storage = new SubmitNodeStorage();
+        itemRenderState.submit(stack, storage, light, overlay, 0);
+        dispatcher.renderAllFeatures(storage);
         /* The dispatcher writes to vanilla buffers, not the BBS provider passed above.
          * Flush while the captured matrices and effect callback still belong to this item. */
-        client.renderBuffers().bufferSource().endBatch();
+        FormUtilsClient.getProvider().draw();
     }
 
     private void renderGlowOverlay(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, ItemDisplayContext mode, LivingEntity itemEntity, boolean leftHand)
@@ -886,7 +888,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void submitDeferredItemGlowOverlayMasked(FormRenderingContext context, PoseStack stack, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, ItemDisplayContext mode, LivingEntity itemEntity, boolean leftHand, EffectTransform glowTransform)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
         Matrix4f exactStack = new Matrix4f(stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         GlowSettings glowSnapshot = glowSettings.copy();

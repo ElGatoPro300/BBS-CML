@@ -19,13 +19,13 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -147,7 +147,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
             ModelVAORenderer.beginCpuGeometry(this.effectShader);
         }
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES,
             DefaultVertexFormat.ENTITY);
 
         CubicRenderer.processRenderModel(this, builder, stack, model);
@@ -264,7 +264,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
                 ModelVAORenderer.setGroupFormColorTint(group.color);
             }
 
-            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+            BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES,
                 DefaultVertexFormat.ENTITY);
 
             if (material.isEmpty())

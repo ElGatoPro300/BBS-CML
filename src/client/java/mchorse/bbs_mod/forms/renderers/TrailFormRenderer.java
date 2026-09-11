@@ -32,12 +32,12 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 
@@ -105,7 +105,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             float outlineOffset = 0.02F * scale;
 
             Tesselator tessellator = Tesselator.getInstance();
-            BufferBuilder builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+            BufferBuilder builder = tessellator.begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
             Draw.fillBox(builder, stack, -outlineOffset, -outlineSize, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
             Draw.fillBox(builder, stack, -axisOffset, -1F, -axisOffset, axisOffset, 1F, axisOffset, 0, 1, 0);
@@ -248,7 +248,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         }
 
         Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        BufferBuilder builder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         Matrix4f identityMatrix = new Matrix4f();
 
         this.buildTrailQuads(builder, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, unblended, blended, colorTransform);
@@ -277,7 +277,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     {
         ArrayDeque<Trail> trailSnapshot = this.copyTrails(trails);
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
-        Matrix4f paintMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f paintMatrix = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
         EffectTransform paintTransformSnapshot = paintTransform == null ? null : paintTransform.copy();
         Matrix4f formRootInverseSnapshot = new Matrix4f(this.formRootInverse);
 
@@ -315,7 +315,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         FlatPaintOverlayPass.render(() ->
         {
-            BufferBuilder paintBuilder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
+            BufferBuilder paintBuilder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.ENTITY);
             int paintLight = LightTexture.FULL_BRIGHT;
             int overlay = OverlayTexture.NO_OVERLAY;
 
@@ -333,7 +333,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
             glowOutside.a = 0F;
 
-            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             BBSRendering.bindProgram(BBSRendering.getPositionTexColorProgram());
             this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowColor, glowColor, glowTransform);

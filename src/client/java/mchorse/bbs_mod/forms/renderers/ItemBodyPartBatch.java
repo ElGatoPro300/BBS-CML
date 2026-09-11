@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
@@ -113,6 +114,8 @@ public final class ItemBodyPartBatch
         IEntity oldEntity = context.entity;
         int savedLight = context.light;
 
+        SubmitNodeStorage batchStorage = new SubmitNodeStorage();
+
         try
         {
             for (BodyPart part : parts)
@@ -162,11 +165,16 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(context.color);
                     BlockFormRenderer.color.mul(item.color.get());
 
-                    FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-                    cachedRenderState.submit(context.stack, dispatcher.getSubmitNodeStorage(), context.light, context.overlay, 0);
+                    FeatureRenderDispatcher dispatcher = client.gameRenderer.featureRenderDispatcher();
                     if (!flushOnce)
                     {
-                        dispatcher.renderAllFeatures();
+                        SubmitNodeStorage storage = new SubmitNodeStorage();
+                        cachedRenderState.submit(context.stack, storage, context.light, context.overlay, 0);
+                        dispatcher.renderAllFeatures(storage);
+                    }
+                    else
+                    {
+                        cachedRenderState.submit(context.stack, batchStorage, context.light, context.overlay, 0);
                     }
 
                     if (context.isPicking())
@@ -196,8 +204,8 @@ public final class ItemBodyPartBatch
 
             if (flushOnce)
             {
-                FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-                dispatcher.renderAllFeatures();
+                FeatureRenderDispatcher dispatcher = client.gameRenderer.featureRenderDispatcher();
+                dispatcher.renderAllFeatures(batchStorage);
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
                 BBSRendering.defaultBlendFunc();

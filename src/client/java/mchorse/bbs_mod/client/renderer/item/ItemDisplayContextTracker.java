@@ -49,7 +49,7 @@ public final class ItemDisplayContextTracker
 
         Minecraft client = Minecraft.getInstance();
 
-        if (client != null && client.screen != null)
+        if (client != null && client.gui.screen() != null)
         {
             return ItemDisplayContext.GUI;
         }

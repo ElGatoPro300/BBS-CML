@@ -23,11 +23,11 @@ import mchorse.bbs_mod.utils.resources.FilteredLink;
 
 import org.joml.Matrix3x2fStack;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class UIMultiLinkEditor extends UICanvasEditor
 {
@@ -253,7 +253,7 @@ public class UIMultiLinkEditor extends UICanvasEditor
 
                         texture.bind(0);
 
-                        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+                        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
                         Matrix3x2fStack matrices = context.batcher.getContext().pose();
 
                         builder.addVertexWith2DPose(matrices, (float) area.x, (float) area.ey()).setUv(0F, 1F).setColor(child.color);

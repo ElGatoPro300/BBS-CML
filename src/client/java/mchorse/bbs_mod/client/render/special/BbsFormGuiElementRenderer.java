@@ -5,7 +5,7 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.AxisAngle4f;
@@ -21,9 +21,14 @@ public class BbsFormGuiElementRenderer extends PictureInPictureRenderer<BbsFormG
 {
     private static int errorLog;
 
-    public BbsFormGuiElementRenderer(BufferSource vertexConsumers)
+    public BbsFormGuiElementRenderer()
     {
-        super(vertexConsumers);
+        super();
+    }
+
+    public BbsFormGuiElementRenderer(Object ignored)
+    {
+        super();
     }
 
     @Override
@@ -33,9 +38,9 @@ public class BbsFormGuiElementRenderer extends PictureInPictureRenderer<BbsFormG
     }
 
     @Override
-    protected void renderToTexture(BbsFormGuiElementRenderState state, PoseStack matrices)
+    protected void renderToTexture(BbsFormGuiElementRenderState state, PoseStack matrices, SubmitNodeCollector submitNodeCollector)
     {
-        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
+        Minecraft.getInstance().gameRenderer.lighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
 
         try
         {

@@ -580,7 +580,7 @@ public class IrisUtils
         {
             Minecraft client = Minecraft.getInstance();
 
-            client.execute(() -> client.setScreen(new ShaderPackScreen(client.screen)));
+            client.execute(() -> client.gui.setScreen(new ShaderPackScreen(client.gui.screen())));
         }
         catch (Exception e)
         {

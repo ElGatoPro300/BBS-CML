@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.utils;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.Renderbuffer;
@@ -10,13 +11,13 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.Pair;
 
+import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.textures.TextureFormat;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -165,12 +166,12 @@ public class StencilFormFramebuffer
 
         this.colorTexture = RenderSystem.getDevice().createTexture("bbs_stencil_color",
             GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_SRC | GpuTexture.USAGE_COPY_DST,
-            TextureFormat.RGBA8, w, h, 1, 1);
+            GpuFormat.RGBA8_UNORM, w, h, 1, 1);
         this.colorView = RenderSystem.getDevice().createTextureView(this.colorTexture);
 
         this.depthTexture = RenderSystem.getDevice().createTexture("bbs_stencil_depth",
             GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
-            TextureFormat.DEPTH32, w, h, 1, 1);
+            GpuFormat.D32_FLOAT, w, h, 1, 1);
         this.depthView = RenderSystem.getDevice().createTextureView(this.depthTexture);
 
         int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
@@ -203,7 +204,7 @@ public class StencilFormFramebuffer
         this.previousScissorWidth = scissor.width();
         this.previousScissorHeight = scissor.height();
         RenderSystem.disableScissorForRenderTypeDraws();
-        RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, 0, this.depthTexture, 1D);
+        RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, BBSRendering.CLEAR_COLOR, this.depthTexture, 1D);
         GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
 
         if (!this.applied)
