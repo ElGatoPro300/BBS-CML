@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.forms.entities.IEntity;
 
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.equipment.trim.ArmorTrim;

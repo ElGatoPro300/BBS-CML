@@ -1,6 +1,8 @@
-package com.mojang.blaze3d.vertex;
+package mchorse.bbs_mod.client.renderer;
 
 import org.joml.Matrix4fc;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 public class VertexMultiConsumer
 {

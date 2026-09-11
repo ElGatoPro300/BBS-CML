@@ -1,7 +1,8 @@
 package mchorse.bbs_mod.utils;
 
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 

@@ -1,4 +1,4 @@
-package net.minecraft.client.renderer;
+package mchorse.bbs_mod.client.renderer;
 
 import net.minecraft.client.renderer.rendertype.RenderType;
 

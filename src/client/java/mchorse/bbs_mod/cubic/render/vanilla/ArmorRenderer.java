@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.cubic.render.vanilla;
 
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
+import mchorse.bbs_mod.client.renderer.VertexMultiConsumer;
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
@@ -10,7 +12,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.object.equipment.ElytraModel;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.entity.ArmorModelSet;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -33,7 +34,6 @@ import net.minecraft.world.item.equipment.trim.MaterialAssetGroup;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexMultiConsumer;
 
 import com.google.common.collect.Maps;
 
