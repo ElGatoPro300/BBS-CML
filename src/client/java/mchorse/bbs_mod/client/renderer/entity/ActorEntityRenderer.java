@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
+import mchorse.bbs_mod.graphics.WorldFormRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
@@ -132,6 +133,12 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     @Override
     public void submit(ActorEntityState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
+        WorldFormRenderer.get().submit(matrices, snapshot -> this.renderWorld(state, snapshot));
+        super.submit(state, matrices, queue, cameraState);
+    }
+
+    private void renderWorld(ActorEntityState state, PoseStack matrices)
+    {
         ActorEntity livingEntity = state.entity;
 
         if (livingEntity == null)
@@ -184,7 +191,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         matrices.popPose();
 
-        super.submit(state, matrices, queue, cameraState);
     }
 
     private boolean shouldDrawCustomGroundShadow(ActorEntity entity)

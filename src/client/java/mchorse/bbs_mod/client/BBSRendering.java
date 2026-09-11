@@ -38,6 +38,7 @@ import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexSodiumConsumer;
+import mchorse.bbs_mod.graphics.WorldFormRenderer;
 import mchorse.bbs_mod.graphics.WorldOverlayRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
@@ -88,6 +89,7 @@ import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.joml.Vector4fc;
@@ -815,7 +817,7 @@ public class BBSRendering
 
     private static void reassignFramebuffer(RenderTarget framebuffer)
     {
-        /* Render target managed by gameRenderer in 26.2 */
+        ((WorldFormRenderer.Provider) Minecraft.getInstance().gameRenderer).bbs$setMainRenderTarget(framebuffer);
     }
 
     /* Rendering */
@@ -823,6 +825,7 @@ public class BBSRendering
     public static void onWorldRenderBegin()
     {
         /* Always sanitize before world (or before skip): pause presents this buffer. */
+        WorldFormRenderer.get().clear();
         prepareWorldPresentState();
 
         if (BBSRendering.shouldSkipWorldRender())
@@ -1188,13 +1191,28 @@ public class BBSRendering
 
     public static void renderCoolStuff(LevelRenderContext worldRenderContext)
     {
-        if (Minecraft.getInstance().gui.screen() instanceof UIScreen screen)
-        {
-            screen.renderInWorld(worldRenderContext);
-        }
+        Matrix4fStack modelView = RenderSystem.getModelViewStack();
 
-        BBSModClient.getFilms().render(worldRenderContext);
-        StructurePickerRenderer.render(worldRenderContext);
+        modelView.pushMatrix();
+
+        try
+        {
+            /* Submitted entities contain camera-relative positions, without view rotation. */
+            modelView.set(camera);
+            WorldFormRenderer.get().flush();
+
+            if (Minecraft.getInstance().gui.screen() instanceof UIScreen screen)
+            {
+                screen.renderInWorld(worldRenderContext);
+            }
+
+            BBSModClient.getFilms().render(worldRenderContext);
+            StructurePickerRenderer.render(worldRenderContext);
+        }
+        finally
+        {
+            modelView.popMatrix();
+        }
     }
 
     public static boolean isOptifinePresent()

@@ -8,6 +8,7 @@ import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.graphics.WorldFormRenderer;
 import mchorse.bbs_mod.graphics.WorldOverlayRenderer;
 
 import net.minecraft.client.Minecraft;
@@ -21,11 +22,13 @@ import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -34,8 +37,15 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
-public class GameRendererMixin implements WorldOverlayRenderer.Provider
+public class GameRendererMixin implements WorldOverlayRenderer.Provider, WorldFormRenderer.Provider
 {
+    @Shadow
+    @Final
+    @Mutable
+    private RenderTarget mainRenderTarget;
+    @Unique
+    private final WorldFormRenderer bbs$worldForms = new WorldFormRenderer();
+
     @Shadow
     @Final
     private FeatureRenderDispatcher featureRenderDispatcher;
@@ -47,6 +57,18 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
     private float bbs$fpBobPrevPhase;
     private float bbs$fpBobStride;
     private float bbs$fpBobPrevStride;
+
+    @Override
+    public WorldFormRenderer bbs$getWorldForms()
+    {
+        return this.bbs$worldForms;
+    }
+
+    @Override
+    public void bbs$setMainRenderTarget(RenderTarget target)
+    {
+        this.mainRenderTarget = target;
+    }
 
     @Override
     public WorldOverlayRenderer bbs$getWorldOverlays()

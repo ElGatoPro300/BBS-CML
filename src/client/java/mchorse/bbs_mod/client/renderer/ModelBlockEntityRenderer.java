@@ -17,6 +17,7 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.graphics.WorldFormRenderer;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -305,6 +306,11 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
     @Override
     public void submit(ModelBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
+    {
+        WorldFormRenderer.get().submit(matrices, snapshot -> this.renderWorld(state, snapshot));
+    }
+
+    private void renderWorld(ModelBlockEntityRenderState state, PoseStack matrices)
     {
         ModelBlockEntity entity = state.entity;
 
