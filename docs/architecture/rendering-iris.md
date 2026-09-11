@@ -40,7 +40,7 @@ Film stub renders sort by **camera distance** (far → near) for translucency. M
 
 **Mitigation (keep Fabric visuals unchanged):** in `BaseFilmController#render`, when not an Iris shadow pass, call `BBSRendering.prepareVanillaEntityLighting()` before each replay and `BBSRendering.restoreWorldRenderState()` after (plus a final prepare after the loop). Do **not** “fix” this by changing packed world light sampling or `LightingSettings` semantics unless the bug is actually a track/migration issue.
 
-Related pause/HUD darkness (model-block in hotbar, blur sky) is the same *family* of GL lighting leaks, but a different call site — see `prepareHudRenderState` / GUI item restore paths in `BBSRendering`.
+Related pause/HUD darkness (model-block in hotbar, blur sky/leaves on NeoForge): same GL-state family. Prefer `restoreAfterGuiItemForm` (re-enable lightmap) plus `prepareMenuBackgroundState` before `GameRenderer.renderBlur` and `prepareWorldPresentState` at world-begin — ported from the 1.21.4 pause-black fix. Do not rely on Fabric-only tolerance.
 
 ## Related
 
