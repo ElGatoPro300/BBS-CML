@@ -283,6 +283,9 @@ public class BBSSettings
     public static ValueBoolean autoSpectatorInEditors;
 
     public static ValueBoolean usingInMemoryClipboard;
+
+    public static ValueBoolean globalAssetsEnabled;
+    public static ValueString globalAssetsPath;
     public static ValueBoolean discordPresence;
     public static ValueString discordApplicationId;
 
@@ -907,6 +910,10 @@ public class BBSSettings
         builder.category("cdn");
         cdnUrl = builder.getString("url", "");
         cdnToken = builder.getString("token", "");
+
+        builder.category("storage");
+        globalAssetsEnabled = builder.getBoolean("global_assets_enabled", false);
+        globalAssetsPath = builder.getString("global_assets_path", "");
 
         BBSMod.events.post(new RegisterBBSSettingsEvent(builder));
         syncAppliedAppearance();

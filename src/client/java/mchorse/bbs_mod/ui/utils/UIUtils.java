@@ -8,8 +8,12 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 
+import org.lwjgl.util.tinyfd.TinyFileDialogs;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 public class UIUtils
 {
@@ -33,8 +37,72 @@ public class UIUtils
     }
 
     /**
-     * Open a folder (in default file browser)
+     * Open native OS folder chooser dialog using modern File Explorer.
      */
+    public static String selectFolder(String title, String defaultPath)
+    {
+        if (OS.CURRENT == OS.WINDOWS)
+        {
+            try
+            {
+                String initial = (defaultPath != null && !defaultPath.isEmpty() && new File(defaultPath).exists())
+                    ? defaultPath.replace("'", "''")
+                    : "";
+
+                String desc = (title == null ? "Select BBS Folder" : title).replace("'", "''");
+
+                String script = "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');"
+                    + "$f=New-Object System.Windows.Forms.FolderBrowserDialog;"
+                    + "$f.AutoUpgradeEnabled=$true;"
+                    + "$f.Description='" + desc + "';"
+                    + (initial.isEmpty() ? "" : "$f.SelectedPath='" + initial + "';")
+                    + "if($f.ShowDialog()-eq[System.Windows.Forms.DialogResult]::OK){[Console]::Out.Write($f.SelectedPath)}";
+
+                ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-STA", "-Command", script);
+                Process process = pb.start();
+
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), "UTF-8")))
+                {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+
+                    while ((line = reader.readLine()) != null)
+                    {
+                        if (sb.length() > 0)
+                        {
+                            sb.append(System.lineSeparator());
+                        }
+
+                        sb.append(line);
+                    }
+
+                    process.waitFor();
+                    String result = sb.toString().trim();
+
+                    if (!result.isEmpty())
+                    {
+                        return result;
+                    }
+                }
+            }
+            catch (Throwable t)
+            {
+                t.printStackTrace();
+            }
+        }
+
+        try
+        {
+            return TinyFileDialogs.tinyfd_selectFolderDialog(title, defaultPath == null ? "" : defaultPath);
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+
+            return null;
+        }
+    }
+
     public static boolean openFolder(File folder)
     {
         try

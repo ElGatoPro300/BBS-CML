@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.settings;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 
@@ -17,7 +18,7 @@ public class SettingsManager
     {
         for (Settings settings : this.modules.values())
         {
-            this.load(settings, settings.file);
+            this.load(settings, settings.getFile());
         }
     }
 
@@ -27,6 +28,9 @@ public class SettingsManager
         {
             return false;
         }
+
+        boolean globalEnabled = BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get();
+        String globalPath = BBSSettings.globalAssetsPath != null ? BBSSettings.globalAssetsPath.get() : "";
 
         BaseType data = this.readSettingsData(file);
 
@@ -49,6 +53,16 @@ public class SettingsManager
 
                 settings.fromData(data);
 
+                if (globalEnabled && BBSSettings.globalAssetsEnabled != null)
+                {
+                    BBSSettings.globalAssetsEnabled.set(true);
+
+                    if (!globalPath.isEmpty() && BBSSettings.globalAssetsPath != null)
+                    {
+                        BBSSettings.globalAssetsPath.set(globalPath);
+                    }
+                }
+
                 return true;
             }
 
@@ -65,6 +79,16 @@ public class SettingsManager
         }
 
         settings.fromData(data);
+
+        if (globalEnabled && BBSSettings.globalAssetsEnabled != null)
+        {
+            BBSSettings.globalAssetsEnabled.set(true);
+
+            if (!globalPath.isEmpty() && BBSSettings.globalAssetsPath != null)
+            {
+                BBSSettings.globalAssetsPath.set(globalPath);
+            }
+        }
 
         return true;
     }

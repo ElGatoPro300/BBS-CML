@@ -39,6 +39,12 @@ public class BBSResources
         }
     }
 
+    public static void restartWatchdog()
+    {
+        stopWatchdog();
+        setupWatchdog();
+    }
+
     public static void tick()
     {
         if (watchDog != null)

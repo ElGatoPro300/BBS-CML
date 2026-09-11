@@ -2193,6 +2193,10 @@ public class UIKeys
     public static final IKey UTILITY_TITLE = L10n.lang("studio.ui.utility.title");
     public static final IKey SETTINGS_FONT_BROWSE = L10n.lang("bbs.ui.settings.font_browse");
     public static final IKey SETTINGS_FONT_RESET = L10n.lang("bbs.ui.settings.font_reset");
+    public static final IKey SETTINGS_FOLDER_BROWSE = L10n.lang("bbs.ui.settings.folder_browse");
+    public static final IKey SETTINGS_FOLDER_SYNC = L10n.lang("bbs.ui.settings.folder_sync");
+    public static final IKey SETTINGS_FOLDER_OPEN = L10n.lang("bbs.ui.settings.folder_open");
+    public static final IKey SETTINGS_FOLDER_RESET = L10n.lang("bbs.ui.settings.folder_reset");
     public static final IKey WORLD_PROPERTIES = L10n.lang("bbs.ui.world.properties");
     public static final IKey WORLD_TIME_LABEL = L10n.lang("bbs.ui.world.time_label");
     public static final IKey WORLD_SUN_PATH_ROTATION = L10n.lang("bbs.ui.world.sun_path_rotation");
