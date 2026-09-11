@@ -24,6 +24,7 @@
         "HeldItemRendererMixin",
         "iris.SystemTimeUniformsTimerMixin",
         "InGameHudMixin",
+        "ScreenMixin",
         "KeyboardMixin",
         "ResourceReloadLoggerMixin",
         "RenderLayerMixin",

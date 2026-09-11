@@ -415,8 +415,10 @@ public class BBSRendering
     /**
      * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
      * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
-     * {@link net.minecraft.client.render.GameRenderer#renderBlur()} then samples that state —
-     * NeoForge pause blur makes hotbar / sky / leaves go dark while menu buttons still draw fine.
+     * On 1.21+ {@link net.minecraft.client.render.GameRenderer#renderBlur()} samples that state
+     * (NeoForge pause blur → dark hotbar / sky). This build has no menu blur — use
+     * {@link #preparePauseScreenState()} before {@link net.minecraft.client.gui.screen.Screen}
+     * backgrounds instead; keep this helper for shared TU0/FB cleanup when blend must stay off.
      */
     public static void prepareMenuBackgroundState()
     {
@@ -432,11 +434,32 @@ public class BBSRendering
             mc.getFramebuffer().beginWrite(false);
         }
 
-        /* Blur post-chain expects blend off (see Forge pause-screen blend fixes). */
+        /* Blur post-chain (1.21+) expects blend off (see Forge pause-screen blend fixes). */
         RenderSystem.disableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.depthMask(true);
         RenderSystem.colorMask(true, true, true, true);
+    }
+
+    /**
+     * 1.20.1 / 1.20.4 pause and other in-game screens darken with a translucent gradient
+     * ({@code Screen.renderBackground} / {@code renderInGameBackground}), not {@code renderBlur}.
+     * Re-arm lightmap / ColorModulator / TU0 but leave blend enabled for that overlay.
+     */
+    public static void preparePauseScreenState()
+    {
+        ensureMainFramebuffer();
+        restoreWorldRenderState();
+        DiffuseLighting.enableGuiDepthLighting();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        clearTextureUnit0();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
     }
 
     public static void clearTextureUnit0()
