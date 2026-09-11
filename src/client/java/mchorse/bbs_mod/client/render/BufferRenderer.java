@@ -1,16 +1,16 @@
 package mchorse.bbs_mod.client.render;
 
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
-import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -76,30 +76,29 @@ public class BufferRenderer
             return;
         }
 
-        try
+        try (buffer)
         {
+            ModelEffectPass.bound(null);
+            CustomVertexConsumerProvider.drawLayer(layer);
             PreparedRenderType prepared = layer.prepare();
-            GpuBuffer vertices = RenderSystem.getDevice().createBuffer(() -> "BBS immediate vertices", GpuBuffer.USAGE_VERTEX, buffer.vertexBuffer());
-            GpuBuffer indices;
-            IndexType indexType;
 
-            if (buffer.indexBuffer() == null)
+            if (ModelEffectPass.hasBinding())
             {
-                RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(params.primitiveTopology());
-                indices = sequential.getBuffer(params.indexCount());
-                indexType = sequential.type();
-            }
-            else
-            {
-                indices = RenderSystem.getDevice().createBuffer(() -> "BBS immediate indices", GpuBuffer.USAGE_INDEX, buffer.indexBuffer());
-                indexType = params.indexType();
+                for (PreparedRenderType.Texture texture : prepared.textures())
+                {
+                    if (texture.name().equals("Sampler0") && texture.textureView() != null
+                        && texture.textureView().texture() instanceof GlTexture glTexture
+                        && ModelEffectPass.drawBound(buffer, AdoptedTexture.identifier(glTexture.glId(), glTexture.getWidth(0), glTexture.getHeight(0), false)))
+                    {
+                        return;
+                    }
+                }
             }
 
-            prepared.drawFromBuffer(vertices, indices, indexType, params.indexCount(), params.vertexCount(), 1);
-        }
-        finally
-        {
-            buffer.close();
+            try (ImmediateMesh mesh = new ImmediateMesh(buffer))
+            {
+                mesh.draw(prepared);
+            }
         }
     }
 

@@ -323,6 +323,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             HolderLookup.Provider lookup = this.entity.level() != null ? this.entity.level().registryAccess() : Minecraft.getInstance().level.registryAccess();
             ValueInput readView = TagValueInput.create(ProblemReporter.DISCARDING, lookup, compound);
             this.entity.load(readView);
+            /* Detached preview entities never receive a server ID in 26.2. */
+            this.entity.setId(-1 - (this.entity.getUUID().hashCode() & Integer.MAX_VALUE));
             this.entity.noPhysics = true;
         }
     }

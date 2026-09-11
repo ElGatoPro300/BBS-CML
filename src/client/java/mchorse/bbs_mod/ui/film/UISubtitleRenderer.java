@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.render.ImmediateMesh;
 import mchorse.bbs_mod.client.renderer.FontRendererHelper;
 import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.client.renderer.MultiBufferSource;
@@ -183,21 +184,17 @@ public class UISubtitleRenderer
             ByteBuffer data = Std140Builder.onStack(memory, 80).putMat4f(transform)
                 .putFloat(subtitle.shadow).putFloat(subtitle.shadowOpaque ? 1F : 0F)
                 .putFloat(textureWidth).putFloat(textureHeight).get();
-            GpuBuffer vertices = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle vertices", GpuBuffer.USAGE_VERTEX, buffer.vertexBuffer());
-            RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
-            GpuBuffer indexBuffer = indices.getBuffer(6);
             GpuTextureView destination = RenderSystem.outputColorTextureOverride != null
                 ? RenderSystem.outputColorTextureOverride : Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
 
-            try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle parameters", GpuBuffer.USAGE_UNIFORM, data);
+            try (ImmediateMesh mesh = new ImmediateMesh(buffer);
+                 GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle parameters", GpuBuffer.USAGE_UNIFORM, data);
                  RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "BBS subtitle", destination, Optional.empty()))
             {
                 pass.setPipeline(BBSShaders.subtitlesPipeline);
                 pass.setUniform("SubtitleParameters", uniforms);
                 pass.bindTexture("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().getSampler(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
-                pass.setVertexBuffer(0, vertices.slice());
-                pass.setIndexBuffer(indexBuffer, indices.type());
-                pass.drawIndexed(0, 0, 6, 1, 0);
+                mesh.draw(pass);
             }
         }
     }

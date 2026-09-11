@@ -26,15 +26,15 @@ import org.jspecify.annotations.Nullable;
 public class PickerPreviewRenderState implements GuiElementRenderState
 {
     /* UV1 carries the pick ID so differently highlighted previews can share a GUI batch. */
-    private static final VertexFormat FORMAT = VertexFormat.builder(1)
+    private static final VertexFormat FORMAT = VertexFormat.builder(0)
         .addAttribute("Position", GpuFormat.RGB32_FLOAT)
         .addAttribute("Color", GpuFormat.RGBA8_UNORM)
         .addAttribute("UV0", GpuFormat.RG32_FLOAT)
-        .addAttribute("UV1", GpuFormat.RG32_FLOAT)
+        .addAttribute("UV1", GpuFormat.RG16_SINT)
         .build();
 
     private static final RenderPipeline PIPELINE = RenderPipelines.register(
-        RenderPipeline.builder()
+        RenderPipelineUtils.withUniforms(RenderPipelines.GUI_TEXTURED)
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_preview"))
             .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))
             .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_preview"))

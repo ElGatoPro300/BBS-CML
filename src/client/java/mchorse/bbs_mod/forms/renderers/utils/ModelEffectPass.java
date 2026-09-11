@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.render.ImmediateMesh;
+import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.client.ModelEffectUniforms;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
@@ -17,7 +19,6 @@ import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.opengl.GlProgram;
@@ -28,7 +29,6 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.BlendFactor;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
@@ -200,7 +199,7 @@ public final class ModelEffectPass
 
         Identifier vertex = Identifier.fromNamespaceAndPath("bbs", "core/" + (key.shader().equals("block_glow_overlay") ? "block_paint_overlay" : key.shader()));
         Identifier fragment = Identifier.fromNamespaceAndPath("bbs", "core/" + key.shader());
-        RenderPipeline.Builder builder = RenderPipeline.builder()
+        RenderPipeline.Builder builder = RenderPipelineUtils.withModelResources(key.picking())
             .withLocation(Identifier.fromNamespaceAndPath("bbs", "pipeline/model_effect_" + PIPELINES.size()))
             .withVertexShader(vertex).withFragmentShader(fragment)
             .withVertexBinding(0, key.format())
@@ -395,26 +394,12 @@ public final class ModelEffectPass
                 renderSetup.prepareTextures(
                     Minecraft.getInstance().getTextureManager(),
                     RenderSystem.getSamplerCache(),
-                    null, null);
-            GpuBuffer vertices = RenderSystem.getDevice().createBuffer(PASS_LABEL, GpuBuffer.USAGE_VERTEX, buffer.vertexBuffer());
-            GpuBuffer indices;
-            IndexType indexType;
-
-            if (buffer.indexBuffer() == null)
-            {
-                RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(draws.primitiveTopology());
-                indices = sequential.getBuffer(draws.indexCount());
-                indexType = sequential.type();
-            }
-            else
-            {
-                indices = RenderSystem.getDevice().createBuffer(PASS_LABEL, GpuBuffer.USAGE_INDEX, buffer.indexBuffer());
-                indexType = draws.indexType();
-            }
-
+                    Minecraft.getInstance().gameRenderer.overlayTexture().getTextureView(),
+                    Minecraft.getInstance().gameRenderer.lightmap());
             RenderTarget target = Minecraft.getInstance().gameRenderer.mainRenderTarget();
 
-            try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(PASS_LABEL, GpuBuffer.USAGE_UNIFORM, ModelEffectUniforms.data(parameters));
+            try (ImmediateMesh mesh = new ImmediateMesh(buffer);
+                 GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(PASS_LABEL, GpuBuffer.USAGE_UNIFORM, ModelEffectUniforms.data(parameters));
                  RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(PASS_LABEL,
                      RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView(), Optional.empty(),
                      RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView(), OptionalDouble.empty()))
@@ -429,8 +414,6 @@ public final class ModelEffectPass
 
                 RenderSystem.bindDefaultUniforms(pass);
                 pass.setUniform("BbsModelEffects", uniforms);
-                pass.setVertexBuffer(0, vertices.slice());
-                pass.setIndexBuffer(indices, indexType);
 
                 if (textures != null)
                 {
@@ -440,7 +423,7 @@ public final class ModelEffectPass
                     }
                 }
 
-                pass.drawIndexed(0, 0, draws.indexCount(), 1, 0);
+                mesh.draw(pass);
             }
         }
     }
