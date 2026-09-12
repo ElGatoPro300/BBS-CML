@@ -2286,9 +2286,8 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
          * (which doesn't use this ray) kept working fine. */
         Matrix4f view = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
 
-        Matrix4f proj = mc.gameRenderer.getBasicProjectionMatrix(mc.options.getFov().getValue().floatValue());
         this.mouseDirection.set(CameraUtils.getMouseDirection(
-                proj,
+                BBSRendering.projection,
                 view,
                 (int) x, (int) y, 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()));
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), this.mouseDirection);
@@ -2419,22 +2418,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.gizmoCameraPosition.set(cameraPos.x, cameraPos.y, cameraPos.z);
         this.hasGizmo = true;
-        this.gizmoProjection.set(MinecraftClient.getInstance().gameRenderer.getBasicProjectionMatrix(MinecraftClient.getInstance().options.getFov().getValue().floatValue()));
+        this.gizmoProjection.set(BBSRendering.projection);
 
-        MatrixStack gizmoStack;
-
-        if (BBSRendering.isIrisShadersEnabled())
-        {
-            /* Films#render clears Gizmo#hasGizmoMatrix after this pass, so keep a local
-             * copy for the deferred UI draw + stencil pick. */
-            gizmoStack = stack;
-        }
-        else
-        {
-            /* Without shaders the world stack is unreliable; capture only the camera-relative
-             * block transform and premultiply BBSRendering.camera in applyGizmoCaptureToSingleton. */
-            gizmoStack = new MatrixStack();
-        }
+        /* Always capture a camera-free offset (block relative to the eye). The AFTER_ENTITIES
+         * stack may already bake the view matrix (Iris / 1.21.x) and drift from
+         * BBSRendering.camera when orbiting; compose the orbit view in the UI pass instead. */
+        MatrixStack gizmoStack = new MatrixStack();
 
         gizmoStack.push();
         gizmoStack.translate(px - cameraPos.x, py - cameraPos.y, pz - cameraPos.z);
@@ -2466,10 +2455,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
     private void applyGizmoCaptureToSingleton()
     {
-        /* Whether the captured matrix already bakes BBSRendering.camera depends on the
-         * render path (Iris pack vs. vanilla). composeVisualMatrix detects double-camera
-         * by view-space origin distance and keeps the gizmo on the block. */
-        Gizmo.composeVisualMatrix(this.gizmoInterfaceMatrix, BBSRendering.camera, this.gizmoProjection, Gizmo.INSTANCE.lastGizmoMatrix);
+        /* gizmoInterfaceMatrix is always camera-free (see renderGizmo). Match the film panel:
+         * premultiply the same view matrix the world pass used this frame. */
+        Gizmo.INSTANCE.lastGizmoMatrix.set(BBSRendering.camera).mul(this.gizmoInterfaceMatrix);
         Gizmo.INSTANCE.hasGizmoMatrix = true;
     }
 
