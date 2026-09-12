@@ -56,6 +56,8 @@ public class CubicCubeRenderer implements ICubicRenderer
 
     private ModelVertex modelVertex = new ModelVertex();
     private ShapeKeys shapeKeys;
+    private ModelData[] activeShapes = new ModelData[0];
+    private float[] activeShapeWeights = new float[0];
 
     public static void moveToPivot(MatrixStack stack, Vector3f pivot)
     {
@@ -69,28 +71,12 @@ public class CubicCubeRenderer implements ICubicRenderer
             return;
         }
 
-        Matrix4f matrix4f = new Matrix4f();
-        Matrix3f matrix3f = new Matrix3f();
+        float x = MathUtils.toRad(rotation.x);
+        float y = MathUtils.toRad(rotation.y);
+        float z = MathUtils.toRad(rotation.z);
 
-        modelM.identity();
-        matrix4f.identity().rotateZ(MathUtils.toRad(rotation.z));
-        modelM.mul(matrix4f);
-
-        matrix4f.identity().rotateY(MathUtils.toRad(rotation.y));
-        modelM.mul(matrix4f);
-
-        matrix4f.identity().rotateX(MathUtils.toRad(rotation.x));
-        modelM.mul(matrix4f);
-
-        normalM.identity();
-        matrix3f.identity().rotateZ(MathUtils.toRad(rotation.z));
-        normalM.mul(matrix3f);
-
-        matrix3f.identity().rotateY(MathUtils.toRad(rotation.y));
-        normalM.mul(matrix3f);
-
-        matrix3f.identity().rotateX(MathUtils.toRad(rotation.x));
-        normalM.mul(matrix3f);
+        modelM.identity().rotateZ(z).rotateY(y).rotateX(x);
+        normalM.identity().rotateZ(z).rotateY(y).rotateX(x);
 
         stack.peek().getPositionMatrix().mul(modelM);
         stack.peek().getNormalMatrix().mul(normalM);
@@ -168,6 +154,29 @@ public class CubicCubeRenderer implements ICubicRenderer
 
         ModelData baseData = mesh.baseData;
 
+        /* Resolve active shapes once per mesh, not once for every triangle. */
+        int shapeCount = this.shapeKeys.shapeKeys.size();
+
+        if (this.activeShapes.length < shapeCount)
+        {
+            this.activeShapes = new ModelData[shapeCount];
+            this.activeShapeWeights = new float[shapeCount];
+        }
+
+        int activeCount = 0;
+
+        for (Map.Entry<String, Float> entry : this.shapeKeys.shapeKeys.entrySet())
+        {
+            float weight = entry.getValue();
+            ModelData shape = mesh.data.get(entry.getKey());
+
+            if (shape != null && weight != 0F)
+            {
+                this.activeShapes[activeCount] = shape;
+                this.activeShapeWeights[activeCount++] = weight;
+            }
+        }
+
         for (int i = 0, c = baseData.vertices.size() / 3; i < c; i++)
         {
             v1.set(baseData.vertices.get(i * 3));
@@ -183,10 +192,10 @@ public class CubicCubeRenderer implements ICubicRenderer
             u3.set(baseData.uvs.get(i * 3 + 2));
 
             /* Apply shape keys */
-            for (Map.Entry<String, Float> entry : this.shapeKeys.shapeKeys.entrySet())
+            for (int shapeIndex = 0; shapeIndex < activeCount; shapeIndex++)
             {
-                ModelData data = mesh.data.get(entry.getKey());
-                float value = entry.getValue();
+                ModelData data = this.activeShapes[shapeIndex];
+                float value = this.activeShapeWeights[shapeIndex];
 
                 if (data != null)
                 {
