@@ -10,19 +10,18 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 
 public class FormRenderingContext
 {
     public FormRenderType type;
     public IEntity entity;
-    public PoseStack stack;
-    public PoseStack world;
+    public MatrixStack stack;
+    public MatrixStack world;
     public int light;
     public int overlay;
     public float transition;
@@ -52,12 +51,12 @@ public class FormRenderingContext
     public FormRenderingContext()
     {}
 
-    public FormRenderingContext set(FormRenderType type, IEntity entity, PoseStack stack, int light, int overlay, float transition)
+    public FormRenderingContext set(FormRenderType type, IEntity entity, MatrixStack stack, int light, int overlay, float transition)
     {
         this.type = type == null ? FormRenderType.ENTITY : type;
         this.entity = entity;
         this.stack = stack;
-        this.world = new PoseStack();
+        this.world = new MatrixStack();
         this.light = light;
         this.overlay = overlay;
         this.transition = transition;
@@ -81,7 +80,7 @@ public class FormRenderingContext
             float bodyYaw = Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition);
 
             this.world.translate(x, y, z);
-            this.world.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+            this.world.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
         }
 
         return this;
@@ -95,9 +94,9 @@ public class FormRenderingContext
         return this;
     }
 
-    public FormRenderingContext camera(net.minecraft.client.Camera camera)
+    public FormRenderingContext camera(net.minecraft.client.render.Camera camera)
     {
-        this.camera.position.set(camera.position().x, camera.position().y, camera.position().z);
+        this.camera.position.set(camera.getPos().x, camera.getPos().y, camera.getPos().z);
 
         float rollDeg = 0F;
         CameraController controller = BBSModClient.getCameraController();
@@ -107,8 +106,8 @@ public class FormRenderingContext
             rollDeg = controller.getRoll();
         }
 
-        this.camera.rotation.set(MathUtils.toRad(-camera.xRot()), MathUtils.toRad(camera.yRot()), MathUtils.toRad(rollDeg));
-        this.camera.view.identity().rotate(camera.rotation());
+        this.camera.rotation.set(MathUtils.toRad(-camera.getPitch()), MathUtils.toRad(camera.getYaw()), MathUtils.toRad(rollDeg));
+        this.camera.view.identity().rotate(camera.getRotation());
 
         if (Math.abs(rollDeg) > 1.0E-4F)
         {
@@ -116,7 +115,7 @@ public class FormRenderingContext
             this.camera.view.rotateZ(MathUtils.toRad(rollDeg));
         }
 
-        this.camera.fov = MathUtils.toRad(Minecraft.getInstance().options.fov().get());
+        this.camera.fov = MathUtils.toRad(MinecraftClient.getInstance().options.getFov().getValue());
 
         return this;
     }

@@ -10,9 +10,9 @@ import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.World;
 
 public class ItemDropActionClip extends ItemActionClip
 {
@@ -57,25 +57,25 @@ public class ItemDropActionClip extends ItemActionClip
     {
         this.applyPositionRotation(player, replay, tick);
 
-        double x = this.relative.get() ? this.posX.get() + player.position().x : this.posX.get();
-        double y = this.relative.get() ? this.posY.get() + player.position().y : this.posY.get();
-        double z = this.relative.get() ? this.posZ.get() + player.position().z : this.posZ.get();
+        double x = this.relative.get() ? this.posX.get() + player.getPos().x : this.posX.get();
+        double y = this.relative.get() ? this.posY.get() + player.getPos().y : this.posY.get();
+        double z = this.relative.get() ? this.posZ.get() + player.getPos().z : this.posZ.get();
         ItemEntity entity = new ItemEntity(
-            player.level(),
+            player.getServerWorld(),
             x, y, z, this.itemStack.get().copy(),
             this.velocityX.get(), this.velocityY.get(), this.velocityZ.get()
         );
 
-        entity.setDefaultPickUpDelay();
-        player.level().addFreshEntity(entity);
+        entity.setToDefaultPickupDelay();
+        player.getWorld().spawnEntity(entity);
     }
 
     @Override
     protected void applyClientAction(IEntity entity, Film film, Replay replay, int tick)
     {
-        Level world = entity.getWorld();
+        World world = entity.getWorld();
 
-        if (world == null || !world.isClientSide() || this.itemStack.get().isEmpty())
+        if (world == null || !world.isClient() || this.itemStack.get().isEmpty())
         {
             return;
         }
@@ -93,8 +93,8 @@ public class ItemDropActionClip extends ItemActionClip
             this.velocityX.get(), this.velocityY.get(), this.velocityZ.get()
         );
 
-        itemEntity.setDefaultPickUpDelay();
-        world.addFreshEntity(itemEntity);
+        itemEntity.setToDefaultPickupDelay();
+        world.spawnEntity(itemEntity);
     }
 
     @Override

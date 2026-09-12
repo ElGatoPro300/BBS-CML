@@ -22,7 +22,7 @@ import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.world.level.storage.LevelSummary;
 
 import org.lwjgl.opengl.GL11;
@@ -198,12 +198,12 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         worldsFuture.thenCombine(filmsFuture, (worlds, films) ->
         {
-            Minecraft.getInstance().execute(() -> this.applyScanResults(worlds, films));
+            MinecraftClient.getInstance().execute(() -> this.applyScanResults(worlds, films));
 
             return null;
         }).exceptionally((error) ->
         {
-            Minecraft.getInstance().execute(() ->
+            MinecraftClient.getInstance().execute(() ->
             {
                 this.scanning = false;
                 error.printStackTrace();
@@ -244,9 +244,9 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         for (LevelSummary summary : this.worldSummaries)
         {
-            String folder = summary.getLevelId();
+            String folder = summary.getName();
 
-            this.crossWorldWorldLabels.put(folder, summary.getLevelName());
+            this.crossWorldWorldLabels.put(folder, summary.getDisplayName());
 
             if (!worldsWithFilms.contains(folder))
             {
@@ -313,7 +313,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             return null;
         }
 
-        String cacheKey = summary.getLevelId();
+        String cacheKey = summary.getName();
         Texture cached = this.worldIcons.get(cacheKey);
 
         if (cached != null)
@@ -326,7 +326,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             return null;
         }
 
-        Path iconPath = summary.getIcon();
+        Path iconPath = summary.getIconPath();
 
         if (iconPath == null || !Files.isRegularFile(iconPath))
         {
@@ -486,7 +486,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             this.pendingJoin = entry;
             this.pendingWorld = null;
 
-            Minecraft client = Minecraft.getInstance();
+            MinecraftClient client = MinecraftClient.getInstance();
 
             if (!WorldLaunchHelper.isInLoadedWorld(client))
             {
@@ -512,11 +512,11 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
     private boolean canShowJoinWorld()
     {
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
         if (this.pendingWorld != null)
         {
-            return !WorldLaunchHelper.isCurrentWorld(client, this.pendingWorld.getLevelId());
+            return !WorldLaunchHelper.isCurrentWorld(client, this.pendingWorld.getName());
         }
 
         if (this.pendingJoin == null || this.pendingJoin.filmId.endsWith("/"))
@@ -552,19 +552,19 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         }
 
         this.pendingWorld = summary;
-        this.filmsList.goTo(new DataPath(summary.getLevelId() + "/"));
+        this.filmsList.goTo(new DataPath(summary.getName() + "/"));
         this.filmsSearch.search.setText("");
         this.updateBrowseMode();
     }
 
     private void joinWorldSummary(LevelSummary summary)
     {
-        if (summary == null || !summary.primaryActionActive())
+        if (summary == null)
         {
             return;
         }
 
-        WorldLaunchHelper.loadWorld(summary.getLevelId());
+        WorldLaunchHelper.loadWorld(summary.getName());
         this.pendingWorld = null;
         this.updateJoinButton();
     }

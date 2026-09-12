@@ -5,10 +5,10 @@ import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.MultiPlayerGameMode;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.level.GameType;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
+import net.minecraft.world.GameMode;
 
 /**
  * Silent Spectator for the Film panel (noclip while editing).
@@ -20,7 +20,7 @@ import net.minecraft.world.level.GameType;
  */
 public final class EditorSpectatorHelper
 {
-    private static GameType savedMode;
+    private static GameMode savedMode;
     private static boolean spectatorApplied;
     /**
      * Actor-control needs a playable mode (swipe / shield / damage). Keep the
@@ -74,22 +74,22 @@ public final class EditorSpectatorHelper
             return;
         }
 
-        MultiPlayerGameMode interactions = Minecraft.getInstance().gameMode;
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (interactions == null || player == null)
         {
             return;
         }
 
-        GameType current = interactions.getPlayerMode();
+        GameMode current = interactions.getCurrentGameMode();
 
-        if (current == GameType.SPECTATOR)
+        if (current == GameMode.SPECTATOR)
         {
             if (!spectatorApplied)
             {
                 /* Already spectator before opening the editor — keep that on restore. */
-                savedMode = GameType.SPECTATOR;
+                savedMode = GameMode.SPECTATOR;
                 spectatorApplied = true;
             }
 
@@ -103,7 +103,7 @@ public final class EditorSpectatorHelper
 
         spectatorApplied = true;
         controlSuspended = false;
-        applyGameMode(GameType.SPECTATOR);
+        applyGameMode(GameMode.SPECTATOR);
     }
 
     /**
@@ -122,11 +122,11 @@ public final class EditorSpectatorHelper
             return;
         }
 
-        GameType playable = savedMode == null ? GameType.CREATIVE : savedMode;
+        GameMode playable = savedMode == null ? GameMode.CREATIVE : savedMode;
 
-        if (playable == GameType.SPECTATOR)
+        if (playable == GameMode.SPECTATOR)
         {
-            playable = GameType.CREATIVE;
+            playable = GameMode.CREATIVE;
         }
 
         controlSuspended = true;
@@ -144,25 +144,25 @@ public final class EditorSpectatorHelper
             return;
         }
 
-        MultiPlayerGameMode interactions = Minecraft.getInstance().gameMode;
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
 
         if (interactions == null)
         {
             return;
         }
 
-        GameType current = interactions.getPlayerMode();
+        GameMode current = interactions.getCurrentGameMode();
 
-        if (current != GameType.SPECTATOR)
+        if (current != GameMode.SPECTATOR)
         {
             return;
         }
 
-        GameType playable = savedMode == null ? GameType.CREATIVE : savedMode;
+        GameMode playable = savedMode == null ? GameMode.CREATIVE : savedMode;
 
-        if (playable == GameType.SPECTATOR)
+        if (playable == GameMode.SPECTATOR)
         {
-            playable = GameType.CREATIVE;
+            playable = GameMode.CREATIVE;
         }
 
         applyGameMode(playable);
@@ -182,7 +182,7 @@ public final class EditorSpectatorHelper
 
         if (spectatorApplied)
         {
-            applyGameMode(GameType.SPECTATOR);
+            applyGameMode(GameMode.SPECTATOR);
         }
     }
 
@@ -193,7 +193,7 @@ public final class EditorSpectatorHelper
             return;
         }
 
-        GameType restoreTo = savedMode == null ? GameType.CREATIVE : savedMode;
+        GameMode restoreTo = savedMode == null ? GameMode.CREATIVE : savedMode;
 
         spectatorApplied = false;
         controlSuspended = false;
@@ -208,13 +208,13 @@ public final class EditorSpectatorHelper
     /**
      * Apply locally first so the next click can attack immediately, then sync server.
      */
-    private static void applyGameMode(GameType mode)
+    private static void applyGameMode(GameMode mode)
     {
-        MultiPlayerGameMode interactions = Minecraft.getInstance().gameMode;
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
 
-        if (interactions != null && interactions.getPlayerMode() != mode)
+        if (interactions != null && interactions.getCurrentGameMode() != mode)
         {
-            interactions.setLocalMode(mode);
+            interactions.setGameMode(mode);
         }
 
         ClientNetwork.sendSetGameMode(mode);

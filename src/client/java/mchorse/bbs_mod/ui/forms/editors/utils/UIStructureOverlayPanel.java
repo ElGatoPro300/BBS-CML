@@ -19,8 +19,8 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.WorldSavePath;
 
 import java.io.File;
 import java.io.IOException;
@@ -210,14 +210,14 @@ public class UIStructureOverlayPanel extends UIStringOverlayPanel
     private static Set<String> getAllStructureFiles()
     {
         Set<String> locations = new HashSet<>();
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         /* Scan world/generated/minecraft/structures/ (if in world) */
-        if (mc.level != null && mc.isLocalServer() && mc.getSingleplayerServer() != null)
+        if (mc.world != null && mc.isInSingleplayer() && mc.getServer() != null)
         {
             try
             {
-                File generatedFolder = mc.getSingleplayerServer().getWorldPath(LevelResource.GENERATED_DIR).toFile();
+                File generatedFolder = mc.getServer().getSavePath(WorldSavePath.GENERATED).toFile();
                 File worldStructures = new File(new File(generatedFolder, "minecraft"), "structures");
                 
                 if (worldStructures.exists() && worldStructures.isDirectory())
@@ -472,11 +472,11 @@ public class UIStructureOverlayPanel extends UIStringOverlayPanel
         if (!worldPath.startsWith("world:")) return null;
         
         String relative = worldPath.substring(6);
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
         
-        if (mc.getSingleplayerServer() == null) return null;
+        if (mc.getServer() == null) return null;
         
-        File generatedFolder = mc.getSingleplayerServer().getWorldPath(LevelResource.GENERATED_DIR).toFile();
+        File generatedFolder = mc.getServer().getSavePath(WorldSavePath.GENERATED).toFile();
         
         // Check minecraft/structures
         File f1 = new File(new File(generatedFolder, "minecraft"), "structures/" + relative);
@@ -578,6 +578,18 @@ public class UIStructureOverlayPanel extends UIStringOverlayPanel
             else if (string.startsWith("structures/"))
             {
                 string = "saved:" + string.substring(11);
+            }
+            else if (string.startsWith("bbs:structure/"))
+            {
+                string = "saved:" + string.substring(14);
+            }
+            else if (string.startsWith("assets:structure/"))
+            {
+                string = "saved:" + string.substring(17);
+            }
+            else if (string.startsWith("structure/"))
+            {
+                string = "saved:" + string.substring(10);
             }
         }
         

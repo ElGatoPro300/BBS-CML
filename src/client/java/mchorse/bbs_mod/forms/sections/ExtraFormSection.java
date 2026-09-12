@@ -20,19 +20,19 @@ import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.block.Blocks;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 
 import java.util.Arrays;
 import java.util.List;
 
 public class ExtraFormSection extends FormSection
 {
-    private static final List<String> mobAnimalsIds = Arrays.asList("minecraft:axolotl", "minecraft:bat", "minecraft:bee", "minecraft:camel", "minecraft:cat", "minecraft:chicken", "minecraft:cod", "minecraft:cow", "minecraft:dolphin", "minecraft:donkey", "minecraft:fox", "minecraft:frog", "minecraft:glow_squid", "minecraft:goat", "minecraft:horse", "minecraft:llama", "minecraft:mooshroom", "minecraft:mule", "minecraft:ocelot", "minecraft:panda", "minecraft:parrot", "minecraft:pig", "minecraft:polar_bear", "minecraft:pufferfish", "minecraft:rabbit", "minecraft:salmon", "minecraft:sheep", "minecraft:skeleton_horse", "minecraft:sniffer", "minecraft:squid", "minecraft:tropical_fish", "minecraft:turtle", "minecraft:wolf", "minecraft:zombie_horse");
-    private static final List<String> mobNeutralIds = Arrays.asList("minecraft:allay", "minecraft:enderman", "minecraft:iron_golem", "minecraft:piglin", "minecraft:piglin_brute", "minecraft:snow_golem", "minecraft:strider", "minecraft:villager", "minecraft:wandering_trader");
-    private static final List<String> mobHostileIds = Arrays.asList("minecraft:blaze", "minecraft:cave_spider", "minecraft:creeper", "minecraft:drowned", "minecraft:elder_guardian", "minecraft:ender_dragon", "minecraft:endermite", "minecraft:evoker", "minecraft:ghast", "minecraft:guardian", "minecraft:hoglin", "minecraft:husk", "minecraft:illusioner", "minecraft:magma_cube", "minecraft:phantom", "minecraft:pillager", "minecraft:ravager", "minecraft:silverfish", "minecraft:skeleton", "minecraft:slime", "minecraft:spider", "minecraft:stray", "minecraft:vex", "minecraft:vindicator", "minecraft:warden", "minecraft:witch", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:zoglin", "minecraft:zombie", "minecraft:zombie_villager", "minecraft:zombified_piglin");
-    private static final List<String> mobMiscIds = Arrays.asList("minecraft:armor_stand", "minecraft:arrow", "minecraft:boat", "minecraft:end_crystal", "minecraft:lightning_bolt", "minecraft:minecart", "minecraft:shulker_bullet", "minecraft:spectral_arrow", "minecraft:trident");
+    private static final List<String> mobAnimalsIds = Arrays.asList("minecraft:armadillo", "minecraft:axolotl", "minecraft:bat", "minecraft:bee", "minecraft:camel", "minecraft:cat", "minecraft:chicken", "minecraft:cod", "minecraft:cow", "minecraft:dolphin", "minecraft:donkey", "minecraft:fox", "minecraft:frog", "minecraft:glow_squid", "minecraft:goat", "minecraft:horse", "minecraft:llama", "minecraft:mooshroom", "minecraft:mule", "minecraft:ocelot", "minecraft:panda", "minecraft:parrot", "minecraft:pig", "minecraft:polar_bear", "minecraft:pufferfish", "minecraft:rabbit", "minecraft:salmon", "minecraft:sheep", "minecraft:skeleton_horse", "minecraft:sniffer", "minecraft:squid", "minecraft:tadpole", "minecraft:tropical_fish", "minecraft:turtle", "minecraft:wolf", "minecraft:zombie_horse");
+    private static final List<String> mobNeutralIds = Arrays.asList("minecraft:allay", "minecraft:enderman", "minecraft:iron_golem", "minecraft:piglin", "minecraft:piglin_brute", "minecraft:snow_golem", "minecraft:strider", "minecraft:trader_llama", "minecraft:villager", "minecraft:wandering_trader");
+    private static final List<String> mobHostileIds = Arrays.asList("minecraft:blaze", "minecraft:bogged", "minecraft:breeze", "minecraft:cave_spider", "minecraft:creeper", "minecraft:drowned", "minecraft:elder_guardian", "minecraft:ender_dragon", "minecraft:endermite", "minecraft:evoker", "minecraft:ghast", "minecraft:guardian", "minecraft:hoglin", "minecraft:husk", "minecraft:illusioner", "minecraft:magma_cube", "minecraft:phantom", "minecraft:pillager", "minecraft:ravager", "minecraft:shulker", "minecraft:silverfish", "minecraft:skeleton", "minecraft:slime", "minecraft:spider", "minecraft:stray", "minecraft:vex", "minecraft:vindicator", "minecraft:warden", "minecraft:witch", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:zoglin", "minecraft:zombie", "minecraft:zombie_villager", "minecraft:zombified_piglin");
+    private static final List<String> mobMiscIds = Arrays.asList("minecraft:armor_stand", "minecraft:arrow", "minecraft:boat", "minecraft:breeze_wind_charge", "minecraft:chest_boat", "minecraft:end_crystal", "minecraft:lightning_bolt", "minecraft:minecart", "minecraft:shulker_bullet", "minecraft:spectral_arrow", "minecraft:trident", "minecraft:wind_charge");
 
     private FormCategory mobsAnimals;
     private FormCategory mobsNeutral;
@@ -93,14 +93,8 @@ public class ExtraFormSection extends FormSection
 
         billboard.texture.set(Link.assets("textures/error.png"));
         extruded.texture.set(Link.assets("textures/error.png"));
-        block.blockState.set(Blocks.GRASS_BLOCK.defaultBlockState());
-
-        try
-        {
-            item.stack.set(new ItemStack(Items.STICK));
-        }
-        catch (Throwable ignored)
-        {}
+        block.blockState.set(Blocks.GRASS_BLOCK.getDefaultState());
+        item.stack.set(new ItemStack(Items.STICK));
 
         extra.addForm(anchor);
         extra.addForm(billboard);

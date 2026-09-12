@@ -6,13 +6,13 @@ import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.utils.VideoRecorder;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.worldselection.WorldOpenFlows;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.storage.LevelResource;
-import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.server.integrated.IntegratedServerLoader;
+import net.minecraft.util.WorldSavePath;
+import net.minecraft.world.level.storage.LevelStorage;
 
 import java.nio.file.Path;
 
@@ -24,28 +24,28 @@ public class WorldLaunchHelper
     private static String pendingWorldFolder;
     private static int pendingWaitTicks;
 
-    public static boolean isCurrentWorld(Minecraft client, String worldFolder)
+    public static boolean isCurrentWorld(MinecraftClient client, String worldFolder)
     {
         if (worldFolder == null || worldFolder.isEmpty())
         {
             return false;
         }
 
-        if (!client.hasSingleplayerServer() || client.getSingleplayerServer() == null)
+        if (!client.isIntegratedServerRunning() || client.getServer() == null)
         {
             return false;
         }
 
-        Path currentSave = client.getSingleplayerServer().getWorldPath(LevelResource.ROOT);
+        Path currentSave = client.getServer().getSavePath(WorldSavePath.ROOT);
 
-        for (LevelStorageSource.LevelDirectory save : client.getLevelSource().findLevelCandidates().levels())
+        for (LevelStorage.LevelSave save : client.getLevelStorage().getLevelList().levels())
         {
             if (!currentSave.equals(save.path()))
             {
                 continue;
             }
 
-            if (WorldLaunchHelper.matchesWorldFolder(worldFolder, save.directoryName()))
+            if (WorldLaunchHelper.matchesWorldFolder(worldFolder, save.getRootPath()))
             {
                 return true;
             }
@@ -74,14 +74,14 @@ public class WorldLaunchHelper
     /**
      * True when the client is already inside a loaded world session.
      */
-    public static boolean isInLoadedWorld(Minecraft client)
+    public static boolean isInLoadedWorld(MinecraftClient client)
     {
-        return client != null && client.level != null;
+        return client != null && client.world != null;
     }
 
     public static void loadWorld(String worldFolder)
     {
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
         if (WorldLaunchHelper.isCurrentWorld(client, worldFolder))
         {
@@ -102,7 +102,7 @@ public class WorldLaunchHelper
         WorldLaunchHelper.startWorldLoad(client, worldFolder);
     }
 
-    public static void tick(Minecraft client)
+    public static void tick(MinecraftClient client)
     {
         if (WorldLaunchHelper.pendingWorldFolder == null)
         {
@@ -137,7 +137,7 @@ public class WorldLaunchHelper
         WorldLaunchHelper.startWorldLoad(client, folder);
     }
 
-    public static void onClientDisconnected(Minecraft client)
+    public static void onClientDisconnected(MinecraftClient client)
     {
         WorldLaunchHelper.ensureRenderTarget(client);
     }
@@ -148,39 +148,39 @@ public class WorldLaunchHelper
         WorldLaunchHelper.pendingWaitTicks = 0;
     }
 
-    private static boolean needsDisconnect(Minecraft client)
+    private static boolean needsDisconnect(MinecraftClient client)
     {
-        return client.level != null || client.hasSingleplayerServer();
+        return client.world != null || client.isIntegratedServerRunning();
     }
 
-    private static void requestDisconnect(Minecraft client)
+    private static void requestDisconnect(MinecraftClient client)
     {
         WorldLaunchHelper.prepareClientForWorldSwitch(client);
 
-        ClientLevel world = client.level;
+        ClientWorld world = client.world;
 
         if (world != null)
         {
-            world.disconnect(Component.literal("Disconnecting"));
+            world.disconnect();
         }
 
-        client.disconnect(new TitleScreen(), false);
+        client.disconnect(new TitleScreen());
     }
 
-    private static void abortPendingLaunch(Minecraft client)
+    private static void abortPendingLaunch(MinecraftClient client)
     {
         WorldLaunchHelper.clearPending();
         WorldLaunchHelper.ensureRenderTarget(client);
 
-        if (client.screen == null)
+        if (client.currentScreen == null)
         {
             client.setScreen(new TitleScreen());
         }
     }
 
-    private static void prepareClientForWorldSwitch(Minecraft client)
+    private static void prepareClientForWorldSwitch(MinecraftClient client)
     {
-        if (client.screen instanceof UIScreen)
+        if (client.currentScreen instanceof UIScreen)
         {
             client.setScreen(null);
         }
@@ -199,20 +199,22 @@ public class WorldLaunchHelper
         EditorSpectatorHelper.restore();
     }
 
-    private static void ensureRenderTarget(Minecraft client)
+    private static void ensureRenderTarget(MinecraftClient client)
     {
         BBSRendering.ensureMainFramebuffer();
+        client.getFramebuffer().beginWrite(false);
     }
 
-    private static void startWorldLoad(Minecraft client, String worldFolder)
+    private static void startWorldLoad(MinecraftClient client, String worldFolder)
     {
         client.execute(() ->
         {
             WorldLaunchHelper.ensureRenderTarget(client);
 
-            WorldOpenFlows loader = client.createWorldOpenFlows();
+            IntegratedServerLoader loader = client.createIntegratedServerLoader();
 
-            loader.openWorld(worldFolder, WorldLaunchHelper::clearPending);
+            WorldLaunchHelper.clearPending();
+            loader.start(null, worldFolder);
         });
     }
 }

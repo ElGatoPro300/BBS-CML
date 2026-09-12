@@ -10,11 +10,10 @@ import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.util.Identifier;
 
 import com.mojang.authlib.GameProfile;
 
@@ -152,17 +151,17 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                 return;
             }
 
-            Minecraft mc = Minecraft.getInstance();
+            MinecraftClient mc = MinecraftClient.getInstance();
 
             try
             {
                 GameProfile profile = null;
 
-                if (mc.getConnection() != null)
+                if (mc.getNetworkHandler() != null)
                 {
-                    for (PlayerInfo entry : mc.getConnection().getOnlinePlayers())
+                    for (PlayerListEntry entry : mc.getNetworkHandler().getPlayerList())
                     {
-                        if (entry.getProfile().name().equalsIgnoreCase(this.contributor.name.get()))
+                        if (entry.getProfile().getName().equalsIgnoreCase(this.contributor.name.get()))
                         {
                             profile = entry.getProfile();
                             break;
@@ -176,7 +175,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                     profile = new GameProfile(uuid, this.contributor.name.get());
                 }
 
-                this.skinTexture = mc.getSkinManager().createLookup(profile, true).get().body().id();
+                this.skinTexture = mc.player.getSkinTexture();
             }
             catch (Exception e)
             {}
@@ -184,10 +183,10 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
             this.profileResolved = true;
         }
 
-        private void drawPlayerHead(GuiGraphicsExtractor drawContext, Identifier texture, int x, int y, int size)
+        private void drawPlayerHead(DrawContext drawContext, Identifier texture, int x, int y, int size)
         {
-            drawContext.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
-            drawContext.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
+            drawContext.drawTexture(texture, x, y, size, size, 8.0F, 8.0F, 8, 8, 64, 64);
+            drawContext.drawTexture(texture, x, y, size, size, 40.0F, 8.0F, 8, 8, 64, 64);
         }
 
         @Override

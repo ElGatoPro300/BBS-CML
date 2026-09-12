@@ -2,8 +2,6 @@ package mchorse.bbs_mod.ui.dashboard.panels.overlay;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -25,6 +23,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.home.UIHomePanel;
+import mchorse.bbs_mod.ui.model.UIModelPreviewRenderer;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
 import mchorse.bbs_mod.ui.utils.UIDataUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
@@ -336,7 +335,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
                 folder.mkdirs();
             }
 
-            Util.getPlatform().openFile(folder);
+            Util.getOperatingSystem().open(folder);
         }
         catch (Exception e)
         {
@@ -1281,11 +1280,11 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             this.area.render(context.batcher, bg);
 
             /* Folder icon, centered in thumb area */
-            context.batcher.getContext().pose().pushMatrix();
-            context.batcher.getContext().pose().translate(this.area.mx(), this.area.y + CARD_THUMB_H / 2F);
-            context.batcher.getContext().pose().scale(2F, 2F);
+            context.batcher.getContext().getMatrices().push();
+            context.batcher.getContext().getMatrices().translate(this.area.mx(), this.area.y + CARD_THUMB_H / 2F, 0);
+            context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
             context.batcher.icon(Icons.FOLDER, Colors.WHITE, -8, -8);
-            context.batcher.getContext().pose().popMatrix();
+            context.batcher.getContext().getMatrices().pop();
 
             /* Name strip */
             int stripY = this.area.y + CARD_THUMB_H;
@@ -1332,7 +1331,6 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         private final String id;
         private final ContentType type;
         private final UIOpenAssetOverlayPanel owner;
-        private ModelForm modelForm;
 
         public UIFileCard(String id, ContentType type, UIOpenAssetOverlayPanel owner)
         {
@@ -1341,6 +1339,14 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             this.id = id;
             this.type = type;
             this.owner = owner;
+
+            if (type == ContentType.MODELS)
+            {
+                UIModelPreviewRenderer renderer = new UIModelPreviewRenderer();
+                renderer.relative(this).x(2).y(2).w(1F, -4).h(CARD_THUMB_H - 4);
+                renderer.setModel(id);
+                this.add(renderer);
+            }
 
             /* Right-click context menu (only for types with a repository) */
             if (type != null)
@@ -1415,25 +1421,11 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             {
                 this.renderCenteredIcon(context, Icons.PARTICLE);
             }
-            else if (this.type == ContentType.MODELS)
-            {
-                if (this.modelForm == null)
-                {
-                    this.modelForm = new ModelForm();
-                    this.modelForm.model.set(this.id);
-                }
-
-                int tx = this.area.x + 2;
-                int ty = this.area.y + 2;
-                int tw = this.area.w - 4;
-                int th = CARD_THUMB_H - 4;
-
-                FormUtilsClient.renderUICachedStatic(this.modelForm, context, tx, ty, tx + tw, ty + th);
-            }
             else if (this.type == null)
             {
                 this.renderCenteredIcon(context, Icons.SOUND);
             }
+            /* Models: renderer child handles it */
 
             /* Hover overlay */
             if (this.hover)

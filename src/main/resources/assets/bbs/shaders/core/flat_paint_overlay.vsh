@@ -1,6 +1,4 @@
-#version 330
-
-#moj_import <bbs:model_effects.glsl>
+#version 150
 
 #moj_import <fog.glsl>
 
@@ -11,15 +9,19 @@ in vec2 UV1;
 in ivec2 UV2;
 in vec3 Normal;
 
+uniform mat4 ModelViewMat;
+uniform mat4 FormRootInverse;
+uniform mat4 FogMat;
+uniform mat4 ProjMat;
+uniform int FogShape;
+uniform mat3 IViewRotMat;
 
-out float sphericalVertexDistance;
-out float cylindricalVertexDistance;
 out float vertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
 out vec3 formRootPos;
 
-float fog_distance(vec3 pos, int shape)
+float bbs_vertex_fog_distance(vec3 pos, int shape, mat3 iViewRot)
 {
     if (shape == 0)
     {
@@ -27,9 +29,8 @@ float fog_distance(vec3 pos, int shape)
     }
     else
     {
-        float distXZ = length(pos.xz);
-        float distY = abs(pos.y);
-        return max(distXZ, distY);
+        vec3 camRel = iViewRot * pos;
+        return max(length(camRel.xz), abs(camRel.y));
     }
 }
 
@@ -37,10 +38,7 @@ void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
-    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
-    sphericalVertexDistance = fog_spherical_distance(fogPos);
-    cylindricalVertexDistance = fog_cylindrical_distance(fogPos);
-    vertexDistance = fog_distance(fogPos, FogShape);
+    vertexDistance = bbs_vertex_fog_distance(Position, FogShape, IViewRotMat);
     vertexColor = Color;
     texCoord0 = UV0;
     formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;

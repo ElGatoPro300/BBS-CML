@@ -3,18 +3,19 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
+import net.minecraft.client.render.VertexConsumer;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
+import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 
 import org.lwjgl.system.MemoryStack;
 
 /**
  * Sodium path: {@link ColorAttributeMixin} multiplies
- * {@link #newColor} when packing via {@link #push}. Vanilla {@code color} already multiplies
- * in {@link RecolorVertexConsumer} — clear {@code newColor} for those calls so BufferBuilder
- * does not square form opacity (vanish near alpha 82/255; leaf shadows dither too fast vs solid VAO).
+ * {@link #newColor} when packing via {@link #push}. Vanilla {@code color}/{@code vertex}
+ * already multiply in {@link RecolorVertexConsumer} — clear {@code newColor} for those
+ * calls so Sodium 0.5.x BufferBuilder (1.20.4) does not square form opacity (vanish near
+ * alpha 82/255 ≈ √0.1 discard; leaf shadows dither too fast vs solid VAO).
  */
 public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implements VertexBufferWriter
 {
@@ -38,7 +39,7 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
-    public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
         {
@@ -47,7 +48,7 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         Color savedColor = newColor;
         Color savedPaint = newPaintColor;
@@ -57,7 +58,26 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
 
         try
         {
-            return super.setColor(red, green, blue, alpha);
+            return super.color(red, green, blue, alpha);
+        }
+        finally
+        {
+            newColor = savedColor;
+            newPaintColor = savedPaint;
+        }
+    }
+    @Override
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        Color savedColor = newColor;
+        Color savedPaint = newPaintColor;
+
+        newColor = null;
+        newPaintColor = null;
+
+        try
+        {
+            super.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         }
         finally
         {

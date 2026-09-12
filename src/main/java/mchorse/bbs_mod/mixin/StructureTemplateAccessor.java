@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.mixin;
 
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.structure.StructureTemplate;
+import net.minecraft.util.math.Vec3i;
 
 import java.util.List;
 
@@ -12,12 +12,12 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(StructureTemplate.class)
 public interface StructureTemplateAccessor
 {
-    @Accessor("palettes")
-    List<StructureTemplate.Palette> bbs$getBlockInfoLists();
+    @Accessor("blockInfoLists")
+    List<StructureTemplate.PalettedBlockInfoList> bbs$getBlockInfoLists();
 
-    @Accessor("palettes")
+    @Accessor("blockInfoLists")
     @Mutable
-    void bbs$setBlockInfoLists(List<StructureTemplate.Palette> lists);
+    void bbs$setBlockInfoLists(List<StructureTemplate.PalettedBlockInfoList> lists);
 
     @Accessor("size")
     @Mutable

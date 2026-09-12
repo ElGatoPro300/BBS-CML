@@ -1,34 +1,37 @@
 package mchorse.bbs_mod.actions;
 
-import net.minecraft.network.Connection;
-import net.minecraft.network.PacketListener;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.network.ClientConnection;
+import net.minecraft.network.NetworkSide;
+import net.minecraft.network.PacketCallbacks;
+import net.minecraft.network.listener.PacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+import net.minecraft.server.network.ServerPlayerEntity;
 
-import io.netty.channel.ChannelFutureListener;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
-public class SuperFakePlayerNetworkHandler extends ServerGamePacketListenerImpl
+public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler
 {
-    private static final Connection FAKE_CONNECTION = new FakeClientConnection();
+    private static final ClientConnection FAKE_CONNECTION = new FakeClientConnection();
 
-    public SuperFakePlayerNetworkHandler(ServerPlayer player)
+    public SuperFakePlayerNetworkHandler(ServerPlayerEntity player)
     {
-        super(player.level().getServer(), FAKE_CONNECTION, player, CommonListenerCookie.createInitial(player.getGameProfile(), false));
+        super(player.getServer(), FAKE_CONNECTION, player);
     }
 
     @Override
-    public void send(Packet<?> packet, @Nullable ChannelFutureListener callbacks)
+    public void sendPacket(Packet<?> packet, @Nullable PacketCallbacks callbacks)
     {}
 
-    private static final class FakeClientConnection extends Connection
+    @Override
+    public void sendPacket(Packet<?> packet)
+    {}
+
+    private static final class FakeClientConnection extends ClientConnection
     {
         private FakeClientConnection()
         {
-            super(PacketFlow.CLIENTBOUND);
+            super(NetworkSide.CLIENTBOUND);
         }
 
         public void setPacketListener(PacketListener packetListener)

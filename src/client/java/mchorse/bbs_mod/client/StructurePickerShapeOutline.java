@@ -4,16 +4,14 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerSelection;
 
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +21,7 @@ public class StructurePickerShapeOutline
 {
     private static final float FACE_FILL_ALPHA = 0.42F;
 
-    public static void render(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b, float a)
+    public static void render(MatrixStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b, float a)
     {
         if (!mode.hasShapeOutline())
         {
@@ -40,18 +38,19 @@ public class StructurePickerShapeOutline
         StructurePickerShapeOutline.renderFaces(stack, new HashSet<>(blocks), r, g, b);
     }
 
-    private static void renderFaces(PoseStack stack, Set<BlockPos> blocks, float r, float g, float b)
+    private static void renderFaces(MatrixStack stack, Set<BlockPos> blocks, float r, float g, float b)
     {
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         for (BlockPos pos : blocks)
         {
-            if (!blocks.contains(pos.above()))
+            if (!blocks.contains(pos.up()))
             {
                 StructurePickerShapeOutline.drawTopFaceFill(builder, stack, pos, r, g, b);
             }
 
-            if (!blocks.contains(pos.below()))
+            if (!blocks.contains(pos.down()))
             {
                 StructurePickerShapeOutline.drawBottomFaceFill(builder, stack, pos, r, g, b);
             }
@@ -77,15 +76,10 @@ public class StructurePickerShapeOutline
             }
         }
 
-        MeshData built = builder.build();
-
-        if (built != null)
-        {
-            RenderTypes.debugFilledBox().draw(built);
-        }
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
-    private static void drawTopFaceFill(BufferBuilder builder, PoseStack stack, BlockPos pos, float r, float g, float b)
+    private static void drawTopFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)
     {
         int x = pos.getX();
         int y = pos.getY();
@@ -94,7 +88,7 @@ public class StructurePickerShapeOutline
         Draw.fillBox(builder, stack, x, y + 1F, z, x + 1F, y + 1.001F, z + 1F, r, g, b, FACE_FILL_ALPHA);
     }
 
-    private static void drawBottomFaceFill(BufferBuilder builder, PoseStack stack, BlockPos pos, float r, float g, float b)
+    private static void drawBottomFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)
     {
         int x = pos.getX();
         int y = pos.getY();
@@ -103,7 +97,7 @@ public class StructurePickerShapeOutline
         Draw.fillBox(builder, stack, x, y, z, x + 1F, y + 0.001F, z + 1F, r, g, b, FACE_FILL_ALPHA);
     }
 
-    private static void drawNorthFaceFill(BufferBuilder builder, PoseStack stack, BlockPos pos, float r, float g, float b)
+    private static void drawNorthFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)
     {
         int x = pos.getX();
         int y = pos.getY();
@@ -112,7 +106,7 @@ public class StructurePickerShapeOutline
         Draw.fillBox(builder, stack, x, y, z, x + 1F, y + 1F, z + 0.001F, r, g, b, FACE_FILL_ALPHA);
     }
 
-    private static void drawSouthFaceFill(BufferBuilder builder, PoseStack stack, BlockPos pos, float r, float g, float b)
+    private static void drawSouthFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)
     {
         int x = pos.getX();
         int y = pos.getY();
@@ -121,7 +115,7 @@ public class StructurePickerShapeOutline
         Draw.fillBox(builder, stack, x, y, z + 1F - 0.001F, x + 1F, y + 1F, z + 1F, r, g, b, FACE_FILL_ALPHA);
     }
 
-    private static void drawWestFaceFill(BufferBuilder builder, PoseStack stack, BlockPos pos, float r, float g, float b)
+    private static void drawWestFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)
     {
         int x = pos.getX();
         int y = pos.getY();
@@ -130,7 +124,7 @@ public class StructurePickerShapeOutline
         Draw.fillBox(builder, stack, x, y, z, x + 0.001F, y + 1F, z + 1F, r, g, b, FACE_FILL_ALPHA);
     }
 
-    private static void drawEastFaceFill(BufferBuilder builder, PoseStack stack, BlockPos pos, float r, float g, float b)
+    private static void drawEastFaceFill(BufferBuilder builder, MatrixStack stack, BlockPos pos, float r, float g, float b)
     {
         int x = pos.getX();
         int y = pos.getY();

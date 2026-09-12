@@ -25,15 +25,15 @@ public class UIBlockHitResult
     {
         this.editor = editor;
 
-        this.x = new UITrackpad((v) -> this.editor.editMultiple(this.result.x, (val) -> val.set(v.intValue())));
+        this.x = new UITrackpad((v) -> this.editor.editMultiple(this.result.x, (x) -> x.set(v.intValue())));
         this.x.integer();
-        this.y = new UITrackpad((v) -> this.editor.editMultiple(this.result.y, (val) -> val.set(v.intValue())));
+        this.y = new UITrackpad((v) -> this.editor.editMultiple(this.result.y, (y) -> y.set(v.intValue())));
         this.y.integer();
-        this.z = new UITrackpad((v) -> this.editor.editMultiple(this.result.z, (val) -> val.set(v.intValue())));
+        this.z = new UITrackpad((v) -> this.editor.editMultiple(this.result.z, (z) -> z.set(v.intValue())));
         this.z.integer();
-        this.hitX = new UITrackpad((v) -> this.editor.editMultiple(this.result.hitX, (val) -> val.set(v)));
-        this.hitY = new UITrackpad((v) -> this.editor.editMultiple(this.result.hitY, (val) -> val.set(v)));
-        this.hitZ = new UITrackpad((v) -> this.editor.editMultiple(this.result.hitZ, (val) -> val.set(v)));
+        this.hitX = new UITrackpad((v) -> this.editor.editMultiple(this.result.hitX, (hitX) -> hitX.set(v)));
+        this.hitY = new UITrackpad((v) -> this.editor.editMultiple(this.result.hitY, (hitY) -> hitY.set(v)));
+        this.hitZ = new UITrackpad((v) -> this.editor.editMultiple(this.result.hitZ, (hitZ) -> hitZ.set(v)));
         this.direction = new UICirculate((b) -> this.result.direction.set(b.getValue()));
         this.direction.addLabel(UIKeys.ACTIONS_BLOCK_DIRECTION_DOWN);
         this.direction.addLabel(UIKeys.ACTIONS_BLOCK_DIRECTION_UP);

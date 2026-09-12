@@ -36,8 +36,8 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 
 import com.mojang.logging.LogUtils;
 
@@ -324,9 +324,9 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.vanillaMobPlayback.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
         this.relative = new UIToggle(UIKeys.CAMERA_PANELS_RELATIVE, (b) -> this.edit((replay) -> replay.relative.set(b.getValue())));
         this.relative.tooltip(UIKeys.FILM_REPLAY_RELATIVE_TOOLTIP);
-        this.relativeOffsetX = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (val) -> val.get().x = v)));
-        this.relativeOffsetY = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (val) -> val.get().y = v)));
-        this.relativeOffsetZ = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (val) -> val.get().z = v)));
+        this.relativeOffsetX = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (value) -> value.get().x = v)));
+        this.relativeOffsetY = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (value) -> value.get().y = v)));
+        this.relativeOffsetZ = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (value) -> value.get().z = v)));
         this.axesPreview = new UIToggle(UIKeys.FILM_REPLAY_AXES_PREVIEW, (b) ->
         {
             this.edit((replay) -> replay.axesPreview.set(b.getValue()));
@@ -348,11 +348,11 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.dropItemsOnDeath.tooltip(UIKeys.FILM_REPLAY_DROP_ITEMS_ON_DEATH_TOOLTIP);
         this.replaceReplayInventory = new UIButton(UIKeys.FILM_REPLACE_INVENTORY, (b) ->
         {
-            LocalPlayer player = Minecraft.getInstance().player;
+            ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
             if (player != null)
             {
-                this.edit((replay) -> BaseValue.edit(replay.inventory, (val) -> val.fromPlayer(player)));
+                this.edit((replay) -> BaseValue.edit(replay.inventory, (inv) -> inv.fromPlayer(player)));
             }
         });
         this.replaceReplayInventory.tooltip(UIKeys.FILM_REPLACE_INVENTORY_TOOLTIP);

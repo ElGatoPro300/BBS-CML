@@ -3,13 +3,13 @@ package mchorse.bbs_mod.forms.entities;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.AABB;
 
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.WalkAnimationState;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LimbAnimator;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 /**
  * Interface that provides access to an "Entity" within forms for rendering
@@ -17,9 +17,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public interface IEntity
 {
-    public void setWorld(Level world);
+    public void setWorld(World world);
 
-    public Level getWorld();
+    public World getWorld();
 
     public Form getForm();
 
@@ -79,9 +79,9 @@ public interface IEntity
 
     public void setParticlesEnabled(boolean particlesEnabled);
 
-    public InteractionHand getActiveHand();
+    public Hand getActiveHand();
 
-    public void setActiveHand(InteractionHand hand);
+    public void setActiveHand(Hand hand);
 
     public double getX();
 
@@ -105,7 +105,7 @@ public interface IEntity
 
     public double getEyeHeight();
 
-    public Vec3 getVelocity();
+    public Vec3d getVelocity();
 
     public void setVelocity(float x, float y, float z);
 
@@ -205,7 +205,7 @@ public interface IEntity
         }
     }
 
-    public WalkAnimationState getLimbAnimator();
+    public LimbAnimator getLimbAnimator();
 
     public float getLimbPos(float tickDelta);
 
@@ -225,7 +225,7 @@ public interface IEntity
 
     public boolean isTouchingWater();
 
-    public Pose getEntityPose();
+    public EntityPose getEntityPose();
 
     public int getRoll();
 
@@ -235,9 +235,9 @@ public interface IEntity
 
     public float getFallFlyingProgress(float transition);
 
-    public Vec3 getRotationVec(float transition);
+    public Vec3d getRotationVec(float transition);
 
-    public Vec3 lerpVelocity(float transition);
+    public Vec3d lerpVelocity(float transition);
 
     public boolean isUsingRiptide();
 
@@ -274,13 +274,5 @@ public interface IEntity
     public default boolean isRiding()
     {
         return this.getMountTarget() != null;
-    }
-
-    public default void setRotationOverride(float pitch, float prevPitch, float headYaw, float prevHeadYaw, float bodyYaw, float prevBodyYaw, float yaw, float prevYaw)
-    {
-    }
-
-    public default void clearRotationOverride()
-    {
     }
 }

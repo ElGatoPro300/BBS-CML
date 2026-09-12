@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
@@ -15,12 +16,9 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.keys.KeyAction;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
-
-import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.option.KeyBinding;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -33,7 +31,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
 
     public static void open(UIQuickReplayOverlayPanel panel)
     {
-        panel.onClose((event) -> Minecraft.getInstance().setScreen(null));
+        panel.onClose((event) -> MinecraftClient.getInstance().setScreen(null));
 
         UIScreen.open(new UIBaseMenu()
         {
@@ -61,7 +59,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
 
     public static UIQuickReplayOverlayPanel getOpened()
     {
-        Screen currentScreen = Minecraft.getInstance().screen;
+        Screen currentScreen = MinecraftClient.getInstance().currentScreen;
 
         if (!(currentScreen instanceof UIScreen uiScreen))
         {
@@ -117,13 +115,13 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
             return;
         }
 
-        Window mcWindow = Minecraft.getInstance().getWindow();
-        double fx = mcWindow.getScreenWidth() / (double) context.menu.width;
-        double fy = mcWindow.getScreenHeight() / (double) context.menu.height;
+        net.minecraft.client.util.Window mcWindow = MinecraftClient.getInstance().getWindow();
+        double fx = mcWindow.getWidth() / (double) context.menu.width;
+        double fy = mcWindow.getHeight() / (double) context.menu.height;
         int x = (int) Math.round(this.area.mx() * fx);
         int y = (int) Math.round(this.area.my() * fy);
 
-        mchorse.bbs_mod.graphics.window.Window.moveCursor(x, y);
+        Window.moveCursor(x, y);
         context.mouseX = this.area.mx();
         context.mouseY = this.area.my();
         this.centerCursor = false;
@@ -250,9 +248,9 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
             return super.subKeyPressed(context);
         }
 
-        KeyMapping keybind = BBSModClient.getKeyOpenQuickReplays();
+        KeyBinding keybind = BBSModClient.getKeyOpenQuickReplays();
 
-        if (keybind != null && context.getKeyAction() == KeyAction.PRESSED && keybind.matches(new KeyEvent(context.getKeyCode(), context.getScanCode(), 0)))
+        if (keybind != null && context.getKeyAction() == KeyAction.PRESSED && keybind.matchesKey(context.getKeyCode(), context.getScanCode()))
         {
             this.confirmSelection();
 

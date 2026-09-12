@@ -3,8 +3,6 @@ package mchorse.bbs_mod.ui.model;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.render.ItemRenderHelper;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.data.model.Model;
@@ -28,7 +26,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
@@ -49,28 +46,31 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Pose;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
-import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -270,12 +270,12 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         this.distance.setX(10);
 
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (player != null)
         {
-            this.entity.setEquipmentStack(EquipmentSlot.MAINHAND, player.getMainHandItem());
-            this.entity.setEquipmentStack(EquipmentSlot.OFFHAND, player.getOffhandItem());
+            this.entity.setEquipmentStack(EquipmentSlot.MAINHAND, player.getMainHandStack());
+            this.entity.setEquipmentStack(EquipmentSlot.OFFHAND, player.getOffHandStack());
         }
 
         this.dirty();
@@ -333,7 +333,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         return false;
     }
 
-    private void renderFpHandItem(UIContext context, MatrixCache matrixCache, PoseStack stack)
+    private void renderFpHandItem(UIContext context, MatrixCache matrixCache, MatrixStack stack)
     {
         String groupId = this.fpHandPreviewSlot.group.get();
 
@@ -361,49 +361,51 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (player == null)
         {
             return;
         }
 
-        ItemStack itemStack = this.fpHandPreviewMainHand ? player.getMainHandItem() : player.getOffhandItem();
+        ItemStack itemStack = this.fpHandPreviewMainHand ? player.getMainHandStack() : player.getOffHandStack();
 
         if (itemStack == null || itemStack.isEmpty())
         {
             return;
         }
 
-        ItemDisplayContext mode = this.fpHandPreviewMainHand
-            ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
-            : ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
-        int light = LightTexture.pack(15, 15);
+        ModelTransformationMode mode = this.fpHandPreviewMainHand
+            ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND
+            : ModelTransformationMode.FIRST_PERSON_LEFT_HAND;
+        int light = LightmapTextureManager.pack(15, 15);
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-        stack.pushPose();
+        stack.push();
         MatrixStackUtils.multiply(stack, matrix);
-        stack.mulPose(Axis.XP.rotationDegrees(90F));
-        stack.mulPose(Axis.YP.rotationDegrees(180F));
+        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90F));
+        stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
         MatrixStackUtils.applyTransform(stack, this.fpHandPreviewSlot.transform);
 
         consumers.setSubstitute(BBSRendering.getColorConsumer(new Color().set(Colors.WHITE)));
-        ItemRenderHelper.renderItem(
+        MinecraftClient.getInstance().getItemRenderer().renderItem(
+            null,
             itemStack,
             mode,
+            mode == ModelTransformationMode.FIRST_PERSON_LEFT_HAND,
             stack,
-            light,
-            OverlayTexture.NO_OVERLAY,
+            consumers,
             this.entity.getWorld(),
-            null,
-            true
+            light,
+            OverlayTexture.DEFAULT_UV,
+            0
         );
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();
-        stack.popPose();
+        stack.pop();
 
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        RenderSystem.enableDepthTest();
     }
 
     private void ensureFramebuffer()
@@ -504,25 +506,27 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         ModelInstance model = this.getModel();
         boolean fpHandPreview = this.fpHandPreviewSlot != null && model != null;
         String fpGroupId = fpHandPreview ? this.fpHandPreviewSlot.group.get() : null;
-        PoseStack stack = this.createCameraStack();
+        MatrixStack stack = context.batcher.getContext().getMatrices();
 
         if (fpHandPreview && fpGroupId != null && !fpGroupId.isEmpty())
         {
             this.applyFpHandGroupVisibility(model, fpGroupId);
-            stack.pushPose();
-            stack.mulPose(Axis.YP.rotation(MathUtils.PI));
+            stack.push();
+            stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
             MatrixStackUtils.applyTransform(stack, this.fpHandPreviewSlot.transform);
         }
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, stack, LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 
         if (this.viewportMode == ViewportMode.XRAY)
         {
-            GlStateManager._enableBlend();
+            RenderSystem.enableBlend();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 0.35F);
             this.renderer.render(formContext);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
         else if (this.viewportMode == ViewportMode.TEXTURED)
         {
@@ -548,16 +552,16 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (gizmoMatrix != null)
         {
-            stack.pushPose();
+            stack.push();
             MatrixStackUtils.multiply(stack, gizmoMatrix);
             /* Full drawn MV (editor camera × bone/origin) — same space as film drag rays. */
-            this.lastGizmoMatrix.set(stack.last().pose());
+            this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
 
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            RenderSystem.disableDepthTest();
             Gizmo.INSTANCE.render(stack);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            RenderSystem.enableDepthTest();
 
-            stack.popPose();
+            stack.pop();
         }
 
         if (this.area.isInside(context) && this.pickingEnabled)
@@ -585,22 +589,22 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             /* Restore depth writes: the visual pass (glow/paint/gizmos) may have left
              * depthMask false, which makes stencil picking prefer later-drawn bones. */
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glDepthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
 
             this.renderer.render(formContext.stencilMap(this.stencilMap));
 
             if (gizmoMatrix != null && Gizmo.isInteractive())
             {
-                stack.pushPose();
+                stack.push();
                 MatrixStackUtils.multiply(stack, gizmoMatrix);
 
-                GL11.glDisable(GL11.GL_DEPTH_TEST);
+                RenderSystem.disableDepthTest();
                 Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
-                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                RenderSystem.enableDepthTest();
 
-                stack.popPose();
+                stack.pop();
             }
 
             this.stencil.pickGUI(context, this.area);
@@ -609,7 +613,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            BBSRendering.bindMainFramebuffer(true);
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 
             GlStateManager._enableScissorTest();
         }
@@ -621,7 +625,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (fpHandPreview && fpGroupId != null && !fpGroupId.isEmpty())
         {
-            stack.popPose();
+            stack.pop();
             this.restoreGroupVisibility();
         }
 
@@ -759,28 +763,31 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Matrix4f cubeMatrix = this.getCubePivotMatrix(cache, group, this.selectedCube);
-        Matrix4f uiMatrix = this.createCameraStack().last().pose();
+        Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         if (cubeMatrix == null)
         {
             return;
         }
 
-        PoseStack cubeStack = new PoseStack();
+        MatrixStack cubeStack = new MatrixStack();
 
         MatrixStackUtils.multiply(cubeStack, cubeMatrix);
         CubicCubeRenderer.rotate(cubeStack, this.selectedCube.rotate);
         CubicCubeRenderer.moveBackFromPivot(cubeStack, this.selectedCube.pivot);
 
-        cubeMatrix = new Matrix4f(cubeStack.last().pose());
+        cubeMatrix = new Matrix4f(cubeStack.peek().getPositionMatrix());
 
         if (this.selectedCube.quads.isEmpty())
         {
             return;
         }
 
-        Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        Tessellator tessellator = Tessellator.getInstance();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelQuad quad : this.selectedCube.quads)
         {
@@ -803,7 +810,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             }
         }
 
-        Draw.flushLines(builder);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     private void renderAllCubesWireframe(UIContext context, MatrixCache cache, float r, float g, float bl, float alpha)
@@ -815,10 +822,12 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        Matrix4f uiMatrix = this.createCameraStack().last().pose();
-        Tesselator tessellator = Tesselator.getInstance();
-        GlStateManager._enableBlend();
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Tessellator tessellator = Tessellator.getInstance();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelGroup group : model.getAllGroups())
         {
@@ -841,11 +850,11 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                     continue;
                 }
 
-                PoseStack cubeStack = new PoseStack();
+                MatrixStack cubeStack = new MatrixStack();
                 MatrixStackUtils.multiply(cubeStack, cubeMatrix);
                 CubicCubeRenderer.rotate(cubeStack, cube.rotate);
                 CubicCubeRenderer.moveBackFromPivot(cubeStack, cube.pivot);
-                Matrix4f finalMatrix = new Matrix4f(cubeStack.last().pose());
+                Matrix4f finalMatrix = new Matrix4f(cubeStack.peek().getPositionMatrix());
 
                 for (ModelQuad quad : cube.quads)
                 {
@@ -870,7 +879,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             }
         }
 
-        Draw.flushLines(builder);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     public Matrix4f getCubePivotMatrix(MatrixCache cache)
@@ -899,7 +908,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return null;
         }
 
-        PoseStack cubeStack = new PoseStack();
+        MatrixStack cubeStack = new MatrixStack();
         MatrixCacheEntry rootEntry = cache.get("");
         Matrix4f rootMatrix = rootEntry == null ? null : rootEntry.matrix();
 
@@ -908,7 +917,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             MatrixStackUtils.multiply(cubeStack, rootMatrix);
         }
 
-        cubeStack.mulPose(Axis.YP.rotation(MathUtils.PI));
+        cubeStack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
 
         List<ModelGroup> chain = new ArrayList<>();
 
@@ -928,7 +937,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         CubicCubeRenderer.moveToPivot(cubeStack, cube.pivot);
 
-        return new Matrix4f(cubeStack.last().pose());
+        return new Matrix4f(cubeStack.peek().getPositionMatrix());
     }
 
     public static class PickedCube
@@ -1001,13 +1010,13 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                     continue;
                 }
 
-                PoseStack cubeStack = new PoseStack();
+                MatrixStack cubeStack = new MatrixStack();
 
                 MatrixStackUtils.multiply(cubeStack, cubePivotMatrix);
                 CubicCubeRenderer.rotate(cubeStack, cube.rotate);
                 CubicCubeRenderer.moveBackFromPivot(cubeStack, cube.pivot);
 
-                Matrix4f worldMatrix = new Matrix4f(cubeStack.last().pose());
+                Matrix4f worldMatrix = new Matrix4f(cubeStack.peek().getPositionMatrix());
                 Matrix4f invMatrix = new Matrix4f(worldMatrix).invert();
 
                 Vector3f localOrigin = new Vector3f((float) rayOrigin.x, (float) rayOrigin.y, (float) rayOrigin.z);
@@ -1052,8 +1061,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
     private void line(BufferBuilder builder, Matrix4f matrix, Vector3f a, Vector3f b, float r, float g, float bl, float alpha)
     {
-        builder.addVertex(matrix, a.x, a.y, a.z).setColor(r, g, bl, alpha);
-        builder.addVertex(matrix, b.x, b.y, b.z).setColor(r, g, bl, alpha);
+        builder.vertex(matrix, a.x, a.y, a.z).color(r, g, bl, alpha).next();
+        builder.vertex(matrix, b.x, b.y, b.z).color(r, g, bl, alpha).next();
     }
 
     private int getBoneStencilId(String bone)
@@ -1082,7 +1091,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         int w = texture.width;
         int h = texture.height;
 
-        GL11.glEnable(GL11.GL_BLEND);
+        RenderSystem.enableBlend();
 
         if (!this.stencil.hasPicked())
         {
@@ -1091,7 +1100,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         int index = this.stencil.getIndex();
 
-        context.batcher.drawPickerPreview(this.stencil.getColorView(), index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h);
+        context.batcher.drawPickerPreview(texture.id, index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h, w, h);
 
         Pair<Form, String> pair = this.stencil.getPicked();
 

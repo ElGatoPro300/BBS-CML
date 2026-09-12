@@ -32,7 +32,8 @@ public class YggdrasilServicesKeyInfoMixin
         at = @At(
             value = "INVOKE",
             target = "Lcom/mojang/authlib/minecraft/client/MinecraftClient;get(Ljava/net/URL;Ljava/lang/Class;)Ljava/lang/Object;"
-        )
+        ),
+        require = 0
     )
     private static Object bbs$getWithRetry(MinecraftClient client, URL url, Class<?> responseClass) throws MinecraftClientException
     {
@@ -73,7 +74,8 @@ public class YggdrasilServicesKeyInfoMixin
         at = @At(
             value = "INVOKE",
             target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Throwable;)V"
-        )
+        ),
+        require = 0
     )
     private static void bbs$logFetchFailure(Logger logger, String message, Throwable throwable)
     {

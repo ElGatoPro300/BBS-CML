@@ -2,18 +2,14 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.Mth;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 
-import org.joml.Matrix3x2fStack;
-
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.lwjgl.opengl.GL11;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
 
@@ -24,10 +20,10 @@ public class UIBossBarRenderer
     private static final int BASE_BAR_WIDTH = 182;
     private static final int BASE_BAR_HEIGHT = 5;
     private static final int TEXT_GAP = 2;
-    private static final Identifier BOSS_BAR_BACKGROUND = Identifier.fromNamespaceAndPath("minecraft", "boss_bar/white_background");
-    private static final Identifier BOSS_BAR_PROGRESS = Identifier.fromNamespaceAndPath("minecraft", "boss_bar/white_progress");
+    private static final Identifier BOSS_BAR_BACKGROUND = Identifier.of("minecraft", "boss_bar/white_background");
+    private static final Identifier BOSS_BAR_PROGRESS = Identifier.of("minecraft", "boss_bar/white_progress");
 
-    public static void renderBossBars(PoseStack stack, Batcher2D batcher, List<BossBarState> bossBars, int originX, int originY, int width, int height)
+    public static void renderBossBars(MatrixStack stack, Batcher2D batcher, List<BossBarState> bossBars, int originX, int originY, int width, int height)
     {
         if (bossBars == null || bossBars.isEmpty())
         {
@@ -42,14 +38,14 @@ public class UIBossBarRenderer
         }
     }
 
-    public static void renderBossBar(PoseStack stack, Batcher2D batcher, BossBarState bossBar, int originX, int originY, int width, int height)
+    public static void renderBossBar(MatrixStack stack, Batcher2D batcher, BossBarState bossBar, int originX, int originY, int width, int height)
     {
         renderBossBar(stack, batcher, bossBar, originX, originY, width, height, getResolutionScale(width, height));
     }
 
-    private static void renderBossBar(PoseStack stack, Batcher2D batcher, BossBarState bossBar, int originX, int originY, int width, int height, float resolutionScale)
+    private static void renderBossBar(MatrixStack stack, Batcher2D batcher, BossBarState bossBar, int originX, int originY, int width, int height, float resolutionScale)
     {
-        float alpha = Mth.clamp(bossBar.alpha, 0F, 1F);
+        float alpha = MathHelper.clamp(bossBar.alpha, 0F, 1F);
 
         if (alpha <= 0F)
         {
@@ -65,8 +61,8 @@ public class UIBossBarRenderer
         int displayHeight = Math.max(1, Math.round(BASE_BAR_HEIGHT * scaleY));
         int x = originX + Math.round(width / 2F + bossBar.x * resolutionScale - displayWidth / 2F);
         int anchorY = originY + Math.round(bossBar.y * resolutionScale);
-        float progress = Mth.clamp(bossBar.progress, 0F, 1F);
-        int progressWidth = Mth.ceil(progress * displayWidth);
+        float progress = MathHelper.clamp(bossBar.progress, 0F, 1F);
+        int progressWidth = MathHelper.ceil(progress * displayWidth);
         boolean hasText = bossBar.text != null && !bossBar.text.isEmpty();
         float textScale = Math.max(0.05F, bossBar.textSize * zoom * resolutionScale);
         int fontHeight = batcher.getFont().getHeight();
@@ -75,15 +71,21 @@ public class UIBossBarRenderer
         int barY = anchorY + textBlockHeight + (hasText ? TEXT_GAP : 0);
         float blockCenterX = x + displayWidth / 2F;
 
-        GuiGraphicsExtractor context = batcher.getContext();
+        batcher.flush();
+        stack.push();
 
-        context.blitSprite(RenderPipelines.GUI_TEXTURED, BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight, applyAlpha(0xFFFFFF, alpha));
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        DrawContext context = batcher.getContext();
+
+        batcher.box(x, barY, x + displayWidth, barY + displayHeight, Colors.setA(Colors.WHITE, alpha));
 
         if (progressWidth > 0)
         {
-            int color = bossBar.color;
-
-            context.blitSprite(RenderPipelines.GUI_TEXTURED, BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight, applyAlpha(color, alpha));
+            batcher.box(x, barY, x + progressWidth, barY + displayHeight, applyAlpha(bossBar.color, alpha));
         }
 
         if (hasText)
@@ -93,23 +95,37 @@ public class UIBossBarRenderer
             int textColor = applyAlpha(bossBar.textColor, alpha);
             float textCenterX = textX + textWidth / 2F;
             float textCenterY = textY + fontHeight / 2F;
-            Matrix3x2fStack matrices = context.pose();
+
+            setShaderColor(context, 1F, 1F, 1F, 1F);
 
             if (textScale != 1F)
             {
-                matrices.pushMatrix();
-                matrices.translate(textCenterX, textCenterY);
-                matrices.scale(textScale, textScale);
-                matrices.translate(-textCenterX, -textCenterY);
+                stack.push();
+                stack.translate(textCenterX, textCenterY, 0F);
+                stack.scale(textScale, textScale, 1F);
+                stack.translate(-textCenterX, -textCenterY, 0F);
             }
 
             batcher.text(bossBar.text, textX, textY, textColor, true);
 
             if (textScale != 1F)
             {
-                matrices.popMatrix();
+                stack.pop();
             }
         }
+
+        setShaderColor(context, 1F, 1F, 1F, 1F);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.disableBlend();
+
+        stack.pop();
+        batcher.flush();
+    }
+
+    private static void setShaderColor(DrawContext context, float red, float green, float blue, float alpha)
+    {
+        context.setShaderColor(red, green, blue, alpha);
+        RenderSystem.setShaderColor(red, green, blue, alpha);
     }
 
     private static float getResolutionScale(int width, int height)
@@ -124,7 +140,7 @@ public class UIBossBarRenderer
 
     private static int applyAlpha(int color, float alpha)
     {
-        int a = Mth.clamp(Math.round(Mth.clamp(alpha, 0F, 1F) * 255F), 0, 255);
+        int a = MathHelper.clamp(Math.round(MathHelper.clamp(alpha, 0F, 1F) * 255F), 0, 255);
 
         return (a << 24) | (color & 0x00FFFFFF);
     }

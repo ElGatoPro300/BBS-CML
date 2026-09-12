@@ -5,7 +5,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.VideoRecorder;
 
-import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.render.RenderTickCounter;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -13,21 +13,21 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(DeltaTracker.Timer.class)
+@Mixin(RenderTickCounter.class)
 public class RenderTickCounterMixin
 {
     @Shadow
-    private float deltaTickResidual;
+    public float tickDelta;
 
     @Shadow
-    private float deltaTicks;
+    public float lastFrameDuration;
 
     @Shadow
-    private long lastMs;
+    private long prevTimeMillis;
 
     private int heldFrames;
 
-    @Inject(method = "advanceGameTime", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "beginRenderTick", at = @At("HEAD"), cancellable = true)
     public void onBeginRenderTick(long timeMillis, CallbackInfoReturnable<Integer> info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
@@ -36,18 +36,18 @@ public class RenderTickCounterMixin
         {
             if (videoRecorder.getCounter() == 0)
             {
-                this.deltaTickResidual = 0F;
+                this.tickDelta = 0;
             }
 
             if (this.heldFrames == 0)
             {
-                this.deltaTicks = 20F / (float) BBSRendering.getVideoFrameRate();
-                this.lastMs = timeMillis;
-                this.deltaTickResidual += this.deltaTicks;
+                this.lastFrameDuration = 20F / (float) BBSRendering.getVideoFrameRate();
+                this.prevTimeMillis = timeMillis;
+                this.tickDelta += this.lastFrameDuration;
 
-                int i = (int) this.deltaTickResidual;
+                int i = (int) this.tickDelta;
 
-                this.deltaTickResidual -= (float) i;
+                this.tickDelta -= (float) i;
 
                 videoRecorder.serverTicks += i;
                 BBSRendering.canRender = true;

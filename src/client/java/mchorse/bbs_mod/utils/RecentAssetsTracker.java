@@ -8,8 +8,8 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.ui.ContentType;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.world.level.storage.LevelStorage;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -53,9 +53,9 @@ public class RecentAssetsTracker
             return false;
         }
 
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
-        if (client == null || client.level == null)
+        if (client == null || client.world == null)
         {
             return true;
         }
@@ -91,19 +91,19 @@ public class RecentAssetsTracker
 
         try
         {
-            Minecraft client = Minecraft.getInstance();
+            MinecraftClient client = MinecraftClient.getInstance();
 
-            if (client != null && client.getLevelSource() != null)
+            if (client != null && client.getLevelStorage() != null)
             {
-                LevelStorageSource.LevelCandidates levelList = client.getLevelSource().findLevelCandidates();
+                LevelStorage.LevelList levelList = client.getLevelStorage().getLevelList();
 
                 if (levelList != null && levelList.levels() != null)
                 {
-                    for (LevelStorageSource.LevelDirectory save : levelList.levels())
+                    for (LevelStorage.LevelSave save : levelList.levels())
                     {
                         if (save != null)
                         {
-                            String root = save.directoryName();
+                            String root = save.getRootPath();
 
                             if (root != null && (id.equals(root) || id.startsWith(root + "/")))
                             {
@@ -133,9 +133,9 @@ public class RecentAssetsTracker
             return false;
         }
 
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
-        return client == null || client.level == null || client.player == null;
+        return client == null || client.world == null || client.player == null;
     }
 
     public static void remove(ContentType type, String id)

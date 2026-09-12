@@ -9,18 +9,18 @@ import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.utils.clips.Clips;
 
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 public class ActionRecorder
 {
     private Film film;
-    private ServerPlayer entity;
+    private ServerPlayerEntity entity;
     private Clips clips = new Clips("...", BBSMod.getFactoryActionClips());
     private int tick;
     private int countdown;
     private int initialTick;
 
-    public ActionRecorder(Film film, ServerPlayer entity, int tick, int countdown)
+    public ActionRecorder(Film film, ServerPlayerEntity entity, int tick, int countdown)
     {
         this.film = film;
         this.entity = entity;
@@ -66,7 +66,7 @@ public class ActionRecorder
         this.clips.addClip(clip);
     }
 
-    public void tick(ServerPlayer player)
+    public void tick(ServerPlayerEntity player)
     {
         if (this.countdown > 0)
         {
@@ -75,7 +75,7 @@ public class ActionRecorder
             return;
         }
 
-        if (player.swingTime == -1)
+        if (player.handSwingTicks == -1)
         {
             this.add(new SwipeActionClip());
 

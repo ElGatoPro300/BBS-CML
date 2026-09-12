@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 
 public enum StructurePickerAxis
 {
@@ -29,7 +29,7 @@ public enum StructurePickerAxis
         };
     }
 
-    public double readLook(Vec3 look)
+    public double readLook(Vec3d look)
     {
         return switch (this)
         {
@@ -39,7 +39,7 @@ public enum StructurePickerAxis
         };
     }
 
-    public static StructurePickerAxis pickHorizontal(Vec3 look)
+    public static StructurePickerAxis pickHorizontal(Vec3d look)
     {
         if (Math.abs(look.x) >= Math.abs(look.z))
         {

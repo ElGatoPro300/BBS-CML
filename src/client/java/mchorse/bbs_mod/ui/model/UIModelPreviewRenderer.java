@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.model;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.forms.forms.ModelForm;
@@ -11,12 +10,12 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -89,8 +88,7 @@ public class UIModelPreviewRenderer extends UIModelRenderer
                 }
                 else if (globalModel.isVAORendered())
                 {
-                    /* TODO 1.21.11: ModelInstance.borrowVaosFrom() removed — use setup() */
-                    this.previewModel.setup();
+                    this.previewModel.borrowVaosFrom(globalModel);
                 }
                 else
                 {
@@ -142,12 +140,12 @@ public class UIModelPreviewRenderer extends UIModelRenderer
         int sx = -context.globalX(0);
         int sy = -context.globalY(0);
 
-        context.batcher.getContext().pose().pushMatrix();
-        context.batcher.getContext().pose().translate((float) sx, (float) sy);
+        context.batcher.getContext().getMatrices().push();
+        context.batcher.getContext().getMatrices().translate(sx, sy, 0);
 
         super.render(context);
 
-        context.batcher.getContext().pose().popMatrix();
+        context.batcher.getContext().getMatrices().pop();
     }
 
     /* ---- Orthographic viewport ---- */
@@ -157,12 +155,12 @@ public class UIModelPreviewRenderer extends UIModelRenderer
     {
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional scales
            like 1.5 up to 2, which offset the viewport and drew the morph preview off to the side. */
-        float rx = (float) (mc.getWindow().getScreenWidth() / (double) context.menu.width);
-        float ry = (float) (mc.getWindow().getScreenHeight() / (double) context.menu.height);
+        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
 
         /* Account for scroll/shift to fix disappearing models using global UI coordinates */
@@ -170,12 +168,11 @@ public class UIModelPreviewRenderer extends UIModelRenderer
         int ay = context.globalY(this.area.y);
 
         int vx = (int) (ax * rx);
-        int vy = (int) (mc.getWindow().getScreenHeight() - (ay + this.area.h) * ry);
+        int vy = (int) (mc.getWindow().getHeight() - (ay + this.area.h) * ry);
         int vw = (int) (this.area.w * rx);
         int vh = (int) (this.area.h * ry);
 
-        /* TODO 1.21.11: RenderSystem.viewport removed */
-        GlStateManager._viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+        RenderSystem.viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
 
         /* Orthographic projection scaled so the model fits nicely (zoomed out) */
         float orthoScale = (float) this.distance.getValue() * 0.3F;
@@ -194,7 +191,7 @@ public class UIModelPreviewRenderer extends UIModelRenderer
     protected void renderUserModel(UIContext context)
     {
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, this.createCameraStack(), LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, context.batcher.getContext().getMatrices(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 

@@ -58,7 +58,7 @@ public class UIParticleSchemeLightingSection extends UIParticleSchemeSection
         this.mode.add(Icons.CODE, UIKeys.SNOWSTORM_LIGHTING_EXPRESSION);
         this.mode.add(Icons.FADING, UIKeys.SNOWSTORM_LIGHTING_GRADIENT);
 
-        this.color = new UIColor((c) ->
+        this.color = new UIColor((color) ->
         {
             Solid solid = this.getSolid();
             Color original = this.color.picker.color;

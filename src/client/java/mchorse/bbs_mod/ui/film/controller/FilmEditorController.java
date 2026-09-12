@@ -26,9 +26,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
-
-import net.minecraft.client.Minecraft;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import java.util.List;
 import java.util.Map;
@@ -252,7 +250,7 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected void renderEntity(LevelRenderContext context, Replay replay, IEntity entity, int index)
+    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
     {
         boolean current = this.isCurrent(entity);
 
@@ -297,7 +295,7 @@ public class FilmEditorController extends BaseFilmController
                     this.renderOnion(replay, pose.getKeyframes().indexOf(segment.b), 1, pose, onionSkin.postColor.get(), onionSkin.postFrames.get(), context, isPlaying, entity);
 
                     replay.keyframes.apply(ticks, entity);
-                    float tick = ticks + this.getTransition(entity, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
+                    float tick = ticks + this.getTransition(entity, context.tickDelta());
                     Form form = entity.getForm();
                     replay.properties.applyProperties(form, tick);
 
@@ -322,7 +320,7 @@ public class FilmEditorController extends BaseFilmController
      * is removed and a stub fallback looked like a revived corpse following
      * the remaining keyframes. Scrub keeps world clips; combat HP is silent.
      */
-    private void renderActorModeEntity(LevelRenderContext context, Replay replay, IEntity stub)
+    private void renderActorModeEntity(WorldRenderContext context, Replay replay, IEntity stub)
     {
         int replayTick = replay.getTick(this.getTick());
 
@@ -349,8 +347,8 @@ public class FilmEditorController extends BaseFilmController
 
         filmContext.entity = physical;
         filmContext.physicalActor(true);
-        filmContext.transition = this.getTransition(stub, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
-        filmContext.stack.pushPose();
+        filmContext.transition = this.getTransition(stub, context.tickDelta());
+        filmContext.stack.push();
 
         try
         {
@@ -363,11 +361,11 @@ public class FilmEditorController extends BaseFilmController
         }
         finally
         {
-            filmContext.stack.popPose();
+            filmContext.stack.pop();
         }
     }
 
-    private void renderOnion(Replay replay, int index, int direction, KeyframeChannel<?> pose, int color, int frames, LevelRenderContext context, boolean isPlaying, IEntity entity)
+    private void renderOnion(Replay replay, int index, int direction, KeyframeChannel<?> pose, int color, int frames, WorldRenderContext context, boolean isPlaying, IEntity entity)
     {
         List<? extends Keyframe<?>> keyframes = pose.getKeyframes();
         float alpha = Colors.getA(color);
@@ -402,32 +400,32 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected FilmControllerContext getFilmControllerContext(LevelRenderContext context, Replay replay, IEntity entity)
+    protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
         Pair<String, TransformOrientation> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
         String aBone = bone == null ? null : bone.a;
-        boolean local = bone != null && bone.b != null;
+        TransformOrientation orientation = bone == null ? TransformOrientation.PARENT : bone.b;
         String aBone2 = null;
-        boolean local2 = false;
+        TransformOrientation orientation2 = TransformOrientation.PARENT;
 
         if (replay.axesPreview.get())
         {
             aBone2 = replay.axesPreviewBone.get();
-            local2 = true;
+            orientation2 = TransformOrientation.LOCAL;
         }
 
         if (this.controller.panel.recorder.isRecording())
         {
             aBone = null;
-            local = false;
+            orientation = TransformOrientation.PARENT;
             aBone2 = null;
-            local2 = false;
+            orientation2 = TransformOrientation.PARENT;
         }
 
         return super.getFilmControllerContext(context, replay, entity)
-            .transition(this.getTransition(entity, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false)))
-            .bone(aBone, local)
-            .bone2(aBone2, local2);
+            .transition(this.getTransition(entity, context.tickDelta()))
+            .bone(aBone, orientation)
+            .bone2(aBone2, orientation2);
     }
 
     private boolean isCurrent(IEntity entity)

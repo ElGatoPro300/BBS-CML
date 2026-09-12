@@ -5,20 +5,20 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.resources.FilteredLink;
 import mchorse.bbs_mod.utils.resources.MultiLink;
 
-import net.minecraft.client.renderer.texture.AbstractTexture;
-import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.resource.ResourceManager;
 
-import net.irisshaders.iris.pbr.loader.PBRTextureLoader;
-import net.irisshaders.iris.pbr.texture.PBRType;
 import net.irisshaders.iris.targets.backed.NativeImageBackedSingleColorTexture;
+import net.irisshaders.iris.texture.pbr.PBRType;
+import net.irisshaders.iris.texture.pbr.loader.PBRTextureLoader;
 
-public class IrisTextureWrapperLoader implements PBRTextureLoader<AbstractTexture>
+public class IrisTextureWrapperLoader implements PBRTextureLoader
 {
     public NativeImageBackedSingleColorTexture defaultNormalTexture;
     public NativeImageBackedSingleColorTexture defaultSpecularTexture;
 
     @Override
-    public void load(AbstractTexture abstractTexture, ResourceManager resourceManager, PBRTextureLoader.PBRTextureConsumer pbrTextureConsumer)
+    public void load(AbstractTexture abstractTexture, ResourceManager resourceManager, PBRTextureConsumer pbrTextureConsumer)
     {
         if (this.defaultSpecularTexture == null)
         {

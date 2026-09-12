@@ -3,7 +3,7 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.render.VertexConsumer;
 
 public class BlockPaintVertexConsumer extends RecolorVertexConsumer
 {
@@ -13,7 +13,7 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         Color vertex = new Color(red / 255F, green / 255F, blue / 255F, alpha / 255F);
 
@@ -29,11 +29,11 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
         blue = MathUtils.clamp((int) (vertex.b * 255F), 0, 255);
         alpha = MathUtils.clamp((int) (vertex.a * 255F), 0, 255);
 
-        return this.consumer.setColor(red, green, blue, alpha);
+        return this.consumer.color(red, green, blue, alpha);
     }
 
     @Override
-    public VertexConsumer setColor(float red, float green, float blue, float alpha)
+    public VertexConsumer color(float red, float green, float blue, float alpha)
     {
         Color vertex = new Color(red, green, blue, alpha);
 
@@ -44,6 +44,21 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
             FormColorEffects.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
         }
 
-        return this.consumer.setColor(vertex.r, vertex.g, vertex.b, vertex.a);
+        return this.consumer.color(vertex.r, vertex.g, vertex.b, vertex.a);
+    }
+
+    @Override
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        Color vertex = new Color(red, green, blue, alpha);
+
+        vertex.mul(this.color);
+
+        if (this.paintColor != null)
+        {
+            FormColorEffects.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
+        }
+
+        this.consumer.vertex(x, y, z, vertex.r, vertex.g, vertex.b, vertex.a, u, v, overlay, light, normalX, normalY, normalZ);
     }
 }

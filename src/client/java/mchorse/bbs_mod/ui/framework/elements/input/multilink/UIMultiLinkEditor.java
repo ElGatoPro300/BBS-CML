@@ -1,10 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.multilink;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.BBSUniform;
-import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -21,13 +18,11 @@ import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.FilteredLink;
 
-import org.joml.Matrix3x2fStack;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.GameRenderer;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 public class UIMultiLinkEditor extends UICanvasEditor
 {
@@ -230,56 +225,24 @@ public class UIMultiLinkEditor extends UICanvasEditor
                     context.batcher.box(area.x, area.y, area.ex(), area.ey(), Colors.setA(Colors.RED, 0.25F));
                 }
 
+                ShaderProgram shader = GameRenderer.getPositionTexColorProgram();
+
                 if (needsMultLinkShader)
                 {
-                    GlProgram shader = BBSShaders.getMultilinkProgram();
+                    shader = BBSShaders.getMultilinkProgram();
 
-                    if (shader != null)
-                    {
-                        context.batcher.flush();
+                    GlUniform size = shader.getUniform("Size");
+                    GlUniform filters = shader.getUniform("Filters");
 
-                        BBSRendering.bindProgram(shader);
-                        BBSUniform.set(shader, "Size", (float) ow, (float) oh);
-                        BBSUniform.set(shader, "Filters", (float) child.pixelate, child.erase ? 1F : 0F, 0F, 0F);
-                        BBSUniform.set(shader, "Sampler0", 0);
-                        BBSUniform.set(shader, "Sampler3", 3);
-
-                        Texture atlas = context.render.getTextures().getTexture(Icons.ATLAS);
-
-                        if (atlas != null)
-                        {
-                            atlas.bind(3);
-                        }
-
-                        texture.bind(0);
-
-                        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-                        Matrix3x2fStack matrices = context.batcher.getContext().pose();
-
-                        builder.addVertexWith2DPose(matrices, (float) area.x, (float) area.ey()).setUv(0F, 1F).setColor(child.color);
-                        builder.addVertexWith2DPose(matrices, (float) area.ex(), (float) area.ey()).setUv(1F, 1F).setColor(child.color);
-                        builder.addVertexWith2DPose(matrices, (float) area.ex(), (float) area.y).setUv(1F, 0F).setColor(child.color);
-                        builder.addVertexWith2DPose(matrices, (float) area.x, (float) area.y).setUv(0F, 0F).setColor(child.color);
-
-                        BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
-                        BBSRendering.unbindProgram();
-
-                        if (atlas != null)
-                        {
-                            atlas.unbind(3);
-                        }
-
-                        texture.unbind(0);
-                    }
-                    else
-                    {
-                        context.batcher.texturedBox(texture, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
-                    }
+                    size.set((float) ow, (float) oh);
+                    filters.set((float) child.pixelate, child.erase ? 1F : 0F, 0F, 0F);
                 }
-                else
-                {
-                    context.batcher.texturedBox(texture, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
-                }
+
+                RenderSystem.setShaderTexture(3, context.render.getTextures().getTexture(Icons.ATLAS).id);
+
+                final ShaderProgram finalProgram = shader;
+
+                context.batcher.texturedBox(() -> finalProgram, texture.id, child.color, area.x, area.y, area.w, area.h, 0, 0, texture.width, texture.height, texture.width, texture.height);
             }
         }
     }

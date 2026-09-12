@@ -49,7 +49,6 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCodes;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.FFMpegUtils;
-import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -57,19 +56,18 @@ import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
-import org.joml.Matrix4fStack;
 import org.joml.Vector2i;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.math.Axis;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -914,19 +912,21 @@ public class UIFilmPreview extends UIElement
 
     private void renderCursor(UIContext context)
     {
-        net.minecraft.client.Camera mcCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        Matrix4fStack stack = RenderSystem.getModelViewStack();
+        net.minecraft.client.render.Camera mcCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        MatrixStack stack = RenderSystem.getModelViewStack();
 
-        stack.pushMatrix();
+        stack.push();
 
-        stack.translate(this.area.x + 16, this.area.ey() - 12, 0F);
-        stack.rotate(Axis.XN.rotationDegrees(mcCamera.xRot()));
-        stack.rotate(Axis.YP.rotationDegrees(mcCamera.yRot()));
+        stack.multiplyPositionMatrix(context.batcher.getContext().getMatrices().peek().getPositionMatrix());
+        stack.translate(area.x + 16, area.ey() - 12, 0F);
+        stack.multiply(RotationAxis.NEGATIVE_X.rotationDegrees(mcCamera.getPitch()));
+        stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(mcCamera.getYaw()));
         stack.scale(-1F, -1F, -1F);
-        MatrixStackUtils.applyModelViewMatrix();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.renderCrosshair(10);
 
-        stack.popMatrix();
-        MatrixStackUtils.applyModelViewMatrix();
+        stack.pop();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public void cancelCapture()
@@ -961,32 +961,12 @@ public class UIFilmPreview extends UIElement
         {
             try
             {
+                int width = viewportTexture.width;
+                int height = viewportTexture.height;
+                FloatBuffer pixelData = BufferUtils.createFloatBuffer(width * height * 4);
+
                 viewportTexture.bind();
-
-                /* Prefer actual GL size — metadata can lag behind video-resolution resizes and
-                 * undersized buffers crash natively in glGetTexImage. */
-                int glWidth = GL11.glGetTexLevelParameteri(viewportTexture.target, 0, GL11.GL_TEXTURE_WIDTH);
-                int glHeight = GL11.glGetTexLevelParameteri(viewportTexture.target, 0, GL11.GL_TEXTURE_HEIGHT);
-                final int width = glWidth > 0 ? glWidth : viewportTexture.width;
-                final int height = glHeight > 0 ? glHeight : viewportTexture.height;
-
-                long samples = (long) width * (long) height * 4L;
-
-                if (width <= 0 || height <= 0 || samples <= 0L || samples > Integer.MAX_VALUE)
-                {
-                    viewportTexture.unbind();
-
-                    if (onComplete != null)
-                    {
-                        onComplete.run();
-                    }
-
-                    return;
-                }
-
-                ByteBuffer pixelData = BufferUtils.createByteBuffer((int) samples);
-
-                GL11.glGetTexImage(viewportTexture.target, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixelData);
+                GL11.glGetTexImage(viewportTexture.target, 0, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
                 viewportTexture.unbind();
                 pixelData.rewind();
 
@@ -996,13 +976,13 @@ public class UIFilmPreview extends UIElement
                 {
                     for (int x = 0; x < width; ++x)
                     {
-                        int r = pixelData.get() & 0xFF;
-                        int g = pixelData.get() & 0xFF;
-                        int b = pixelData.get() & 0xFF;
-                        int a = pixelData.get() & 0xFF;
+                        float r = pixelData.get() * 255F;
+                        float g = pixelData.get() * 255F;
+                        float b = pixelData.get() * 255F;
+                        float a = pixelData.get() * 255F;
                         int i = ((height - 1) - y) * width + x;
 
-                        pixels[i] = (a << 24) + (r << 16) + (g << 8) + b;
+                        pixels[i] = ((int) a << 24) + ((int) r << 16) + ((int) g << 8) + (int) b;
                     }
                 }
 
@@ -1025,7 +1005,7 @@ public class UIFilmPreview extends UIElement
 
                     if (onComplete != null)
                     {
-                        Minecraft.getInstance().execute(onComplete);
+                        MinecraftClient.getInstance().execute(onComplete);
                     }
                 }).start();
             }
@@ -1055,12 +1035,12 @@ public class UIFilmPreview extends UIElement
             return;
         }
 
-        double scale = Minecraft.getInstance().getWindow().getGuiScale();
+        double scale = MinecraftClient.getInstance().getWindow().getScaleFactor();
 
         int width = (int) (area.w * scale);
         int height = (int) (area.h * scale);
         int x = (int) (context.globalX(area.x) * scale);
-        int y = (int) (Minecraft.getInstance().getWindow().getHeight() - context.globalY(area.y) * scale - height);
+        int y = (int) (MinecraftClient.getInstance().getWindow().getFramebufferHeight() - context.globalY(area.y) * scale - height);
 
         if (width <= 0 || height <= 0)
         {
@@ -1109,7 +1089,7 @@ public class UIFilmPreview extends UIElement
 
             if (onComplete != null)
             {
-                Minecraft.getInstance().execute(onComplete);
+                MinecraftClient.getInstance().execute(onComplete);
             }
         }).start();
     }

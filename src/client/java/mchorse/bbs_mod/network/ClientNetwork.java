@@ -33,27 +33,23 @@ import mchorse.bbs_mod.utils.repos.RepositoryOperation;
 import mchorse.bbs_mod.utils.skin.SkinManager;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.server.permissions.PermissionSet;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketByteBuf;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
-
-import io.netty.buffer.Unpooled;
 
 public class ClientNetwork
 {
@@ -78,82 +74,38 @@ public class ClientNetwork
 
     public static void setup()
     {
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_CLICKED_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_CLICKED_MODEL_BLOCK_PACKET);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_PLAYER_FORM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_PLAYER_FORM_PACKET);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_BAY4LLY_SKIN_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_BAY4LLY_SKIN);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_PLAY_FILM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_PLAY_FILM_PACKET);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_MANAGER_DATA_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_MANAGER_DATA_PACKET);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_STOP_FILM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_STOP_FILM_PACKET);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_HANDSHAKE_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_HANDSHAKE);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_RECORDED_ACTIONS_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_RECORDED_ACTIONS);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_ANIMATION_STATE_TRIGGER_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_ANIMATION_STATE_TRIGGER);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_CHEATS_PERMISSION_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_CHEATS_PERMISSION);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_SHARED_FORM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_SHARED_FORM);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_ENTITY_FORM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_ENTITY_FORM);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_ACTORS_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_ACTORS);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_GUN_PROPERTIES_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_GUN_PROPERTIES);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_PAUSE_FILM_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_PAUSE_FILM);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_SELECTED_SLOT_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_SELECTED_SLOT);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_ANIM_STATE_MB_TRIGGER_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_REFRESH_MODEL_BLOCKS_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_REFRESH_MODEL_BLOCKS);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_CLICKED_TRIGGER_BLOCK_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_CLICKED_TRIGGER_BLOCK_PACKET);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_MOB_COMBAT_ACTION_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_MOB_COMBAT_ACTION);
-        CustomPacketPayload.Type<ServerNetwork.BufPayload> C_MOB_CONVERSION_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_MOB_CONVERSION);
-
-        PayloadTypeRegistry.clientboundPlay().register(C_CLICKED_ID, ServerNetwork.BufPayload.codecFor(C_CLICKED_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_PLAYER_FORM_ID, ServerNetwork.BufPayload.codecFor(C_PLAYER_FORM_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_BAY4LLY_SKIN_ID, ServerNetwork.BufPayload.codecFor(C_BAY4LLY_SKIN_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_PLAY_FILM_ID, ServerNetwork.BufPayload.codecFor(C_PLAY_FILM_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_MANAGER_DATA_ID, ServerNetwork.BufPayload.codecFor(C_MANAGER_DATA_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_STOP_FILM_ID, ServerNetwork.BufPayload.codecFor(C_STOP_FILM_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_HANDSHAKE_ID, ServerNetwork.BufPayload.codecFor(C_HANDSHAKE_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_RECORDED_ACTIONS_ID, ServerNetwork.BufPayload.codecFor(C_RECORDED_ACTIONS_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_ANIMATION_STATE_TRIGGER_ID, ServerNetwork.BufPayload.codecFor(C_ANIMATION_STATE_TRIGGER_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_CHEATS_PERMISSION_ID, ServerNetwork.BufPayload.codecFor(C_CHEATS_PERMISSION_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_SHARED_FORM_ID, ServerNetwork.BufPayload.codecFor(C_SHARED_FORM_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_ENTITY_FORM_ID, ServerNetwork.BufPayload.codecFor(C_ENTITY_FORM_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_ACTORS_ID, ServerNetwork.BufPayload.codecFor(C_ACTORS_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_GUN_PROPERTIES_ID, ServerNetwork.BufPayload.codecFor(C_GUN_PROPERTIES_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_PAUSE_FILM_ID, ServerNetwork.BufPayload.codecFor(C_PAUSE_FILM_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_SELECTED_SLOT_ID, ServerNetwork.BufPayload.codecFor(C_SELECTED_SLOT_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_ANIM_STATE_MB_TRIGGER_ID, ServerNetwork.BufPayload.codecFor(C_ANIM_STATE_MB_TRIGGER_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_REFRESH_MODEL_BLOCKS_ID, ServerNetwork.BufPayload.codecFor(C_REFRESH_MODEL_BLOCKS_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_CLICKED_TRIGGER_BLOCK_ID, ServerNetwork.BufPayload.codecFor(C_CLICKED_TRIGGER_BLOCK_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_MOB_COMBAT_ACTION_ID, ServerNetwork.BufPayload.codecFor(C_MOB_COMBAT_ACTION_ID));
-        PayloadTypeRegistry.clientboundPlay().register(C_MOB_CONVERSION_ID, ServerNetwork.BufPayload.codecFor(C_MOB_CONVERSION_ID));
-
-        ClientPlayNetworking.registerGlobalReceiver(C_CLICKED_ID, (payload, context) -> handleClientModelBlockPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_PLAYER_FORM_ID, (payload, context) -> handlePlayerFormPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_BAY4LLY_SKIN_ID, (payload, context) -> handleBay4llySkinPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_PLAY_FILM_ID, (payload, context) -> handlePlayFilmPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_MANAGER_DATA_ID, (payload, context) -> handleManagerDataPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_STOP_FILM_ID, (payload, context) -> handleStopFilmPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_HANDSHAKE_ID, (payload, context) -> handleHandshakePacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_RECORDED_ACTIONS_ID, (payload, context) -> handleRecordedActionsPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_ANIMATION_STATE_TRIGGER_ID, (payload, context) -> handleFormTriggerPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_CHEATS_PERMISSION_ID, (payload, context) -> handleCheatsPermissionPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_SHARED_FORM_ID, (payload, context) -> handleShareFormPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_ENTITY_FORM_ID, (payload, context) -> handleEntityFormPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_ACTORS_ID, (payload, context) -> handleActorsPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_GUN_PROPERTIES_ID, (payload, context) -> handleGunPropertiesPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_PAUSE_FILM_ID, (payload, context) -> handlePauseFilmPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_SELECTED_SLOT_ID, (payload, context) -> handleSelectedSlotPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_MOB_COMBAT_ACTION_ID, (payload, context) -> handleMobCombatActionPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_MOB_CONVERSION_ID, (payload, context) -> handleMobConversionPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_ANIM_STATE_MB_TRIGGER_ID, (payload, context) -> handleAnimationStateModelBlockPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_REFRESH_MODEL_BLOCKS_ID, (payload, context) -> handleRefreshModelBlocksPacket(context.client(), payload.asPacketByteBuf()));
-        ClientPlayNetworking.registerGlobalReceiver(C_CLICKED_TRIGGER_BLOCK_ID, (payload, context) -> handleClickedTriggerBlockPacket(context.client(), payload.asPacketByteBuf()));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_MODEL_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClientModelBlockPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PLAYER_FORM_PACKET, (client, handler, buf, responseSender) -> handlePlayerFormPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_BAY4LLY_SKIN, (client, handler, buf, responseSender) -> handleBay4llySkinPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PLAY_FILM_PACKET, (client, handler, buf, responseSender) -> handlePlayFilmPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MANAGER_DATA_PACKET, (client, handler, buf, responseSender) -> handleManagerDataPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_STOP_FILM_PACKET, (client, handler, buf, responseSender) -> handleStopFilmPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_HANDSHAKE, (client, handler, buf, responseSender) -> handleHandshakePacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_RECORDED_ACTIONS, (client, handler, buf, responseSender) -> handleRecordedActionsPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ANIMATION_STATE_TRIGGER, (client, handler, buf, responseSender) -> handleFormTriggerPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CHEATS_PERMISSION, (client, handler, buf, responseSender) -> handleCheatsPermissionPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_SHARED_FORM, (client, handler, buf, responseSender) -> handleShareFormPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ENTITY_FORM, (client, handler, buf, responseSender) -> handleEntityFormPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ACTORS, (client, handler, buf, responseSender) -> handleActorsPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_GUN_PROPERTIES, (client, handler, buf, responseSender) -> handleGunPropertiesPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PAUSE_FILM, (client, handler, buf, responseSender) -> handlePauseFilmPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_SELECTED_SLOT, (client, handler, buf, responseSender) -> handleSelectedSlotPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_COMBAT_ACTION, (client, handler, buf, responseSender) -> handleMobCombatActionPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_CONVERSION, (client, handler, buf, responseSender) -> handleMobConversionPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER, (client, handler, buf, responseSender) -> handleAnimationStateModelBlockPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_REFRESH_MODEL_BLOCKS, (client, handler, buf, responseSender) -> handleRefreshModelBlocksPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_TRIGGER_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClickedTriggerBlockPacket(client, buf));
     }
 
     /* Handlers */
 
-    private static void handleClickedTriggerBlockPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleClickedTriggerBlockPacket(MinecraftClient client, PacketByteBuf buf)
     {
         BlockPos pos = buf.readBlockPos();
 
         client.execute(() ->
         {
-            BlockEntity entity = client.level.getBlockEntity(pos);
+            BlockEntity entity = client.world.getBlockEntity(pos);
 
             if (!(entity instanceof TriggerBlockEntity))
             {
@@ -167,7 +119,7 @@ public class ClientNetwork
              * film panel (which would restart paused actor replays). */
             dashboard.setPanel(panel);
 
-            if (!(client.screen instanceof UIScreen screen) || screen.getMenu() != dashboard)
+            if (!(client.currentScreen instanceof UIScreen screen) || screen.getMenu() != dashboard)
             {
                 UIScreen.open(dashboard);
             }
@@ -176,13 +128,13 @@ public class ClientNetwork
         });
     }
 
-    private static void handleClientModelBlockPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleClientModelBlockPacket(MinecraftClient client, PacketByteBuf buf)
     {
         BlockPos pos = buf.readBlockPos();
 
         client.execute(() ->
         {
-            BlockEntity entity = client.level.getBlockEntity(pos);
+            BlockEntity entity = client.world.getBlockEntity(pos);
 
             if (!(entity instanceof ModelBlockEntity))
             {
@@ -206,7 +158,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handlePlayerFormPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handlePlayerFormPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
@@ -217,7 +169,7 @@ public class ClientNetwork
 
             client.execute(() ->
             {
-                Entity entity = client.level.getEntity(id);
+                Entity entity = client.world.getEntityById(id);
                 Morph morph = Morph.getMorph(entity);
 
                 if (morph != null)
@@ -228,11 +180,11 @@ public class ClientNetwork
         });
     }
 
-    private static void handlePlayFilmPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handlePlayFilmPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
-            String filmId = packetByteBuf.readUtf();
+            String filmId = packetByteBuf.readString();
             boolean withCamera = packetByteBuf.readBoolean();
             Film film = new Film();
 
@@ -243,7 +195,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handleManagerDataPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleManagerDataPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
@@ -263,30 +215,30 @@ public class ClientNetwork
         });
     }
 
-    private static void handleStopFilmPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleStopFilmPacket(MinecraftClient client, PacketByteBuf buf)
     {
-        String filmId = buf.readUtf();
+        String filmId = buf.readString();
 
         client.execute(() -> Films.stopFilm(filmId));
     }
 
-    private static void handleHandshakePacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleHandshakePacket(MinecraftClient client, PacketByteBuf buf)
     {
         isBBSModOnServer = true;
     }
 
-    private static void handleRecordedActionsPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleRecordedActionsPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
-            String filmId = packetByteBuf.readUtf();
+            String filmId = packetByteBuf.readString();
             int replayId = packetByteBuf.readInt();
             int tick = packetByteBuf.readInt();
             BaseType data = DataStorageUtils.readFromBytes(bytes);
 
             client.execute(() ->
             {
-                UIDashboard dashboard = BBSModClient.getDashboard();
+                UIDashboard dashboard = BBSModClient.peekDashboard();
 
                 if (dashboard == null)
                 {
@@ -303,7 +255,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handleMobCombatActionPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleMobCombatActionPacket(MinecraftClient client, PacketByteBuf buf)
     {
         int victimEntityId = buf.readInt();
         int sourceEntityId = buf.readInt();
@@ -316,7 +268,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handleMobConversionPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleMobConversionPacket(MinecraftClient client, PacketByteBuf buf)
     {
         int oldEntityId = buf.readInt();
         int newEntityId = buf.readInt();
@@ -327,15 +279,15 @@ public class ClientNetwork
         });
     }
 
-    private static void handleFormTriggerPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleFormTriggerPacket(MinecraftClient client, PacketByteBuf buf)
     {
         int id = buf.readInt();
-        String triggerId = buf.readUtf();
+        String triggerId = buf.readString();
         int type = buf.readInt();
 
         client.execute(() ->
         {
-            Entity entity = client.level.getEntity(id);
+            Entity entity = client.world.getEntityById(id);
             Morph morph = Morph.getMorph(entity);
 
             if (morph != null && morph.getForm() != null)
@@ -345,7 +297,7 @@ public class ClientNetwork
 
             if (entity instanceof LivingEntity livingEntity && type > 0)
             {
-                ItemStack stackInHand = livingEntity.getItemInHand(type == 1 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
+                ItemStack stackInHand = livingEntity.getStackInHand(type == 1 ? Hand.MAIN_HAND : Hand.OFF_HAND);
                 ModelProperties properties = BBSModClient.getItemStackProperties(stackInHand);
 
                 if (properties != null && properties.getForm() != null)
@@ -356,22 +308,17 @@ public class ClientNetwork
         });
     }
 
-    private static void handleCheatsPermissionPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleCheatsPermissionPacket(MinecraftClient client, PacketByteBuf buf)
     {
         boolean cheats = buf.readBoolean();
 
         client.execute(() ->
         {
-            if (client.player != null)
-            {
-                client.player.setPermissions(cheats
-                    ? PermissionSet.ALL_PERMISSIONS
-                    : PermissionSet.NO_PERMISSIONS);
-            }
+            client.player.setClientPermissionLevel(cheats ? 4 : 0);
         });
     }
 
-    private static void handleShareFormPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleShareFormPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
@@ -399,7 +346,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handleEntityFormPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleEntityFormPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
@@ -414,7 +361,7 @@ public class ClientNetwork
 
             client.execute(() ->
             {
-                Entity entity = client.level.getEntity(entityId);
+                Entity entity = client.world.getEntityById(entityId);
 
                 if (entity instanceof IEntityFormProvider provider)
                 {
@@ -424,14 +371,14 @@ public class ClientNetwork
         });
     }
 
-    private static void handleActorsPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleActorsPacket(MinecraftClient client, PacketByteBuf buf)
     {
         Map<String, Integer> actors = new HashMap<>();
-        String filmId = buf.readUtf();
+        String filmId = buf.readString();
 
         for (int i = 0, c = buf.readInt(); i < c; i++)
         {
-            String key = buf.readUtf();
+            String key = buf.readString();
             int entityId = buf.readInt();
 
             actors.put(key, entityId);
@@ -439,7 +386,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            UIDashboard dashboard = BBSModClient.getDashboard();
+            UIDashboard dashboard = BBSModClient.peekDashboard();
 
             if (dashboard == null)
             {
@@ -457,7 +404,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handleGunPropertiesPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleGunPropertiesPacket(MinecraftClient client, PacketByteBuf buf)
     {
         GunProperties properties = new GunProperties();
         int entityId = buf.readInt();
@@ -466,19 +413,19 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            Entity entity = client.level.getEntity(entityId);
+            Entity entity = client.world.getEntityById(entityId);
 
             if (entity instanceof GunProjectileEntity projectile)
             {
                 projectile.setProperties(properties);
-                projectile.refreshDimensions();
+                projectile.calculateDimensions();
             }
         });
     }
 
-    private static void handlePauseFilmPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handlePauseFilmPacket(MinecraftClient client, PacketByteBuf buf)
     {
-        String filmId = buf.readUtf();
+        String filmId = buf.readString();
 
         client.execute(() ->
         {
@@ -486,11 +433,11 @@ public class ClientNetwork
         });
     }
     
-    private static void handleBay4llySkinPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleBay4llySkinPacket(MinecraftClient client, PacketByteBuf buf)
     {
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
-            String playerName = packetByteBuf.readUtf();
+            String playerName = packetByteBuf.readString();
             client.execute(() ->
             {
                 try
@@ -504,24 +451,24 @@ public class ClientNetwork
         });
     }
 
-    private static void handleSelectedSlotPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleSelectedSlotPacket(MinecraftClient client, PacketByteBuf buf)
     {
         int slot = buf.readInt();
 
         client.execute(() ->
         {
-            client.player.getInventory().setSelectedSlot(slot);
+            client.player.getInventory().selectedSlot = slot;
         });
     }
 
-    private static void handleAnimationStateModelBlockPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleAnimationStateModelBlockPacket(MinecraftClient client, PacketByteBuf buf)
     {
         BlockPos pos = buf.readBlockPos();
-        String state = buf.readUtf();
+        String state = buf.readString();
 
         client.execute(() ->
         {
-            BlockEntity blockEntity = client.level.getBlockEntity(pos);
+            BlockEntity blockEntity = client.world.getBlockEntity(pos);
 
             if (blockEntity instanceof ModelBlockEntity block)
             {
@@ -533,7 +480,7 @@ public class ClientNetwork
         });
     }
 
-    private static void handleRefreshModelBlocksPacket(Minecraft client, FriendlyByteBuf buf)
+    private static void handleRefreshModelBlocksPacket(MinecraftClient client, PacketByteBuf buf)
     {
         int range = buf.readInt();
 
@@ -560,7 +507,7 @@ public class ClientNetwork
     
     public static void sendModelBlockForm(BlockPos pos, ModelBlockEntity modelBlock)
     {
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_MODEL_BLOCK_FORM_PACKET, modelBlock.getProperties().toData(), (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_MODEL_BLOCK_FORM_PACKET, modelBlock.getProperties().toData(), (packetByteBuf) ->
         {
             packetByteBuf.writeBlockPos(pos);
         });
@@ -583,7 +530,7 @@ public class ClientNetwork
         data.putBool("collidable", entity.collidable.get());
         data.putBool("region", entity.region.get());
 
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_TRIGGER_BLOCK_UPDATE, data, (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_TRIGGER_BLOCK_UPDATE, data, (packetByteBuf) ->
         {
             packetByteBuf.writeBlockPos(pos);
         });
@@ -593,30 +540,29 @@ public class ClientNetwork
     {
         MapType mapType = FormUtils.toData(form);
 
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_PLAYER_FORM_PACKET, mapType == null ? new MapType() : mapType, (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_PLAYER_FORM_PACKET, mapType == null ? new MapType() : mapType, (packetByteBuf) ->
         {});
     }
 
     /**
      * Ask the server to change this client's gamemode without chat feedback.
      */
-    public static void sendSetGameMode(GameType mode)
+    public static void sendSetGameMode(GameMode mode)
     {
-        if (mode == null || Minecraft.getInstance().player == null)
+        if (mode == null || MinecraftClient.getInstance().player == null)
         {
             return;
         }
 
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
-        /* TODO 1.21.11: GameMode.getId() returns String; use ordinal() for wire int */
-        buf.writeVarInt(mode.ordinal());
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_SET_GAME_MODE)));
+        buf.writeVarInt(mode.getId());
+        ClientPlayNetworking.send(ServerNetwork.SERVER_SET_GAME_MODE, buf);
     }
 
     public static void sendModelBlockTransforms(MapType data)
     {
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_MODEL_BLOCK_TRANSFORMS_PACKET, data, (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_MODEL_BLOCK_TRANSFORMS_PACKET, data, (packetByteBuf) ->
         {});
     }
 
@@ -640,7 +586,7 @@ public class ClientNetwork
 
     public static void sendManagerData(int callbackId, RepositoryOperation op, BaseType data)
     {
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_MANAGER_DATA_PACKET, data, (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_MANAGER_DATA_PACKET, data, (packetByteBuf) ->
         {
             packetByteBuf.writeInt(callbackId);
             packetByteBuf.writeInt(op.ordinal());
@@ -658,63 +604,63 @@ public class ClientNetwork
      */
     public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state, boolean recorderOnly)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
-        buf.writeUtf(filmId);
+        buf.writeString(filmId);
         buf.writeInt(replayId);
         buf.writeInt(tick);
         buf.writeInt(countdown);
         buf.writeBoolean(state);
         buf.writeBoolean(recorderOnly);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_ACTION_RECORDING)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_ACTION_RECORDING, buf);
     }
 
     public static void sendToggleFilm(String filmId, boolean withCamera)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
-        buf.writeUtf(filmId);
+        buf.writeString(filmId);
         buf.writeBoolean(withCamera);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_TOGGLE_FILM)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_TOGGLE_FILM, buf);
     }
 
     public static void sendActionState(String filmId, ActionState state, int tick)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
-        buf.writeUtf(filmId);
+        buf.writeString(filmId);
         buf.writeByte(state.ordinal());
         buf.writeInt(tick);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_ACTION_CONTROL)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_ACTION_CONTROL, buf);
     }
 
     public static void sendSyncData(String filmId, BaseValue data)
     {
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_FILM_DATA_SYNC, data.toData(), (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_FILM_DATA_SYNC, data.toData(), (packetByteBuf) ->
         {
             DataPath path = data.getPath();
 
-            packetByteBuf.writeUtf(filmId);
+            packetByteBuf.writeString(filmId);
             packetByteBuf.writeInt(path.strings.size());
 
             for (String string : path.strings)
             {
-                packetByteBuf.writeUtf(string);
+                packetByteBuf.writeString(string);
             }
         });
     }
 
-    public static void sendTeleport(Player entity, double x, double y, double z)
+    public static void sendTeleport(PlayerEntity entity, double x, double y, double z)
     {
-        sendTeleport(x, y, z, entity.getYHeadRot(), entity.getYHeadRot(), entity.getXRot());
+        sendTeleport(x, y, z, entity.getHeadYaw(), entity.getHeadYaw(), entity.getPitch());
     }
 
     public static void sendTeleport(double x, double y, double z, float yaw, float bodyYaw, float pitch)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeDouble(x);
         buf.writeDouble(y);
@@ -723,53 +669,53 @@ public class ClientNetwork
         buf.writeFloat(bodyYaw);
         buf.writeFloat(pitch);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_PLAYER_TP)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_PLAYER_TP, buf);
     }
 
     public static void sendFormTrigger(String triggerId, int type)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
-        buf.writeUtf(triggerId);
+        buf.writeString(triggerId);
         buf.writeInt(type);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_ANIMATION_STATE_TRIGGER)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_ANIMATION_STATE_TRIGGER, buf);
     }
 
     public static void sendSharedForm(Form form, UUID uuid)
     {
         MapType mapType = FormUtils.toData(form);
 
-        crusher.send(Minecraft.getInstance().player, ServerNetwork.SERVER_SHARED_FORM, mapType == null ? new MapType() : mapType, (packetByteBuf) ->
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_SHARED_FORM, mapType == null ? new MapType() : mapType, (packetByteBuf) ->
         {
-            packetByteBuf.writeUUID(uuid);
+            packetByteBuf.writeUuid(uuid);
         });
     }
 
     public static void sendZoom(boolean zoom)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeBoolean(zoom);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_ZOOM)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_ZOOM, buf);
     }
 
     public static void sendPauseFilm(String filmId)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
-        buf.writeUtf(filmId);
+        buf.writeString(filmId);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_PAUSE_FILM)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_PAUSE_FILM, buf);
     }
 
     public static void sendTriggerBlockClick(BlockPos pos)
     {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeBlockPos(pos);
 
-        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_TRIGGER_BLOCK_CLICK)));
+        ClientPlayNetworking.send(ServerNetwork.SERVER_TRIGGER_BLOCK_CLICK, buf);
     }
 }

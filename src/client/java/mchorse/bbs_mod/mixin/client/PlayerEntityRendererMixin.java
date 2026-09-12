@@ -6,20 +6,13 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.morphing.Morph;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.player.PlayerModel;
-import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.entity.player.AvatarRenderer;
-import net.minecraft.client.renderer.entity.state.AvatarRenderState;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
-
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.PlayerEntityRenderer;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.Vec3d;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -27,40 +20,42 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(AvatarRenderer.class)
+@Mixin(PlayerEntityRenderer.class)
 public class PlayerEntityRendererMixin
 {
-    @Inject(method = "getRenderOffset", at = @At("HEAD"), cancellable = true)
-    public void onPositionOffset(AvatarRenderState state, CallbackInfoReturnable<Vec3> info)
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    public void onRender(AbstractClientPlayerEntity abstractClientPlayerEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, CallbackInfo info)
     {
-        Level world = Minecraft.getInstance().level;
-        Entity entity = world != null ? world.getEntity(state.id) : null;
-
-        if (entity instanceof AbstractClientPlayer abstractClientPlayerEntity)
+        if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, f, g, matrixStack, vertexConsumerProvider, i))
         {
-            if (abstractClientPlayerEntity.isSpectator())
-            {
-                return;
-            }
-
-            Morph morph = Morph.getMorph(abstractClientPlayerEntity);
-
-            if (morph != null && morph.getForm() != null)
-            {
-                info.setReturnValue(Vec3.ZERO);
-            }
+            info.cancel();
         }
     }
 
-    @Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)
-    public void onRenderArmBegin(PoseStack matrices, SubmitNodeCollector queue, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
+    @Inject(method = "getPositionOffset", at = @At("HEAD"), cancellable = true)
+    public void onPositionOffset(AbstractClientPlayerEntity abstractClientPlayerEntity, float f, CallbackInfoReturnable<Vec3d> info)
     {
-        AbstractClientPlayer player = Minecraft.getInstance().player;
-
-        if (player == null || player.isSpectator())
+        if (abstractClientPlayerEntity.isSpectator())
         {
             return;
         }
+
+        Morph morph = Morph.getMorph(abstractClientPlayerEntity);
+
+        if (morph != null && morph.getForm() != null)
+        {
+            info.setReturnValue(Vec3d.ZERO);
+        }
+    }
+
+    @Inject(method = "renderArm", at = @At("HEAD"), cancellable = true)
+    public void onRenderArmBegin(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, AbstractClientPlayerEntity player, ModelPart arm, ModelPart sleeve, CallbackInfo info)
+    {
+        if (player.isSpectator())
+        {
+            return;
+        }
+
         Morph morph = Morph.getMorph(player);
 
         if (morph != null)
@@ -70,8 +65,7 @@ public class PlayerEntityRendererMixin
             if (form != null)
             {
                 FormRenderer renderer = FormUtilsClient.getRenderer(form);
-                PlayerModel model = (PlayerModel) ((AvatarRenderer<?>) (Object) this).getModel();
-                InteractionHand hand = model.rightArm == arm ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+                Hand hand = ((PlayerEntityRenderer) (Object) this).getModel().rightArm == arm ? Hand.MAIN_HAND : Hand.OFF_HAND;
 
                 if (renderer != null && renderer.renderArm(matrices, light, player, hand))
                 {

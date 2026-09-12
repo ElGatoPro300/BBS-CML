@@ -23,10 +23,10 @@ public class UIBezierHandles
     {
         this.keyframe = keyframe;
 
-        this.lx = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (val) -> val.lx = (float) TimeUtils.fromTime(v.floatValue())));
-        this.ly = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (val) -> val.ly = v.floatValue()));
-        this.rx = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (val) -> val.rx = (float) TimeUtils.fromTime(v.floatValue())));
-        this.ry = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (val) -> val.ry = v.floatValue()));
+        this.lx = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (kf) -> kf.lx = (float) TimeUtils.fromTime(v.floatValue())));
+        this.ly = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (kf) -> kf.ly = v.floatValue()));
+        this.rx = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (kf) -> kf.rx = (float) TimeUtils.fromTime(v.floatValue())));
+        this.ry = new UITrackpad((v) -> BaseValue.edit(this.keyframe, (kf) -> kf.ry = v.floatValue()));
         this.lx.setValue(TimeUtils.toTime(this.keyframe.lx));
         this.ly.setValue(this.keyframe.ly);
         this.rx.setValue(TimeUtils.toTime(this.keyframe.rx));

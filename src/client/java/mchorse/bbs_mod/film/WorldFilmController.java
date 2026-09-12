@@ -8,10 +8,10 @@ import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.Entity;
 
 import java.util.List;
 import java.util.Map;
@@ -108,7 +108,7 @@ public class WorldFilmController extends BaseFilmController
             && BBSSettings.editorActorPauseAnimations.get();
         Map<String, Integer> actors = this.getActors();
 
-        if (actors == null || Minecraft.getInstance().level == null)
+        if (actors == null || MinecraftClient.getInstance().world == null)
         {
             return;
         }
@@ -120,7 +120,7 @@ public class WorldFilmController extends BaseFilmController
                 continue;
             }
 
-            Entity entity = Minecraft.getInstance().level.getEntity(entityId);
+            Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
 
             if (entity instanceof ActorEntity actor)
             {
@@ -137,17 +137,17 @@ public class WorldFilmController extends BaseFilmController
     }
 
     @Override
-    public void render(LevelRenderContext context)
+    public void render(WorldRenderContext context)
     {
         super.render(context);
 
-        this.applyCameraClips(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
+        this.applyCameraClips(context.tickDelta());
 
         if (BBSSettings.recordingCameraPreview.get())
         {
             int tick = Math.max(this.tick, 0);
 
-            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.poseStack());
+            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, context.tickDelta(), this.duration, this.position, context.camera(), context.matrixStack());
         }
 
         AudioClientClip.manageSounds(this.context);

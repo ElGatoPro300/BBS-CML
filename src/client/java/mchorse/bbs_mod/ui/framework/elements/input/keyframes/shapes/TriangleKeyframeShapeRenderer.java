@@ -6,9 +6,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import org.joml.Matrix3x2fc;
+import net.minecraft.client.render.BufferBuilder;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.joml.Matrix4f;
 
 public class TriangleKeyframeShapeRenderer implements IKeyframeShapeRenderer
 {
@@ -19,19 +19,18 @@ public class TriangleKeyframeShapeRenderer implements IKeyframeShapeRenderer
     }
 
     @Override
-    public Icon getIcon()
-    {
+    public Icon getIcon() {
         return Icons.TRIANGLE;
     }
 
     @Override
-    public void renderKeyframe(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public void renderKeyframe(UIContext uiContext, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         float fOffset = offset * 1.75F;
 
-        builder.addVertexWith2DPose(matrix, x, y - fOffset).setColor(c);
-        builder.addVertexWith2DPose(matrix, x - fOffset, y + fOffset).setColor(c);
-        builder.addVertexWith2DPose(matrix, x + fOffset, y + fOffset).setColor(c);
-        builder.addVertexWith2DPose(matrix, x + fOffset, y + fOffset).setColor(c);
+        builder.vertex(matrix, x, y - fOffset, 0).color(c).next();
+        builder.vertex(matrix, x - fOffset, y + fOffset, 0).color(c).next();
+        builder.vertex(matrix, x + fOffset, y + fOffset, 0).color(c).next();
+        builder.vertex(matrix, x + fOffset, y + fOffset, 0).color(c).next();
     }
 }

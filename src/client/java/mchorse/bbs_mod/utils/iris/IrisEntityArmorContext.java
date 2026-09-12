@@ -4,17 +4,16 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.equipment.trim.ArmorTrim;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.entity.Entity;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.trim.ArmorTrim;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 
-import net.irisshaders.iris.helpers.EntityState;
 import net.irisshaders.iris.shaderpack.materialmap.NamespacedId;
 import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import net.irisshaders.iris.uniforms.CapturedRenderingState;
@@ -45,7 +44,7 @@ public final class IrisEntityArmorContext
     }
 
     /** Identity — phase wrapping is unsafe outside the entity dispatcher (see class javadoc). */
-    public static MultiBufferSource wrapEntityBuffers(MultiBufferSource consumers)
+    public static VertexConsumerProvider wrapEntityBuffers(VertexConsumerProvider consumers)
     {
         return consumers;
     }
@@ -65,7 +64,7 @@ public final class IrisEntityArmorContext
 
             if (mcEntity != null)
             {
-                Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(mcEntity.getType());
+                Identifier id = Registries.ENTITY_TYPE.getId(mcEntity.getType());
 
                 return entityIds.applyAsInt(new NamespacedId(id.getNamespace(), id.getPath()));
             }
@@ -84,7 +83,7 @@ public final class IrisEntityArmorContext
             return 0;
         }
 
-        Identifier id = BuiltInRegistries.ITEM.getKey(item);
+        Identifier id = Registries.ITEM.getId(item);
 
         return itemIds.applyAsInt(new NamespacedId(id.getNamespace(), id.getPath()));
     }
@@ -108,7 +107,7 @@ public final class IrisEntityArmorContext
 
             if (blockIds != null)
             {
-                return blockIds.getOrDefault(blockItem.getBlock().defaultBlockState(), 0);
+                return blockIds.getOrDefault(blockItem.getBlock().getDefaultState(), 0);
             }
         }
 
@@ -124,14 +123,14 @@ public final class IrisEntityArmorContext
             return 0;
         }
 
-        String asset = trim.material().value().assets().base().suffix();
+        String asset = trim.getMaterial().value().assetName();
 
         return itemIds.applyAsInt(new NamespacedId("minecraft", "trim_" + asset));
     }
 
     public static Scope beginArmorPiece(IEntity entity, Item item)
     {
-        return beginEquippedItem(entity, item == null ? ItemStack.EMPTY : item.getDefaultInstance());
+        return beginEquippedItem(entity, item == null ? ItemStack.EMPTY : item.getDefaultStack());
     }
 
     public static Scope beginEquippedItem(IEntity entity, ItemStack stack)
@@ -174,7 +173,7 @@ public final class IrisEntityArmorContext
             return;
         }
 
-        EntityState.interposeItemId(resolveTrimItemId(trim));
+        CapturedRenderingState.INSTANCE.setCurrentRenderedItem(resolveTrimItemId(trim));
     }
 
     public static void endTrim()
@@ -184,7 +183,7 @@ public final class IrisEntityArmorContext
             return;
         }
 
-        EntityState.restoreItemId();
+        CapturedRenderingState.INSTANCE.setCurrentRenderedItem(0);
     }
 
     public static final class Scope implements AutoCloseable
@@ -229,8 +228,6 @@ public final class IrisEntityArmorContext
             {
                 state.setCurrentEntity(this.prevEntity);
             }
-
-            EntityState.restoreItemId();
         }
     }
 }

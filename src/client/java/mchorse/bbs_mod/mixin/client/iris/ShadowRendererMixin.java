@@ -29,11 +29,12 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.culling.Frustum;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.Frustum;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.util.math.MatrixStack;
 
 import net.irisshaders.iris.mixin.LevelRendererAccessor;
 import net.irisshaders.iris.shadows.ShadowRenderer;
@@ -41,8 +42,6 @@ import net.irisshaders.iris.shadows.ShadowRenderer;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -50,7 +49,6 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -62,8 +60,8 @@ public class ShadowRendererMixin
     @Inject(method = "renderEntities", at = @At("TAIL"))
     private void bbs$renderFormsShadows(LevelRendererAccessor levelRenderer,
                                         EntityRenderDispatcher dispatcher,
-                                        MultiBufferSource.BufferSource consumers,
-                                        PoseStack shadowStack,
+                                        VertexConsumerProvider.Immediate consumers,
+                                        MatrixStack shadowStack,
                                         float tickDelta,
                                         Frustum frustum,
                                         double camX,
@@ -76,32 +74,9 @@ public class ShadowRendererMixin
             return;
         }
 
-        GpuTextureView previousColor = RenderSystem.outputColorTextureOverride;
-        GpuTextureView previousDepth = RenderSystem.outputDepthTextureOverride;
-
-        /* The film viewport's attachments are not shadow targets. Keeping them
-         * also makes model renderers choose the BBS preview shader instead of Iris. */
-        RenderSystem.outputColorTextureOverride = null;
-        RenderSystem.outputDepthTextureOverride = null;
-
-        try
-        {
-            this.bbs$drawFormShadows(consumers, shadowStack, tickDelta, camX, camY, camZ);
-        }
-        finally
-        {
-            RenderSystem.outputColorTextureOverride = previousColor;
-            RenderSystem.outputDepthTextureOverride = previousDepth;
-        }
-    }
-
-    @Unique
-    private void bbs$drawFormShadows(MultiBufferSource.BufferSource consumers, PoseStack shadowStack,
-                                   float tickDelta, double camX, double camY, double camZ)
-    {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
-        Camera gameCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        BBSRendering.enableDepthTest();
+        Camera gameCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        RenderSystem.enableDepthTest();
 
         /* Case 1: film panel open – keep existing onion skin and panel-specific logic */
         if (menu instanceof UIDashboard)
@@ -167,7 +142,7 @@ public class ShadowRendererMixin
                                 .shadow(true, shadow)
                                 .relative(replay.isCameraRelative())
                                 .isShadowPass(true)
-                                .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                                .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                             BaseFilmController.renderEntity(context);
 
@@ -264,7 +239,7 @@ public class ShadowRendererMixin
                         .shadow(true, shadow)
                         .relative(replay.isCameraRelative())
                         .isShadowPass(true)
-                        .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                        .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                     BaseFilmController.renderEntity(context);
                 }
@@ -321,7 +296,7 @@ public class ShadowRendererMixin
                         .shadow(true, shadow)
                         .relative(replay.isCameraRelative())
                         .isShadowPass(true)
-                        .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                        .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                     BaseFilmController.renderEntity(context);
                 }
@@ -334,7 +309,7 @@ public class ShadowRendererMixin
             ModelBlockEntityRenderer.renderIntoShadowMap(modelBlock, shadowStack, consumers, tickDelta, camX, camY, camZ);
         }
 
-        consumers.endBatch();
+        consumers.draw();
     }
 
     private static void renderOnionGhostShadows(FilmEditorController editorController,
@@ -343,8 +318,8 @@ public class ShadowRendererMixin
                                                 Replay replay,
                                                 KeyframeChannel<?> pose,
                                                 int direction,
-                                                PoseStack shadowStack,
-                                                MultiBufferSource.BufferSource consumers,
+                                                MatrixStack shadowStack,
+                                                VertexConsumerProvider.Immediate consumers,
                                                 Camera camera)
     {
         int cursor = controller.panel.getCursor();
@@ -400,7 +375,7 @@ public class ShadowRendererMixin
                 .shadow(true, shadow)
                 .relative(replay.isCameraRelative())
                 .isShadowPass(true)
-                .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
             BaseFilmController.renderEntity(ctx);
 

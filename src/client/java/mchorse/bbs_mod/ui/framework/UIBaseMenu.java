@@ -17,11 +17,10 @@ import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.renderers.InputRenderer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -36,11 +35,6 @@ import java.util.List;
 public abstract class UIBaseMenu
 {
     public static boolean renderAxes = true;
-
-    public static boolean shouldRenderAxes()
-    {
-        return renderAxes;
-    }
 
     private static InputRenderer inputRenderer = new InputRenderer();
 
@@ -62,17 +56,7 @@ public abstract class UIBaseMenu
 
         this.main = new UIElement();
         this.main.full(this.viewport);
-        this.overlay = new UIElement()
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                context.batcher.getContext().pose().pushMatrix();
-                context.batcher.getContext().pose().translate(0F, 0F); // Z translation is not supported on 2D Matrix3x2fStack
-                super.render(context);
-                context.batcher.getContext().pose().popMatrix();
-            }
-        };
+        this.overlay = new UIElement();
         this.overlay.full(this.viewport);
         this.root.add(this.main, this.overlay);
 
@@ -281,7 +265,7 @@ public abstract class UIBaseMenu
     {
         boolean result = false;
 
-        this.context.setMouseWheel(x, y, v, h);
+        this.context.setMouseWheel(x, y, v, this.context.mouseWheelHorizontal);
 
         if (this.root.isEnabled())
         {
@@ -371,7 +355,7 @@ public abstract class UIBaseMenu
      */
     protected void closeMenu()
     {
-        Minecraft.getInstance().setScreen(null);
+        MinecraftClient.getInstance().setScreen(null);
     }
 
     public void closeThisMenu()
@@ -391,7 +375,7 @@ public abstract class UIBaseMenu
             mouseX = mouseY = -1;
         }
 
-        GlStateManager._depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
         if (HdrModCompat.isHdrPresentationActive())
         {
@@ -424,6 +408,8 @@ public abstract class UIBaseMenu
         }
 
         this.context.applyCursor();
+
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     protected void preRenderMenu(UIRenderingContext context)
@@ -432,7 +418,7 @@ public abstract class UIBaseMenu
     public void startRenderFrame(float tickDelta)
     {}
 
-    public void renderInWorld(LevelRenderContext context)
+    public void renderInWorld(WorldRenderContext context)
     {}
 
     public static class UIRootElement extends UIElement implements IViewport

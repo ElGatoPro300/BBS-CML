@@ -18,26 +18,22 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.entity.state.AvatarRenderState;
-import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.RotationAxis;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 
 public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayer player, AvatarRenderState playerState, float g, PoseStack matrixStack, SubmitNodeCollector renderCommandQueue, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -78,67 +74,55 @@ public class MorphRenderer
 
             if (canRender(playerForm))
             {
-                GlStateManager._enableDepthTest();
+                RenderSystem.enableDepthTest();
 
                 boolean worldPass = BBSRendering.isRenderingWorld();
 
-                /* InventoryScreen.drawEntity uses ENTITY_IN_UI for the player
-                 * preview, then INVENTORY after. Forms must keep those same
-                 * entity lights. World morphs keep level diffuse like model blocks. */
+                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
+                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
+                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
+                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
                 if (worldPass)
                 {
                     BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
-                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
+                    DiffuseLighting.method_34742();
                 }
 
-                int overlay = OverlayTexture.NO_OVERLAY;
+                float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
+                int overlay = LivingEntityRenderer.getOverlay(player, 0F);
 
-                float bodyYaw = playerState.bodyRot;
-                float pitch = playerState.xRot;
-                float headYaw = playerState.bodyRot + playerState.yRot;
-                float yaw = headYaw;
+                matrixStack.push();
+                matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                matrixStack.pushPose();
-                matrixStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+                FormRenderingContext morphContext = new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
 
-                morph.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
-
-                try
+                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                if (!worldPass)
                 {
-                    FormRenderingContext morphContext = new FormRenderingContext()
-                        .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                        .camera(Minecraft.getInstance().gameRenderer.getMainCamera());
-
-                    /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
-                    if (!worldPass)
-                    {
-                        morphContext.inUI();
-                    }
-
-                    FormUtilsClient.render(morph.getForm(), morphContext);
-
-                    if (morph.entity.getFireTicks() > 0)
-                    {
-                        MorphFireRenderer.render(
-                            matrixStack,
-                            (MultiBufferSource) null,
-                            morph.entity,
-                            morph.getForm(),
-                            g,
-                            Minecraft.getInstance().gameRenderer.getMainCamera(),
-                            false
-                        );
-                    }
+                    morphContext.inUI();
                 }
-                finally
+
+                FormUtilsClient.render(morph.getForm(), morphContext);
+
+                if (morph.entity.getFireTicks() > 0)
                 {
-                    morph.entity.clearRotationOverride();
+                    MorphFireRenderer.render(
+                        matrixStack,
+                        vertexConsumerProvider,
+                        morph.entity,
+                        morph.getForm(),
+                        g,
+                        MinecraftClient.getInstance().gameRenderer.getCamera(),
+                        false
+                    );
                 }
 
-                matrixStack.popPose();
+                matrixStack.pop();
 
                 if (worldPass)
                 {
@@ -146,7 +130,10 @@ public class MorphRenderer
                 }
                 else
                 {
-                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_3D);
+                    /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
+                     * re-enables lightmap/overlay left disabled by form mesh draws without
+                     * touching diffuse lights (already set to GUI 3D above). */
+                    DiffuseLighting.enableGuiDepthLighting();
                     BBSRendering.restoreWorldRenderState();
                 }
             }
@@ -185,7 +172,7 @@ public class MorphRenderer
         return dataA != null && dataA.equals(dataB);
     }
 
-    public static boolean renderLivingEntity(LivingEntity livingEntity, LivingEntityRenderState livingState, float g, PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i, int o)
+    public static boolean renderLivingEntity(LivingEntity livingEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
     {
         if (!(livingEntity instanceof ISelectorOwnerProvider))
         {
@@ -200,43 +187,31 @@ public class MorphRenderer
 
         if (form != null)
         {
-            GlStateManager._enableDepthTest();
+            RenderSystem.enableDepthTest();
 
-            float bodyYaw = livingState.bodyRot;
-            float pitch = livingState.xRot;
-            float headYaw = livingState.bodyRot + livingState.yRot;
-            float yaw = headYaw;
+            float bodyYaw = Lerps.lerp(livingEntity.prevBodyYaw, livingEntity.bodyYaw, g);
 
-            matrixStack.pushPose();
-            matrixStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+            matrixStack.push();
+            matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-            owner.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
+            FormUtilsClient.render(form, new FormRenderingContext()
+                .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
+                .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
-            try
+            if (owner.entity.getFireTicks() > 0)
             {
-                FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
-                    .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
-
-                if (owner.entity.getFireTicks() > 0)
-                {
-                    MorphFireRenderer.render(
-                        matrixStack,
-                        vertexConsumerProvider,
-                        owner.entity,
-                        form,
-                        g,
-                        Minecraft.getInstance().gameRenderer.getMainCamera(),
-                        false
-                    );
-                }
-            }
-            finally
-            {
-                owner.entity.clearRotationOverride();
+                MorphFireRenderer.render(
+                    matrixStack,
+                    vertexConsumerProvider,
+                    owner.entity,
+                    form,
+                    g,
+                    MinecraftClient.getInstance().gameRenderer.getCamera(),
+                    false
+                );
             }
 
-            matrixStack.popPose();
+            matrixStack.pop();
 
             BBSRendering.restoreWorldRenderState();
 

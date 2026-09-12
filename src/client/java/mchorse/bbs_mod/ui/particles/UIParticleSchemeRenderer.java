@@ -1,7 +1,5 @@
 package mchorse.bbs_mod.ui.particles;
 
-import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.components.expiration.ParticleComponentKillPlane;
@@ -11,19 +9,21 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class UIParticleSchemeRenderer extends UIModelRenderer
 {
@@ -95,25 +95,25 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
         this.camera.rotation.y = originalYaw;
         this.camera.position.set(originalX, originalY, originalZ);
 
-        // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
+        MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
 
-        PoseStack stack = this.createCameraStack();
-        Matrix4f modelMatrix = new Matrix4f(stack.last().pose());
+        MatrixStack stack = context.batcher.getContext().getMatrices();
+        Matrix4f modelMatrix = new Matrix4f(stack.peek().getPositionMatrix());
 
         this.emitter.lastGlobal.set(new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F)));
         this.emitter.rotation.set(modelMatrix);
         this.emitter.modelRenderer = true;
 
-        stack.pushPose();
-        stack.setIdentity();
+        stack.push();
+        stack.loadIdentity();
 
-        GlStateManager._enableBlend();
-        GlStateManager._enableDepthTest();
-        this.emitter.render(DefaultVertexFormat.PARTICLE, BBSRendering::getParticleProgram, stack, OverlayTexture.NO_OVERLAY, context.getTransition());
-        GlStateManager._disableDepthTest();
-        GlStateManager._disableBlend();
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR, GameRenderer::getPositionTexColorProgram, stack, OverlayTexture.DEFAULT_UV, context.getTransition());
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableBlend();
 
-        stack.popPose();
+        stack.pop();
 
         ParticleComponentKillPlane plane = this.emitter.scheme.get(ParticleComponentKillPlane.class);
 
@@ -125,28 +125,30 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
     private void renderPlane(UIContext context, float a, float b, float c, float d)
     {
-        Matrix4f matrix = this.createCameraStack().last().pose();
-
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
         final float alpha = 0.5F;
 
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+
         this.calculate(0, 0, a, b, c, d);
-        builder.addVertex(matrix, this.vector.x, this.vector.y, this.vector.z).setColor(0, 1, 0, alpha);
+        builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha).next();
         this.calculate(0, 1, a, b, c, d);
-        builder.addVertex(matrix, this.vector.x, this.vector.y, this.vector.z).setColor(0, 1, 0, alpha);
+        builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha).next();
         this.calculate(1, 0, a, b, c, d);
-        builder.addVertex(matrix, this.vector.x, this.vector.y, this.vector.z).setColor(0, 1, 0, alpha);
+        builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha).next();
 
         this.calculate(1, 0, a, b, c, d);
-        builder.addVertex(matrix, this.vector.x, this.vector.y, this.vector.z).setColor(0, 1, 0, alpha);
+        builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha).next();
         this.calculate(0, 1, a, b, c, d);
-        builder.addVertex(matrix, this.vector.x, this.vector.y, this.vector.z).setColor(0, 1, 0, alpha);
+        builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha).next();
         this.calculate(1, 1, a, b, c, d);
-        builder.addVertex(matrix, this.vector.x, this.vector.y, this.vector.z).setColor(0, 1, 0, alpha);
+        builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha).next();
 
-        GlStateManager._disableCull();
-        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
-        GlStateManager._enableCull();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.disableCull();
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+        RenderSystem.enableCull();
     }
 
     private void calculate(float i, float j, float a, float b, float c, float d)
@@ -180,7 +182,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         if (UIBaseMenu.renderAxes)
         {
-            Draw.coolerAxes(this.createCameraStack(), 1F, 0.01F, 1.01F, 0.02F);
+            Draw.coolerAxes(context.batcher.getContext().getMatrices(), 1F, 0.01F, 1.01F, 0.02F);
         }
     }
 

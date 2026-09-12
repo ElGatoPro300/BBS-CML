@@ -25,7 +25,7 @@ import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import org.joml.Intersectionf;
 import org.joml.Matrix3f;
@@ -282,7 +282,7 @@ public class OrbitFilmCameraController implements ICameraController
 
         if (this.animating)
         {
-            float delta = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false) / 20F;
+            float delta = MinecraftClient.getInstance().getTickDelta() / 20F;
 
             float duration = Math.max(0.1F, BBSSettings.editorOrbitTransitionDuration.get());
 

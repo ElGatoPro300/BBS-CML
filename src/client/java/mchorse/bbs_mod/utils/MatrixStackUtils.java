@@ -5,18 +5,17 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
-import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 public class MatrixStackUtils
 {
@@ -25,7 +24,6 @@ public class MatrixStackUtils
     private static Matrix4f oldProjection = new Matrix4f();
     private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
-    private static ProjectionType oldProjectionType = ProjectionType.ORTHOGRAPHIC;
     private static final Quaternionf tempQuaternion = new Quaternionf();
     /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
      * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */
@@ -60,8 +58,8 @@ public class MatrixStackUtils
      */
     public static Matrix4f getInverseViewRotationMatrix()
     {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        Matrix4f inverse = new Matrix4f().rotation(camera.rotation().conjugate(MatrixStackUtils.tempQuaternion));
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Matrix4f inverse = new Matrix4f().rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
         CameraController controller = BBSModClient.getCameraController();
 
         if (controller.getCurrent() != null)
@@ -83,9 +81,9 @@ public class MatrixStackUtils
      */
     public static void loadInverseViewRotationMatrix4(Matrix4f dest)
     {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
 
-        dest.rotation(camera.rotation().conjugate(MatrixStackUtils.tempQuaternion));
+        dest.rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
 
         CameraController controller = BBSModClient.getCameraController();
 
@@ -105,24 +103,24 @@ public class MatrixStackUtils
      */
     public static Matrix4f getViewRotationMatrix()
     {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
 
-        return new Matrix4f().rotation(camera.rotation());
+        return new Matrix4f().rotation(camera.getRotation());
     }
 
-    public static void scaleStack(PoseStack stack, float x, float y, float z)
+    public static void scaleStack(MatrixStack stack, float x, float y, float z)
     {
-        stack.last().pose().scale(safePositionScale(x), safePositionScale(y), safePositionScale(z));
-        stack.last().normal().scale(x < 0F ? -1F : 1F, y < 0F ? -1F : 1F, z < 0F ? -1F : 1F);
+        stack.peek().getPositionMatrix().scale(safePositionScale(x), safePositionScale(y), safePositionScale(z));
+        stack.peek().getNormalMatrix().scale(x < 0F ? -1F : 1F, y < 0F ? -1F : 1F, z < 0F ? -1F : 1F);
     }
 
     /**
      * UI previews flip Y lighting; divide out current normal scale without Inf on flat axes.
      */
-    public static void invertUiNormalY(PoseStack stack)
+    public static void invertUiNormalY(MatrixStack stack)
     {
-        stack.last().normal().getScale(Vectors.EMPTY_3F);
-        stack.last().normal().scale(
+        stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
+        stack.peek().getNormalMatrix().scale(
             safeNormalScaleReciprocal(Vectors.EMPTY_3F.x),
             -safeNormalScaleReciprocal(Vectors.EMPTY_3F.y),
             safeNormalScaleReciprocal(Vectors.EMPTY_3F.z)
@@ -132,49 +130,49 @@ public class MatrixStackUtils
     public static void cacheMatrices()
     {
         /* Cache the global stuff */
-        RenderSystem.backupProjectionMatrix();
+        oldProjection.set(RenderSystem.getProjectionMatrix());
         oldMV.set(RenderSystem.getModelViewMatrix());
         oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.identity();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
-        RenderSystem.restoreProjectionMatrix();
+        RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.set(oldMV);
-    }
-
-    public static void applyModelViewMatrix()
-    {
-        /* 1.21.11: RenderPipeline handles ModelViewMat */
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.loadIdentity();
+        mvStack.peek().getPositionMatrix().set(oldMV);
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void pushIdentityModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.pushMatrix();
-        mvStack.identity();
+        mvStack.push();
+        mvStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.popMatrix();
+        mvStack.pop();
+        RenderSystem.applyModelViewMatrix();
     }
 
     /**
-     * Pop leaked {@link PoseStack} entries until {@code parent} is on top again.
+     * Pop leaked {@link MatrixStack} entries until {@code parent} is on top again.
      * Vanilla {@code ModelPart.render} has no try/finally; a throw after {@code push}
      * otherwise trips WorldRenderer "Pose stack not empty".
      */
-    public static void popUntil(PoseStack stack, PoseStack.Pose parent)
+    public static void popUntil(MatrixStack stack, MatrixStack.Entry parent)
     {
         if (stack == null || parent == null)
         {
@@ -183,13 +181,13 @@ public class MatrixStackUtils
 
         int guard = 32;
 
-        while (guard-- > 0 && !stack.isEmpty() && stack.last() != parent)
+        while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
         {
-            stack.popPose();
+            stack.pop();
         }
     }
 
-    public static void applyTransform(PoseStack stack, Transform transform)
+    public static void applyTransform(MatrixStack stack, Transform transform)
     {
         stack.translate(transform.translate.x, transform.translate.y, transform.translate.z);
 
@@ -198,12 +196,12 @@ public class MatrixStackUtils
             stack.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
         }
 
-        stack.mulPose(Axis.ZP.rotation(transform.rotate.z));
-        stack.mulPose(Axis.YP.rotation(transform.rotate.y));
-        stack.mulPose(Axis.XP.rotation(transform.rotate.x));
-        stack.mulPose(Axis.ZP.rotation(transform.rotate2.z));
-        stack.mulPose(Axis.YP.rotation(transform.rotate2.y));
-        stack.mulPose(Axis.XP.rotation(transform.rotate2.x));
+        stack.multiply(RotationAxis.POSITIVE_Z.rotation(transform.rotate.z));
+        stack.multiply(RotationAxis.POSITIVE_Y.rotation(transform.rotate.y));
+        stack.multiply(RotationAxis.POSITIVE_X.rotation(transform.rotate.x));
+        stack.multiply(RotationAxis.POSITIVE_Z.rotation(transform.rotate2.z));
+        stack.multiply(RotationAxis.POSITIVE_Y.rotation(transform.rotate2.y));
+        stack.multiply(RotationAxis.POSITIVE_X.rotation(transform.rotate2.x));
         scaleStack(stack, transform.scale.x, transform.scale.y, transform.scale.z);
 
         if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)
@@ -212,7 +210,7 @@ public class MatrixStackUtils
         }
     }
 
-    public static void multiply(PoseStack stack, Matrix4f matrix)
+    public static void multiply(MatrixStack stack, Matrix4f matrix)
     {
         normal.set(matrix);
         normal.getScale(Vectors.TEMP_3F);
@@ -223,13 +221,13 @@ public class MatrixStackUtils
 
         normal.scale(Vectors.TEMP_3F);
 
-        stack.last().pose().mul(matrix);
-        stack.last().normal().mul(normal);
+        stack.peek().getPositionMatrix().mul(matrix);
+        stack.peek().getNormalMatrix().mul(normal);
     }
 
-    public static void scaleBack(PoseStack matrices)
+    public static void scaleBack(MatrixStack matrices)
     {
-        Matrix4f position = matrices.last().pose();
+        Matrix4f position = matrices.peek().getPositionMatrix();
 
         float scaleX = (float) Math.sqrt(position.m00() * position.m00() + position.m10() * position.m10() + position.m20() * position.m20());
         float scaleY = (float) Math.sqrt(position.m01() * position.m01() + position.m11() * position.m11() + position.m21() * position.m21());

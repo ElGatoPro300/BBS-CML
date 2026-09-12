@@ -9,9 +9,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
 import mchorse.bbs_mod.utils.StringUtils;
 
-import net.minecraft.client.Minecraft;
-
-import com.mojang.blaze3d.platform.Lighting;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -349,9 +346,7 @@ public class UIForms extends UIList<UIForms.FormEntry>
 
             y -= 10;
 
-            Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
             FormUtilsClient.renderUI(form, context, x, y, x + 40, y + 40);
-            Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.LEVEL);
 
             context.batcher.unclip(context);
         }

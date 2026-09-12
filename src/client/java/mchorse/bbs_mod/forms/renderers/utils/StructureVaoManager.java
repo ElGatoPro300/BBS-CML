@@ -8,10 +8,7 @@ import mchorse.bbs_mod.cubic.render.vao.StructureVAOCollector;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 
-import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
-
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.render.VertexConsumer;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -297,66 +294,63 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer addVertex(float x, float y, float z)
+        public VertexConsumer vertex(double x, double y, double z)
         {
-            this.delegate.addVertex(x, y, z);
+            this.delegate.vertex(x, y, z);
             return this;
         }
 
         @Override
-        public VertexConsumer addVertex(Matrix4fc matrix, float x, float y, float z)
+        public void next()
         {
-            this.delegate.addVertex(matrix, x, y, z);
+            this.delegate.next();
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+            this.delegate.fixedColor(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor()
+        {
+            this.delegate.unfixColor();
+        }
+
+        @Override
+        public VertexConsumer color(int red, int green, int blue, int alpha)
+        {
+            this.delegate.color(red, green, blue, alpha);
             return this;
         }
 
         @Override
-        public VertexConsumer setColor(int red, int green, int blue, int alpha)
+        public VertexConsumer texture(float u, float v)
         {
-            this.delegate.setColor(red, green, blue, alpha);
+            this.delegate.texture(u, v);
             return this;
         }
 
         @Override
-        public VertexConsumer setColor(int argb)
+        public VertexConsumer overlay(int u, int v)
         {
-            this.delegate.setColor(argb);
+            this.delegate.overlay(u, v);
             return this;
         }
 
         @Override
-        public VertexConsumer setLineWidth(float width)
-        {
-            this.delegate.setLineWidth(width);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv(float u, float v)
-        {
-            this.delegate.setUv(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv1(int u, int v)
-        {
-            this.delegate.setUv1(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv2(int u, int v)
+        public VertexConsumer light(int u, int v)
         {
             this.quadLights[this.quadIndex] = (u & 0xFFFF) | ((v & 0xFFFF) << 16);
-            this.delegate.setUv2(u, v);
+            this.delegate.light(u, v);
             return this;
         }
 
         @Override
-        public VertexConsumer setNormal(float x, float y, float z)
+        public VertexConsumer normal(float x, float y, float z)
         {
-            this.delegate.setNormal(x, y, z);
+            this.delegate.normal(x, y, z);
             this.quadIndex++;
 
             if (this.quadIndex == 4)

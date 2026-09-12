@@ -1,28 +1,28 @@
 package mchorse.bbs_mod.mixin;
 
-import net.minecraft.world.entity.WalkAnimationState;
+import net.minecraft.entity.LimbAnimator;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(WalkAnimationState.class)
+@Mixin(LimbAnimator.class)
 public interface LimbAnimatorAccessor
 {
-    @Accessor("speedOld")
+    @Accessor
     public float getPrevSpeed();
 
-    @Accessor("speedOld")
+    @Accessor
     public void setPrevSpeed(float v);
 
-    @Accessor("speed")
+    @Accessor
     public float getSpeed();
 
-    @Accessor("speed")
+    @Accessor
     public void setSpeed(float v);
 
-    @Accessor("position")
+    @Accessor
     public float getPos();
 
-    @Accessor("position")
+    @Accessor
     public void setPos(float v);
 }

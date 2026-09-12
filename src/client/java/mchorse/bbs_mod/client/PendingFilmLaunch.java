@@ -1,8 +1,9 @@
 package mchorse.bbs_mod.client;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.LevelLoadingScreen;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
+import net.minecraft.client.gui.screen.LevelLoadingScreen;
+import net.minecraft.client.gui.screen.Screen;
 
 public class PendingFilmLaunch
 {
@@ -45,7 +46,7 @@ public class PendingFilmLaunch
         }
     }
 
-    public static void tick(Minecraft client)
+    public static void tick(MinecraftClient client)
     {
         if (!PendingFilmLaunch.hasPending())
         {
@@ -83,16 +84,16 @@ public class PendingFilmLaunch
         PendingFilmLaunch.tryOpen(client);
     }
 
-    private static boolean isReadyToOpen(Minecraft client)
+    private static boolean isReadyToOpen(MinecraftClient client)
     {
-        if (client.player == null || client.level == null)
+        if (client.player == null || client.world == null)
         {
             return false;
         }
 
-        Screen screen = client.screen;
+        Screen screen = client.currentScreen;
 
-        if (screen instanceof LevelLoadingScreen)
+        if (screen instanceof DownloadingTerrainScreen || screen instanceof LevelLoadingScreen)
         {
             return false;
         }
@@ -100,7 +101,7 @@ public class PendingFilmLaunch
         return true;
     }
 
-    private static void tryOpen(Minecraft client)
+    private static void tryOpen(MinecraftClient client)
     {
         if (!PendingFilmLaunch.hasPending())
         {

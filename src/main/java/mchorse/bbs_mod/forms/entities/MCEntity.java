@@ -2,28 +2,27 @@ package mchorse.bbs_mod.forms.entities;
 
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.mixin.EntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.utils.AABB;
 
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.WalkAnimationState;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LimbAnimator;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 public class MCEntity implements IEntity
 {
     private Entity mcEntity;
 
     private float prevPrevBodyYaw;
-    private Vec3 lastVelocity = Vec3.ZERO;
+    private Vec3d lastVelocity = Vec3d.ZERO;
 
     private float[] extraVariables = new float[10];
     private float[] prevExtraVariables = new float[10];
@@ -33,16 +32,6 @@ public class MCEntity implements IEntity
     private boolean sitting;
     private float fallFlyingTicks;
     private float prevFallFlyingTicks;
-
-    private boolean hasRotationOverride;
-    private float overridePitch;
-    private float overridePrevPitch;
-    private float overrideHeadYaw;
-    private float overridePrevHeadYaw;
-    private float overrideBodyYaw;
-    private float overridePrevBodyYaw;
-    private float overrideYaw;
-    private float overridePrevYaw;
 
     public MCEntity(Entity mcEntity)
     {
@@ -55,13 +44,13 @@ public class MCEntity implements IEntity
     }
 
     @Override
-    public void setWorld(Level world)
+    public void setWorld(World world)
     {}
 
     @Override
-    public Level getWorld()
+    public World getWorld()
     {
-        return this.mcEntity.level();
+        return this.mcEntity.getWorld();
     }
 
     @Override
@@ -100,7 +89,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.getItemBySlot(slot);
+            return living.getEquippedStack(slot);
         }
 
         return ItemStack.EMPTY;
@@ -111,16 +100,16 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.setItemSlot(slot, stack == null ? ItemStack.EMPTY : stack);
+            living.equipStack(slot, stack == null ? ItemStack.EMPTY : stack);
         }
     }
 
     @Override
     public int getSelectedSlot()
     {
-        if (this.mcEntity instanceof Player player)
+        if (this.mcEntity instanceof PlayerEntity player)
         {
-            return player.getInventory().getSelectedSlot();
+            return player.getInventory().selectedSlot;
         }
 
         return 0;
@@ -129,13 +118,13 @@ public class MCEntity implements IEntity
     @Override
     public boolean isSneaking()
     {
-        return this.mcEntity.isShiftKeyDown();
+        return this.mcEntity.isSneaking();
     }
 
     @Override
     public void setSneaking(boolean sneaking)
     {
-        this.mcEntity.setShiftKeyDown(sneaking);
+        this.mcEntity.setSneaking(sneaking);
     }
 
     @Override
@@ -153,7 +142,7 @@ public class MCEntity implements IEntity
     @Override
     public boolean isOnGround()
     {
-        return this.mcEntity.onGround();
+        return this.mcEntity.isOnGround();
     }
 
     @Override
@@ -167,7 +156,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.swing(InteractionHand.MAIN_HAND);
+            living.swingHand(Hand.MAIN_HAND);
         }
     }
 
@@ -176,7 +165,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.getAttackAnim(tickDelta);
+            return living.getHandSwingProgress(tickDelta);
         }
 
         return 0F;
@@ -185,19 +174,19 @@ public class MCEntity implements IEntity
     @Override
     public int getAge()
     {
-        return this.mcEntity.tickCount;
+        return this.mcEntity.age;
     }
 
     @Override
     public void setAge(int ticks)
     {
-        this.mcEntity.tickCount = ticks;
+        this.mcEntity.age = ticks;
     }
 
     @Override
     public float getFallDistance()
     {
-        return (float) this.mcEntity.fallDistance;
+        return this.mcEntity.fallDistance;
     }
 
     @Override
@@ -262,7 +251,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.setLivingEntityFlag(1, usingItem);
+            living.setLivingFlag(1, usingItem);
         }
     }
 
@@ -271,7 +260,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.getUseItemRemainingTicks();
+            return living.getItemUseTimeLeft();
         }
 
         return 0;
@@ -282,20 +271,20 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living && itemUseTimeLeft > 0)
         {
-            living.setLivingEntityFlag(1, true);
+            living.setLivingFlag(1, true);
         }
     }
 
     @Override
     public int getFireTicks()
     {
-        return this.mcEntity.getRemainingFireTicks();
+        return this.mcEntity.getFireTicks();
     }
 
     @Override
     public void setFireTicks(int fireTicks)
     {
-        this.mcEntity.setRemainingFireTicks(fireTicks);
+        this.mcEntity.setFireTicks(fireTicks);
     }
 
     @Override
@@ -311,22 +300,22 @@ public class MCEntity implements IEntity
     }
 
     @Override
-    public InteractionHand getActiveHand()
+    public Hand getActiveHand()
     {
         if (this.mcEntity instanceof LivingEntity living && living.isUsingItem())
         {
-            return living.getUsedItemHand();
+            return living.getActiveHand();
         }
 
-        return InteractionHand.MAIN_HAND;
+        return Hand.MAIN_HAND;
     }
 
     @Override
-    public void setActiveHand(InteractionHand hand)
+    public void setActiveHand(Hand hand)
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.setLivingEntityFlag(2, hand == InteractionHand.OFF_HAND && living.isUsingItem());
+            living.setLivingFlag(2, hand == Hand.OFF_HAND && living.isUsingItem());
         }
     }
 
@@ -339,13 +328,13 @@ public class MCEntity implements IEntity
     @Override
     public double getPrevX()
     {
-        return this.mcEntity.xo;
+        return this.mcEntity.prevX;
     }
 
     @Override
     public void setPrevX(double x)
     {
-        this.mcEntity.xo = x;
+        this.mcEntity.prevX = x;
     }
 
     @Override
@@ -357,13 +346,13 @@ public class MCEntity implements IEntity
     @Override
     public double getPrevY()
     {
-        return this.mcEntity.yo;
+        return this.mcEntity.prevY;
     }
 
     @Override
     public void setPrevY(double y)
     {
-        this.mcEntity.yo = y;
+        this.mcEntity.prevY = y;
     }
 
     @Override
@@ -375,19 +364,19 @@ public class MCEntity implements IEntity
     @Override
     public double getPrevZ()
     {
-        return this.mcEntity.zo;
+        return this.mcEntity.prevZ;
     }
 
     @Override
     public void setPrevZ(double z)
     {
-        this.mcEntity.zo = z;
+        this.mcEntity.prevZ = z;
     }
 
     @Override
     public void setPosition(double x, double y, double z)
     {
-        this.mcEntity.setPos(x, y, z);
+        this.mcEntity.setPosition(x, y, z);
     }
 
     @Override
@@ -397,107 +386,67 @@ public class MCEntity implements IEntity
     }
 
     @Override
-    public Vec3 getVelocity()
+    public Vec3d getVelocity()
     {
-        return this.mcEntity.getDeltaMovement();
+        return this.mcEntity.getVelocity();
     }
 
     @Override
     public void setVelocity(float x, float y, float z)
     {
-        this.mcEntity.setDeltaMovement(x, y, z);
-    }
-
-    @Override
-    public void setRotationOverride(float pitch, float prevPitch, float headYaw, float prevHeadYaw, float bodyYaw, float prevBodyYaw, float yaw, float prevYaw)
-    {
-        this.hasRotationOverride = true;
-        this.overridePitch = pitch;
-        this.overridePrevPitch = prevPitch;
-        this.overrideHeadYaw = headYaw;
-        this.overridePrevHeadYaw = prevHeadYaw;
-        this.overrideBodyYaw = bodyYaw;
-        this.overridePrevBodyYaw = prevBodyYaw;
-        this.overrideYaw = yaw;
-        this.overridePrevYaw = prevYaw;
-    }
-
-    @Override
-    public void clearRotationOverride()
-    {
-        this.hasRotationOverride = false;
+        this.mcEntity.setVelocity(x, y, z);
     }
 
     @Override
     public float getYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overrideYaw;
-        }
-
-        return this.mcEntity.getYRot();
+        return this.mcEntity.getYaw();
     }
 
     @Override
     public float getPrevYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overridePrevYaw;
-        }
-
-        return this.mcEntity.yRotO;
+        return this.mcEntity.prevYaw;
     }
 
     @Override
     public void setYaw(float yaw)
     {
-        this.mcEntity.setYRot(yaw);
+        this.mcEntity.setYaw(yaw);
     }
 
     @Override
     public void setPrevYaw(float prevYaw)
     {
-        this.mcEntity.yRotO = prevYaw;
+        this.mcEntity.prevYaw = prevYaw;
     }
 
     @Override
     public float getHeadYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overrideHeadYaw;
-        }
-
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.getYHeadRot();
+            return living.getHeadYaw();
         }
 
-        return this.mcEntity.getYRot();
+        return this.mcEntity.getYaw();
     }
 
     @Override
     public float getPrevHeadYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overridePrevHeadYaw;
-        }
-
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.yHeadRotO;
+            return living.prevHeadYaw;
         }
 
-        return this.mcEntity.yRotO;
+        return this.mcEntity.prevYaw;
     }
 
     @Override
     public void setHeadYaw(float headYaw)
     {
-        this.mcEntity.setYHeadRot(headYaw);
+        this.mcEntity.setHeadYaw(headYaw);
     }
 
     @Override
@@ -505,55 +454,40 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.yHeadRotO = prevHeadYaw;
+            living.prevHeadYaw = prevHeadYaw;
         }
     }
 
     @Override
     public float getPitch()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overridePitch;
-        }
-
-        return this.mcEntity.getXRot();
+        return this.mcEntity.getPitch();
     }
 
     @Override
     public float getPrevPitch()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overridePrevPitch;
-        }
-
-        return this.mcEntity.xRotO;
+        return this.mcEntity.prevPitch;
     }
 
     @Override
     public void setPitch(float pitch)
     {
-        this.mcEntity.setXRot(pitch);
+        this.mcEntity.setPitch(pitch);
     }
 
     @Override
     public void setPrevPitch(float prevPitch)
     {
-        this.mcEntity.xRotO = prevPitch;
+        this.mcEntity.prevPitch = prevPitch;
     }
 
     @Override
     public float getBodyYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overrideBodyYaw;
-        }
-
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.yBodyRot;
+            return living.bodyYaw;
         }
 
         return this.getHeadYaw();
@@ -562,14 +496,9 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevBodyYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overridePrevBodyYaw;
-        }
-
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.yBodyRotO;
+            return living.prevBodyYaw;
         }
 
         return this.getPrevHeadYaw();
@@ -578,18 +507,13 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevPrevBodyYaw()
     {
-        if (this.hasRotationOverride)
-        {
-            return this.overridePrevBodyYaw;
-        }
-
         return this.prevPrevBodyYaw;
     }
 
     @Override
     public void setBodyYaw(float bodyYaw)
     {
-        this.mcEntity.setYBodyRot(bodyYaw);
+        this.mcEntity.setBodyYaw(bodyYaw);
     }
 
     @Override
@@ -597,7 +521,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.yBodyRotO = prevBodyYaw;
+            living.prevBodyYaw = prevBodyYaw;
         }
     }
 
@@ -622,8 +546,8 @@ public class MCEntity implements IEntity
     @Override
     public AABB getPickingHitbox()
     {
-        float w = this.mcEntity.getBbWidth();
-        float h = this.mcEntity.getBbHeight();
+        float w = this.mcEntity.getWidth();
+        float h = this.mcEntity.getHeight();
 
         return new AABB(
             this.getX() - w / 2, this.getY(), this.getZ() - w / 2,
@@ -634,7 +558,7 @@ public class MCEntity implements IEntity
     @Override
     public void update()
     {
-        this.lastVelocity = this.mcEntity.getDeltaMovement();
+        this.lastVelocity = this.mcEntity.getVelocity();
         this.prevPrevBodyYaw = this.getPrevBodyYaw();
 
         for (int i = 0; i < this.extraVariables.length; i++)
@@ -655,11 +579,11 @@ public class MCEntity implements IEntity
     }
 
     @Override
-    public WalkAnimationState getLimbAnimator()
+    public LimbAnimator getLimbAnimator()
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.walkAnimation;
+            return living.limbAnimator;
         }
 
         return null;
@@ -670,7 +594,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.walkAnimation.position(tickDelta);
+            return living.limbAnimator.getPos(tickDelta);
         }
 
         return 0F;
@@ -681,7 +605,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.walkAnimation.speed(tickDelta);
+            return living.limbAnimator.getSpeed(tickDelta);
         }
 
         return 0F;
@@ -692,7 +616,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.getSwimAmount(tickDelta);
+            return living.getLeaningPitch(tickDelta);
         }
 
         return 0F;
@@ -701,15 +625,15 @@ public class MCEntity implements IEntity
     @Override
     public boolean isTouchingWater()
     {
-        return this.mcEntity.isInWater();
+        return this.mcEntity.isTouchingWater();
     }
 
     @Override
-    public Pose getEntityPose()
+    public EntityPose getEntityPose()
     {
-        if ((this.mountTarget != null || this.sitting) && this.mcEntity.getPose() == Pose.STANDING)
+        if ((this.mountTarget != null || this.sitting) && this.mcEntity.getPose() == EntityPose.STANDING)
         {
-            return Pose.SITTING;
+            return EntityPose.SITTING;
         }
 
         return this.mcEntity.getPose();
@@ -772,7 +696,7 @@ public class MCEntity implements IEntity
     @Override
     public boolean isFlying()
     {
-        if (this.mcEntity instanceof Player player)
+        if (this.mcEntity instanceof PlayerEntity player)
         {
             return player.getAbilities().flying;
         }
@@ -783,7 +707,7 @@ public class MCEntity implements IEntity
     @Override
     public void setFlying(boolean flying)
     {
-        if (this.mcEntity instanceof Player player)
+        if (this.mcEntity instanceof PlayerEntity player)
         {
             player.getAbilities().flying = flying;
         }
@@ -804,28 +728,28 @@ public class MCEntity implements IEntity
     public void setFallFlying(boolean fallFlying)
     {
         /* Flag 7 is fall flying (elytra) in Minecraft */
-        ((EntityAccessor) this.mcEntity).invokeSetFlag(7, fallFlying);
+        this.mcEntity.setFlag(7, fallFlying);
     }
 
     @Override
     public float getFallFlyingProgress(float transition)
     {
-        float ticks = Mth.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
-        float progress = Mth.clamp(ticks / 10F, 0F, 1F);
+        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
+        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
 
         return progress * progress;
     }
 
     @Override
-    public Vec3 getRotationVec(float transition)
+    public Vec3d getRotationVec(float transition)
     {
-        return this.mcEntity.getViewVector(transition);
+        return this.mcEntity.getRotationVec(transition);
     }
 
     @Override
-    public Vec3 lerpVelocity(float transition)
+    public Vec3d lerpVelocity(float transition)
     {
-        return this.lastVelocity.lerp(this.mcEntity.getDeltaMovement(), transition);
+        return this.lastVelocity.lerp(this.mcEntity.getVelocity(), transition);
     }
 
     @Override
@@ -833,7 +757,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.isAutoSpinAttack();
+            return living.isUsingRiptide();
         }
 
         return false;
@@ -845,14 +769,14 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             /* Flag 4 is Riptide spin attack in LivingEntity */
-            ((EntityAccessor.LivingEntityAccessor) living).invokeSetLivingFlag(4, riptide);
+            living.setLivingFlag(4, riptide);
         }
     }
 
     @Override
     public boolean isCrawling()
     {
-        return this.mcEntity.getPose() == Pose.SWIMMING && !this.mcEntity.isInWater();
+        return this.mcEntity.getPose() == EntityPose.SWIMMING && !this.mcEntity.isTouchingWater();
     }
 
     @Override
@@ -860,7 +784,7 @@ public class MCEntity implements IEntity
     {
         if (crawling)
         {
-            this.mcEntity.setPose(Pose.SWIMMING);
+            this.mcEntity.setPose(EntityPose.SWIMMING);
         }
     }
 
@@ -869,7 +793,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.onClimbable();
+            return living.isClimbing();
         }
 
         return false;
@@ -896,7 +820,7 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             /* LivingFlag 1 is using item (e.g. blocking with shield) */
-            ((EntityAccessor.LivingEntityAccessor) living).invokeSetLivingFlag(1, blocking);
+            living.setLivingFlag(1, blocking);
         }
     }
 
@@ -916,7 +840,7 @@ public class MCEntity implements IEntity
     {
         if (sleeping)
         {
-            this.mcEntity.setPose(Pose.SLEEPING);
+            this.mcEntity.setPose(EntityPose.SLEEPING);
         }
     }
 }

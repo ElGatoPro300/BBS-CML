@@ -1,26 +1,27 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemUsageContext;
+import net.minecraft.item.ShovelItem;
+import net.minecraft.item.ToolMaterials;
+import net.minecraft.util.ActionResult;
 
-public class StructurePickerItem extends Item
+public class StructurePickerItem extends ShovelItem
 {
-    public StructurePickerItem(Properties settings)
+    public StructurePickerItem(Settings settings)
     {
-        super(settings);
+        super(ToolMaterials.WOOD, 1.5F, -3.0F, settings);
     }
 
     @Override
-    public boolean isFoil(ItemStack stack)
+    public boolean hasGlint(ItemStack stack)
     {
         return true;
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext context)
+    public ActionResult useOnBlock(ItemUsageContext context)
     {
-        return InteractionResult.SUCCESS;
+        return ActionResult.SUCCESS;
     }
 }

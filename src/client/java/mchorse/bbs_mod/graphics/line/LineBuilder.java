@@ -1,9 +1,17 @@
 package mchorse.bbs_mod.graphics.line;
 
-import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import org.joml.Matrix3x2fc;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,37 +82,23 @@ public class LineBuilder <T>
 
     public void render(Batcher2D batcher2D, ILineRenderer<T> renderer)
     {
+        Matrix4f matrix = batcher2D.getContext().getMatrices().peek().getPositionMatrix();
         List<List<LinePoint<T>>> build = this.build();
-
-        if (build.isEmpty())
-        {
-            return;
-        }
-
-        GuiQuadMesh mesh = new GuiQuadMesh();
-        Matrix3x2fc matrix = batcher2D.getContext().pose();
 
         for (List<LinePoint<T>> points : build)
         {
-            int size = points.size();
+            BufferBuilder builder = Tessellator.getInstance().getBuffer();
+            builder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
 
-            if (size < 4)
+            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+            RenderSystem.enableBlend();
+
+            for (LinePoint<T> point : points)
             {
-                continue;
+                renderer.render(builder, matrix, point);
             }
 
-            for (int i = 0; i + 3 < size; i += 2)
-            {
-                renderer.render(mesh, matrix, points.get(i));
-                renderer.render(mesh, matrix, points.get(i + 1));
-                renderer.render(mesh, matrix, points.get(i + 3));
-                renderer.render(mesh, matrix, points.get(i + 2));
-            }
-        }
-
-        if (!mesh.isEmpty())
-        {
-            batcher2D.drawQuadMesh(mesh);
+            BufferRenderer.drawWithGlobalProgram(builder.end());
         }
     }
 }

@@ -25,7 +25,7 @@ import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
 
 public class UISubtitleClip extends UIClip<SubtitleClip>
 {
@@ -279,7 +279,7 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
 
     private int getClipTick()
     {
-        return Mth.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
+        return MathHelper.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
     }
 
     @Override

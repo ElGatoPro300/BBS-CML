@@ -29,12 +29,13 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.CameraType;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.option.Perspective;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -58,7 +59,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
     public UIOrbitCamera uiOrbitCamera;
     public OrbitCameraController orbitCameraController;
 
-    private CameraType lastPerspective;
+    private Perspective lastPerspective;
     private Form lastForm;
     private boolean changed;
     private ModelInstance cachedModel;
@@ -70,7 +71,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
         this.host = host;
         this.config = config;
 
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
         OrbitDistanceCamera orbit = new OrbitDistanceCamera();
 
         orbit.distance.setX(30);
@@ -80,8 +81,8 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
         this.uiOrbitCamera.orbit = orbit;
 
         this.orbitCameraController = new OrbitCameraController(this.uiOrbitCamera.orbit);
-        this.orbitCameraController.camera.position.set(player.getX(), player.getY() + 1D, player.getZ());
-        this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.yBodyRot), 0);
+        this.orbitCameraController.camera.position.set(player.getPos().x, player.getPos().y + 1D, player.getPos().z);
+        this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
 
         this.armorLabel = UI.label(UIKeys.MODELS_ARMOR).background(() -> Colors.A50 | BBSSettings.primaryColor.get());
         this.armorList = new UIStringList((l) ->
@@ -140,7 +141,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
 
     private void acquireModel()
     {
-        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         if (morph != null && morph.getForm() instanceof ModelForm)
         {
@@ -218,18 +219,18 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
     {
         super.appear();
 
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientPlayerEntity player = mc.player;
 
-        this.lastPerspective = mc.options.getCameraType();
-        mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-        mc.options.hideGui = false;
+        this.lastPerspective = mc.options.getPerspective();
+        mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+        mc.options.hudHidden = false;
 
         BBSModClient.getCameraController().remove(this.dashboard.camera);
         BBSModClient.getCameraController().add(this.orbitCameraController);
 
-        this.orbitCameraController.camera.position.set(player.getX(), player.getY() + 1D, player.getZ());
-        this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.yBodyRot), 0);
+        this.orbitCameraController.camera.position.set(player.getPos().x, player.getPos().y + 1D, player.getPos().z);
+        this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
         ((OrbitDistanceCamera) this.uiOrbitCamera.orbit).distance.setX(14);
 
         Morph morph = Morph.getMorph(mc.player);
@@ -258,7 +259,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
     {
         super.disappear();
 
-        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         if (morph != null)
         {
@@ -271,7 +272,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
         this.host.forceSave();
         this.restore();
 
-        Minecraft.getInstance().options.hideGui = true;
+        MinecraftClient.getInstance().options.hudHidden = true;
 
         BBSModClient.getCameraController().remove(this.orbitCameraController);
         BBSModClient.getCameraController().add(this.dashboard.camera);
@@ -281,7 +282,7 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
     {
         if (this.changed)
         {
-            Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+            Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
             if (morph != null)
             {
@@ -289,6 +290,6 @@ public class UIModelArmorTransformEditor extends UIDashboardPanel
             }
         }
 
-        Minecraft.getInstance().options.setCameraType(this.lastPerspective);
+        MinecraftClient.getInstance().options.setPerspective(this.lastPerspective);
     }
 }

@@ -1,20 +1,18 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.registry.RegistryWrapper;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.DataResult;
 
 import java.util.Optional;
 
@@ -23,37 +21,34 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
-        return this.fromData(data, BBSMod.getRegistryManager());
+        return this.fromData(data, null);
     }
 
-    public ItemStack fromData(BaseType data, HolderLookup.Provider registries)
+    public ItemStack fromData(BaseType data, RegistryWrapper.WrapperLookup registries)
     {
         if (data == null)
         {
             return ItemStack.EMPTY;
         }
 
-        Tag nbt = DataStorageUtils.toNbt(data);
-        HolderLookup.Provider lookup = registries != null ? registries : BBSMod.getRegistryManager();
+        NbtElement nbt = DataStorageUtils.toNbt(data);
 
-        if (lookup == null)
+        if (nbt == null)
         {
-            /* Without RegistryOps, enchanted components cannot be restored safely. */
             return ItemStack.EMPTY;
         }
 
-        DynamicOps<Tag> ops = RegistryOps.create(NbtOps.INSTANCE, lookup);
-        Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
+        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(NbtOps.INSTANCE, nbt);
+        Optional<Pair<ItemStack, NbtElement>> result = decode.result();
 
-        if (decoded.isPresent())
+        if (result.isPresent())
         {
-            return decoded.get();
+            return result.get().getFirst();
         }
 
-        /* Legacy / partially corrupted entries still often decode via fromNbt. */
-        if (nbt instanceof CompoundTag compound)
+        if (nbt instanceof NbtCompound compound)
         {
-            return ItemStack.EMPTY;
+            return ItemStack.fromNbt(compound);
         }
 
         return ItemStack.EMPTY;
@@ -62,27 +57,17 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public BaseType toData(ItemStack value)
     {
-        return this.toData(value, BBSMod.getRegistryManager());
+        return this.toData(value, null);
     }
 
-    public BaseType toData(ItemStack value, HolderLookup.Provider registries)
+    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
     {
         if (value == null || value.isEmpty())
         {
             return new MapType();
         }
 
-        HolderLookup.Provider lookup = registries != null ? registries : BBSMod.getRegistryManager();
-
-        if (lookup == null)
-        {
-            /* Never encode with plain NbtOps — it drops enchantment components on
-             * 1.20.5+ and corrupts actor equipment keyframes on sync/save/undo. */
-            return new MapType();
-        }
-
-        DynamicOps<Tag> ops = RegistryOps.create(NbtOps.INSTANCE, lookup);
-        Optional<Tag> result = ItemStack.CODEC.encodeStart(ops, value).result();
+        Optional<NbtElement> result = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
     }
@@ -98,7 +83,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     {
         if (a instanceof ItemStack itemA && b instanceof ItemStack itemB)
         {
-            return ItemStack.matches(itemA, itemB);
+            return ItemStack.areEqual(itemA, itemB);
         }
 
         return false;
@@ -123,7 +108,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return x < 1F ? a : b;
         }
 
-        if (!ItemStack.isSameItemSameComponents(a, b))
+        if (!ItemStack.canCombine(a, b))
         {
             return x < 1F ? a : b;
         }

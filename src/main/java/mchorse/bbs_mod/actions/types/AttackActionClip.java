@@ -10,17 +10,17 @@ import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.Map;
 import java.util.Optional;
@@ -49,7 +49,7 @@ public class AttackActionClip extends ActionClip
     {
         /* Dead / discarded attackers must not keep dealing bound-target damage
          * (FakePlayer + target id would otherwise still hit survivors). */
-        if (actor != null && (actor.isRemoved() || actor.isDeadOrDying() || actor.getHealth() <= 0F || actor.deathTime > 0))
+        if (actor != null && (actor.isRemoved() || actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
         {
             return;
         }
@@ -61,25 +61,25 @@ public class AttackActionClip extends ActionClip
         float lookYaw = replay.keyframes.headYaw.interpolate(tick).floatValue();
         float lookPitch = replay.keyframes.pitch.interpolate(tick).floatValue();
 
-        player.setYRot(lookYaw);
-        player.setYHeadRot(lookYaw);
-        player.setXRot(lookPitch);
+        player.setYaw(lookYaw);
+        player.setHeadYaw(lookYaw);
+        player.setPitch(lookPitch);
 
         /* Keep fake player / actor weapon in sync so attribute + Mob Killer match. */
         if (actor != null)
         {
-            ItemStack main = actor.getMainHandItem();
+            ItemStack main = actor.getMainHandStack();
 
-            if (!ItemStack.matches(player.getMainHandItem(), main))
+            if (!ItemStack.areEqual(player.getMainHandStack(), main))
             {
-                player.setItemInHand(InteractionHand.MAIN_HAND, main.copy());
+                player.setStackInHand(Hand.MAIN_HAND, main.copy());
             }
         }
         else if (replay != null)
         {
             ItemStack main = replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY);
 
-            player.setItemInHand(InteractionHand.MAIN_HAND, main == null ? ItemStack.EMPTY : main.copy());
+            player.setStackInHand(Hand.MAIN_HAND, main == null ? ItemStack.EMPTY : main.copy());
         }
 
         LivingEntity damageSource = actor != null ? actor : player;
@@ -93,7 +93,7 @@ public class AttackActionClip extends ActionClip
         /* A first-person replay is bound to the real player. When an ActorEntity hits
          * that player, route damage through the same fake-player source as stub replays
          * so player damage rules match both playback paths. */
-        LivingEntity damageApplier = hit instanceof Player ? player : damageSource;
+        LivingEntity damageApplier = hit instanceof PlayerEntity ? player : damageSource;
 
         AttackDamage.applyHit(damageApplier, hit, this.damage.get());
     }
@@ -107,21 +107,21 @@ public class AttackActionClip extends ActionClip
             ActionPlayer actionPlayer = BBSMod.getActions().getPlayer(film.getId());
             LivingEntity bound = actionPlayer == null ? null : actionPlayer.getActor(targetId);
 
-            if (bound != null && !bound.isRemoved() && !bound.isDeadOrDying() && bound.getHealth() > 0F && bound.deathTime <= 0 && bound != damageSource)
+            if (bound != null && !bound.isRemoved() && !bound.isDead() && bound.getHealth() > 0F && bound.deathTime <= 0 && bound != damageSource)
             {
                 return bound;
             }
         }
 
         double distance = 6D;
-        Vec3 origin = player.getEyePosition(1F);
-        Vec3 rotation = this.getLookVector(lookPitch, lookYaw);
-        Vec3 end = origin.add(rotation.x * distance, rotation.y * distance, rotation.z * distance);
-        HitResult blockHit = player.pick(distance, 1F, false);
-        double maxDistSq = blockHit != null ? blockHit.getLocation().distanceToSqr(origin) : distance * distance;
-        AABB box = player.getBoundingBox().expandTowards(rotation.scale(distance)).inflate(1D, 1D, 1D);
-        EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(damageSource, origin, end, box,
-            entity -> !entity.isSpectator() && entity.isPickable(), maxDistSq);
+        Vec3d origin = player.getCameraPosVec(1F);
+        Vec3d rotation = this.getLookVector(lookPitch, lookYaw);
+        Vec3d end = origin.add(rotation.x * distance, rotation.y * distance, rotation.z * distance);
+        HitResult blockHit = player.raycast(distance, 1F, false);
+        double maxDistSq = blockHit != null ? blockHit.getPos().squaredDistanceTo(origin) : distance * distance;
+        Box box = player.getBoundingBox().stretch(rotation.multiply(distance)).expand(1D, 1D, 1D);
+        EntityHitResult entityHit = ProjectileUtil.raycast(damageSource, origin, end, box,
+            entity -> !entity.isSpectator() && entity.canHit(), maxDistSq);
 
         if (entityHit != null && entityHit.getEntity() != null)
         {
@@ -133,7 +133,7 @@ public class AttackActionClip extends ActionClip
         return this.findFilmActorAlongRay(film, damageSource, origin, end, maxDistSq);
     }
 
-    private Entity findFilmActorAlongRay(Film film, LivingEntity exclude, Vec3 origin, Vec3 end, double maxDistSq)
+    private Entity findFilmActorAlongRay(Film film, LivingEntity exclude, Vec3d origin, Vec3d end, double maxDistSq)
     {
         if (film == null)
         {
@@ -154,19 +154,19 @@ public class AttackActionClip extends ActionClip
         {
             LivingEntity entity = entry.getValue();
 
-            if (entity == null || entity == exclude || entity.isRemoved() || entity.isDeadOrDying() || entity.getHealth() <= 0F || entity.deathTime > 0 || !entity.isPickable())
+            if (entity == null || entity == exclude || entity.isRemoved() || entity.isDead() || entity.getHealth() <= 0F || entity.deathTime > 0 || !entity.canHit())
             {
                 continue;
             }
 
-            Optional<Vec3> hit = entity.getBoundingBox().inflate(0.35D).clip(origin, end);
+            Optional<Vec3d> hit = entity.getBoundingBox().expand(0.35D).raycast(origin, end);
 
             if (hit.isEmpty())
             {
                 continue;
             }
 
-            double dist = origin.distanceToSqr(hit.get());
+            double dist = origin.squaredDistanceTo(hit.get());
 
             if (dist < bestDist)
             {
@@ -178,16 +178,16 @@ public class AttackActionClip extends ActionClip
         return best;
     }
 
-    private Vec3 getLookVector(float pitch, float yaw)
+    private Vec3d getLookVector(float pitch, float yaw)
     {
         float pitchRad = pitch * ((float) Math.PI / 180F);
         float yawRad = -yaw * ((float) Math.PI / 180F);
-        float cosYaw = Mth.cos(yawRad);
-        float sinYaw = Mth.sin(yawRad);
-        float cosPitch = Mth.cos(pitchRad);
-        float sinPitch = Mth.sin(pitchRad);
+        float cosYaw = MathHelper.cos(yawRad);
+        float sinYaw = MathHelper.sin(yawRad);
+        float cosPitch = MathHelper.cos(pitchRad);
+        float sinPitch = MathHelper.sin(pitchRad);
 
-        return new Vec3(sinYaw * cosPitch, -sinPitch, cosYaw * cosPitch);
+        return new Vec3d(sinYaw * cosPitch, -sinPitch, cosYaw * cosPitch);
     }
 
     @Override

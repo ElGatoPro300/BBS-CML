@@ -18,12 +18,13 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
-import net.minecraft.client.renderer.item.ItemModelResolver;
-import net.minecraft.client.renderer.item.ItemStackRenderState;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.model.BakedModel;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -38,7 +39,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static ItemStackRenderState cachedRenderState;
+    private static BakedModel cachedModel;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -54,9 +55,9 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static ItemStackRenderState getCachedRenderState()
+    public static BakedModel getCachedModel()
     {
-        return cachedRenderState;
+        return cachedModel;
     }
 
     public static boolean renderBodyParts(FormRenderer parent, List<BodyPart> parts, FormRenderingContext context)
@@ -75,38 +76,45 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
         ItemStack itemStack = template.stack.get();
-        if (itemStack.isEmpty())
+        World world = context.entity != null && context.entity.getWorld() != null
+            ? context.entity.getWorld()
+            : client.world;
+        BakedModel bakedModel = client.getItemRenderer().getModels().getModel(itemStack);
+
+        if (bakedModel != null)
+        {
+            ClientWorld clientWorld = world instanceof ClientWorld typed ? typed : null;
+
+            bakedModel = bakedModel.getOverrides().apply(bakedModel, itemStack, clientWorld, null, 0);
+        }
+
+        if (bakedModel == null)
         {
             return false;
         }
 
-        boolean isDropped = context.type == FormRenderType.ITEM;
-        boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
-
-        ItemModelResolver itemModelManager = client.getItemModelResolver();
-        ItemStackRenderState itemRenderState = new ItemStackRenderState();
-        itemModelManager.updateForTopItem(itemRenderState, itemStack, mode, client.level, null, 0);
-
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
+        boolean isDropped = context.type == FormRenderType.ITEM;
+        boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
+        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
 
         active = true;
         deferFlush = flushOnce;
-        cachedRenderState = itemRenderState;
+        cachedModel = bakedModel;
 
         if (flushOnce)
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                BBSRendering.enableBlend();
-                BBSRendering.defaultBlendFunc();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
             });
         }
 
@@ -134,11 +142,11 @@ public final class ItemBodyPartBatch
                 }
 
                 context.entity = part.useTarget.get() ? oldEntity : part.getEntity();
-                context.stack.pushPose();
+                context.stack.push();
 
                 if (context.world != null)
                 {
-                    context.world.pushPose();
+                    context.world.push();
                 }
 
                 try
@@ -162,12 +170,8 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(context.color);
                     BlockFormRenderer.color.mul(item.color.get());
 
-                    FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-                    cachedRenderState.submit(context.stack, dispatcher.getSubmitNodeStorage(), context.light, context.overlay, 0);
-                    if (!flushOnce)
-                    {
-                        dispatcher.renderAllFeatures();
-                    }
+                    consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
+                    client.getItemRenderer().renderItem(itemStack, mode, leftHand, context.stack, consumers, context.light, context.overlay, bakedModel);
 
                     if (context.isPicking())
                     {
@@ -176,11 +180,11 @@ public final class ItemBodyPartBatch
                 }
                 finally
                 {
-                    context.stack.popPose();
+                    context.stack.pop();
 
                     if (context.world != null)
                     {
-                        context.world.popPose();
+                        context.world.pop();
                     }
 
                     context.light = savedLight;
@@ -196,19 +200,17 @@ public final class ItemBodyPartBatch
 
             if (flushOnce)
             {
-                FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-                dispatcher.renderAllFeatures();
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
-                BBSRendering.defaultBlendFunc();
+                RenderSystem.defaultBlendFunc();
             }
 
             active = false;
             deferFlush = false;
-            cachedRenderState = null;
+            cachedModel = null;
         }
 
-        BBSRendering.enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         return true;
     }
@@ -316,7 +318,7 @@ public final class ItemBodyPartBatch
 
     private static boolean isCompatible(ItemForm a, ItemForm b)
     {
-        if (!ItemStack.matches(a.stack.get(), b.stack.get()))
+        if (!ItemStack.areEqual(a.stack.get(), b.stack.get()))
         {
             return false;
         }

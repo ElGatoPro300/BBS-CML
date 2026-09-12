@@ -92,7 +92,7 @@ public class UIAnimationStatesOverlayPanel extends UIOverlayPanel
 
         this.id = new UITextbox((t) -> this.state.customId.set(t));
         this.main = new UIToggle(UIKeys.FORMS_EDITOR_STATES_MANAGER_MAIN, (b) -> this.state.main.set(b.getValue()));
-        this.keybind = new UIKeybind((kb) -> this.state.keybind.set(kb.getMainKey()));
+        this.keybind = new UIKeybind((keybind) -> this.state.keybind.set(keybind.getMainKey()));
         this.keybind.single();
         this.duration = new UITrackpad((v) -> this.state.duration.set(v.intValue())).integer().limit(0D);
         this.fadeIn = new UITrackpad((v) -> this.state.fadeIn.set(v.intValue())).integer().limit(0D);

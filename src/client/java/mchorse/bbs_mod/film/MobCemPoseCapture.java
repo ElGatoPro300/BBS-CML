@@ -14,10 +14,10 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -256,8 +256,8 @@ public class MobCemPoseCapture
 
             PoseTransform transform = pose.get(entry.getKey());
 
-            transform.rotate.set(part.xRot, part.yRot, part.zRot);
-            transform.pivot.set(part.x, part.y, part.z);
+            transform.rotate.set(part.pitch, part.yaw, part.roll);
+            transform.pivot.set(part.pivotX, part.pivotY, part.pivotZ);
             transform.scale.set(part.xScale, part.yScale, part.zScale);
         }
 
@@ -332,8 +332,8 @@ public class MobCemPoseCapture
             return true;
         }
 
-        InteractionHand hand = entity.getActiveHand();
-        EquipmentSlot slot = hand == InteractionHand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        Hand hand = entity.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
         ItemStack stack = entity.getEquipmentStack(slot);
 
         return ItemUseRenderState.getItemUseElapsed(entity, null, stack) > 0;

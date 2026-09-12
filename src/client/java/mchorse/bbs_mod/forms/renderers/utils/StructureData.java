@@ -3,29 +3,31 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.resources.Link;
 
-import net.minecraft.client.GraphicsPreset;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.block.AttachedStemBlock;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockEntityProvider;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.GrassBlock;
+import net.minecraft.block.LeavesBlock;
+import net.minecraft.block.LilyPadBlock;
+import net.minecraft.block.RedstoneWireBlock;
+import net.minecraft.block.StemBlock;
+import net.minecraft.block.VineBlock;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.GraphicsMode;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.fluid.Fluids;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.level.block.AttachedStemBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.EntityBlock;
-import net.minecraft.world.level.block.GrassBlock;
-import net.minecraft.world.level.block.LeavesBlock;
-import net.minecraft.world.level.block.LilyPadBlock;
-import net.minecraft.world.level.block.RedStoneWireBlock;
-import net.minecraft.world.level.block.StemBlock;
-import net.minecraft.world.level.block.VineBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.registry.Registries;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,9 +46,9 @@ public class StructureData
     {
         public final BlockState state;
         public final BlockPos pos;
-        public final CompoundTag nbt;
+        public final NbtCompound nbt;
 
-        public BlockEntry(BlockState state, BlockPos pos, CompoundTag nbt)
+        public BlockEntry(BlockState state, BlockPos pos, NbtCompound nbt)
         {
             this.state = state;
             this.pos = pos;
@@ -55,7 +57,6 @@ public class StructureData
     }
 
     private final List<BlockEntry> blocks = new ArrayList<>();
-    private final List<BlockEntry> staticBlocks = new ArrayList<>();
     private final List<BlockEntry> animatedBlocks = new ArrayList<>();
     private final List<BlockEntry> biomeTintedBlocks = new ArrayList<>();
     private final List<BlockEntry> translucentBlocks = new ArrayList<>();
@@ -63,7 +64,7 @@ public class StructureData
 
     private String lastFile = null;
 
-    private BlockPos size = BlockPos.ZERO;
+    private BlockPos size = BlockPos.ORIGIN;
     private BlockPos boundsMin = null;
     private BlockPos boundsMax = null;
 
@@ -89,11 +90,6 @@ public class StructureData
     public List<BlockEntry> getAnimatedBlocks()
     {
         return this.animatedBlocks;
-    }
-
-    public List<BlockEntry> getStaticBlocks()
-    {
-        return this.staticBlocks;
     }
 
     public List<BlockEntry> getBiomeTintedBlocks()
@@ -192,11 +188,10 @@ public class StructureData
     {
         this.blocks.clear();
         this.animatedBlocks.clear();
-        this.staticBlocks.clear();
         this.biomeTintedBlocks.clear();
         this.translucentBlocks.clear();
         this.blockEntitiesList.clear();
-        this.size = BlockPos.ZERO;
+        this.size = BlockPos.ORIGIN;
         this.boundsMin = null;
         this.boundsMax = null;
         this.hasTranslucentLayer = false;
@@ -232,7 +227,7 @@ public class StructureData
         {
             try
             {
-                CompoundTag root = NbtIo.readCompressed(nbtFile.toPath(), NbtAccounter.unlimitedHeap());
+                NbtCompound root = NbtIo.readCompressed(nbtFile);
                 this.parseStructure(root);
                 return true;
             }
@@ -246,7 +241,7 @@ public class StructureData
         {
             try
             {
-                CompoundTag root = NbtIo.readCompressed(is, NbtAccounter.unlimitedHeap());
+                NbtCompound root = NbtIo.readCompressed(is);
                 this.parseStructure(root);
                 return true;
             }
@@ -263,11 +258,11 @@ public class StructureData
         return true;
     }
 
-    private void parseStructure(CompoundTag root)
+    private void parseStructure(NbtCompound root)
     {
-        if (root.contains("size"))
+        if (root.contains("size", NbtElement.INT_ARRAY_TYPE))
         {
-            int[] sz = root.getIntArray("size").orElse(new int[0]);
+            int[] sz = root.getIntArray("size");
 
             if (sz.length >= 3)
             {
@@ -277,19 +272,19 @@ public class StructureData
 
         List<BlockState> paletteStates = new ArrayList<>();
 
-        if (root.contains("palette"))
+        if (root.contains("palette", NbtElement.LIST_TYPE))
         {
-            ListTag palette = root.getListOrEmpty("palette");
+            NbtList palette = root.getList("palette", NbtElement.COMPOUND_TYPE);
 
             for (int i = 0; i < palette.size(); i++)
             {
-                CompoundTag entry = palette.getCompoundOrEmpty(i);
+                NbtCompound entry = palette.getCompound(i);
                 BlockState state = this.readBlockState(entry);
                 paletteStates.add(state);
             }
         }
 
-        if (root.contains("blocks"))
+        if (root.contains("blocks", NbtElement.LIST_TYPE))
         {
             int minX = Integer.MAX_VALUE;
             int minY = Integer.MAX_VALUE;
@@ -297,15 +292,15 @@ public class StructureData
             int maxX = Integer.MIN_VALUE;
             int maxY = Integer.MIN_VALUE;
             int maxZ = Integer.MIN_VALUE;
-            ListTag list = root.getListOrEmpty("blocks");
+            NbtList list = root.getList("blocks", NbtElement.COMPOUND_TYPE);
 
             StructureData.syncFancyGraphicsFromOptions();
 
             for (int i = 0; i < list.size(); i++)
             {
-                CompoundTag be = list.getCompoundOrEmpty(i);
-                BlockPos pos = this.readBlockPos(be.getListOrEmpty("pos"));
-                int stateIndex = be.getIntOr("state", 0);
+                NbtCompound be = list.getCompound(i);
+                BlockPos pos = this.readBlockPos(be.getList("pos", NbtElement.INT_TYPE));
+                int stateIndex = be.getInt("state");
 
                 if (stateIndex >= 0 && stateIndex < paletteStates.size())
                 {
@@ -316,20 +311,14 @@ public class StructureData
                         continue;
                     }
 
-                    CompoundTag nbt = be.contains("nbt") ? be.getCompoundOrEmpty("nbt") : null;
+                    NbtCompound nbt = be.contains("nbt", NbtElement.COMPOUND_TYPE) ? be.getCompound("nbt") : null;
                     BlockEntry blockEntry = new BlockEntry(state, pos, nbt);
 
                     this.blocks.add(blockEntry);
 
-                    /* These blocks formerly existed only in the raw VAO. Keep a separate
-                     * group so the modern base pass does not duplicate special layers. */
-                    if (!StructureData.isAnimatedTexture(state) && !StructureData.isBiomeTinted(state)
-                        && !StructureData.isTranslucentBlock(state))
-                    {
-                        this.staticBlocks.add(blockEntry);
-                    }
+                    RenderLayer baseLayer = RenderLayers.getBlockLayer(state);
 
-                    if (!state.canOcclude())
+                    if (baseLayer == RenderLayer.getCutout() || baseLayer == RenderLayer.getCutoutMipped())
                     {
                         this.hasCutoutLayer = true;
                     }
@@ -357,7 +346,7 @@ public class StructureData
                         this.hasTranslucentLayer = true;
                     }
 
-                    if (state.getBlock() instanceof EntityBlock)
+                    if (state.getBlock() instanceof BlockEntityProvider)
                     {
                         this.blockEntitiesList.add(blockEntry);
                         this.hasBlockEntityLayer = true;
@@ -403,26 +392,26 @@ public class StructureData
         }
     }
 
-    private BlockPos readBlockPos(ListTag list)
+    private BlockPos readBlockPos(NbtList list)
     {
         if (list == null || list.size() < 3)
         {
-            return BlockPos.ZERO;
+            return BlockPos.ORIGIN;
         }
 
-        return new BlockPos(list.getIntOr(0, 0), list.getIntOr(1, 0), list.getIntOr(2, 0));
+        return new BlockPos(list.getInt(0), list.getInt(1), list.getInt(2));
     }
 
-    private BlockState readBlockState(CompoundTag entry)
+    private BlockState readBlockState(NbtCompound entry)
     {
-        String name = entry.getStringOr("Name", "");
+        String name = entry.getString("Name");
         Block block;
         BlockState state;
 
         try
         {
-            Identifier id = Identifier.parse(name);
-            block = BuiltInRegistries.BLOCK.getValue(id);
+            Identifier id = new Identifier(name);
+            block = Registries.BLOCK.get(id);
 
             if (block == null)
             {
@@ -436,23 +425,23 @@ public class StructureData
 
         if ("minecraft:jigsaw".equals(name) || block == Blocks.JIGSAW)
         {
-            return Blocks.AIR.defaultBlockState();
+            return Blocks.AIR.getDefaultState();
         }
 
-        state = block.defaultBlockState();
+        state = block.getDefaultState();
 
-        if (entry.contains("Properties"))
+        if (entry.contains("Properties", NbtElement.COMPOUND_TYPE))
         {
-            CompoundTag props = entry.getCompoundOrEmpty("Properties");
+            NbtCompound props = entry.getCompound("Properties");
 
-            for (String key : props.keySet())
+            for (String key : props.getKeys())
             {
-                String value = props.getStringOr(key, "");
-                Property<?> property = block.getStateDefinition().getProperty(key);
+                String value = props.getString(key);
+                Property<?> property = block.getStateManager().getProperty(key);
 
                 if (property != null)
                 {
-                    Optional<?> parsed = property.getValue(value);
+                    Optional<?> parsed = property.parse(value);
 
                     if (parsed.isPresent())
                     {
@@ -462,7 +451,7 @@ public class StructureData
                             Property raw = property;
                             @SuppressWarnings("unchecked")
                             Comparable c = (Comparable) parsed.get();
-                            state = state.setValue(raw, c);
+                            state = state.with(raw, c);
                         }
                         catch (Exception ignored)
                         {
@@ -483,7 +472,11 @@ public class StructureData
             return false;
         }
 
-        return state.propagatesSkylightDown();
+        RenderLayer layer = RenderLayers.getBlockLayer(state);
+
+        return layer == RenderLayer.getTranslucent()
+            || layer == RenderLayer.getTranslucentMovingBlock()
+            || layer == RenderLayer.getTripwire();
     }
 
     public static boolean isAnimatedTexture(BlockState state)
@@ -493,7 +486,7 @@ public class StructureData
             return false;
         }
 
-        if (state.is(Blocks.NETHER_PORTAL) || state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE))
+        if (state.isOf(Blocks.NETHER_PORTAL) || state.isOf(Blocks.FIRE) || state.isOf(Blocks.SOUL_FIRE))
         {
             return true;
         }
@@ -502,8 +495,8 @@ public class StructureData
 
         if (fs != null)
         {
-            if (fs.getType() == Fluids.WATER || fs.getType() == Fluids.FLOWING_WATER ||
-                fs.getType() == Fluids.LAVA || fs.getType() == Fluids.FLOWING_LAVA)
+            if (fs.getFluid() == Fluids.WATER || fs.getFluid() == Fluids.FLOWING_WATER ||
+                fs.getFluid() == Fluids.LAVA || fs.getFluid() == Fluids.FLOWING_LAVA)
             {
                 return true;
             }
@@ -525,21 +518,21 @@ public class StructureData
             || (b instanceof GrassBlock)
             || (b instanceof VineBlock)
             || (b instanceof LilyPadBlock)
-            || (b instanceof RedStoneWireBlock)
+            || (b instanceof RedstoneWireBlock)
             || (b instanceof StemBlock)
             || (b instanceof AttachedStemBlock)
-            || state.is(Blocks.FERN)
-            || state.is(Blocks.SUGAR_CANE)
-            || state.is(Blocks.SHORT_GRASS)
-            || state.is(Blocks.TALL_GRASS)
-            || state.is(Blocks.LARGE_FERN);
+            || state.isOf(Blocks.FERN)
+            || state.isOf(Blocks.SUGAR_CANE)
+            || state.isOf(Blocks.GRASS)
+            || state.isOf(Blocks.TALL_GRASS)
+            || state.isOf(Blocks.LARGE_FERN);
     }
 
     public static boolean isFancyGraphicsEnabled()
     {
         try
         {
-            return Minecraft.getInstance().options.graphicsPreset().get() != GraphicsPreset.FAST;
+            return MinecraftClient.getInstance().options.getGraphicsMode().getValue() != GraphicsMode.FAST;
         }
         catch (Throwable ignored)
         {
@@ -549,6 +542,13 @@ public class StructureData
 
     public static void syncFancyGraphicsFromOptions()
     {
-        /* 1.21.11: RenderLayers option sync no longer required */
+        try
+        {
+            RenderLayers.setFancyGraphicsOrBetter(StructureData.isFancyGraphicsEnabled());
+        }
+        catch (Throwable ignored)
+        {
+            /* Ignore option sync errors */
+        }
     }
 }

@@ -5,15 +5,10 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.BlockItemStateProperties;
-
-import org.joml.Matrix3x2fStack;
-
-import java.util.Map;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 
 public class LightFormRenderer extends FormRenderer<LightForm>
 {
@@ -22,26 +17,22 @@ public class LightFormRenderer extends FormRenderer<LightForm>
     public LightFormRenderer(LightForm form)
     {
         super(form);
-        this.stack = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("minecraft", "light")));
-    }
-
-    @Override
-    public boolean is3D()
-    {
-        return false;
+        this.stack = new ItemStack(Items.LIGHT);
     }
 
     @Override
     protected void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        context.batcher.flush();
+        context.batcher.getContext().draw();
 
         int level = Math.max(0, Math.min(15, this.form.level.get()));
         ItemStack stack = this.stack.copy();
 
         if (!stack.isEmpty())
         {
-            stack.set(DataComponents.BLOCK_STATE, new BlockItemStateProperties(Map.of("level", Integer.toString(level))));
+            NbtCompound blockStateTag = new NbtCompound();
+            blockStateTag.putString("level", Integer.toString(level));
+            stack.getOrCreateNbt().put("BlockStateTag", blockStateTag);
         }
 
         if (stack.isEmpty())
@@ -50,7 +41,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         }
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        Matrix3x2fStack matrices = context.batcher.getContext().pose();
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
 
         float cellW = x2 - x1;
         float cellH = y2 - y1;
@@ -58,15 +49,15 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         float centerX = x1 + cellW / 2F;
         float centerY = y1 + cellH / 2F;
 
-        matrices.pushMatrix();
-        matrices.translate(centerX, centerY);
-        matrices.scale(scale, scale);
+        matrices.push();
+        matrices.translate(centerX, centerY, 0F);
+        matrices.scale(scale, scale, 1F);
 
         consumers.setUI(true);
-        context.batcher.getContext().item(stack, -8, -8);
-        context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, -8, -8);
+        context.batcher.getContext().drawItem(stack, -8, -8);
+        context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, -8, -8);
         consumers.setUI(false);
-        matrices.popMatrix();
+        matrices.pop();
     }
 
     @Override

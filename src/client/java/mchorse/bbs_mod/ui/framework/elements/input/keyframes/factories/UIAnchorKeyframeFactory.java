@@ -161,22 +161,22 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
 
     private void setActor(int actor)
     {
-        BaseValue.edit(this.keyframe, (val) -> val.getValue().replay = actor);
+        BaseValue.edit(this.keyframe, (value) -> value.getValue().replay = actor);
     }
 
     private void setAttachment(String attachment)
     {
-        BaseValue.edit(this.keyframe, (val) -> val.getValue().attachment = attachment);
+        BaseValue.edit(this.keyframe, (value) -> value.getValue().attachment = attachment);
     }
 
     private void setTranslate(boolean translate)
     {
-        BaseValue.edit(this.keyframe, (val) -> val.getValue().translate = translate);
+        BaseValue.edit(this.keyframe, (value) -> value.getValue().translate = translate);
     }
 
     private void setScale(boolean scale)
     {
-        BaseValue.edit(this.keyframe, (val) -> val.getValue().scale = scale);
+        BaseValue.edit(this.keyframe, (value) -> value.getValue().scale = scale);
     }
 
     private UIFilmPanel getPanel()

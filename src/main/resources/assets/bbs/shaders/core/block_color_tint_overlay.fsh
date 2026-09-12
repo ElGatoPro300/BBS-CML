@@ -1,16 +1,47 @@
-#version 330
-
-#moj_import <bbs:model_effects.glsl>
+#version 150
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler3;
 
+uniform mat4 ColorEffectInverse;
+uniform float ColorEffectActive;
+uniform vec3 ColorMaskHalf;
+uniform float ColorMaskBottomAnchored;
+uniform float ColorMaskShape;
+uniform vec4 FormColorTint;
 /* brightness, contrast, hue degrees, saturation — same layout as model FormColorGrade. */
+uniform vec4 FormColorGrade;
+uniform float ColorGradeActive;
 
+uniform mat4 GradeBrightnessInverse;
+uniform float GradeBrightnessActive;
+uniform vec3 GradeBrightnessHalf;
+uniform float GradeBrightnessBottomAnchored;
+uniform float GradeBrightnessShape;
 
+uniform mat4 GradeContrastInverse;
+uniform float GradeContrastActive;
+uniform vec3 GradeContrastHalf;
+uniform float GradeContrastBottomAnchored;
+uniform float GradeContrastShape;
 
+uniform mat4 GradeHueInverse;
+uniform float GradeHueActive;
+uniform vec3 GradeHueHalf;
+uniform float GradeHueBottomAnchored;
+uniform float GradeHueShape;
 
+uniform mat4 GradeSaturationInverse;
+uniform float GradeSaturationActive;
+uniform vec3 GradeSaturationHalf;
+uniform float GradeSaturationBottomAnchored;
+uniform float GradeSaturationShape;
 
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
+
+in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
@@ -214,32 +245,16 @@ void main()
         discard;
     }
 
-    /* Regrade already-lit framebuffer pixels — keeps shading; each grade channel has its own Shape/Transform. */
-    if (ColorGradeActive > 0.5)
-    {
-        float blendMask = bbsPaintEffectMask(formRootPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
-        ivec2 sceneSize = textureSize(Sampler3, 0);
-        vec2 sceneUv = clamp(gl_FragCoord.xy / vec2(max(sceneSize, ivec2(1))), vec2(0.0), vec2(1.0));
-        vec3 lit = textureLod(Sampler3, sceneUv, 0.0).rgb;
-        vec3 graded = bbsApplyFormColorGrade(lit, formRootPos);
-        vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, blendMask);
+    float blendMask = bbsPaintEffectMask(formRootPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
+    float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+    blendMask *= 1.0 - fogValue * FogColor.a;
+    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, blendMask * clamp(FormColorTint.a, 0.0, 1.0));
 
-        fragColor = vec4(graded * tintRgb, 1.0);
+    ivec2 sceneSize = textureSize(Sampler3, 0);
+    vec2 sceneUv = clamp(gl_FragCoord.xy / vec2(max(sceneSize, ivec2(1))), vec2(0.0), vec2(1.0));
+    vec3 lit = textureLod(Sampler3, sceneUv, 0.0).rgb;
+    vec3 tinted = lit * tintRgb;
+    vec3 graded = ColorGradeActive > 0.5 ? bbsApplyFormColorGrade(tinted, formRootPos) : tinted;
 
-        return;
-    }
-
-    float cmask = bbsPaintEffectMask(formRootPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
-
-    if (cmask < 0.001)
-    {
-        discard;
-    }
-
-    /* FormColorTint.a is traditional form opacity — fade mask tint with the form. */
-    float opacity = clamp(FormColorTint.a, 0.0, 1.0);
-    float strength = cmask * opacity;
-    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
-
-    fragColor = vec4(tintRgb, 1.0);
+    fragColor = vec4(mix(tinted, graded, 1.0 - fogValue * FogColor.a), 1.0);
 }

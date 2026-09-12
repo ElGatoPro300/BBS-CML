@@ -14,13 +14,13 @@ import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.WalkAnimationState;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LimbAnimator;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.List;
 
@@ -196,7 +196,7 @@ public final class MorphMountSync
                 if (riderRender.getVehicle() != mountRender)
                 {
                     riderRender.stopRiding();
-                    riderRender.startRiding(mountRender);
+                    riderRender.startRiding(mountRender, true);
                 }
             }
 
@@ -292,7 +292,7 @@ public final class MorphMountSync
      */
     private static double[] worldOffsetToLocal(double worldX, double worldZ, float bodyYaw)
     {
-        float rad = bodyYaw * Mth.DEG_TO_RAD;
+        float rad = bodyYaw * MathHelper.RADIANS_PER_DEGREE;
         double sin = Math.sin(rad);
         double cos = Math.cos(rad);
         double localRight = worldX * cos + worldZ * sin;
@@ -303,7 +303,7 @@ public final class MorphMountSync
 
     private static double[] localOffsetToWorld(double localRight, double localForward, float bodyYaw)
     {
-        float rad = bodyYaw * Mth.DEG_TO_RAD;
+        float rad = bodyYaw * MathHelper.RADIANS_PER_DEGREE;
         double sin = Math.sin(rad);
         double cos = Math.cos(rad);
         double worldX = localRight * cos - localForward * sin;
@@ -340,7 +340,7 @@ public final class MorphMountSync
 
         if (mountTarget == null)
         {
-            if (rider.isPassenger())
+            if (rider.hasVehicle())
             {
                 rider.stopRiding();
             }
@@ -358,10 +358,10 @@ public final class MorphMountSync
         if (rider.getVehicle() != vehicle)
         {
             rider.stopRiding();
-            rider.startRiding(vehicle);
+            rider.startRiding(vehicle, true);
         }
 
-        rider.setDeltaMovement(0D, 0D, 0D);
+        rider.setVelocity(0D, 0D, 0D);
         rider.setSprinting(false);
         rider.fallDistance = 0F;
 
@@ -378,7 +378,7 @@ public final class MorphMountSync
             return;
         }
 
-        WalkAnimationState limbAnimator = entity.getLimbAnimator();
+        LimbAnimator limbAnimator = entity.getLimbAnimator();
 
         if (limbAnimator instanceof LimbAnimatorAccessor accessor)
         {
@@ -394,7 +394,7 @@ public final class MorphMountSync
             return;
         }
 
-        WalkAnimationState limbAnimator = living.walkAnimation;
+        LimbAnimator limbAnimator = living.limbAnimator;
 
         if (limbAnimator instanceof LimbAnimatorAccessor accessor)
         {
@@ -415,15 +415,15 @@ public final class MorphMountSync
             }
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientPlayerEntity player = mc.player;
 
-        if (player == null || !player.isPassenger())
+        if (player == null || !player.hasVehicle())
         {
             return null;
         }
 
-        if (entity instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof Player)
+        if (entity instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof PlayerEntity)
         {
             return player.getVehicle();
         }

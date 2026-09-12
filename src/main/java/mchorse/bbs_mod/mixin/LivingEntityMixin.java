@@ -5,37 +5,33 @@ import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.network.ServerNetwork;
 
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityDimensions;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
 public class LivingEntityMixin
 {
     /**
-     * Record the amount passed into {@link LivingEntity#hurtServer} after a successful
+     * Record the amount passed into {@link LivingEntity#damage} after a successful
      * hit. That value already includes vanilla attack cooldown, critical hits,
      * strength, and weapon enchants — do <b>not</b> replace it with full weapon
      * damage ({@link AttackDamage#fromAttacker}), or spam-clicks replay as full hits.
      */
-    @Inject(method = "hurtServer", at = @At("RETURN"))
-    private void onDamage(ServerLevel world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
+    @Inject(method = "damage", at = @At("RETURN"))
+    private void onDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
     {
         if (!Boolean.TRUE.equals(info.getReturnValue()))
         {
@@ -43,14 +39,14 @@ public class LivingEntityMixin
         }
 
         LivingEntity target = (LivingEntity) (Object) this;
-        Entity attacker = source.getEntity();
+        Entity attacker = source.getAttacker();
 
         /* Player melee → ActionRecorder on the player replay (existing path). */
-        if (source.isDirect() && attacker instanceof ServerPlayer player)
+        if (source.getSource() == source.getAttacker() && attacker instanceof ServerPlayerEntity player)
         {
             float recorded = amount;
 
-            if (AttackDamage.isMobKiller(player.getMainHandItem()))
+            if (AttackDamage.isMobKiller(player.getMainHandStack()))
             {
                 recorded = AttackDamage.MOB_KILLER_DAMAGE;
             }
@@ -82,7 +78,7 @@ public class LivingEntityMixin
         }
 
         /* Mob autocapture combat clips (client places them on captured replays). */
-        if (!(target.level() instanceof ServerLevel serverWorld))
+        if (!(target.getWorld() instanceof ServerWorld serverWorld))
         {
             return;
         }
@@ -95,13 +91,13 @@ public class LivingEntityMixin
         float recorded = Math.max(0F, amount);
         byte kind;
         int sourceEntityId = -1;
-        Entity sourceEntity = source.getDirectEntity();
+        Entity sourceEntity = source.getSource();
 
-        if (source.is(DamageTypes.THORNS))
+        if (source.isOf(DamageTypes.THORNS))
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
         }
-        else if (sourceEntity instanceof Projectile projectile)
+        else if (sourceEntity instanceof ProjectileEntity projectile)
         {
             Entity owner = projectile.getOwner();
 
@@ -115,7 +111,7 @@ public class LivingEntityMixin
                 kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
             }
         }
-        else if (source.isDirect() && attacker instanceof LivingEntity)
+        else if (source.getSource() == attacker && attacker instanceof LivingEntity)
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
             sourceEntityId = attacker.getId();
@@ -127,30 +123,5 @@ public class LivingEntityMixin
         }
 
         BBSMod.getActions().broadcastMobCombatHit(serverWorld, target.getId(), sourceEntityId, recorded, kind);
-    }
-
-    @Inject(method = "getDefaultDimensions", at = @At("RETURN"), cancellable = true)
-    public void onGetBaseDimensions(Pose pose, CallbackInfoReturnable<EntityDimensions> info)
-    {
-        if (this instanceof IMorphProvider provider)
-        {
-            Form form = provider.getMorph().getForm();
-
-            if (form != null && form.hitbox.get())
-            {
-                LivingEntity entity = (LivingEntity) (Object) this;
-                EntityDimensions dimensions = info.getReturnValue();
-                float height = form.hitboxHeight.get() * (entity.isShiftKeyDown() ? form.hitboxSneakMultiplier.get() : 1F);
-                /* 1.21+ stores eye height on EntityDimensions; Camera/F3+B use standingEyeHeight
-                 * from dimensions.eyeHeight(), not Entity.getEyeHeight(pose). fixed/changing()
-                 * only bake the default (~0.85 * height), so form.hitboxEyeHeight must be applied. */
-                float eyeHeight = form.hitboxEyeHeight.get() * height;
-                EntityDimensions shaped = dimensions.fixed()
-                    ? EntityDimensions.fixed(form.hitboxWidth.get(), height)
-                    : EntityDimensions.scalable(form.hitboxWidth.get(), height);
-
-                info.setReturnValue(shaped.withEyeHeight(eyeHeight));
-            }
-        }
     }
 }

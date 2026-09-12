@@ -29,7 +29,7 @@ import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
@@ -240,7 +240,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
 
                 prefetchImages(this.entries);
 
-                Minecraft.getInstance().execute(() ->
+                MinecraftClient.getInstance().execute(() ->
                 {
                     updateIcon();
                     this.populate();
@@ -254,7 +254,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
             catch (Exception e)
             {
                 LOGGER.debug("Failed to reload news entries", e);
-                Minecraft.getInstance().execute(this::populate);
+                MinecraftClient.getInstance().execute(this::populate);
             }
         });
     }
@@ -281,7 +281,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
 
             PriorityAnnouncement finalAnnouncement = announcement;
 
-            Minecraft.getInstance().execute(() ->
+            MinecraftClient.getInstance().execute(() ->
             {
                 sessionPriorityFetchDone = true;
 
@@ -533,7 +533,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
                         return;
                     }
 
-                    Minecraft.getInstance().execute(() ->
+                    RenderSystem.recordRenderCall(() ->
                     {
                         try
                         {

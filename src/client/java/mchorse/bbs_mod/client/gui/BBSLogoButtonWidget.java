@@ -1,22 +1,29 @@
 package mchorse.bbs_mod.client.gui;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.network.chat.CommonComponents;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
-public class BBSLogoButtonWidget extends Button
+import com.mojang.blaze3d.systems.RenderSystem;
+
+public class BBSLogoButtonWidget extends ButtonWidget
 {
-    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("bbs", "textures/gui/cml_icon.png");
+    private static final Identifier LOGO = new Identifier("bbs", "textures/gui/cml_icon.png");
 
-    public BBSLogoButtonWidget(int x, int y, int width, int height, Button.OnPress onPress)
+    public BBSLogoButtonWidget(int x, int y, int width, int height, PressAction onPress)
     {
-        super(x, y, width, height, CommonComponents.EMPTY, onPress, DEFAULT_NARRATION);
+        super(x, y, width, height, Text.empty(), onPress, DEFAULT_NARRATION_SUPPLIER);
+    }
+
+    public void setSize(int size)
+    {
+        this.setWidth(size);
+        this.height = size;
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta)
+    public void renderButton(DrawContext context, int mouseX, int mouseY, float delta)
     {
         int x1 = this.getX();
         int y1 = this.getY();
@@ -32,13 +39,21 @@ public class BBSLogoButtonWidget extends Button
             borderColor = 0xFF18181F;
         }
 
+        /* Border and background fill */
         context.fill(x1, y1, x2, y2, borderColor);
         context.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, bgColor);
 
+        /* Icon rendering with blend enabled */
         int logoSize = Math.min(this.width, this.height) - 6;
         int logoX = x1 + (this.width - logoSize) / 2;
         int logoY = y1 + (this.height - logoSize) / 2;
 
-        context.blit(RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        context.drawTexture(LOGO, logoX, logoY, 0, 0, logoSize, logoSize, logoSize, logoSize);
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 }

@@ -23,13 +23,13 @@ public class UIBreakBlockActionClip extends UIActionClip<BreakBlockActionClip>
     {
         super.registerUI();
 
-        this.x = new UITrackpad((v) -> this.editor.editMultiple(this.clip.x, (val) -> val.set(v.intValue())));
+        this.x = new UITrackpad((v) -> this.editor.editMultiple(this.clip.x, (x) -> x.set(v.intValue())));
         this.x.integer();
-        this.y = new UITrackpad((v) -> this.editor.editMultiple(this.clip.y, (val) -> val.set(v.intValue())));
+        this.y = new UITrackpad((v) -> this.editor.editMultiple(this.clip.y, (y) -> y.set(v.intValue())));
         this.y.integer();
-        this.z = new UITrackpad((v) -> this.editor.editMultiple(this.clip.z, (val) -> val.set(v.intValue())));
+        this.z = new UITrackpad((v) -> this.editor.editMultiple(this.clip.z, (z) -> z.set(v.intValue())));
         this.z.integer();
-        this.progress = new UITrackpad((v) -> this.editor.editMultiple(this.clip.progress, (val) -> val.set(v.intValue())));
+        this.progress = new UITrackpad((v) -> this.editor.editMultiple(this.clip.progress, (progress) -> progress.set(v.intValue())));
         this.progress.integer();
     }
 

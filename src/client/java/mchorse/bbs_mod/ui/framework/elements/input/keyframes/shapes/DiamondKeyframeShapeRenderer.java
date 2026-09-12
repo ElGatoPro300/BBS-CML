@@ -6,9 +6,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import org.joml.Matrix3x2fc;
+import net.minecraft.client.render.BufferBuilder;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.joml.Matrix4f;
 
 public class DiamondKeyframeShapeRenderer implements IKeyframeShapeRenderer
 {
@@ -25,13 +25,13 @@ public class DiamondKeyframeShapeRenderer implements IKeyframeShapeRenderer
     }
 
     @Override
-    public void renderKeyframe(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public void renderKeyframe(UIContext uiContext, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
-        float fOffset = offset * 1.3F;
+        float fOffset = offset * 1.5F;
 
-        builder.addVertexWith2DPose(matrix, x, y - fOffset).setColor(c);
-        builder.addVertexWith2DPose(matrix, x - fOffset, y).setColor(c);
-        builder.addVertexWith2DPose(matrix, x, y + fOffset).setColor(c);
-        builder.addVertexWith2DPose(matrix, x + fOffset, y).setColor(c);
+        builder.vertex(matrix, x, y - fOffset, 0F).color(c).next();
+        builder.vertex(matrix, x - fOffset, y, 0F).color(c).next();
+        builder.vertex(matrix, x, y + fOffset, 0F).color(c).next();
+        builder.vertex(matrix, x + fOffset, y, 0F).color(c).next();
     }
 }

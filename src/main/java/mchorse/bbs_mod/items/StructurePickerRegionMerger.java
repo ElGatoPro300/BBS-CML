@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.HashSet;

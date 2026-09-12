@@ -18,7 +18,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -195,7 +195,7 @@ public class SubtitleClip extends CameraClip
         for (Keyframe<Double> keyframe : channel.getKeyframes())
         {
             double value = keyframe.getValue();
-            double clamped = Mth.clamp(value, min, max);
+            double clamped = MathHelper.clamp(value, min, max);
 
             if (clamped != value)
             {

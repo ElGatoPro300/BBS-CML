@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.cubic.render.vao;
 
-import org.joml.Matrix4fc;
-import org.joml.Vector4f;
+import net.minecraft.client.render.VertexConsumer;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,46 +43,29 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer addVertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
-        this.vx = x;
-        this.vy = y;
-        this.vz = z;
+        this.vx = (float) x;
+        this.vy = (float) y;
+        this.vz = (float) z;
         return this;
     }
 
     @Override
-    public VertexConsumer setLineWidth(float width)
+    public void next()
     {
-        return this;
+        /* no-op */
     }
 
     @Override
-    public VertexConsumer addVertex(Matrix4fc matrix, float x, float y, float z)
-    {
-        Vector4f v = new Vector4f(x, y, z, 1F);
-        v.mul(matrix);
-        this.vx = v.x;
-        this.vy = v.y;
-        this.vz = v.z;
-        return this;
-    }
-
-    @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         /* Per-vertex color is not used; global color is provided via shader attribute. */
         return this;
     }
 
     @Override
-    public VertexConsumer setColor(int argb)
-    {
-        return this;
-    }
-
-    @Override
-    public VertexConsumer setUv(float u, float v)
+    public VertexConsumer texture(float u, float v)
     {
         this.vu = u;
         this.vv = v;
@@ -90,21 +73,21 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer setUv1(int u, int v)
+    public VertexConsumer overlay(int u, int v)
     {
         /* Overlay provided via shader attribute; ignore per-vertex overlay. */
         return this;
     }
 
     @Override
-    public VertexConsumer setUv2(int u, int v)
+    public VertexConsumer light(int u, int v)
     {
         /* Lightmap provided via shader attribute; ignore per-vertex light. */
         return this;
     }
 
     @Override
-    public VertexConsumer setNormal(float x, float y, float z)
+    public VertexConsumer normal(float x, float y, float z)
     {
         this.vnx = x;
         this.vny = y;
@@ -124,6 +107,20 @@ public class StructureVAOCollector implements VertexConsumer
 
         if (this.quadIndex == 4)
         {
+            /* Calculate quad UV center */
+            float uMid = (this.quad[0].u + this.quad[1].u + this.quad[2].u + this.quad[3].u) * 0.25F;
+            float vMid = (this.quad[0].v + this.quad[1].v + this.quad[2].v + this.quad[3].v) * 0.25F;
+
+            /* Inset quad UVs by a small sub-texel delta (~0.25 texels of a standard 16x16 block sprite)
+             * to prevent sub-texel texture atlas mipmap bleeding at distance when sampled with trilinear filtering. */
+            float delta = 1F / 32F;
+
+            for (int i = 0; i < 4; i++)
+            {
+                this.quad[i].u += (uMid - this.quad[i].u) * delta;
+                this.quad[i].v += (vMid - this.quad[i].v) * delta;
+            }
+
             /* Triangulate quad: (0,1,2) and (0,2,3) */
             this.emitTriangle(this.quad[0], this.quad[1], this.quad[2]);
             this.emitTriangle(this.quad[0], this.quad[2], this.quad[3]);

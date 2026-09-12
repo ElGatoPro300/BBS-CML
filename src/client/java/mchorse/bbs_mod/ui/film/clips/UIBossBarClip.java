@@ -21,7 +21,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -177,7 +177,7 @@ public class UIBossBarClip extends UIClip<BossBarClip>
 
     private int getClipTick()
     {
-        return Mth.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
+        return MathHelper.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
     }
 
     @Override

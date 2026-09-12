@@ -37,7 +37,6 @@ import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
@@ -122,18 +121,24 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Vec3d;
 
-import org.joml.Matrix3x2fc;
 import org.joml.Matrix4f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -995,7 +1000,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             menu.action(Icons.LINE, UIKeys.FILM_REPLACE_INVENTORY, () ->
             {
-                BaseValue.edit(this.getData().inventory, (val) -> val.fromPlayer(Minecraft.getInstance().player));
+                BaseValue.edit(this.getData().inventory, (inv) -> inv.fromPlayer(MinecraftClient.getInstance().player));
             });
         };
 
@@ -6299,9 +6304,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         IdleClip clip = new IdleClip();
         Camera camera = new Camera();
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        camera.set(mc.player, MathUtils.toRad(mc.options.fov().get()));
+        camera.set(mc.player, MathUtils.toRad(mc.options.getFov().getValue()));
 
         clip.layer.set(8);
         clip.duration.set(BBSSettings.getDefaultDuration());
@@ -6327,7 +6332,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!this.isAllWorldsBrowseMode())
         {
             if (this.crossWorldPendingJoin == null
-                || WorldLaunchHelper.isCurrentWorld(Minecraft.getInstance(), this.crossWorldPendingJoin.worldFolder))
+                || WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder))
             {
                 if (this.crossWorldPendingJoin != null && data != null)
                 {
@@ -6829,11 +6834,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.data.totalTimeWorked.set(this.data.totalTimeWorked.get() + 1);
 
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (player != null)
         {
-            String name = player.getGameProfile().name();
+            String name = player.getGameProfile().getName();
             FilmContributor contributor = null;
 
             for (FilmContributor c : this.data.contributors.getList())
@@ -7074,19 +7079,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
 
         if (flight)
         {
             this.centerCursor(window);
-            GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+            GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
             this.dashboard.orbitUI.orbit.release();
         }
         else if (!this.controller.isControlling())
         {
-            GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
+            GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
             this.resetFreeFlightLookDrag = false;
             this.freeFlightLookPrimed = false;
             this.dashboard.orbitUI.orbit.release();
@@ -7100,26 +7105,26 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
 
-        if (GLFW.glfwGetInputMode(window.handle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
+        if (GLFW.glfwGetInputMode(window.getHandle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
         {
             this.centerCursor(window);
-            GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+            GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             return true;
         }
 
         return false;
     }
 
-    private void centerCursor(com.mojang.blaze3d.platform.Window window)
+    private void centerCursor(net.minecraft.client.util.Window window)
     {
-        mchorse.bbs_mod.graphics.window.Window.moveCursor(window.getScreenWidth() / 2, window.getScreenHeight() / 2);
+        mchorse.bbs_mod.graphics.window.Window.moveCursor(window.getWidth() / 2, window.getHeight() / 2);
     }
 
     private void updateFreeFlightLookFromRawCursor(boolean orbitFlight)
     {
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
 
         if (this.enforceFreeFlightMouseCapture())
         {
@@ -7129,7 +7134,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         double[] rawX = new double[1];
         double[] rawY = new double[1];
-        GLFW.glfwGetCursorPos(window.handle(), rawX, rawY);
+        GLFW.glfwGetCursorPos(window.getHandle(), rawX, rawY);
         int mouseX = (int) Math.round(rawX[0]);
         int mouseY = (int) Math.round(rawY[0]);
 
@@ -7223,7 +7228,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     }
 
     @Override
-    public void renderInWorld(LevelRenderContext context)
+    public void renderInWorld(WorldRenderContext context)
     {
         if (!this.needsViewportRender())
         {
@@ -7234,11 +7239,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (!BBSRendering.isIrisShadowPass())
         {
-            this.lastProjection.set(BBSRendering.projection);
-            PoseStack ms = context.poseStack();
+            this.lastProjection.set(RenderSystem.getProjectionMatrix());
+            MatrixStack ms = context.matrixStack();
             if (ms != null)
             {
-                this.lastView.set(ms.last().pose());
+                this.lastView.set(ms.peek().getPositionMatrix());
             }
             else
             {
@@ -7644,7 +7649,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         CrossWorldFilmScanner.scanAsync().whenComplete((entries, error) ->
         {
-            Minecraft.getInstance().execute(() ->
+            MinecraftClient.getInstance().execute(() ->
             {
                 this.crossWorldScanning = false;
                 this.crossWorldFilmEntries.clear();
@@ -7695,7 +7700,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        return !WorldLaunchHelper.isCurrentWorld(Minecraft.getInstance(), entry.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), entry.worldFolder);
     }
 
     private CrossWorldFilmEntry resolveCrossWorldEntryFromTab(String tabId)
@@ -7734,7 +7739,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        return !WorldLaunchHelper.isCurrentWorld(Minecraft.getInstance(), this.crossWorldPendingJoin.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder);
     }
 
     public boolean canShowJoinWorld()
@@ -7749,7 +7754,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        Minecraft client = Minecraft.getInstance();
+        MinecraftClient client = MinecraftClient.getInstance();
 
         return !WorldLaunchHelper.isCurrentWorld(client, this.crossWorldPendingJoin.worldFolder);
     }
@@ -8242,91 +8247,96 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         int segments = 40;
         float segW = editorW / (float) segments;
         
-        GuiQuadMesh mesh = new GuiQuadMesh();
-        Matrix3x2fc matrix = context.batcher.getContext().pose();
-
+        Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
         int[] cMid1 = new int[segments + 1];
-
+        
         float[] yBot2 = new float[segments + 1];
         float[] yMid2 = new float[segments + 1];
         int[] cMid2 = new int[segments + 1];
-
+        
         for (int i = 0; i <= segments; i++)
         {
             float nx = (float) i / segments;
-
+            
             float w1 = (float) Math.sin(tick * 1.2F + nx * 8F);
             float w2 = (float) Math.sin(tick * 0.7F + nx * 15F);
             float w3 = (float) Math.cos(tick * 0.4F - nx * 12F);
             float comb1 = (w1 + w2 + w3) / 3F;
-
+            
             float curtainYTop = editorY + editorH * 0.05F;
             float curtainYBot = editorY + editorH * 0.5F + comb1 * (editorH * 0.35F);
-
+            
             if (curtainYBot < curtainYTop + 10) curtainYBot = curtainYTop + 10;
-
+            
             float transitionY = curtainYBot - editorH * 0.3F;
             if (transitionY < curtainYTop) transitionY = curtainYTop;
-
+            
             yBot1[i] = curtainYBot;
             yMid1[i] = transitionY;
             cMid1[i] = Colors.setA(primary, 0.15F + Math.max(0, comb1) * 0.2F);
-
+            
             float w4 = (float) Math.sin(tick * 1.5F - nx * 10F);
             float w5 = (float) Math.cos(tick * 0.9F + nx * 18F);
             float comb2 = (w4 + w5) / 2F;
-
+            
             float curtain2YTop = editorY + editorH * 0.15F;
             float curtain2YBot = editorY + editorH * 0.75F + comb2 * (editorH * 0.25F);
-
+            
             if (curtain2YBot < curtain2YTop + 10) curtain2YBot = curtain2YTop + 10;
-
+            
             float transition2Y = curtain2YBot - editorH * 0.25F;
             if (transition2Y < curtain2YTop) transition2Y = curtain2YTop;
-
+            
             yBot2[i] = curtain2YBot;
             yMid2[i] = transition2Y;
             cMid2[i] = Colors.setA(Colors.mulRGB(primary, 0.8F), 0.1F + Math.max(0, comb2) * 0.15F);
         }
-
+        
         int colTop = Colors.setA(primary, 0.0F);
         int colBot = Colors.setA(primary, 0.0F);
         float yTop1 = editorY + editorH * 0.05F;
         float yTop2 = editorY + editorH * 0.15F;
-
+        
         for (int i = 0; i < segments; i++)
         {
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
-
-            /* Layer 1 - Upper Quad (yTop1 -> yMid1) */
-            mesh.addVertexWith2DPose(matrix, x1, yTop1).setColor(colTop);
-            mesh.addVertexWith2DPose(matrix, x1, yMid1[i]).setColor(cMid1[i]);
-            mesh.addVertexWith2DPose(matrix, x2, yMid1[i+1]).setColor(cMid1[i+1]);
-            mesh.addVertexWith2DPose(matrix, x2, yTop1).setColor(colTop);
-
-            /* Layer 1 - Lower Quad (yMid1 -> yBot1) */
-            mesh.addVertexWith2DPose(matrix, x1, yMid1[i]).setColor(cMid1[i]);
-            mesh.addVertexWith2DPose(matrix, x1, yBot1[i]).setColor(colBot);
-            mesh.addVertexWith2DPose(matrix, x2, yBot1[i+1]).setColor(colBot);
-            mesh.addVertexWith2DPose(matrix, x2, yMid1[i+1]).setColor(cMid1[i+1]);
-
-            /* Layer 2 - Upper Quad (yTop2 -> yMid2) */
-            mesh.addVertexWith2DPose(matrix, x1, yTop2).setColor(colTop);
-            mesh.addVertexWith2DPose(matrix, x1, yMid2[i]).setColor(cMid2[i]);
-            mesh.addVertexWith2DPose(matrix, x2, yMid2[i+1]).setColor(cMid2[i+1]);
-            mesh.addVertexWith2DPose(matrix, x2, yTop2).setColor(colTop);
-
-            /* Layer 2 - Lower Quad (yMid2 -> yBot2) */
-            mesh.addVertexWith2DPose(matrix, x1, yMid2[i]).setColor(cMid2[i]);
-            mesh.addVertexWith2DPose(matrix, x1, yBot2[i]).setColor(colBot);
-            mesh.addVertexWith2DPose(matrix, x2, yBot2[i+1]).setColor(colBot);
-            mesh.addVertexWith2DPose(matrix, x2, yMid2[i+1]).setColor(cMid2[i+1]);
+            
+            // Layer 1 - Upper Quad (yTop1 -> yMid1)
+            builder.vertex(matrix4f, x1, yTop1, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            builder.vertex(matrix4f, x2, yTop1, 0).color(colTop).next();
+            
+            // Layer 1 - Lower Quad (yMid1 -> yBot1)
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
+            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yBot1[i+1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            
+            // Layer 2 - Upper Quad (yTop2 -> yMid2)
+            builder.vertex(matrix4f, x1, yTop2, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
+            builder.vertex(matrix4f, x2, yTop2, 0).color(colTop).next();
+            
+            // Layer 2 - Lower Quad (yMid2 -> yBot2)
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
+            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yBot2[i+1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
         }
-
-        context.batcher.drawQuadMesh(mesh);
+        
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         UIHomePanel home = this.dashboard.getPanel(UIHomePanel.class);
         if (home != null)
@@ -9775,7 +9785,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 context.batcher.clip(this.area, context);
 
                 VideoRenderer.renderClip(
-                    new PoseStack(),
+                    context.batcher.getContext().getMatrices(),
                     context.batcher,
                     this.clip,
                     this.panel.getCursor(),

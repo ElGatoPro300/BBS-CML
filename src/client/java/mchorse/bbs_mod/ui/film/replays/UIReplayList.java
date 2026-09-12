@@ -75,14 +75,13 @@ import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -1116,7 +1115,7 @@ public class UIReplayList extends UIList<Replay> {
     }
 
     private void snapReplayToTerrain(Replay replay) {
-        Level world = Minecraft.getInstance().level;
+        World world = MinecraftClient.getInstance().world;
 
         if (world == null || replay.keyframes.y.getKeyframes().isEmpty()) {
             return;
@@ -1159,15 +1158,15 @@ public class UIReplayList extends UIList<Replay> {
         return keyframes.get(0).getTick();
     }
 
-    private Double getTerrainY(Level world, double x, double z) {
-        int top = world.getHeight(Heightmap.Types.WORLD_SURFACE, (int) x, (int) z);
-        int bottom = world.getMinY();
+    private Double getTerrainY(World world, double x, double z) {
+        int top = world.getTopY();
+        int bottom = world.getBottomY();
         double distance = Math.max(0D, top - bottom + 2D);
-        Vec3 start = new Vec3(x, top + 1D, z);
-        BlockHitResult result = RayTracing.rayTrace(world, start, new Vec3(0D, -1D, 0D), distance);
+        Vec3d start = new Vec3d(x, top + 1D, z);
+        BlockHitResult result = RayTracing.rayTrace(world, start, new Vec3d(0D, -1D, 0D), distance);
 
         if (result.getType() == HitResult.Type.BLOCK) {
-            return result.getLocation().y;
+            return result.getPos().y;
         }
 
         return null;
@@ -1213,7 +1212,7 @@ public class UIReplayList extends UIList<Replay> {
                                 Replay replay = this.list.get(index);
                                 float tickv = (float) (order * step);
 
-                                BaseValue.edit(replay, (val) -> val.shift(tickv));
+                                BaseValue.edit(replay, (r) -> r.shift(tickv));
                             }
 
                             return;
@@ -1232,7 +1231,7 @@ public class UIReplayList extends UIList<Replay> {
                                 Replay replay = this.list.get(index);
                                 float tickv = (float) ((order % 2 == 0 ? 1D : -1D) * step);
 
-                                BaseValue.edit(replay, (val) -> val.shift(tickv));
+                                BaseValue.edit(replay, (r) -> r.shift(tickv));
                             }
 
                             return;
@@ -1256,7 +1255,7 @@ public class UIReplayList extends UIList<Replay> {
                                 Replay replay = this.list.get(index);
                                 float tickv = (float) (start + (end - start) * random.nextDouble());
 
-                                BaseValue.edit(replay, (val) -> val.shift(tickv));
+                                BaseValue.edit(replay, (r) -> r.shift(tickv));
                             }
 
                             return;
@@ -1287,7 +1286,7 @@ public class UIReplayList extends UIList<Replay> {
 
                             float tickv = parse == null ? 0F : (float) parse.doubleValue();
 
-                            BaseValue.edit(replay, (val) -> val.shift(tickv));
+                            BaseValue.edit(replay, (r) -> r.shift(tickv));
                         }
                     }
                 })
@@ -1557,7 +1556,7 @@ public class UIReplayList extends UIList<Replay> {
         for (BaseType replayType : copied) {
             Replay replay = film.replays.addReplay();
 
-            BaseValue.edit(replay, (val) -> val.fromData(replayType));
+            BaseValue.edit(replay, (r) -> r.fromData(replayType));
 
             String oldUuid = replay.uuid.get();
             String oldParentPath = replay.group.get();
@@ -1698,7 +1697,7 @@ public class UIReplayList extends UIList<Replay> {
             Replay replay = film.replays.addReplay();
             String oldId = ids != null && ids.has(i) ? ids.getString(i) : "";
 
-            BaseValue.edit(replay, (val) -> val.fromData(replayType));
+            BaseValue.edit(replay, (r) -> r.fromData(replayType));
             replay.uuid.set(UUID.randomUUID().toString());
 
             if (oldId != null && !oldId.isEmpty()) {
@@ -1787,11 +1786,11 @@ public class UIReplayList extends UIList<Replay> {
     }
 
     public void addReplay() {
-        Level world = Minecraft.getInstance().level;
+        World world = MinecraftClient.getInstance().world;
         Camera camera = this.panel.getCamera();
 
         BlockHitResult blockHitResult = RayTracing.rayTrace(world, camera, 64F);
-        Vec3 p = blockHitResult.getLocation();
+        Vec3d p = blockHitResult.getPos();
         Vector3d position = new Vector3d(p.x, p.y, p.z);
 
         if (blockHitResult.getType() == HitResult.Type.MISS) {
@@ -1889,11 +1888,10 @@ public class UIReplayList extends UIList<Replay> {
         UIOverlay.addOverlay(this.getContext(), panel, 300, 300);
     }
 
-    private void fromModelBlock(ModelBlockEntity modelBlock)
-    {
+    private void fromModelBlock(ModelBlockEntity modelBlock) {
         Film film = this.panel.getData();
         Replay replay = film.replays.addReplay();
-        BlockPos blockPos = modelBlock.getBlockPos();
+        BlockPos blockPos = modelBlock.getPos();
         ModelProperties properties = modelBlock.getProperties();
         Transform transform = properties.getTransform().copy();
         double x = blockPos.getX() + transform.translate.x + 0.5D;
@@ -2669,9 +2667,7 @@ public class UIReplayList extends UIList<Replay> {
 
             y -= 10;
 
-            // RenderSystem.setupLevelDiffuseLighting(UIReplayList.LIGHT_A, UIReplayList.LIGHT_B);
             FormUtilsClient.renderUI(form, context, x, y, x + 40, y + 40);
-            // DiffuseLighting.disableGuiDepthLighting();
 
             context.batcher.unclip(context);
 

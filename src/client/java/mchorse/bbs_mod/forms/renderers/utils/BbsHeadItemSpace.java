@@ -1,14 +1,13 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemDisplayContext;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RotationAxis;
 
 /**
  * Adapts vanilla head-mounted item placement
- * ({@code HeadFeatureRenderer} + {@link ItemDisplayContext#HEAD}, and the spyglass path
+ * ({@code HeadFeatureRenderer} + {@link ModelTransformationMode#HEAD}, and the spyglass path
  * from {@code PlayerHeldItemFeatureRenderer.renderSpyglass}) to BBS ModelForm head bone matrices.
  * <p>
  * {@code HeadFeatureRenderer.translate} / skull pre-transforms cannot be called as-is: BBS
@@ -38,23 +37,23 @@ public final class BbsHeadItemSpace
 
     public static float clampSpyglassLookPitch(float lookPitchDeg)
     {
-        return Mth.clamp(lookPitchDeg, SPYGLASS_LOOK_PITCH_MIN, SPYGLASS_LOOK_PITCH_MAX);
+        return MathHelper.clamp(lookPitchDeg, SPYGLASS_LOOK_PITCH_MIN, SPYGLASS_LOOK_PITCH_MAX);
     }
 
     /**
      * Align BBS head-bone attachment space with vanilla {@code ModelPart} head space
      * (same fix armor uses after {@code captureMatrices}).
      */
-    private static void alignBoneToModelPart(PoseStack stack)
+    private static void alignBoneToModelPart(MatrixStack stack)
     {
-        stack.mulPose(Axis.XP.rotationDegrees(180F));
+        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180F));
     }
 
     /**
      * Vanilla {@code HeadFeatureRenderer.translate} adapted for ModelForm head bones (non-skull
      * items). Call after {@code MatrixStackUtils.multiply(stack, headBoneMatrix)}.
      */
-    public static void applyHeadItem(PoseStack stack)
+    public static void applyHeadItem(MatrixStack stack)
     {
         alignBoneToModelPart(stack);
 
@@ -67,7 +66,7 @@ public final class BbsHeadItemSpace
      * Vanilla skull branch pre-transform in {@code HeadFeatureRenderer} (scale 1.1875 +
      * {@code T(-0.5,0,-0.5)} before {@code SkullBlockEntityRenderer.renderSkull}).
      */
-    public static void applySkull(PoseStack stack)
+    public static void applySkull(MatrixStack stack)
     {
         alignBoneToModelPart(stack);
 
@@ -81,19 +80,19 @@ public final class BbsHeadItemSpace
      * {@link #spyglassLeftHanded()}.
      * <p>
      * Spyglass must keep the dedicated eye placement path. Reusing {@link #applyHeadItem}'s
-     * {@code Rx(180)} + negative hat scale inverts {@link ItemDisplayContext#HEAD} local
+     * {@code Rx(180)} + negative hat scale inverts {@link ModelTransformationMode#HEAD} local
      * space and parks the barrel behind the head. Texture self-roll is fixed with {@code Rz(180)}
      * after placement instead.
      *
      * @param lookPitchDeg entity look pitch in degrees (positive = look down)
      * @param leftArm whether the active arm is the left (main-arm aware)
      */
-    public static void applySpyglass(PoseStack stack, float lookPitchDeg, boolean leftArm)
+    public static void applySpyglass(MatrixStack stack, float lookPitchDeg, boolean leftArm)
     {
         float clamped = clampSpyglassLookPitch(lookPitchDeg);
 
         /* captureMatrices attachment space: M_want = M * Rx(clamped − actual). */
-        stack.mulPose(Axis.XP.rotationDegrees(clamped - lookPitchDeg));
+        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(clamped - lookPitchDeg));
 
         /* Neck → eye. Do not use HeadFeatureRenderer's T(0,−0.25) / applyHeadItem here. */
         stack.translate(0F, EYE_Y, 0F);
@@ -105,22 +104,22 @@ public final class BbsHeadItemSpace
         stack.translate(leftArm ? ARM_BIAS : -ARM_BIAS, HAT_Y, 0F);
 
         /* Cancel extra 180° barrel/texture roll without moving the eyepiece. */
-        stack.mulPose(Axis.ZP.rotationDegrees(180F));
+        stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180F));
     }
 
     /**
-     * Vanilla {@code HeadFeatureRenderer} / spyglass always uses {@link ItemDisplayContext#HEAD}.
+     * Vanilla {@code HeadFeatureRenderer} / spyglass always uses {@link ModelTransformationMode#HEAD}.
      */
-    public static ItemDisplayContext headItemTransformationMode()
+    public static ModelTransformationMode headItemTransformationMode()
     {
-        return ItemDisplayContext.HEAD;
+        return ModelTransformationMode.HEAD;
     }
 
     /**
-     * Vanilla always uses {@link ItemDisplayContext#HEAD} for an active spyglass
+     * Vanilla always uses {@link ModelTransformationMode#HEAD} for an active spyglass
      * (display: rotation 90°, translation [0,0,−16], scale 1.6).
      */
-    public static ItemDisplayContext spyglassTransformationMode()
+    public static ModelTransformationMode spyglassTransformationMode()
     {
         return headItemTransformationMode();
     }

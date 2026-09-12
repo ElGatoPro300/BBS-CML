@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
@@ -10,14 +9,14 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -30,12 +29,6 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
     public AnchorFormRenderer(AnchorForm form)
     {
         super(form);
-    }
-
-    @Override
-    public boolean is3D()
-    {
-        return !this.form.parts.getAll().isEmpty();
     }
 
     @Override
@@ -54,30 +47,24 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
         }
         else
         {
-            PoseStack stack = new PoseStack();
+            MatrixStack stack = context.batcher.getContext().getMatrices();
             Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
-            GlStateManager._depthFunc(GL11.GL_LEQUAL);
-            stack.pushPose();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            stack.push();
 
             this.applyTransforms(uiMatrix, context.getTransition());
             MatrixStackUtils.multiply(stack, uiMatrix);
             /* Why? I don't know, because fuck you */
-            stack.mulPose(Axis.YN.rotationDegrees(180F));
+            stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
             MatrixStackUtils.invertUiNormalY(stack);
 
-            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            // RenderSystem.setupLevelDiffuseLighting(light0, light1);
-
             this.renderBodyParts(new FormRenderingContext()
-                .set(FormRenderType.ENTITY, this.entity, stack, LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
+                .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
                 .inUI());
 
-            // DiffuseLighting.disableGuiDepthLighting();
-
-            stack.popPose();
-            GlStateManager._depthFunc(GL11.GL_ALWAYS);
+            stack.pop();
+            RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
     }
 }

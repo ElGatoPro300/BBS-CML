@@ -31,7 +31,7 @@ import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -1065,9 +1065,9 @@ public class UIDocumentTabsBar extends UIControlBar
         if (tab.isHome && tab.homeType == null)
         {
             UIDashboardPanel current = this.dashboard.getPanels().panel;
-            Minecraft client = Minecraft.getInstance();
+            MinecraftClient client = MinecraftClient.getInstance();
 
-            if (client.level == null || client.player == null)
+            if (client.world == null || client.player == null)
             {
                 if (current != null && !(current instanceof UIHomePanel) && !(current instanceof UIWorldFilmsBrowserPanel))
                 {

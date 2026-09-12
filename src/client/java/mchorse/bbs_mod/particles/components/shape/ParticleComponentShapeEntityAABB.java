@@ -3,7 +3,7 @@ package mchorse.bbs_mod.particles.components.shape;
 import mchorse.bbs_mod.particles.emitter.Particle;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 
-import net.minecraft.world.phys.AABB;
+import net.minecraft.util.math.Box;
 
 public class ParticleComponentShapeEntityAABB extends ParticleComponentShapeBase
 {
@@ -20,7 +20,7 @@ public class ParticleComponentShapeEntityAABB extends ParticleComponentShapeBase
 
         if (emitter.target != null)
         {
-            AABB box = emitter.target.getBoundingBox();
+            Box box = emitter.target.getBoundingBox();
 
             w = (float) (box.maxX - box.minX);
             h = (float) (box.maxY - box.minY);

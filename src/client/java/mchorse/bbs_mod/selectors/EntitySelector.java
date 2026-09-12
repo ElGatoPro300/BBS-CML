@@ -6,15 +6,13 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.StringUtils;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.ProblemReporter;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.StringNbtReader;
+import net.minecraft.registry.Registries;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -27,7 +25,7 @@ public class EntitySelector implements IMapSerializable
     public Form form;
     public Identifier entity;
     public String name = "";
-    public CompoundTag nbt;
+    public NbtCompound nbt;
 
     public boolean matches(LivingEntity mcEntity)
     {
@@ -36,20 +34,18 @@ public class EntitySelector implements IMapSerializable
             return false;
         }
 
-        Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(mcEntity.getType());
+        Identifier id = Registries.ENTITY_TYPE.getId(mcEntity.getType());
 
         if (!id.equals(this.entity))
         {
             return false;
         }
 
-        Component displayName = mcEntity.getDisplayName();
+        Text displayName = mcEntity.getDisplayName();
 
         if (this.nbt != null)
         {
-            TagValueOutput view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, mcEntity.level().registryAccess());
-            mcEntity.saveWithoutId(view);
-            CompoundTag entityCompound = view.buildResult();
+            NbtCompound entityCompound = mcEntity.writeNbt(new NbtCompound());
 
             if (!this.compare(this.nbt, entityCompound))
             {
@@ -59,7 +55,7 @@ public class EntitySelector implements IMapSerializable
 
         if (displayName != null && !this.name.isEmpty())
         {
-            String a = StringUtils.plainText(displayName.getVisualOrderText());
+            String a = StringUtils.plainText(displayName.asOrderedText());
 
             return Objects.equals(a, this.name);
         }
@@ -67,14 +63,14 @@ public class EntitySelector implements IMapSerializable
         return true;
     }
 
-    private boolean compare(CompoundTag source, CompoundTag base)
+    private boolean compare(NbtCompound source, NbtCompound base)
     {
-        for (String key : source.keySet())
+        for (String key : source.getKeys())
         {
-            Tag a = source.get(key);
-            Tag b = base.get(key);
+            NbtElement a = source.get(key);
+            NbtElement b = base.get(key);
 
-            if (a instanceof CompoundTag aCompound && b instanceof CompoundTag bCompound)
+            if (a instanceof NbtCompound aCompound && b instanceof NbtCompound bCompound)
             {
                 return this.compare(aCompound, bCompound);
             }
@@ -94,13 +90,13 @@ public class EntitySelector implements IMapSerializable
 
         if (data.has("enabled")) this.enabled = data.getBool("enabled");
         if (data.has("form")) this.form = FormUtils.fromData(data.getMap("form"));
-        if (data.has("entity")) this.entity = Identifier.parse(data.getString("entity"));
+        if (data.has("entity")) this.entity = new Identifier(data.getString("entity"));
         if (data.has("name")) this.name = data.getString("name");
         if (data.has("nbt"))
         {
             try
             {
-                this.nbt = TagParser.parseCompoundFully(data.getString("nbt"));
+                this.nbt = (new StringNbtReader(new StringReader(data.getString("nbt")))).parseCompound();
             }
             catch (CommandSyntaxException e)
             {

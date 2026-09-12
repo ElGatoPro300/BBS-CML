@@ -7,10 +7,7 @@ import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.KeyboardInput;
-import net.minecraft.world.entity.player.Input;
-import net.minecraft.world.phys.Vec2;
+import net.minecraft.client.input.KeyboardInput;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -28,7 +25,7 @@ public class KeyboardInputMixin
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
-    public void onTick(CallbackInfo info)
+    public void onTick(boolean slowDown, float slowDownFactor, CallbackInfo info)
     {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
@@ -36,37 +33,26 @@ public class KeyboardInputMixin
             menu instanceof UIDashboard dashboard &&
             dashboard.getPanels().panel instanceof UIFilmPanel filmPanel &&
             filmPanel.getController().isControlling()
-        )
-        {
+        ) {
             KeyboardInput input = (KeyboardInput) (Object) this;
 
-            boolean forward = Window.isKeyPressed(GLFW.GLFW_KEY_W);
-            boolean back = Window.isKeyPressed(GLFW.GLFW_KEY_S);
-            boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
-            boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
+            input.pressingForward = Window.isKeyPressed(GLFW.GLFW_KEY_W);
+            input.pressingBack = Window.isKeyPressed(GLFW.GLFW_KEY_S);
+            input.pressingLeft = Window.isKeyPressed(GLFW.GLFW_KEY_A);
+            input.pressingRight = Window.isKeyPressed(GLFW.GLFW_KEY_D);
+            input.movementForward = getMovementMultiplier(input.pressingForward, input.pressingBack);
+            input.movementSideways = getMovementMultiplier(input.pressingLeft, input.pressingRight);
+            input.jumping = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
+            input.sneaking = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
 
-            float forwardVal = getMovementMultiplier(forward, back);
-            float sidewaysVal = getMovementMultiplier(left, right);
-
-            boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
-            boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
-            boolean sprint = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL);
-
-            input.keyPresses = new Input(forward, back, left, right, jump, sneak, sprint);
-
-            Minecraft.getInstance().options.keyJump.setDown(jump);
-            Minecraft.getInstance().options.keyShift.setDown(sneak);
-
-            if (Minecraft.getInstance().player != null && Minecraft.getInstance().player.isMovingSlowly())
+            if (slowDown)
             {
-                sidewaysVal *= 0.3F;
-                forwardVal *= 0.3F;
+                input.movementSideways *= slowDownFactor;
+                input.movementForward *= slowDownFactor;
             }
 
-            input.moveVector = new Vec2(sidewaysVal, forwardVal).normalized();
-
             UIFilmController controller = filmPanel.getController();
-            boolean moving = forwardVal != 0F || sidewaysVal != 0F;
+            boolean moving = input.movementForward != 0F || input.movementSideways != 0F;
 
             controller.dampenActorControlDrift(moving);
         }

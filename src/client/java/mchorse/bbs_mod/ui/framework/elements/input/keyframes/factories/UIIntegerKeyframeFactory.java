@@ -27,13 +27,11 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.item.ItemStack;
-
-import org.joml.Vector3f;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemStack;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.List;
 
@@ -121,36 +119,30 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
 
                         if ((stack == null || stack.isEmpty()))
                         {
-                            Minecraft client = Minecraft.getInstance();
+                            MinecraftClient client = MinecraftClient.getInstance();
                             if (client.player != null)
                             {
-                                stack = client.player.getInventory().getItem(i);
+                                stack = client.player.getInventory().getStack(i);
                             }
                         }
 
                         if (stack != null && !stack.isEmpty())
                         {
-                            PoseStack matrices = new PoseStack();
+                            MatrixStack matrices = context.batcher.getContext().getMatrices();
                             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
                             int itemX = x + Math.max(0, (slotW - 16) / 2);
                             int itemY = y + Math.max(0, (slotH - 16) / 2);
 
-                            matrices.pushPose();
+                            matrices.push();
                             consumers.setUI(true);
 
-                            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                            /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
+                            context.batcher.getContext().drawItem(stack, itemX, itemY);
+                            context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                            context.batcher.getContext().item(stack, itemX, itemY);
-                            context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
-
-                            /* TODO 1.21.11: context.draw() removed */
-
-                            /* TODO 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
+                            context.batcher.getContext().draw();
 
                             consumers.setUI(false);
-                            matrices.popPose();
+                            matrices.pop();
                         }
                     }
                 }

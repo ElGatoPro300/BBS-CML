@@ -54,12 +54,9 @@ import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.client.Minecraft;
-
 import org.joml.Matrix3f;
-import org.joml.Matrix3x2fStack;
+import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
@@ -172,11 +169,8 @@ public class UIFormList extends UIElement
             @Override
             public void render(UIContext context)
             {
-                Matrix3x2fStack matrices = context.batcher.getContext().pose();
-                matrices.pushMatrix();
-                /* TODO(1.21.11): Matrix3x2fStack does not support 3D translate
+                context.batcher.getContext().getMatrices().push();
                 context.batcher.getContext().getMatrices().translate(0, 0, 200);
-                */
                 this.area.render(context.batcher, Colors.CONTROL_BAR);
                 super.render(context);
 
@@ -195,7 +189,7 @@ public class UIFormList extends UIElement
                     context.batcher.textShadow(valueId, x, y + 10, Colors.LIGHTEST_GRAY);
                 }
 
-                matrices.popMatrix();
+                context.batcher.getContext().getMatrices().pop();
             }
         };
         this.search = new UITextbox(100, this::search).placeholder(UIKeys.FORMS_LIST_SEARCH);
@@ -2510,11 +2504,7 @@ public class UIFormList extends UIElement
             this.setSelected(selected);
         }
 
-        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
-
         super.render(context);
-
-        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.LEVEL);
 
     }
 

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
@@ -15,20 +14,22 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
 
 import java.util.Map;
 import java.util.function.Function;
 
 public class CubicVAORenderer extends CubicCubeRenderer
 {
-    private GlProgram program;
+    private ShaderProgram program;
     private ModelInstance model;
     private Function<String, Link> textureResolver;
 
-    public CubicVAORenderer(GlProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
+    public CubicVAORenderer(ShaderProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
@@ -38,7 +39,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
     {
         if (this.stencilMap != null && !this.stencilMap.isBoneAllowed(group.id))
         {
@@ -121,7 +122,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
             {
                 float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
                 int baseU = groupLight & '\uffff';
-                int u = (int) Lerps.lerp(baseU, LightTexture.FULL_BLOCK, glowLightT);
+                int u = (int) Lerps.lerp(baseU, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, glowLightT);
                 int v = groupLight >> 16 & '\uffff';
 
                 groupLight = u | v << 16;
@@ -133,7 +134,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
             }
             else
             {
-                int u = (int) Lerps.lerp(groupLight & '\uffff', LightTexture.FULL_BLOCK, MathUtils.clamp(group.lighting, 0F, 1F));
+                int u = (int) Lerps.lerp(groupLight & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
                 int v = groupLight >> 16 & '\uffff';
 
                 groupLight = u | v << 16;
