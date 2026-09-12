@@ -5,6 +5,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
+import mchorse.bbs_mod.client.render.EntityPreviewRenderHelper;
 import mchorse.bbs_mod.client.renderer.MorphMobParticles;
 import mchorse.bbs_mod.film.MobItemStats;
 import mchorse.bbs_mod.film.MorphMountSync;
@@ -564,10 +565,11 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     renderState.shadowPieces.clear();
                 }
 
-                RenderDispatcher dispatcher = MinecraftClient.getInstance().gameRenderer.getEntityRenderDispatcher();
+                RenderDispatcher dispatcher = EntityPreviewRenderHelper.getDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
-                entityRenderManager.render(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, stack, dispatcher.getQueue());
+                entityRenderManager.render(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, stack, EntityPreviewRenderHelper.getQueue());
                 dispatcher.render();
+                EntityPreviewRenderHelper.flushEntityBuffers();
             }
             finally
             {
