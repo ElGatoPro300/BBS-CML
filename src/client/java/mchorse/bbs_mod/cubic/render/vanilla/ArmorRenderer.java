@@ -9,12 +9,12 @@ import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.VertexConsumers;
+import net.minecraft.client.render.entity.equipment.EquipmentModel;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.entity.model.EquipmentModelData;
@@ -28,13 +28,9 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.item.equipment.ArmorMaterial;
 import net.minecraft.item.equipment.EquipmentAsset;
 import net.minecraft.item.equipment.trim.ArmorTrim;
-import net.minecraft.item.equipment.trim.ArmorTrimAssets;
-import net.minecraft.item.equipment.trim.ArmorTrimMaterial;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -235,15 +231,12 @@ public class ArmorRenderer
 
     private Identifier getTrimTexture(ArmorTrim trim, RegistryKey<EquipmentAsset> armorAssetKey, boolean leggings)
     {
-        Identifier patternId = trim.pattern().value().assetId();
-        ArmorTrimAssets assets = trim.material().value().assets();
-        ArmorTrimAssets.AssetId assetId = armorAssetKey != null
-            ? assets.getAssetId(armorAssetKey)
-            : assets.base();
-        String materialName = assetId.suffix();
-        String suffix = leggings ? "_leggings" : "";
+        EquipmentModel.LayerType layerType = leggings
+            ? EquipmentModel.LayerType.HUMANOID_LEGGINGS
+            : EquipmentModel.LayerType.HUMANOID;
 
-        return Identifier.of(patternId.getNamespace(), "trims/models/armor/" + patternId.getPath() + "_" + materialName + suffix);
+        /* 1.21.11: trim atlas IDs moved off trims/models/armor/* — use vanilla resolver. */
+        return trim.getTextureId(layerType.getTrimsDirectory(), armorAssetKey);
     }
 
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
