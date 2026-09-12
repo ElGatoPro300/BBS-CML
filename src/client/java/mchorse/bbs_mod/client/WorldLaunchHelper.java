@@ -7,7 +7,6 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.utils.VideoRecorder;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.server.integrated.IntegratedServerLoader;
@@ -213,8 +212,7 @@ public class WorldLaunchHelper
 
             IntegratedServerLoader loader = client.createIntegratedServerLoader();
 
-            WorldLaunchHelper.clearPending();
-            loader.start(null, worldFolder);
+            loader.start(worldFolder, WorldLaunchHelper::clearPending);
         });
     }
 }
