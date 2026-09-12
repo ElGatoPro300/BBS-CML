@@ -406,7 +406,7 @@ public class FilmEditorController extends BaseFilmController
     {
         Pair<String, TransformOrientation> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
         String aBone = bone == null ? null : bone.a;
-        boolean local = bone != null && bone.b != null;
+        TransformOrientation orientation = bone != null ? bone.b : TransformOrientation.PARENT;
         String aBone2 = null;
         boolean local2 = false;
 
@@ -419,14 +419,14 @@ public class FilmEditorController extends BaseFilmController
         if (this.controller.panel.recorder.isRecording())
         {
             aBone = null;
-            local = false;
+            orientation = TransformOrientation.PARENT;
             aBone2 = null;
             local2 = false;
         }
 
         return super.getFilmControllerContext(context, replay, entity)
             .transition(this.getTransition(entity, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false)))
-            .bone(aBone, local)
+            .bone(aBone, orientation)
             .bone2(aBone2, local2);
     }
 
