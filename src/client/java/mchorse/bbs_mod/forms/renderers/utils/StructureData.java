@@ -411,7 +411,7 @@ public class StructureData
 
         try
         {
-            Identifier id = new Identifier(name);
+            Identifier id = Identifier.of(name);
             block = Registries.BLOCK.get(id);
 
             if (block == null)

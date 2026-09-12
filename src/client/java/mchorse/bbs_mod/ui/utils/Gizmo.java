@@ -29,6 +29,7 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
@@ -862,13 +863,12 @@ public class Gizmo
         {
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
-            MatrixStack mvStack = RenderSystem.getModelViewStack();
+            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
-            mvStack.push();
-            mvStack.loadIdentity();
-            MatrixStackUtils.multiply(mvStack, savedModelView);
+            mvStack.pushMatrix();
+            mvStack.set(savedModelView);
             RenderSystem.applyModelViewMatrix();
-            mvStack.pop();
+            mvStack.popMatrix();
             RenderSystem.applyModelViewMatrix();
         }
 
@@ -1000,8 +1000,7 @@ public class Gizmo
             return;
         }
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, false, null);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, false, null);
@@ -1062,8 +1061,7 @@ public class Gizmo
         float scale = this.computeScale(stack);
         float thickness = this.resolveThickness(true);
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, true, map);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, true, map);
@@ -1077,10 +1075,10 @@ public class Gizmo
         RenderSystem.depthMask(false);
 
         /* Iris leaves a stale terrain ModelView; verts already include the full transform.
-         * On 1.20.4 film picks the stack is already view-baked (panel.lastView) and
-         * cacheMatrices() left ModelView identity — do not multiply BBSRendering.camera
-         * again. Preview editors / model-block stencil already carry orbit view in the stack;
-         * only Iris needs a clean ModelView here. */
+         * Do NOT bake BBSRendering.camera here for non-Iris: preview editors / form pickers /
+         * model-block stencil already carry their orbit (or composed) view in the stack.
+         * Multiplying the world frustum camera on top mis-picks handles. Film's empty
+         * camera-relative stack sets ModelView in UIFilmController instead. */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();

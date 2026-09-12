@@ -25,6 +25,7 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -49,7 +50,6 @@ public class ModelVAORenderer
     private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
     private static final Matrix4f SCRATCH_FOG_MAT = new Matrix4f();
     private static final Matrix4f SCRATCH_INV_VIEW = new Matrix4f();
-    private static final Matrix3f SCRATCH_INV_VIEW_ROT3 = new Matrix3f();
     private static final Matrix4f SCRATCH_COMPOSED = new Matrix4f();
 
     /* FS-style paint overlay uniform state (rgb + strength). Set by form renderers before a draw and reset after.
@@ -435,7 +435,7 @@ public class ModelVAORenderer
             vanillaComposite,
             depthWrite,
             depthTest,
-            captureCurrentFog(),
+            fullModel ? captureCurrentFog() : null,
             draw
         );
 
@@ -567,13 +567,12 @@ public class ModelVAORenderer
         {
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
-            MatrixStack modelViewStack = RenderSystem.getModelViewStack();
+            Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 
-            modelViewStack.push();
-            modelViewStack.loadIdentity();
-            modelViewStack.peek().getPositionMatrix().set(savedModelView);
+            modelViewStack.pushMatrix();
+            modelViewStack.set(savedModelView);
             RenderSystem.applyModelViewMatrix();
-            modelViewStack.pop();
+            modelViewStack.popMatrix();
             RenderSystem.applyModelViewMatrix();
 
             gameRenderer.getLightmapTextureManager().disable();
@@ -961,7 +960,6 @@ public class ModelVAORenderer
         try
         {
             source.beginRead();
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
             gradeSceneColor.bind();
 
             if (gradeSceneColor.width != width || gradeSceneColor.height != height)
@@ -976,6 +974,7 @@ public class ModelVAORenderer
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
+            BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
 
         return gradeSceneColor.isValid() && gradeSceneColor.width == width && gradeSceneColor.height == height;
@@ -2156,7 +2155,11 @@ public class ModelVAORenderer
             colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
         }
 
-        if (colorGradeOverlayPass)
+        /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
+         * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
+         * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
+         * current RenderSystem fog. */
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
         {
             if (shader.fogStart != null)
             {
@@ -2285,43 +2288,39 @@ public class ModelVAORenderer
 
         GlUniform fogMatUniform = shader.getUniform("FogMat");
 
-        if (fogMatUniform != null)
+        if (fogMatUniform == null)
         {
-            if (bakedModelMatrix == null)
-            {
-                fogMatUniform.set(IDENTITY_MODEL_VIEW);
-            }
-            else if (BBSRendering.isRenderingWorld())
-            {
-                float bakedDist = viewOriginLengthSq(bakedModelMatrix);
+            return;
+        }
 
-                SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
+        if (bakedModelMatrix == null)
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
 
-                if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
-                {
-                    /* Bake already included view — Position is view-space; strip for fog. */
-                    MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-                    fogMatUniform.set(SCRATCH_INV_VIEW);
-                }
-                else
-                {
-                    /* Bake was camera-relative — Position is already Y-up cam-rel. */
-                    fogMatUniform.set(IDENTITY_MODEL_VIEW);
-                }
+            return;
+        }
+
+        if (BBSRendering.isRenderingWorld())
+        {
+            float bakedDist = viewOriginLengthSq(bakedModelMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Bake already included view — Position is view-space; strip for fog. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                fogMatUniform.set(SCRATCH_INV_VIEW);
             }
             else
             {
+                /* Bake was camera-relative — Position is already Y-up cam-rel. */
                 fogMatUniform.set(IDENTITY_MODEL_VIEW);
             }
         }
-
-        GlUniform viewRotUniform = shader.getUniform("IViewRotMat");
-
-        if (viewRotUniform != null)
+        else
         {
-            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-            SCRATCH_INV_VIEW_ROT3.set(SCRATCH_INV_VIEW);
-            viewRotUniform.set(SCRATCH_INV_VIEW_ROT3);
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
         }
     }
 
@@ -2345,9 +2344,9 @@ public class ModelVAORenderer
             return;
         }
 
-        if (colorGradeOverlayPass)
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
         {
-            /* Fog disabled for this pass — FogMat unused. */
+            /* Fog disabled for these passes — FogMat unused. */
             fogMatUniform.set(IDENTITY_MODEL_VIEW);
 
             return;
@@ -2393,12 +2392,18 @@ public class ModelVAORenderer
                 SCRATCH_FOG_MAT.set(stackMatrix);
             }
         }
-        else
+        else if (BBSRendering.isRenderingWorld())
         {
-            /* Iris / UI: best-effort strip view from composed model-view. */
+            /* Iris world pass: best-effort strip view from composed model-view. */
             SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
             MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
             SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
+        }
+        else
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
         }
 
         fogMatUniform.set(SCRATCH_FOG_MAT);
@@ -2415,14 +2420,25 @@ public class ModelVAORenderer
             return;
         }
 
-        if (!BBSRendering.isRenderingWorld())
+        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+
+        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
         {
-            SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            float bakedDist = viewOriginLengthSq(stackMatrix);
+
+            SCRATCH_MODEL_VIEW.set(BBSRendering.camera).mul(stackMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_MODEL_VIEW) < bakedDist * 0.49F)
+            {
+                SCRATCH_MODEL_VIEW.set(stackMatrix);
+            }
+
             shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
 
             return;
         }
 
-        shader.modelViewMat.set(stack.peek().getPositionMatrix());
+        SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
+        shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
     }
 }

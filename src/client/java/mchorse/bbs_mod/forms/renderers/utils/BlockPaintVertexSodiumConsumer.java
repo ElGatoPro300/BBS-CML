@@ -3,9 +3,9 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
-import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 
 import org.lwjgl.system.MemoryStack;
 
@@ -30,7 +30,7 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
     }
 
     @Override
-    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
         {
@@ -70,26 +70,6 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
         try
         {
             return super.color(red, green, blue, alpha);
-        }
-        finally
-        {
-            newColor = savedColor;
-            newPaintColor = savedPaint;
-        }
-    }
-
-    @Override
-    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
-    {
-        Color savedColor = newColor;
-        Color savedPaint = newPaintColor;
-
-        newColor = null;
-        newPaintColor = null;
-
-        try
-        {
-            super.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         }
         finally
         {

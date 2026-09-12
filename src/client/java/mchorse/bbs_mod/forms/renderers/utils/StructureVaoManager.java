@@ -294,28 +294,10 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z)
+        public VertexConsumer vertex(float x, float y, float z)
         {
             this.delegate.vertex(x, y, z);
             return this;
-        }
-
-        @Override
-        public void next()
-        {
-            this.delegate.next();
-        }
-
-        @Override
-        public void fixedColor(int red, int green, int blue, int alpha)
-        {
-            this.delegate.fixedColor(red, green, blue, alpha);
-        }
-
-        @Override
-        public void unfixColor()
-        {
-            this.delegate.unfixColor();
         }
 
         @Override

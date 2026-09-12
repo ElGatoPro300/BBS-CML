@@ -802,7 +802,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                     return;
                 }
             }
-            else if (ItemStack.canCombine(existing, stack) && existing.getCount() < existing.getMaxCount())
+            else if (ItemStack.areItemsAndComponentsEqual(existing, stack) && existing.getCount() < existing.getMaxCount())
             {
                 int space = existing.getMaxCount() - existing.getCount();
                 int move = Math.min(space, remaining);
@@ -868,36 +868,23 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public EntityDimensions getDimensions(EntityPose pose)
+    public EntityDimensions getBaseDimensions(EntityPose pose)
     {
-        EntityDimensions dimensions = super.getDimensions(pose);
+        EntityDimensions dimensions = super.getBaseDimensions(pose);
         Form currentForm = this.form;
 
         if (currentForm != null && currentForm.hitbox.get())
         {
             float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
-
-            return dimensions.fixed
+            float eyeHeight = currentForm.hitboxEyeHeight.get() * height;
+            EntityDimensions shaped = dimensions.fixed()
                 ? EntityDimensions.fixed(currentForm.hitboxWidth.get(), height)
                 : EntityDimensions.changing(currentForm.hitboxWidth.get(), height);
+
+            return shaped.withEyeHeight(eyeHeight);
         }
 
         return dimensions;
-    }
-
-    @Override
-    public float getActiveEyeHeight(EntityPose pose, EntityDimensions dimensions)
-    {
-        Form currentForm = this.form;
-
-        if (currentForm != null && currentForm.hitbox.get())
-        {
-            float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
-
-            return currentForm.hitboxEyeHeight.get() * height;
-        }
-
-        return super.getActiveEyeHeight(pose, dimensions);
     }
 
 
@@ -1246,7 +1233,9 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                 if (equipmentNbt.contains(slot.getName(), 10))
                 {
                     NbtCompound itemNbt = equipmentNbt.getCompound(slot.getName());
-                    ItemStack stack = ItemStack.fromNbt(itemNbt);
+                    ItemStack stack = registries != null
+                        ? ItemStack.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registries), itemNbt).result().orElse(ItemStack.EMPTY)
+                        : ItemStack.fromNbtOrEmpty(null, itemNbt);
 
                     this.equipment.put(slot, stack);
                 }
