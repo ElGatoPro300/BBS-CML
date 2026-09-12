@@ -16,16 +16,15 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.LinkedHashSet;
@@ -38,10 +37,10 @@ public class CubicLayerRenderer extends CubicCubeRenderer
     private final Function<String, Link> textures;
     private final Link fallback;
     private final boolean cull;
-    private ShaderProgram effectShader;
+    private GlProgram effectShader;
     private Matrix4f rootInverse;
 
-    public void setEffects(ShaderProgram shader, Matrix4f rootInverse, StencilMap stencilMap)
+    public void setEffects(GlProgram shader, Matrix4f rootInverse, StencilMap stencilMap)
     {
         this.effectShader = shader;
         this.rootInverse = rootInverse;
@@ -56,7 +55,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
         this.cull = cull;
     }
 
-    public void renderModel(MatrixStack stack, Model model)
+    public void renderModel(PoseStack stack, Model model)
     {
         if (this.canBatchModel(model))
         {
@@ -133,7 +132,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
         return texture;
     }
 
-    private void renderModelBatched(MatrixStack stack, Model model)
+    private void renderModelBatched(PoseStack stack, Model model)
     {
         Link textureLink = this.resolveDefaultTexture();
         Texture texture = BBSModClient.getTextures().getTexture(textureLink);
@@ -148,12 +147,12 @@ public class CubicLayerRenderer extends CubicCubeRenderer
             ModelVAORenderer.beginCpuGeometry(this.effectShader);
         }
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+            DefaultVertexFormat.ENTITY);
 
         CubicRenderer.processRenderModel(this, builder, stack, model);
 
-        BuiltBuffer buffer = builder.endNullable();
+        MeshData buffer = builder.build();
 
         if (buffer != null)
         {
@@ -175,7 +174,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
     {
         if (this.stencilMap != null && !this.stencilMap.isBoneAllowed(group.id))
         {
@@ -237,7 +236,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
         return false;
     }
 
-    private void drawMaterial(MatrixStack stack, ModelGroup group, Model model, String material, Link link, float alpha)
+    private void drawMaterial(PoseStack stack, ModelGroup group, Model model, String material, Link link, float alpha)
     {
         Texture texture = BBSModClient.getTextures().getTexture(link);
 
@@ -265,8 +264,8 @@ public class CubicLayerRenderer extends CubicCubeRenderer
                 ModelVAORenderer.setGroupFormColorTint(group.color);
             }
 
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES,
-                VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
+                DefaultVertexFormat.ENTITY);
 
             if (material.isEmpty())
             {
@@ -287,7 +286,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
                 }
             }
 
-            BuiltBuffer buffer = builder.endNullable();
+            MeshData buffer = builder.build();
 
             if (buffer != null)
             {
@@ -319,7 +318,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
     }
 
     @Override
-    protected void writeVertex(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    protected void writeVertex(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
     {
         if (this.effectShader == null || !group.color.hasActiveTransform() || this.stencilMap != null)
         {
@@ -330,11 +329,11 @@ public class CubicLayerRenderer extends CubicCubeRenderer
 
         /* Masked bone tint is evaluated in the fragment shader, not across the whole mesh. */
         this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1F);
-        stack.peek().getPositionMatrix().transform(this.vertex);
+        stack.last().pose().transform(this.vertex);
         int blockLight = Math.round((this.light & 65535) + (240 - (this.light & 65535)) * Math.max(0F, Math.min(1F, group.lighting)));
 
-        builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z).color(this.r, this.g, this.b, this.a)
-            .texture(vertex.uv.x, vertex.uv.y).overlay(this.overlay).light(blockLight, this.light >>> 16)
-            .normal(normal.x, normal.y, normal.z);
+        builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z).setColor(this.r, this.g, this.b, this.a)
+            .setUv(vertex.uv.x, vertex.uv.y).setOverlay(this.overlay).setUv2(blockLight, this.light >>> 16)
+            .setNormal(normal.x, normal.y, normal.z);
     }
 }

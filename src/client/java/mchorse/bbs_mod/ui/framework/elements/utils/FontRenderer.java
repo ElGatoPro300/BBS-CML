@@ -4,9 +4,9 @@ import mchorse.bbs_mod.text.RtlAwtTextRenderer;
 import mchorse.bbs_mod.text.RtlFontManager;
 import mchorse.bbs_mod.text.RtlTextEngine;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 
 import java.util.List;
 import java.util.Objects;
@@ -14,11 +14,11 @@ import java.util.stream.Collectors;
 
 public class FontRenderer
 {
-    private TextRenderer renderer;
+    private Font renderer;
 
-    public static List<String> wrap(TextRenderer renderer, String string, int width)
+    public static List<String> wrap(Font renderer, String string, int width)
     {
-        return renderer.wrapLines(Text.literal(string), width).stream().map((ot) ->
+        return renderer.split(Component.literal(string), width).stream().map((ot) ->
         {
             StringBuilder builder = new StringBuilder();
             StyleHolder holder = new StyleHolder(Style.EMPTY);
@@ -51,7 +51,7 @@ public class FontRenderer
 
         if (style.getColor() != null)
         {
-            switch (style.getColor().getName())
+            switch (style.getColor().serialize())
             {
                 case "black": b.append("\u00A70"); break;
                 case "dark_blue": b.append("\u00A71"); break;
@@ -79,12 +79,12 @@ public class FontRenderer
         if (style.isItalic()) b.append("\u00A7o");
     }
 
-    public void setRenderer(TextRenderer renderer)
+    public void setRenderer(Font renderer)
     {
         this.renderer = renderer;
     }
 
-    public TextRenderer getRenderer()
+    public Font getRenderer()
     {
         return this.renderer;
     }
@@ -103,7 +103,7 @@ public class FontRenderer
 
         float scale = CustomFontManager.hasCustomFont() ? 1F : CustomFontManager.getFontScale();
 
-        return Math.round(this.renderer.getWidth(string) * scale);
+        return Math.round(this.renderer.width(string) * scale);
     }
 
     public int getHeight()
@@ -120,7 +120,7 @@ public class FontRenderer
 
         float scale = CustomFontManager.hasCustomFont() ? 1F : CustomFontManager.getFontScale();
 
-        return Math.max(1, Math.round((this.renderer.fontHeight - 2) * scale));
+        return Math.max(1, Math.round((this.renderer.lineHeight - 2) * scale));
     }
 
     public List<String> wrap(String string, int width)
@@ -178,19 +178,19 @@ public class FontRenderer
             }
         }
 
-        int w = this.renderer.getWidth(str);
+        int w = this.renderer.width(str);
 
         if (w <= width)
         {
             return str;
         }
 
-        int sw = this.renderer.getWidth(suffix);
+        int sw = this.renderer.width(suffix);
         int i = str.length() - 1;
 
         while (w + sw > width && i > 0)
         {
-            w -= this.renderer.getWidth(String.valueOf(str.charAt(i)));
+            w -= this.renderer.width(String.valueOf(str.charAt(i)));
             i -= 1;
         }
 

@@ -20,7 +20,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import org.joml.Vector4f;
 
@@ -369,7 +369,7 @@ public class UIHotbarClip extends UIClip<HotbarClip>
 
     private int getClipTick()
     {
-        return MathHelper.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
+        return Mth.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
     }
 
     @Override

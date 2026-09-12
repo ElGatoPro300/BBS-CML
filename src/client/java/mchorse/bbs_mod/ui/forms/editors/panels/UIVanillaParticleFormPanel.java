@@ -14,10 +14,10 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.UI;
 
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.effect.MobEffect;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -151,7 +151,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
                 }
                 else
                 {
-                    this.setEffect(Identifier.of(l));
+                    this.setEffect(Identifier.parse(l));
                 }
             });
 
@@ -159,9 +159,9 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
             strings.add("none");
 
-            for (RegistryKey<StatusEffect> key : Registries.STATUS_EFFECT.getKeys())
+            for (ResourceKey<MobEffect> key : BuiltInRegistries.MOB_EFFECT.registryKeySet())
             {
-                strings.add(key.getValue().toString());
+                strings.add(key.identifier().toString());
             }
 
             overlayPanel.addValues(strings);
@@ -298,7 +298,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
     private void setEffect(Identifier effectId)
     {
-        StatusEffect effect = Registries.STATUS_EFFECT.get(effectId);
+        MobEffect effect = BuiltInRegistries.MOB_EFFECT.getValue(effectId);
 
         if (effect != null)
         {
@@ -328,9 +328,9 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
         if (!trimmed.isEmpty())
         {
-            for (RegistryKey<StatusEffect> key : Registries.STATUS_EFFECT.getKeys())
+            for (ResourceKey<MobEffect> key : BuiltInRegistries.MOB_EFFECT.registryKeySet())
             {
-                StatusEffect effect = Registries.STATUS_EFFECT.get(key);
+                MobEffect effect = BuiltInRegistries.MOB_EFFECT.getValue(key);
 
                 if (effect != null)
                 {
@@ -344,7 +344,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
                     if (trimmed.equals(expected))
                     {
-                        currentEffect = key.getValue();
+                        currentEffect = key.identifier();
                         break;
                     }
                 }

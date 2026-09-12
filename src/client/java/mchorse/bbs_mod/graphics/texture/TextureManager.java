@@ -12,7 +12,7 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 import mchorse.bbs_mod.utils.watchdog.IWatchDogListener;
 import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 

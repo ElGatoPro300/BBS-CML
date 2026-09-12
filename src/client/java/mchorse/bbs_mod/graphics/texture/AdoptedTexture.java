@@ -2,12 +2,12 @@ package mchorse.bbs_mod.graphics.texture;
 
 import mchorse.bbs_mod.BBSMod;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.texture.GlTextureView;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.resources.Identifier;
 
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.opengl.GlTextureView;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -66,9 +66,9 @@ public final class AdoptedTexture extends AbstractTexture
             return cached.id;
         }
 
-        Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/" + (counter++));
+        Identifier id = cached != null ? cached.id : Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "adopted/" + (counter++));
 
-        MinecraftClient.getInstance().getTextureManager().registerTexture(id,
+        Minecraft.getInstance().getTextureManager().register(id,
             new AdoptedTexture(texture.id, "bbs_adopted_" + texture.id, width, height, linear, mipmap));
         REGISTRY.put(texture, new Cached(id, width, height, linear, mipmap));
 
@@ -96,9 +96,9 @@ public final class AdoptedTexture extends AbstractTexture
             return cached.id;
         }
 
-        Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/glid_" + glId + (linear ? "_lin" : "_nea") + (mipmap ? "_mip" : ""));
+        Identifier id = cached != null ? cached.id : Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "adopted/glid_" + glId + (linear ? "_lin" : "_nea") + (mipmap ? "_mip" : ""));
 
-        MinecraftClient.getInstance().getTextureManager().registerTexture(id,
+        Minecraft.getInstance().getTextureManager().register(id,
             new AdoptedTexture(glId, "bbs_adopted_glid_" + glId, safeW, safeH, linear, mipmap));
         GLID_REGISTRY.put(glId, new Cached(id, safeW, safeH, linear, mipmap));
 
@@ -109,12 +109,12 @@ public final class AdoptedTexture extends AbstractTexture
     {
         AdoptedGlTexture glTexture = new AdoptedGlTexture(glId, label, width, height);
 
-        this.glTexture = glTexture;
-        this.glTextureView = new AdoptedGlTextureView(glTexture);
+        this.texture = glTexture;
+        this.textureView = new AdoptedGlTextureView(glTexture);
 
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
 
-        this.sampler = RenderSystem.getSamplerCache().get(
+        this.sampler = RenderSystem.getSamplerCache().getSampler(
             AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, filter, filter, mipmap);
     }
 

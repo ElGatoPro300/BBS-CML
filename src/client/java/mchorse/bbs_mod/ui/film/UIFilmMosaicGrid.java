@@ -165,14 +165,14 @@ public class UIFilmMosaicGrid extends UIScrollView
                         int iconY = this.area.y + CARD_SIZE / 2;
                         Icon icon = isFolder ? Icons.FOLDER : Icons.FILM;
 
-                        context.batcher.getContext().getMatrices().pushMatrix();
-                        context.batcher.getContext().getMatrices().translate(iconX, iconY);
-                        context.batcher.getContext().getMatrices().scale(2F, 2F);
-                        context.batcher.getContext().getMatrices().translate(-iconX, -iconY);
+                        context.batcher.getContext().pose().pushMatrix();
+                        context.batcher.getContext().pose().translate(iconX, iconY);
+                        context.batcher.getContext().pose().scale(2F, 2F);
+                        context.batcher.getContext().pose().translate(-iconX, -iconY);
 
                         context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
 
-                        context.batcher.getContext().getMatrices().popMatrix();
+                        context.batcher.getContext().pose().popMatrix();
                     }
 
                     String label = UIFilmMosaicGrid.this.labelProvider.apply(path);

@@ -6,14 +6,14 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.client.Minecraft;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
-import net.minecraft.resource.Resource;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.io.DataInputStream;
 import java.io.InputStream;
@@ -75,12 +75,12 @@ public class UIVanillaStructureList extends UIStringList
     private void loadVanillaStructures()
     {
         this.structureInfoMap.clear();
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         /* 1. Try to use Server Resource Manager (Data Packs) first */
-        if (mc.getServer() != null)
+        if (mc.getSingleplayerServer() != null)
         {
-            this.scanInternalResources(mc.getServer().getResourceManager());
+            this.scanInternalResources(mc.getSingleplayerServer().getResourceManager());
         }
         else
         {
@@ -96,7 +96,7 @@ public class UIVanillaStructureList extends UIStringList
      */
     private void scanInternalResources(ResourceManager manager)
     {
-        Map<Identifier, List<Resource>> resources = manager.findAllResources("structure", (id) -> 
+        Map<Identifier, List<Resource>> resources = manager.listResourceStacks("structure", (id) -> 
             id.getNamespace().equals("minecraft") && id.getPath().endsWith(".nbt"));
 
         for (Map.Entry<Identifier, List<Resource>> entry : resources.entrySet())
@@ -127,14 +127,14 @@ public class UIVanillaStructureList extends UIStringList
                 // Use the first resource found (usually the one from the highest priority pack)
                 if (!entry.getValue().isEmpty())
                 {
-                    try (InputStream is = entry.getValue().get(0).getInputStream();
+                    try (InputStream is = entry.getValue().get(0).open();
                          DataInputStream dis = new DataInputStream(is))
                     {
-                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtSizeTracker.ofUnlimitedBytes());
+                        CompoundTag nbt = NbtIo.readCompressed(dis, NbtAccounter.unlimitedHeap());
 
                         if (nbt.contains("size"))
                         {
-                            NbtList sizeList = nbt.getList("size").orElse(new NbtList());
+                            ListTag sizeList = nbt.getList("size").orElse(new ListTag());
                             info.sizeX = sizeList.getInt(0).orElse(0);
                             info.sizeY = sizeList.getInt(1).orElse(0);
                             info.sizeZ = sizeList.getInt(2).orElse(0);
@@ -142,7 +142,7 @@ public class UIVanillaStructureList extends UIStringList
 
                         if (nbt.contains("blocks"))
                         {
-                            info.blockCount = nbt.getList("blocks").orElse(new NbtList()).size();
+                            info.blockCount = nbt.getList("blocks").orElse(new ListTag()).size();
                         }
                     }
                 }

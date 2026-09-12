@@ -328,10 +328,10 @@ public class UIOverlayPanel extends UIElement
             float cx = this.area.mx();
             float cy = this.area.my();
 
-            context.render.batcher.getContext().getMatrices().pushMatrix();
-            context.render.batcher.getContext().getMatrices().translate(cx, cy);
-            context.render.batcher.getContext().getMatrices().scale(scale, scale);
-            context.render.batcher.getContext().getMatrices().translate(-cx, -cy);
+            context.render.batcher.getContext().pose().pushMatrix();
+            context.render.batcher.getContext().pose().translate(cx, cy);
+            context.render.batcher.getContext().pose().scale(scale, scale);
+            context.render.batcher.getContext().pose().translate(-cx, -cy);
         }
 
         this.renderBackground(context);
@@ -341,7 +341,7 @@ public class UIOverlayPanel extends UIElement
         if (animateScale)
         {
             context.batcher.flushDraw();
-            context.batcher.getContext().getMatrices().popMatrix();
+            context.batcher.getContext().pose().popMatrix();
         }
     }
 

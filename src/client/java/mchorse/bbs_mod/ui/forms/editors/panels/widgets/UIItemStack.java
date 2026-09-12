@@ -17,12 +17,13 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.function.Consumer;
 
@@ -41,22 +42,19 @@ public class UIItemStack extends UIElement
     {
         this.stack = ItemStack.EMPTY;
         this.callback = callback;
-        this.optionsButton = new UIIcon(Icons.CHEST, (b) ->
+        this.optionsButton = new UIIcon(Icons.MORE, (b) ->
         {
-            if (this.getContext() != null)
-            {
-                this.getContext().replaceContextMenu(this::fillContextMenu);
-            }
+            this.getContext().replaceContextMenu(this::createOptions);
         });
         this.optionsButton.tooltip(UIKeys.ITEM_STACK_CONTEXT_OPTIONS);
 
-        this.context(this::fillContextMenu);
+        this.context(this::createOptions);
 
         this.add(this.optionsButton);
         this.h(20);
     }
 
-    private void fillContextMenu(ContextMenuManager menu)
+    protected void createOptions(ContextMenuManager menu)
     {
         menu.action(Icons.SPHERE, UIKeys.ITEM_STACK_CONTEXT_INVENTORY, this::openInventoryPanel);
         menu.action(Icons.SEARCH, UIKeys.ITEM_STACK_CONTEXT_ALL_ITEMS, this::openCreativeItemSelectorPanel);
@@ -65,13 +63,13 @@ public class UIItemStack extends UIElement
         {
             this.getContext().replaceContextMenu((newMenu) ->
             {
-                PlayerInventory inventory = MinecraftClient.getInstance().player.getInventory();
+                Inventory inventory = Minecraft.getInstance().player.getInventory();
 
                 for (int i = 0; i < 9; i++)
                 {
-                    ItemStack s = inventory.getStack(i);
+                    ItemStack s = inventory.getItem(i);
 
-                    newMenu.action(new ItemStackContextAction(s, IKey.constant(s.getName().getString()), () ->
+                    newMenu.action(new ItemStackContextAction(s, IKey.constant(s.getHoverName().getString()), () ->
                     {
                         if (this.callback != null)
                         {
@@ -86,7 +84,7 @@ public class UIItemStack extends UIElement
 
         menu.action(Icons.PASTE, UIKeys.ITEM_STACK_CONTEXT_PASTE, () ->
         {
-            ItemStack stack = MinecraftClient.getInstance().player.getMainHandStack().copy();
+            ItemStack stack = Minecraft.getInstance().player.getMainHandItem().copy();
 
             if (this.callback != null)
             {
@@ -213,10 +211,10 @@ public class UIItemStack extends UIElement
 
         if (this.stack != null && !this.stack.isEmpty())
         {
-            MatrixStack matrices = new MatrixStack();
+            PoseStack matrices = new PoseStack();
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-            matrices.push();
+            matrices.pushPose();
             /* TODO 1.21.11: GlStateManager._disableDepthTest() removed */
             consumers.setUI(true);
 
@@ -224,8 +222,8 @@ public class UIItemStack extends UIElement
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
             /* TODO 1.21.11: RenderSystem.setupGui3DDiffuseLighting() removed */
 
-            context.batcher.getContext().drawItem(this.stack, stackCenterX - 8, this.area.my() - 8);
-            context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().item(this.stack, stackCenterX - 8, this.area.my() - 8);
+            context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
 
             /* TODO 1.21.11: context.draw() removed */
 
@@ -234,7 +232,7 @@ public class UIItemStack extends UIElement
             consumers.setUI(false);
             /* TODO 1.21.11: GlStateManager._enableDepthTest() removed */
             /* TODO 1.21.11: GlStateManager._depthFunc() removed */
-            matrices.pop();
+            matrices.popPose();
         }
 
         super.render(context);

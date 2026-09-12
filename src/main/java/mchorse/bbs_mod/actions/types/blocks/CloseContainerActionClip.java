@@ -7,8 +7,8 @@ import mchorse.bbs_mod.settings.values.mc.ValueBlockState;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.LivingEntity;
 
 public class CloseContainerActionClip extends BlockActionClip
 {
@@ -28,11 +28,11 @@ public class CloseContainerActionClip extends BlockActionClip
     {
         if (this.applyState.get())
         {
-            player.getEntityWorld().setBlockState(new BlockPos(this.x.get(), this.y.get(), this.z.get()), this.state.get());
+            player.level().setBlockAndUpdate(new BlockPos(this.x.get(), this.y.get(), this.z.get()), this.state.get());
         }
 
         player.closeReplayChest(replay.getId());
-        player.closeHandledScreen();
+        player.closeContainer();
     }
 
     @Override

@@ -40,20 +40,21 @@ import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
-import net.minecraft.block.AbstractSkullBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.TexturedRenderLayers;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.TridentEntityRenderer;
-import net.minecraft.client.render.model.ModelBaker;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.Sheets;
+import net.minecraft.client.renderer.entity.ThrownTridentRenderer;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.util.Util;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.AbstractSkullBlock;
+
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -156,47 +157,42 @@ public class FormUtilsClient
      * Original BBS layer map, plus the glint layers vanilla keeps on the entity
      * Immediate and the trident solid layer (per-texture, not in the atlas map).
      * <p>
-     * Armor trim atlas layers must come <b>before</b> {@link RenderLayer#getArmorEntityGlint()}:
+     * Armor trim atlas layers must come <b>before</b> {@link RenderType#getArmorEntityGlint()}:
      * glint uses equal-depth and only appears where trim/armor already wrote depth.
      */
     private static CustomVertexConsumerProvider createIsolatedProvider()
     {
-        SequencedMap<RenderLayer, BufferAllocator> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
+        SequencedMap<RenderType, ByteBufferBuilder> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
         {
-            map.put(TexturedRenderLayers.getEntitySolid(), new BufferAllocator(786432));
-            map.put(TexturedRenderLayers.getEntityCutout(), new BufferAllocator(786432));
-            map.put(TexturedRenderLayers.getBannerPatterns(), new BufferAllocator(786432));
-            map.put(TexturedRenderLayers.getItemTranslucentCull(), new BufferAllocator(786432));
-            FormUtilsClient.assignBuffer(map, RenderLayers.solid());
-            FormUtilsClient.assignBuffer(map, RenderLayers.cutout());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getItemTranslucentCull());
-            FormUtilsClient.assignBuffer(map, RenderLayers.translucentMovingBlock());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getShieldPatterns());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getBeds());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getShulkerBoxes());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getSign());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getHangingSign());
-            map.put(TexturedRenderLayers.getChest(), new BufferAllocator(786432));
+            map.put(Sheets.cutoutBlockSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.cutoutBlockItemSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.cutoutItemSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.translucentBlockSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.translucentBlockItemSheet(), new ByteBufferBuilder(786432));
+            map.put(Sheets.translucentItemSheet(), new ByteBufferBuilder(786432));
+            FormUtilsClient.assignBuffer(map, RenderTypes.solidMovingBlock());
+            FormUtilsClient.assignBuffer(map, RenderTypes.cutoutMovingBlock());
+            FormUtilsClient.assignBuffer(map, RenderTypes.translucentMovingBlock());
             /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
              * has no trim entry; our dual-shell trim must depth-write first). */
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(false));
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(true));
-            FormUtilsClient.assignBuffer(map, RenderLayers.armorEntityGlint());
-            FormUtilsClient.assignBuffer(map, RenderLayers.glint());
-            FormUtilsClient.assignBuffer(map, RenderLayers.glintTranslucent());
-            FormUtilsClient.assignBuffer(map, RenderLayers.entityGlint());
-            FormUtilsClient.assignBuffer(map, RenderLayers.waterMask());
-            FormUtilsClient.assignBuffer(map, RenderLayers.entitySolid(TridentEntityRenderer.TEXTURE));
+            FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(false));
+            FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(true));
+            FormUtilsClient.assignBuffer(map, RenderTypes.armorEntityGlint());
+            FormUtilsClient.assignBuffer(map, RenderTypes.glint());
+            FormUtilsClient.assignBuffer(map, RenderTypes.glintTranslucent());
+            FormUtilsClient.assignBuffer(map, RenderTypes.entityGlint());
+            FormUtilsClient.assignBuffer(map, RenderTypes.waterMask());
+            FormUtilsClient.assignBuffer(map, RenderTypes.entitySolid(ThrownTridentRenderer.TRIDENT_LOCATION));
         });
 
         return new CustomVertexConsumerProvider(
-            VertexConsumerProvider.immediate(layers, new BufferAllocator(512 * 1024))
+            MultiBufferSource.immediateWithBuffers(layers, new ByteBufferBuilder(512 * 1024))
         );
     }
 
-    private static void assignBuffer(SequencedMap<RenderLayer, BufferAllocator> storage, RenderLayer layer)
+    private static void assignBuffer(SequencedMap<RenderType, ByteBufferBuilder> storage, RenderType layer)
     {
-        storage.put(layer, new BufferAllocator(layer.getExpectedBufferSize()));
+        storage.put(layer, new ByteBufferBuilder(layer.bufferSize()));
     }
 
     /**
@@ -211,12 +207,12 @@ public class FormUtilsClient
             return false;
         }
 
-        return stack.isOf(Items.TRIDENT)
-            || stack.isOf(Items.SHIELD)
+        return stack.is(Items.TRIDENT)
+            || stack.is(Items.SHIELD)
             || stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock;
     }
 
-    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ItemDisplayContext mode, VertexConsumerProvider fallback)
+    public static MultiBufferSource routeMobFormBuiltinItemConsumers(ItemStack stack, ItemDisplayContext mode, MultiBufferSource fallback)
     {
         if (fallback == null || !BBSRendering.isRenderingWorld() || BBSRendering.isIrisShadowPass())
         {
@@ -233,17 +229,17 @@ public class FormUtilsClient
             return fallback;
         }
 
-        return MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+        return Minecraft.getInstance().renderBuffers().bufferSource();
     }
 
-    public static boolean isCrumblingLayer(RenderLayer layer)
+    public static boolean isCrumblingLayer(RenderType layer)
     {
         if (layer == null)
         {
             return false;
         }
 
-        if (ModelBaker.BLOCK_DESTRUCTION_RENDER_LAYERS.contains(layer))
+        if (ModelBakery.DESTROY_TYPES.contains(layer))
         {
             return true;
         }
@@ -258,7 +254,7 @@ public class FormUtilsClient
         return name.toLowerCase().contains("crumbling");
     }
 
-    public static boolean isMobFormEquipmentLayer(RenderLayer layer)
+    public static boolean isMobFormEquipmentLayer(RenderType layer)
     {
         if (layer == null)
         {
@@ -305,9 +301,9 @@ public class FormUtilsClient
         {
             custom.drawCurrentLayer();
         }
-        else if (vertexConsumers instanceof VertexConsumerProvider.Immediate immediate)
+        else if (vertexConsumers instanceof MultiBufferSource.BufferSource immediate)
         {
-            immediate.drawCurrentLayer();
+            immediate.endLastBatch();
         }
     }
 

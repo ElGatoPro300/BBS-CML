@@ -54,12 +54,12 @@ import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix3x2fStack;
 
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
@@ -172,7 +172,7 @@ public class UIFormList extends UIElement
             @Override
             public void render(UIContext context)
             {
-                Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+                Matrix3x2fStack matrices = context.batcher.getContext().pose();
                 matrices.pushMatrix();
                 /* TODO(1.21.11): Matrix3x2fStack does not support 3D translate
                 context.batcher.getContext().getMatrices().translate(0, 0, 200);
@@ -2510,11 +2510,11 @@ public class UIFormList extends UIElement
             this.setSelected(selected);
         }
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
 
         super.render(context);
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.LEVEL);
 
     }
 
@@ -3810,6 +3810,7 @@ public class UIFormList extends UIElement
                 String key = langKey.key;
                 if ("bbs.ui.forms.categories.extra".equals(key) ||
                     "bbs.ui.forms.categories.mobs_animals".equals(key) ||
+                    "bbs.ui.forms.categories.mobs_baby".equals(key) ||
                     "bbs.ui.forms.categories.mobs_neutral".equals(key) ||
                     "bbs.ui.forms.categories.mobs_hostile".equals(key) ||
                     "bbs.ui.forms.categories.mobs_misc".equals(key))
@@ -3825,8 +3826,8 @@ public class UIFormList extends UIElement
                 return true;
             }
 
-            return title.equals("mobs (animales)") || title.equals("mobs (neutrales)") || title.equals("mobs (hostiles)") || title.equals("mobs (miscelaneos)") || title.equals("mobs (misceláneos)") ||
-                   title.equals("mobs (animals)") || title.equals("mobs (neutral)") || title.equals("mobs (hostile)") || title.equals("mobs (miscellaneous)");
+            return title.equals("mobs (animales)") || title.equals("mobs (crias)") || title.equals("mobs (crías)") || title.equals("mobs (bebes)") || title.equals("mobs (bebés)") || title.equals("mobs (neutrales)") || title.equals("mobs (hostiles)") || title.equals("mobs (miscelaneos)") || title.equals("mobs (misceláneos)") ||
+                   title.equals("mobs (animals)") || title.equals("mobs (baby)") || title.equals("mobs (neutral)") || title.equals("mobs (hostile)") || title.equals("mobs (miscellaneous)");
         }
 
         private String normalize(String value)

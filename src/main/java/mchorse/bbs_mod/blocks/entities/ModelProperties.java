@@ -8,10 +8,10 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 
 public class ModelProperties implements IMapSerializable
 {
@@ -333,7 +333,7 @@ public class ModelProperties implements IMapSerializable
         this.fromData(data, null);
     }
 
-    public void fromData(MapType data, RegistryWrapper.WrapperLookup registries)
+    public void fromData(MapType data, HolderLookup.Provider registries)
     {
         this.name = data.getString("name", "").trim();
         this.form = this.processForm(FormUtils.fromData(data.getMap("form")));
@@ -377,7 +377,7 @@ public class ModelProperties implements IMapSerializable
         this.toData(data, null);
     }
 
-    public MapType toData(RegistryWrapper.WrapperLookup registries)
+    public MapType toData(HolderLookup.Provider registries)
     {
         MapType map = new MapType();
 
@@ -386,7 +386,7 @@ public class ModelProperties implements IMapSerializable
         return map;
     }
 
-    public void toData(MapType data, RegistryWrapper.WrapperLookup registries)
+    public void toData(MapType data, HolderLookup.Provider registries)
     {
         data.putString("name", this.name);
         data.put("form", FormUtils.toData(this.form));

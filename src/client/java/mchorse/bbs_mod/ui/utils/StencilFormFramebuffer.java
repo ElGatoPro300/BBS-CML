@@ -10,10 +10,10 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.Pair;
 
-import net.minecraft.client.texture.GlTexture;
-
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.ScissorState;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
@@ -32,7 +32,7 @@ import java.util.Map;
  */
 public class StencilFormFramebuffer
 {
-    private static Framebuffer activePickTarget;
+    private static StencilFormFramebuffer activePickTarget;
 
     private Framebuffer framebuffer;
 
@@ -52,6 +52,12 @@ public class StencilFormFramebuffer
     private GpuTextureView previousColorView;
     private GpuTextureView previousDepthView;
     private boolean applied;
+    private final int[] previousViewport = new int[4];
+    private boolean previousScissorEnabled;
+    private int previousScissorX;
+    private int previousScissorY;
+    private int previousScissorWidth;
+    private int previousScissorHeight;
 
     /**
      * 1.21.4 vanilla Immediate/RenderLayer draws can rebind the main client framebuffer mid-pass.
@@ -62,7 +68,7 @@ public class StencilFormFramebuffer
     {
         if (activePickTarget != null)
         {
-            activePickTarget.bind();
+            activePickTarget.bindForPick();
         }
     }
 
@@ -158,12 +164,13 @@ public class StencilFormFramebuffer
         this.releaseGpuTargets();
 
         this.colorTexture = RenderSystem.getDevice().createTexture("bbs_stencil_color",
-            GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_SRC,
+            GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_SRC | GpuTexture.USAGE_COPY_DST,
             TextureFormat.RGBA8, w, h, 1, 1);
         this.colorView = RenderSystem.getDevice().createTextureView(this.colorTexture);
 
         this.depthTexture = RenderSystem.getDevice().createTexture("bbs_stencil_depth",
-            GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.DEPTH32, w, h, 1, 1);
+            GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
+            TextureFormat.DEPTH32, w, h, 1, 1);
         this.depthView = RenderSystem.getDevice().createTextureView(this.depthTexture);
 
         int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
@@ -171,9 +178,9 @@ public class StencilFormFramebuffer
         this.drawFbo = GL30.glGenFramebuffers();
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.drawFbo);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D,
-            ((GlTexture) this.colorTexture).getGlId(), 0);
+            ((GlTexture) this.colorTexture).glId(), 0);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D,
-            ((GlTexture) this.depthTexture).getGlId(), 0);
+            ((GlTexture) this.depthTexture).glId(), 0);
         GL30.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
         GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
         GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
@@ -188,6 +195,14 @@ public class StencilFormFramebuffer
         this.ensureGpuTargets();
 
         this.previousDrawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, this.previousViewport);
+        ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
+        this.previousScissorEnabled = scissor.enabled();
+        this.previousScissorX = scissor.x();
+        this.previousScissorY = scissor.y();
+        this.previousScissorWidth = scissor.width();
+        this.previousScissorHeight = scissor.height();
+        RenderSystem.disableScissorForRenderTypeDraws();
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, 0, this.depthTexture, 1D);
         GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
 
@@ -200,15 +215,18 @@ public class StencilFormFramebuffer
 
         RenderSystem.outputColorTextureOverride = this.colorView;
         RenderSystem.outputDepthTextureOverride = this.depthView;
-        activePickTarget = this.framebuffer;
+        activePickTarget = this;
+        this.bindForPick();
     }
 
     public void bindForPick()
     {
-        if (this.framebuffer != null)
+        if (this.applied)
         {
-            activePickTarget = this.framebuffer;
-            this.framebuffer.bind();
+            /* Raw GL geometry and RenderPass geometry must write the texture read by pick(). */
+            activePickTarget = this;
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
+            GlStateManager._viewport(0, 0, this.gpuWidth, this.gpuHeight);
         }
     }
 
@@ -251,7 +269,7 @@ public class StencilFormFramebuffer
             this.readFbo = GL30.glGenFramebuffers();
         }
 
-        int glId = ((GlTexture) this.colorTexture).getGlId();
+        int glId = ((GlTexture) this.colorTexture).glId();
         int previousReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
 
         try (MemoryStack stack = MemoryStack.stackPush())
@@ -296,6 +314,12 @@ public class StencilFormFramebuffer
             this.previousColorView = null;
             this.previousDepthView = null;
             this.applied = false;
+            GlStateManager._viewport(this.previousViewport[0], this.previousViewport[1], this.previousViewport[2], this.previousViewport[3]);
+
+            if (this.previousScissorEnabled)
+            {
+                RenderSystem.enableScissorForRenderTypeDraws(this.previousScissorX, this.previousScissorY, this.previousScissorWidth, this.previousScissorHeight);
+            }
         }
 
         if (this.previousDrawFbo >= 0)

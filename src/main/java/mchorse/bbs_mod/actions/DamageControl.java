@@ -2,12 +2,12 @@ package mchorse.bbs_mod.actions;
 
 import mchorse.bbs_mod.BBSSettings;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,12 +17,12 @@ public class DamageControl
     private List<BlockCapture> blocks = new ArrayList<>();
     private List<Entity> entities = new ArrayList<>();
 
-    private ServerWorld world;
+    private ServerLevel world;
 
     public int nested;
     public boolean enable;
 
-    public DamageControl(ServerWorld world)
+    public DamageControl(ServerLevel world)
     {
         this.world = world;
         this.enable = BBSSettings.damageControl.get();
@@ -45,7 +45,7 @@ public class DamageControl
             }
         }
 
-        this.blocks.add(new BlockCapture(new BlockPos(pos), state, entity == null ? null : entity.createNbtWithIdentifyingData(this.world.getRegistryManager())));
+        this.blocks.add(new BlockCapture(new BlockPos(pos), state, entity == null ? null : entity.saveWithFullMetadata(this.world.registryAccess())));
     }
 
     public void addEntity(Entity entity)
@@ -71,13 +71,13 @@ public class DamageControl
 
         for (BlockCapture block : blocksCopy)
         {
-            this.world.setBlockState(block.pos, block.lastState, 2);
+            this.world.setBlock(block.pos, block.lastState, 2);
 
             if (block.blockEntity != null)
             {
-                BlockEntity blockEntity = BlockEntity.createFromNbt(block.pos, block.lastState, block.blockEntity, this.world.getRegistryManager());
+                BlockEntity blockEntity = BlockEntity.loadStatic(block.pos, block.lastState, block.blockEntity, this.world.registryAccess());
 
-                this.world.addBlockEntity(blockEntity);
+                this.world.setBlockEntity(blockEntity);
             }
         }
 
@@ -96,9 +96,9 @@ public class DamageControl
     {
         public BlockPos pos;
         public BlockState lastState;
-        public NbtCompound blockEntity;
+        public CompoundTag blockEntity;
 
-        public BlockCapture(BlockPos pos, BlockState lastState, NbtCompound blockEntity)
+        public BlockCapture(BlockPos pos, BlockState lastState, CompoundTag blockEntity)
         {
             this.pos = pos;
             this.lastState = lastState;

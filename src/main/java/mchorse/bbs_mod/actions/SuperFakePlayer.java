@@ -1,22 +1,22 @@
 package mchorse.bbs_mod.actions;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.command.permission.PermissionPredicate;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.passive.AbstractHorseEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.stat.Stat;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stat;
+import net.minecraft.world.Container;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.scores.PlayerTeam;
 
 import com.mojang.authlib.GameProfile;
 
@@ -30,30 +30,30 @@ import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
-public class SuperFakePlayer extends ServerPlayerEntity
+public class SuperFakePlayer extends ServerPlayer
 {
     private static final GameProfile PROFILE = new GameProfile(UUID.fromString("12345678-9ABC-DEF1-2345-6789ABCDEF69"), "[BBS Player]");
     private static final Map<SuperFakePlayer.FakePlayerKey, SuperFakePlayer> FAKE_PLAYER_MAP = new MapMaker().weakValues().makeMap();
     private final Map<String, BlockPos> replayChestPositions = new HashMap<>();
 
-    public static SuperFakePlayer get(ServerWorld world)
+    public static SuperFakePlayer get(ServerLevel world)
     {
         Objects.requireNonNull(world, "World may not be null.");
 
         return FAKE_PLAYER_MAP.computeIfAbsent(new SuperFakePlayer.FakePlayerKey(world, PROFILE), key -> new SuperFakePlayer(key.world, key.profile));
     }
 
-    protected SuperFakePlayer(ServerWorld world, GameProfile profile)
+    protected SuperFakePlayer(ServerLevel world, GameProfile profile)
     {
-        super(world.getServer(), world, profile, SyncedClientOptions.createDefault());
+        super(world.getServer(), world, profile, ClientInformation.createDefault());
 
-        this.networkHandler = new SuperFakePlayerNetworkHandler(this);
+        this.connection = new SuperFakePlayerNetworkHandler(this);
     }
 
     @Override
-    public PermissionPredicate getPermissions()
+    public PermissionSet permissions()
     {
-        return PermissionPredicate.ALL;
+        return PermissionSet.ALL_PERMISSIONS;
     }
 
     public boolean shouldBroadcastConsoleToOps()
@@ -71,11 +71,11 @@ public class SuperFakePlayer extends ServerPlayerEntity
     {}
 
     @Override
-    public void setClientOptions(SyncedClientOptions settings)
+    public void updateOptions(ClientInformation settings)
     {}
 
     @Override
-    public void increaseStat(Stat<?> stat, int amount)
+    public void awardStat(Stat<?> stat, int amount)
     {}
 
     @Override
@@ -89,13 +89,13 @@ public class SuperFakePlayer extends ServerPlayerEntity
 
     @Nullable
     @Override
-    public Team getScoreboardTeam()
+    public PlayerTeam getTeam()
     {
         return null;
     }
 
     @Override
-    public void sleep(BlockPos pos)
+    public void startSleeping(BlockPos pos)
     {}
 
     @Override
@@ -105,17 +105,17 @@ public class SuperFakePlayer extends ServerPlayerEntity
     }
 
     @Override
-    public void openEditSignScreen(SignBlockEntity sign, boolean front)
+    public void openTextEdit(SignBlockEntity sign, boolean front)
     {}
 
     @Override
-    public OptionalInt openHandledScreen(@Nullable NamedScreenHandlerFactory factory)
+    public OptionalInt openMenu(@Nullable MenuProvider factory)
     {
-        return super.openHandledScreen(factory);
+        return super.openMenu(factory);
     }
 
     @Override
-    public void openHorseInventory(AbstractHorseEntity horse, Inventory inventory)
+    public void openHorseInventory(AbstractHorse horse, Container inventory)
     {}
 
     public void openReplayChest(String replayId, BlockPos pos)
@@ -127,13 +127,13 @@ public class SuperFakePlayer extends ServerPlayerEntity
 
         this.closeReplayChest(replayId);
 
-        BlockState state = this.getEntityWorld().getBlockState(pos);
+        BlockState state = this.level().getBlockState(pos);
 
         if (state.getBlock() instanceof ChestBlock)
         {
-            this.getEntityWorld().addSyncedBlockEvent(pos, state.getBlock(), 1, 1);
-            this.getEntityWorld().playSound(null, pos, SoundEvents.BLOCK_CHEST_OPEN, SoundCategory.BLOCKS, 0.5F, this.getEntityWorld().getRandom().nextFloat() * 0.1F + 0.9F);
-            this.replayChestPositions.put(replayId, pos.toImmutable());
+            this.level().blockEvent(pos, state.getBlock(), 1, 1);
+            this.level().playSound(null, pos, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 0.5F, this.level().getRandom().nextFloat() * 0.1F + 0.9F);
+            this.replayChestPositions.put(replayId, pos.immutable());
         }
     }
 
@@ -151,15 +151,15 @@ public class SuperFakePlayer extends ServerPlayerEntity
             return;
         }
 
-        BlockState state = this.getEntityWorld().getBlockState(replayChestPos);
+        BlockState state = this.level().getBlockState(replayChestPos);
 
         if (state.getBlock() instanceof ChestBlock)
         {
-            this.getEntityWorld().addSyncedBlockEvent(replayChestPos, state.getBlock(), 1, 0);
-            this.getEntityWorld().playSound(null, replayChestPos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 0.5F, this.getEntityWorld().getRandom().nextFloat() * 0.1F + 0.9F);
+            this.level().blockEvent(replayChestPos, state.getBlock(), 1, 0);
+            this.level().playSound(null, replayChestPos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 0.5F, this.level().getRandom().nextFloat() * 0.1F + 0.9F);
         }
     }
 
-    private record FakePlayerKey(ServerWorld world, GameProfile profile)
+    private record FakePlayerKey(ServerLevel world, GameProfile profile)
     {}
 }

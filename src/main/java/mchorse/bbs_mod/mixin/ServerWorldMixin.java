@@ -3,10 +3,10 @@ package mchorse.bbs_mod.mixin;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,16 +14,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ServerWorld.class)
+@Mixin(ServerLevel.class)
 public class ServerWorldMixin
 {
-    @Inject(method = "setBlockBreakingInfo", at = @At("HEAD"))
+    @Inject(method = "destroyBlockProgress", at = @At("HEAD"))
     public void onSetBlockBreakingInfo(int entityId, BlockPos pos, int progress, CallbackInfo info)
     {
-        ServerWorld serverWorld = (ServerWorld) (Object) this;
-        Entity entity = serverWorld.getEntityById(entityId);
+        ServerLevel serverWorld = (ServerLevel) (Object) this;
+        Entity entity = serverWorld.getEntity(entityId);
 
-        if (entity instanceof ServerPlayerEntity player)
+        if (entity instanceof ServerPlayer player)
         {
             BBSMod.getActions().addAction(player, () ->
             {
@@ -39,7 +39,7 @@ public class ServerWorldMixin
         }
     }
 
-    @Inject(method = "spawnEntity", at = @At("HEAD"))
+    @Inject(method = "addFreshEntity", at = @At("HEAD"))
     public void onSpawnEntity(Entity entity, CallbackInfoReturnable<Boolean> info)
     {
         BBSMod.getActions().spawnedEntity(entity);

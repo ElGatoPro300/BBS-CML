@@ -1,14 +1,14 @@
 package mchorse.bbs_mod.utils;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public interface IRayTracingHandler
 {
-    public BlockHitResult rayTrace(World world, Vec3d pos, Vec3d direction, double d);
+    public BlockHitResult rayTrace(Level world, Vec3 pos, Vec3 direction, double d);
 
-    public HitResult rayTraceEntity(Entity entity, World world, Vec3d pos, Vec3d direction, double d);
+    public HitResult rayTraceEntity(Entity entity, Level world, Vec3 pos, Vec3 direction, double d);
 }

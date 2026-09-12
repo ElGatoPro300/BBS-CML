@@ -2,16 +2,16 @@ package mchorse.bbs_mod.ui.dashboard;
 
 import mchorse.bbs_mod.BBSSettings;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.rule.GameRule;
-import net.minecraft.world.rule.GameRules;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.gamerules.GameRule;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.storage.ServerLevelData;
 
 import java.util.function.IntConsumer;
 
@@ -116,9 +116,9 @@ public class WorldPropertiesHelper
             return gammaOverride * 100D;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
-        return mc.options == null ? 100D : mc.options.getGamma().getValue() * 100D;
+        return mc.options == null ? 100D : mc.options.gamma().get() * 100D;
     }
 
     public static void setSunPathRotation(float degrees)
@@ -157,33 +157,14 @@ public class WorldPropertiesHelper
 
     public static boolean hasNightVision()
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
-        return player != null && player.hasStatusEffect(StatusEffects.NIGHT_VISION);
+        return player != null && player.hasEffect(MobEffects.NIGHT_VISION);
     }
 
     public static void setTimeOfDay(long time)
     {
         setClientTimeOverride(time);
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        MinecraftServer server = mc.getServer();
-
-        if (server != null)
-        {
-            server.execute(() ->
-            {
-                ServerWorld world = server.getOverworld();
-
-                if (world != null)
-                {
-                    world.setTimeOfDay(time);
-                }
-            });
-
-            return;
-        }
-
         sendSilentCommand("time set " + time);
     }
 
@@ -204,14 +185,14 @@ public class WorldPropertiesHelper
 
         if (normalized.equals("domobspawning"))
         {
-            return GameRules.DO_MOB_SPAWNING;
+            return GameRules.SPAWN_MOBS;
         }
 
-        for (GameRule<?> rule : (Iterable<GameRule<?>>) rules.streamRules()::iterator)
+        for (GameRule<?> rule : (Iterable<GameRule<?>>) rules.availableRules()::iterator)
         {
-            if (rule.getValueClass() == Boolean.class)
+            if (rule.valueClass() == Boolean.class)
             {
-                String rulePath = rule.getId().getPath().toLowerCase().replace("_", "");
+                String rulePath = rule.getIdentifier().getPath().toLowerCase().replace("_", "");
 
                 if (rulePath.equals(normalized))
                 {
@@ -225,14 +206,14 @@ public class WorldPropertiesHelper
 
     public static void setGamerule(String key, boolean value)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        MinecraftServer server = mc.getServer();
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
 
         if (server != null)
         {
             server.execute(() ->
             {
-                ServerWorld world = server.getOverworld();
+                ServerLevel world = server.overworld();
 
                 if (world != null)
                 {
@@ -240,7 +221,7 @@ public class WorldPropertiesHelper
 
                     if (rule != null)
                     {
-                        world.getGameRules().setValue(rule, value, server);
+                        world.getGameRules().set(rule, value, server);
                     }
                 }
             });
@@ -283,21 +264,21 @@ public class WorldPropertiesHelper
 
     public static void killAllMobs(IntConsumer callback)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        MinecraftServer server = mc.getServer();
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
 
         if (server != null)
         {
             server.execute(() ->
             {
-                ServerWorld world = server.getOverworld();
+                ServerLevel world = server.overworld();
                 int count = 0;
 
                 if (world != null)
                 {
-                    for (Entity entity : world.iterateEntities())
+                    for (Entity entity : world.getAllEntities())
                     {
-                        if (!(entity instanceof PlayerEntity))
+                        if (!(entity instanceof Player))
                         {
                             count++;
                         }
@@ -332,8 +313,8 @@ public class WorldPropertiesHelper
 
     private static void executeWeatherCommand(String command)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        MinecraftServer server = mc.getServer();
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
 
         if (server != null)
         {
@@ -347,12 +328,12 @@ public class WorldPropertiesHelper
 
     public static boolean readGamerule(String key, boolean fallback)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        MinecraftServer server = mc.getServer();
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
 
         if (server != null)
         {
-            ServerWorld world = server.getOverworld();
+            ServerLevel world = server.overworld();
 
             if (world != null)
             {
@@ -362,7 +343,7 @@ public class WorldPropertiesHelper
 
                     if (rule != null)
                     {
-                        return world.getGameRules().getValue(rule);
+                        return world.getGameRules().get(rule);
                     }
                 }
                 catch (Exception e)
@@ -377,16 +358,16 @@ public class WorldPropertiesHelper
 
     private static void sendSilentCommandOnServer(MinecraftServer server, String command)
     {
-        server.getCommandManager().parseAndExecute(server.getCommandSource(), command);
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command);
     }
 
     private static void sendSilentCommand(String command)
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (player != null)
         {
-            player.networkHandler.sendChatCommand(command);
+            player.connection.sendCommand(command);
         }
     }
 }

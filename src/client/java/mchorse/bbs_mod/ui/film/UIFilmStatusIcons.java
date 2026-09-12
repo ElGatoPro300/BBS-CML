@@ -10,9 +10,9 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector3d;
 
@@ -180,7 +180,7 @@ public class UIFilmStatusIcons extends UIElement
 
 
 
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         Camera camera = this.panel.getCamera();
 
@@ -196,13 +196,13 @@ public class UIFilmStatusIcons extends UIElement
 
 
 
-        Vec3d pos = player.getEntityPos();
+        Vec3 pos = player.position();
 
         Vector3d cameraPos = camera.position;
 
         double distance = cameraPos.distance(pos.x, pos.y, pos.z);
 
-        int viewDistance = MinecraftClient.getInstance().options.getViewDistance().getValue();
+        int viewDistance = Minecraft.getInstance().options.renderDistance().get();
 
 
 

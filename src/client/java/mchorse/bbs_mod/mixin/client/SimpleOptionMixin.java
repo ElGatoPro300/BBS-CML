@@ -3,23 +3,23 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.SimpleOption;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.OptionInstance;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(SimpleOption.class)
+@Mixin(OptionInstance.class)
 public class SimpleOptionMixin
 {
-    @Inject(method = "getValue", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "get", at = @At("HEAD"), cancellable = true)
     public void onGetValue(CallbackInfoReturnable info)
     {
-        SimpleOption option = (SimpleOption) (Object) this;
+        OptionInstance option = (OptionInstance) (Object) this;
 
-        if (MinecraftClient.getInstance().options != null && option == MinecraftClient.getInstance().options.getGamma())
+        if (Minecraft.getInstance().options != null && option == Minecraft.getInstance().options.gamma())
         {
             Double value = BBSRendering.getBrightness();
 

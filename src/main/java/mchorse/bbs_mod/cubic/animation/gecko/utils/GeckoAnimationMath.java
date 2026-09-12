@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.cubic.animation.gecko.utils;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 public class GeckoAnimationMath
 {
@@ -11,19 +11,19 @@ public class GeckoAnimationMath
 
     public static float idleRoll(float age, float direction)
     {
-        return (MathHelper.cos(-age * 0.09F) * 0.05F + 0.05F) * direction;
+        return (Mth.cos(-age * 0.09F) * 0.05F + 0.05F) * direction;
     }
 
     public static float idlePitch(float age, float direction)
     {
-        return MathHelper.sin(-age * 0.067F) * 0.05F * direction;
+        return Mth.sin(-age * 0.067F) * 0.05F * direction;
     }
 
     public static float swingPitch(float limbPhase, float limbSpeed, float movementCoefficient, boolean left)
     {
         float offset = left ? (float) Math.PI : 0F;
 
-        return MathHelper.cos(limbPhase * WALK_SWING_FREQUENCY + offset) * limbSpeed / Math.max(0.001F, movementCoefficient);
+        return Mth.cos(limbPhase * WALK_SWING_FREQUENCY + offset) * limbSpeed / Math.max(0.001F, movementCoefficient);
     }
 
     public static float wheelTargetAngularSpeed(float forwardSpeedPerSecond, float speedMultiplier)
@@ -72,7 +72,7 @@ public class GeckoAnimationMath
 
     public static float wheelRotation(float previousAngularSpeed, float targetAngularSpeed, float lerpFactor)
     {
-        float factor = MathHelper.clamp(lerpFactor, 0F, 1F);
+        float factor = Mth.clamp(lerpFactor, 0F, 1F);
         float value = previousAngularSpeed + (targetAngularSpeed - previousAngularSpeed) * factor;
 
         return Math.abs(value) < 0.0001F && Math.abs(targetAngularSpeed) < 0.0001F ? 0F : value;
@@ -85,11 +85,11 @@ public class GeckoAnimationMath
         factor *= factor;
         factor = 1F - factor;
 
-        return MathHelper.sin(factor * (float) Math.PI) * 1.2F;
+        return Mth.sin(factor * (float) Math.PI) * 1.2F;
     }
 
     public static float swipeRoll(float handSwing)
     {
-        return MathHelper.sin(handSwing * (float) Math.PI) * -0.4F;
+        return Mth.sin(handSwing * (float) Math.PI) * -0.4F;
     }
 }

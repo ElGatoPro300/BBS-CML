@@ -9,9 +9,9 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.*;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -45,7 +45,7 @@ public class VideoRenderer
     private static MediaPlayerFactory FACTORY;
     private static boolean factoryFailed;
 
-    public static void renderClip(MatrixStack stack, Batcher2D batcher, VideoClip video, int tick, boolean isRunning, Area area, UIContext context)
+    public static void renderClip(PoseStack stack, Batcher2D batcher, VideoClip video, int tick, boolean isRunning, Area area, UIContext context)
     {
         if (!video.enabled.get() || !video.isInside(tick))
         {
@@ -101,7 +101,7 @@ public class VideoRenderer
             video.loops.get());
     }
 
-    public static void renderClips(MatrixStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
+    public static void renderClips(PoseStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
     {
         for (Clip clip : clips)
         {
@@ -229,7 +229,7 @@ public class VideoRenderer
         return file.exists() ? file : null;
     }
 
-    public static void render(MatrixStack stack, Batcher2D batcher, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
+    public static void render(PoseStack stack, Batcher2D batcher, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
     {
         String resolved = resolveVideoPath(path);
 
@@ -262,7 +262,7 @@ public class VideoRenderer
                 }
             }
 
-            player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
+            player = new VideoPlayer(FACTORY, Minecraft.getInstance());
             try
             {
                 player.start(new File(resolved).toURI());
@@ -477,7 +477,7 @@ public class VideoRenderer
 
         try
         {
-            VideoPlayer player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
+            VideoPlayer player = new VideoPlayer(FACTORY, Minecraft.getInstance());
             player.start(new File(resolved).toURI());
             player.pause();
 

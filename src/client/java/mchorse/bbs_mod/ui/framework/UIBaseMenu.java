@@ -17,9 +17,9 @@ import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.renderers.InputRenderer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -67,10 +67,10 @@ public abstract class UIBaseMenu
             @Override
             public void render(UIContext context)
             {
-                context.batcher.getContext().getMatrices().pushMatrix();
-                context.batcher.getContext().getMatrices().translate(0F, 0F); // Z translation is not supported on 2D Matrix3x2fStack
+                context.batcher.getContext().pose().pushMatrix();
+                context.batcher.getContext().pose().translate(0F, 0F); // Z translation is not supported on 2D Matrix3x2fStack
                 super.render(context);
-                context.batcher.getContext().getMatrices().popMatrix();
+                context.batcher.getContext().pose().popMatrix();
             }
         };
         this.overlay.full(this.viewport);
@@ -371,7 +371,7 @@ public abstract class UIBaseMenu
      */
     protected void closeMenu()
     {
-        MinecraftClient.getInstance().setScreen(null);
+        Minecraft.getInstance().setScreen(null);
     }
 
     public void closeThisMenu()
@@ -432,7 +432,7 @@ public abstract class UIBaseMenu
     public void startRenderFrame(float tickDelta)
     {}
 
-    public void renderInWorld(WorldRenderContext context)
+    public void renderInWorld(LevelRenderContext context)
     {}
 
     public static class UIRootElement extends UIElement implements IViewport

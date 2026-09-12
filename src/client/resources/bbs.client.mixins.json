@@ -1,7 +1,7 @@
 {
     "required": true,
     "package": "mchorse.bbs_mod.mixin.client",
-    "compatibilityLevel": "JAVA_21",
+    "compatibilityLevel": "JAVA_25",
     "client": [
         "ClientWorldMixin",
         "ClientPlayerInteractionManagerMixin",
@@ -45,6 +45,7 @@
         "iris.IrisRenderingPipelineAccessor",
         "iris.IrisPipelinesAccessor",
         "iris.IrisRenderingPipelineMixin",
+        "iris.RenderTargetsMixin",
         "iris.CustomUniformsBuilderMixin",
         "iris.CustomUniformsAccessor",
         "iris.JcppProcessorMixin",
@@ -61,6 +62,7 @@
         "iris.ShadowRendererMixin",
         "iris.ShadowMatricesMixin",
         "iris.CelestialUniformsMixin",
+        "audio.CallbackDeviceTrackerMixin",
         "audio.SoundEngineMixin",
         "TitleScreenMixin",
         "SelectWorldScreenMixin",

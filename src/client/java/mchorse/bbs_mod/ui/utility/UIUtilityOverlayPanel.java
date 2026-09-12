@@ -29,8 +29,9 @@ import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.resources.CDNAssetSyncService;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
+import net.minecraft.client.Minecraft;
+
+import com.mojang.blaze3d.platform.Window;
 
 import java.io.File;
 import java.util.Arrays;
@@ -53,7 +54,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
     {
         super(title);
 
-        this.window = MinecraftClient.getInstance().getWindow();
+        this.window = Minecraft.getInstance().getWindow();
         this.callback = callback;
 
         /* Use the full panel width under the title bar. The default overlay content
@@ -109,15 +110,15 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
         this.width = new UITrackpad((v) ->
         {
-            this.window.setWindowedSize((int) this.width.getValue(), (int) this.height.getValue());
+            this.window.setWindowed((int) this.width.getValue(), (int) this.height.getValue());
         });
         this.height = new UITrackpad((v) ->
         {
-            this.window.setWindowedSize((int) this.width.getValue(), (int) this.height.getValue());
+            this.window.setWindowed((int) this.width.getValue(), (int) this.height.getValue());
         });
 
-        this.width.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getWidth());
-        this.height.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getHeight());
+        this.width.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getScreenWidth());
+        this.height.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getScreenHeight());
 
         UIButton analyze = new UIButton(UIKeys.UTILITY_ANALYZE_LANG, (b) -> this.analyzeLanguageStrings());
         UIButton compile = new UIButton(UIKeys.UTILITY_COMPILE_LANG, (b) -> this.compileLanguageStrings());
@@ -139,7 +140,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 {
                     CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
                     {
-                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
+                        Minecraft.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
                     });
 
                     syncService.syncOnce();
@@ -151,7 +152,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
                 BBSResources.setupWatchdog();
                 
-                MinecraftClient.getInstance().execute(() ->
+                Minecraft.getInstance().execute(() ->
                 {
                     BBSModClient.getTextures().delete();
                     BBSModClient.getSounds().deleteSounds();
@@ -174,7 +175,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 {
                     CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
                     {
-                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
+                        Minecraft.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
                     });
 
                     syncService.pushChangedFiles(BBSSettings.cdnToken.get());
@@ -214,7 +215,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
         for (String command : commands)
         {
-            MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
+            Minecraft.getInstance().player.connection.sendCommand(command);
         }
     }
 
@@ -321,8 +322,8 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
     {
         super.resize();
 
-        this.width.setValue(this.window.getWidth());
-        this.height.setValue(this.window.getHeight());
+        this.width.setValue(this.window.getScreenWidth());
+        this.height.setValue(this.window.getScreenHeight());
     }
 
     @Override

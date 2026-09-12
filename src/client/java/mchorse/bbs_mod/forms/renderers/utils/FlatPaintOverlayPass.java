@@ -4,10 +4,10 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 
-import net.minecraft.client.gl.ShaderProgram;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
 
@@ -83,7 +83,7 @@ public class FlatPaintOverlayPass
             BBSRendering.depthFunc(GL11.GL_LEQUAL);
             BBSRendering.depthMask(false);
 
-            ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
+            GlProgram program = BBSShaders.getFlatPaintOverlayProgram();
 
             if (program != null)
             {

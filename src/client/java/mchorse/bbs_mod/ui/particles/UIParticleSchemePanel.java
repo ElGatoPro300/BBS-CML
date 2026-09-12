@@ -69,8 +69,6 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.MinecraftClient;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.google.gson.Gson;
@@ -1543,14 +1541,14 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
                         int iconY = this.area.y + CARD_SIZE / 2;
                         Icon icon = isFolder || isParent ? Icons.FOLDER : Icons.PARTICLE;
                         
-                        context.batcher.getContext().getMatrices().pushMatrix();
-                        context.batcher.getContext().getMatrices().translate((float) iconX, (float) iconY);
-                        context.batcher.getContext().getMatrices().scale(2F, 2F);
-                        context.batcher.getContext().getMatrices().translate((float) -iconX, (float) -iconY);
+                        context.batcher.getContext().pose().pushMatrix();
+                        context.batcher.getContext().pose().translate((float) iconX, (float) iconY);
+                        context.batcher.getContext().pose().scale(2F, 2F);
+                        context.batcher.getContext().pose().translate((float) -iconX, (float) -iconY);
                         
                         context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
                         
-                        context.batcher.getContext().getMatrices().popMatrix();
+                        context.batcher.getContext().pose().popMatrix();
 
                         String label = isParent ? "../" : path.getLast();
                         int maxW = this.area.w - 4;

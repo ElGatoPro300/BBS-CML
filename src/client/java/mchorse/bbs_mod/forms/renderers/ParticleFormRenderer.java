@@ -16,17 +16,16 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.Level;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.HashMap;
@@ -72,7 +71,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         return this.emitter;
     }
 
-    public void ensureEmitter(World world, float transition)
+    public void ensureEmitter(Level world, float transition)
     {
         this.ensureEmitter(world, false);
     }
@@ -82,7 +81,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
      *        Render path leaves simulation alone so film illusion delay can override
      *        appearance for one focus without pausing every emitter.
      */
-    private void ensureEmitter(World world, boolean applySimulationState)
+    private void ensureEmitter(Level world, boolean applySimulationState)
     {
         if (this.lastParticleUpdate < lastUpdate)
         {
@@ -115,7 +114,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         }
     }
 
-    private void rebuildPrimaryEmitter(World world, String effect)
+    private void rebuildPrimaryEmitter(Level world, String effect)
     {
         this.illusionEmitters.clear();
         this.illusionDelayLags.clear();
@@ -135,7 +134,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         }
     }
 
-    private void syncIllusionEmitters(World world)
+    private void syncIllusionEmitters(Level world)
     {
         if (this.emitter == null)
         {
@@ -199,7 +198,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         }
     }
 
-    private void ensureSiteEmitter(int trailInstance, World world, float spawnRateScale)
+    private void ensureSiteEmitter(int trailInstance, Level world, float spawnRateScale)
     {
         ParticleScheme scheme = this.emitter.scheme;
         ParticleEmitter siteEmitter = this.illusionEmitters.get(trailInstance);
@@ -322,7 +321,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        this.ensureEmitter(MinecraftClient.getInstance().world, false);
+        this.ensureEmitter(Minecraft.getInstance().level, false);
 
         ParticleEmitter emitter = this.emitter;
 
@@ -330,10 +329,10 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         {
             context.batcher.flush();
 
-            MatrixStack stack = new MatrixStack();
+            PoseStack stack = new PoseStack();
             int scale = (y2 - y1) / 2;
 
-            stack.push();
+            stack.pushPose();
             stack.translate((x2 + x1) / 2, (y2 + y1) / 2, 40);
             MatrixStackUtils.scaleStack(stack, scale, scale, scale);
 
@@ -345,14 +344,14 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             emitter.renderUI(stack, context.getTransition());
             emitter.clearGlow();
 
-            stack.pop();
+            stack.popPose();
         }
     }
 
     @Override
     public void render3D(FormRenderingContext context)
     {
-        this.ensureEmitter(MinecraftClient.getInstance().world, false);
+        this.ensureEmitter(Minecraft.getInstance().level, false);
 
         ParticleEmitter emitter = this.emitterForTrail(context.trailInstance);
 
@@ -367,7 +366,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             {
                 /* For game rendering, use the main camera for emitter properties to ensure
                  * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
-                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
+                emitter.setupCameraProperties(Minecraft.getInstance().gameRenderer.getMainCamera());
             }
             else
             {
@@ -394,7 +393,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 }
             }
 
-            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+            Matrix4f modelMatrix = new Matrix4f(context.stack.last().pose());
 
             Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
 
@@ -403,8 +402,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
             }
 
-            context.stack.push();
-            context.stack.loadIdentity();
+            context.stack.pushPose();
+            context.stack.setIdentity();
 
             emitter.lastGlobal.set(translation);
             emitter.rotation.set(modelMatrix);
@@ -419,8 +418,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
                 boolean billboard = shadersEnabled;
 
-                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
-                Supplier<ShaderProgram> shader = billboard
+                VertexFormat format = billboard ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.PARTICLE;
+                Supplier<GlProgram> shader = billboard
                     ? this.getShader(context, BBSRendering::getEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
                     : this.getShader(context, BBSRendering::getParticleProgram, BBSShaders::getPickerParticlesProgram);
 
@@ -429,7 +428,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             emitter.clearGlow();
 
-            context.stack.pop();
+            context.stack.popPose();
         }
     }
 

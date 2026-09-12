@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.client.render.BufferRenderer;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -14,15 +15,13 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
@@ -31,7 +30,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
  */
 public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 {
-    private final ShaderProgram shader;
+    private final GlProgram shader;
     private final Link defaultTexture;
     private final Color glowLayerColor;
     private final boolean boneGlowOnly;
@@ -39,7 +38,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
     private final String targetGroupId;
     private final boolean skipBoneGlowGroups;
 
-    public CubicCpuGlowOverlayRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture, Color glowLayerColor, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
+    public CubicCpuGlowOverlayRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, GlProgram shader, Link defaultTexture, Color glowLayerColor, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
@@ -53,7 +52,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
     {
         if (group.cubes.isEmpty() && group.meshes.isEmpty())
         {
@@ -112,7 +111,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
         return false;
     }
 
-    private void drawGroup(MatrixStack stack, ModelGroup group, Model model, Link texture, float alpha)
+    private void drawGroup(PoseStack stack, ModelGroup group, Model model, Link texture, float alpha)
     {
         if (texture != null)
         {
@@ -121,7 +120,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         this.setColor(1F, 1F, 1F, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
 
         super.renderGroup(groupBuilder, stack, group, model);
 
@@ -133,7 +132,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
             BBSUniform.set(this.shader, "PaintColor", 0F, 0F, 0F, 0F);
 
             BBSRendering.bindProgram(this.shader);
-            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
+            BufferRenderer.drawWithGlobalProgram(groupBuilder.buildOrThrow());
             BBSRendering.unbindProgram();
         }
         catch (IllegalStateException e)
@@ -143,7 +142,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
     }
 
     @Override
-    protected void writeVertex(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    protected void writeVertex(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
     {
         float gr;
         float gg;
@@ -166,27 +165,27 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
         }
 
         this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
-        stack.peek().getPositionMatrix().transform(this.vertex);
+        stack.last().pose().transform(this.vertex);
 
-        builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(
+        builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z)
+            .setColor(
                 MathUtils.clamp(gr, 0F, 1F),
                 MathUtils.clamp(gg, 0F, 1F),
                 MathUtils.clamp(gb, 0F, 1F),
                 MathUtils.clamp(ga, 0F, 1F)
             )
-            .texture(vertex.uv.x, vertex.uv.y)
-            .overlay(this.overlay);
+            .setUv(vertex.uv.x, vertex.uv.y)
+            .setOverlay(this.overlay);
 
         if (this.stencilMap != null)
         {
-            builder.light(this.stencilMap.increment ? group.index : 0, 0);
+            builder.setUv2(this.stencilMap.increment ? group.index : 0, 0);
         }
         else
         {
-            builder.light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            builder.setLight(LightTexture.FULL_BRIGHT);
         }
 
-        builder.normal(normal.x, normal.y, normal.z);
+        builder.setNormal(normal.x, normal.y, normal.z);
     }
 }

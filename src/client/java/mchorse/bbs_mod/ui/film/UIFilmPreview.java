@@ -57,14 +57,13 @@ import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix4fStack;
 import org.joml.Vector2i;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.math.Axis;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -915,14 +914,14 @@ public class UIFilmPreview extends UIElement
 
     private void renderCursor(UIContext context)
     {
-        net.minecraft.client.render.Camera mcCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        net.minecraft.client.Camera mcCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
         Matrix4fStack stack = RenderSystem.getModelViewStack();
 
         stack.pushMatrix();
 
-        stack.translate(area.x + 16, area.ey() - 12, 0F);
-        stack.rotate(RotationAxis.NEGATIVE_X.rotationDegrees(mcCamera.getPitch()));
-        stack.rotate(RotationAxis.POSITIVE_Y.rotationDegrees(mcCamera.getYaw()));
+        stack.translate(this.area.x + 16, this.area.ey() - 12, 0F);
+        stack.rotate(Axis.XN.rotationDegrees(mcCamera.xRot()));
+        stack.rotate(Axis.YP.rotationDegrees(mcCamera.yRot()));
         stack.scale(-1F, -1F, -1F);
         MatrixStackUtils.applyModelViewMatrix();
 
@@ -1026,7 +1025,7 @@ public class UIFilmPreview extends UIElement
 
                     if (onComplete != null)
                     {
-                        MinecraftClient.getInstance().execute(onComplete);
+                        Minecraft.getInstance().execute(onComplete);
                     }
                 }).start();
             }
@@ -1056,12 +1055,12 @@ public class UIFilmPreview extends UIElement
             return;
         }
 
-        double scale = MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double scale = Minecraft.getInstance().getWindow().getGuiScale();
 
         int width = (int) (area.w * scale);
         int height = (int) (area.h * scale);
         int x = (int) (context.globalX(area.x) * scale);
-        int y = (int) (MinecraftClient.getInstance().getWindow().getFramebufferHeight() - context.globalY(area.y) * scale - height);
+        int y = (int) (Minecraft.getInstance().getWindow().getHeight() - context.globalY(area.y) * scale - height);
 
         if (width <= 0 || height <= 0)
         {
@@ -1110,7 +1109,7 @@ public class UIFilmPreview extends UIElement
 
             if (onComplete != null)
             {
-                MinecraftClient.getInstance().execute(onComplete);
+                Minecraft.getInstance().execute(onComplete);
             }
         }).start();
     }

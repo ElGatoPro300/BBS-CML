@@ -5,20 +5,18 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 public class MatrixStackUtils
 {
@@ -62,8 +60,8 @@ public class MatrixStackUtils
      */
     public static Matrix4f getInverseViewRotationMatrix()
     {
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        Matrix4f inverse = new Matrix4f().rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Matrix4f inverse = new Matrix4f().rotation(camera.rotation().conjugate(MatrixStackUtils.tempQuaternion));
         CameraController controller = BBSModClient.getCameraController();
 
         if (controller.getCurrent() != null)
@@ -85,9 +83,9 @@ public class MatrixStackUtils
      */
     public static void loadInverseViewRotationMatrix4(Matrix4f dest)
     {
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
 
-        dest.rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+        dest.rotation(camera.rotation().conjugate(MatrixStackUtils.tempQuaternion));
 
         CameraController controller = BBSModClient.getCameraController();
 
@@ -107,24 +105,24 @@ public class MatrixStackUtils
      */
     public static Matrix4f getViewRotationMatrix()
     {
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
 
-        return new Matrix4f().rotation(camera.getRotation());
+        return new Matrix4f().rotation(camera.rotation());
     }
 
-    public static void scaleStack(MatrixStack stack, float x, float y, float z)
+    public static void scaleStack(PoseStack stack, float x, float y, float z)
     {
-        stack.peek().getPositionMatrix().scale(safePositionScale(x), safePositionScale(y), safePositionScale(z));
-        stack.peek().getNormalMatrix().scale(x < 0F ? -1F : 1F, y < 0F ? -1F : 1F, z < 0F ? -1F : 1F);
+        stack.last().pose().scale(safePositionScale(x), safePositionScale(y), safePositionScale(z));
+        stack.last().normal().scale(x < 0F ? -1F : 1F, y < 0F ? -1F : 1F, z < 0F ? -1F : 1F);
     }
 
     /**
      * UI previews flip Y lighting; divide out current normal scale without Inf on flat axes.
      */
-    public static void invertUiNormalY(MatrixStack stack)
+    public static void invertUiNormalY(PoseStack stack)
     {
-        stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
-        stack.peek().getNormalMatrix().scale(
+        stack.last().normal().getScale(Vectors.EMPTY_3F);
+        stack.last().normal().scale(
             safeNormalScaleReciprocal(Vectors.EMPTY_3F.x),
             -safeNormalScaleReciprocal(Vectors.EMPTY_3F.y),
             safeNormalScaleReciprocal(Vectors.EMPTY_3F.z)
@@ -172,11 +170,11 @@ public class MatrixStackUtils
     }
 
     /**
-     * Pop leaked {@link MatrixStack} entries until {@code parent} is on top again.
+     * Pop leaked {@link PoseStack} entries until {@code parent} is on top again.
      * Vanilla {@code ModelPart.render} has no try/finally; a throw after {@code push}
      * otherwise trips WorldRenderer "Pose stack not empty".
      */
-    public static void popUntil(MatrixStack stack, MatrixStack.Entry parent)
+    public static void popUntil(PoseStack stack, PoseStack.Pose parent)
     {
         if (stack == null || parent == null)
         {
@@ -185,13 +183,13 @@ public class MatrixStackUtils
 
         int guard = 32;
 
-        while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
+        while (guard-- > 0 && !stack.isEmpty() && stack.last() != parent)
         {
-            stack.pop();
+            stack.popPose();
         }
     }
 
-    public static void applyTransform(MatrixStack stack, Transform transform)
+    public static void applyTransform(PoseStack stack, Transform transform)
     {
         stack.translate(transform.translate.x, transform.translate.y, transform.translate.z);
 
@@ -200,12 +198,12 @@ public class MatrixStackUtils
             stack.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
         }
 
-        stack.multiply(RotationAxis.POSITIVE_Z.rotation(transform.rotate.z));
-        stack.multiply(RotationAxis.POSITIVE_Y.rotation(transform.rotate.y));
-        stack.multiply(RotationAxis.POSITIVE_X.rotation(transform.rotate.x));
-        stack.multiply(RotationAxis.POSITIVE_Z.rotation(transform.rotate2.z));
-        stack.multiply(RotationAxis.POSITIVE_Y.rotation(transform.rotate2.y));
-        stack.multiply(RotationAxis.POSITIVE_X.rotation(transform.rotate2.x));
+        stack.mulPose(Axis.ZP.rotation(transform.rotate.z));
+        stack.mulPose(Axis.YP.rotation(transform.rotate.y));
+        stack.mulPose(Axis.XP.rotation(transform.rotate.x));
+        stack.mulPose(Axis.ZP.rotation(transform.rotate2.z));
+        stack.mulPose(Axis.YP.rotation(transform.rotate2.y));
+        stack.mulPose(Axis.XP.rotation(transform.rotate2.x));
         scaleStack(stack, transform.scale.x, transform.scale.y, transform.scale.z);
 
         if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)
@@ -214,7 +212,7 @@ public class MatrixStackUtils
         }
     }
 
-    public static void multiply(MatrixStack stack, Matrix4f matrix)
+    public static void multiply(PoseStack stack, Matrix4f matrix)
     {
         normal.set(matrix);
         normal.getScale(Vectors.TEMP_3F);
@@ -225,13 +223,13 @@ public class MatrixStackUtils
 
         normal.scale(Vectors.TEMP_3F);
 
-        stack.peek().getPositionMatrix().mul(matrix);
-        stack.peek().getNormalMatrix().mul(normal);
+        stack.last().pose().mul(matrix);
+        stack.last().normal().mul(normal);
     }
 
-    public static void scaleBack(MatrixStack matrices)
+    public static void scaleBack(PoseStack matrices)
     {
-        Matrix4f position = matrices.peek().getPositionMatrix();
+        Matrix4f position = matrices.last().pose();
 
         float scaleX = (float) Math.sqrt(position.m00() * position.m00() + position.m10() * position.m10() + position.m20() * position.m20());
         float scaleY = (float) Math.sqrt(position.m01() * position.m01() + position.m11() * position.m11() + position.m21() * position.m21());

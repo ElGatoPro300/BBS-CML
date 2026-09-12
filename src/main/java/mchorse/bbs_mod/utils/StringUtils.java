@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.utils;
 
-import net.minecraft.text.OrderedText;
+import net.minecraft.util.FormattedCharSequence;
 
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -30,7 +30,7 @@ public class StringUtils
         return true;
     }
 
-    public static String plainText(OrderedText text)
+    public static String plainText(FormattedCharSequence text)
     {
         StringBuilder builder = new StringBuilder();
 
