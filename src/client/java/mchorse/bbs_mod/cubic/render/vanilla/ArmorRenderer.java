@@ -28,8 +28,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.item.equipment.EquipmentAsset;
 import net.minecraft.world.item.equipment.Equippable;
+import net.minecraft.client.resources.model.EquipmentClientInfo;
 import net.minecraft.world.item.equipment.trim.ArmorTrim;
-import net.minecraft.world.item.equipment.trim.MaterialAssetGroup;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -231,15 +231,12 @@ public class ArmorRenderer
 
     private Identifier getTrimTexture(ArmorTrim trim, ResourceKey<EquipmentAsset> armorAssetKey, boolean leggings)
     {
-        Identifier patternId = trim.pattern().value().assetId();
-        MaterialAssetGroup assets = trim.material().value().assets();
-        MaterialAssetGroup.AssetInfo assetId = armorAssetKey != null
-            ? assets.assetId(armorAssetKey)
-            : assets.base();
-        String materialName = assetId.suffix();
-        String suffix = leggings ? "_leggings" : "";
+        EquipmentClientInfo.LayerType layerType = leggings
+            ? EquipmentClientInfo.LayerType.HUMANOID_LEGGINGS
+            : EquipmentClientInfo.LayerType.HUMANOID;
 
-        return Identifier.fromNamespaceAndPath(patternId.getNamespace(), "trims/models/armor/" + patternId.getPath() + "_" + materialName + suffix);
+        /* 26.1: trim atlas IDs moved off trims/models/armor/* — use vanilla resolver. */
+        return trim.layerAssetId(layerType.trimAssetPrefix(), armorAssetKey);
     }
 
     private void renderGlint(ModelPart part, PoseStack matrices, MultiBufferSource vertexConsumers, int light)
