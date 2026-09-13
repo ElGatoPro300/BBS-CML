@@ -82,6 +82,12 @@ public abstract class Form extends ValueGroup
     public final ValueColor glowingColor = new ValueColor("glowing_color", new Color().set(1F, 1F, 1F, 1F));
     public final ValueGlowSettings glowSettings = new ValueGlowSettings("glow", new GlowSettings());
 
+    /** Silhouette outline settings — a screen-space outline traced around the outer visible
+     * edge of the whole rendered form (see {@code FormOutlineRenderer} on the client). */
+    public final ValueBoolean outline = new ValueBoolean("outline", false);
+    public final ValueColor outlineColor = new ValueColor("outline_color", new Color().set(1F, 0.85F, 0F, 1F));
+    public final ValueFloat outlineThickness = new ValueFloat("outline_thickness", 2F);
+
     /* Illusions: purely visual duplicates of this form that spread away from it in
      * the picked directions (no extra entities, so they're cheap to render) */
     public final ValueIllusion illusion = new ValueIllusion("illusion", new Illusion());
@@ -183,6 +189,9 @@ public abstract class Form extends ValueGroup
         this.add(this.paintSettings);
         this.add(this.glowingColor);
         this.add(this.glowSettings);
+        this.add(this.outline);
+        this.add(this.outlineColor);
+        this.add(this.outlineThickness);
 
         this.add(this.illusion);
         this.add(this.illusionOverlay);

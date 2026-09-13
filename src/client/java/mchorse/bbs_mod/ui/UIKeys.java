@@ -944,6 +944,10 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_MODEL_POSE = L10n.lang("bbs.ui.forms.editors.model.pose");
     public static final IKey FORMS_EDITORS_MODEL_HITBOX = L10n.lang("bbs.ui.forms.editors.model.hitbox");
     public static final IKey FORMS_EDITORS_MODEL_HITBOX_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.hitbox-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE = L10n.lang("bbs.ui.forms.editors.model.outline");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_COLOR_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_color-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_THICKNESS_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_thickness-tooltip");
     public static final IKey FORMS_EDITORS_STRUCTURE_HITBOX = L10n.lang("bbs.ui.forms.editors.structure.hitbox");
     public static final IKey FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP = L10n.lang("bbs.ui.forms.editors.structure.hitbox-tooltip");
     public static final IKey FORMS_EDITORS_TRAIL_LENGTH = L10n.lang("bbs.ui.forms.editors.trail.length");

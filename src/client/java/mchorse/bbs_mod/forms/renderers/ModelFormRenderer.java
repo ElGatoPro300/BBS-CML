@@ -42,6 +42,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.renderers.utils.BbsHeadItemSpace;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlineRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -3881,6 +3882,85 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     ShaderOpacityPatch.endShadowForm();
                 }
             }
+
+            this.renderOutline(context, model, texture, color);
+        }
+    }
+
+    /**
+     * Silhouette outline pass — draws a single outer-edge-only outline around this model's
+     * currently rendered geometry (see {@link FormOutlineRenderer}), self-contained and
+     * immediate (no dependency on world render events, so this works identically in the
+     * model editor preview as it does in the actual world). Skipped for UI/picking/shadow
+     * passes and whenever the form itself is invisible, since an invisible model has no
+     * silhouette to trace.
+     */
+    private void renderOutline(FormRenderingContext context, ModelInstance model, Link texture, Color color)
+    {
+        if (!this.form.outline.get() || context.stencilMap != null)
+        {
+            return;
+        }
+
+        if (context.isShadowPass || BBSRendering.isIrisShadowPass() || color.a <= 0.001F)
+        {
+            return;
+        }
+
+        Color outlineColor = this.form.outlineColor.get();
+        float thickness = this.form.outlineThickness.get();
+
+        if (outlineColor == null || outlineColor.a <= 0.001F || thickness <= 0F)
+        {
+            return;
+        }
+
+        /* Immediate path (vanilla / model-editor): entity-local transform only.
+         * setupUniforms computes:  ModelViewMat = RenderSystem.getModelViewMatrix() * stack.peek()
+         *                                       = camera * entity_local  →  correct. */
+        MatrixStack maskStack = new MatrixStack();
+
+        MatrixStackUtils.multiply(maskStack, context.stack.peek().getPositionMatrix());
+        maskStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
+
+        ShapeKeys shapeKeys = this.form.shapeKeys.get();
+        Function<String, Link> textureResolver = this.getTextureResolver(model, texture);
+        int light = context.light;
+        Color capturedColor = new Color().set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
+        float capturedThickness = thickness;
+
+        /* When Iris shaders are active and we are inside its entity/gbuffer world pass,
+         * Iris intercepts RenderSystem.setShader() and replaces our custom outline_mask
+         * shader with its own gbuffer program — the outline mask buffer never gets written.
+         * Defer to after Iris compositing (the same slot used for paint overlays) where our
+         * shaders run unintercepted on the final vanilla framebuffer.
+         *
+         * Outside an Iris world pass (vanilla render or model-editor preview) run immediately
+         * so the outline depth-tests correctly against the scene that just rendered. */
+        if (BBSRendering.isIrisDeferredModelPass())
+        {
+            /* Deferred path: the paint overlay queue calls pushIdentityModelView() before
+             * running our Runnable, so RenderSystem.getModelViewMatrix() will be IDENTITY.
+             * Bake camera * entity_local into the stack now so that:
+             *   ModelViewMat = identity * (camera * entity_local) = correct world transform. */
+            Matrix4f baked = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+            baked.mul(context.stack.peek().getPositionMatrix());
+
+            MatrixStack deferredStack = new MatrixStack();
+
+            MatrixStackUtils.multiply(deferredStack, baked);
+            deferredStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
+
+            ModelVAORenderer.enqueuePaintOverlay(
+                new Matrix4f(RenderSystem.getProjectionMatrix()),
+                new Matrix4f(RenderSystem.getModelViewMatrix()),
+                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness)
+            );
+        }
+        else
+        {
+            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness);
         }
     }
 

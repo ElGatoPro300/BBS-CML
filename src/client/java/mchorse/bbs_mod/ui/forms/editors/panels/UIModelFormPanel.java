@@ -50,6 +50,11 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
     public UIElement glowSection;
 
+    public UIToggle outline;
+    public UIColor outlineColor;
+    public UITrackpad outlineThickness;
+    public UIElement outlineSection;
+
     public UIModelPoseEditor poseEditor;
     public UIShapeKeys shapeKeys;
     public UITrackpad pbrNormalIntensity;
@@ -210,6 +215,30 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             this.form.glowingColor.set(legacy);
         });
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+
+        this.outline = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_OUTLINE, (b) -> this.form.outline.set(b.getValue()));
+        this.outline.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_TOOLTIP);
+        this.outlineColor = new UIColor((c) ->
+        {
+            Color copy = this.form.outlineColor.get().copy();
+            Color value = new Color().set(c);
+
+            copy.r = value.r;
+            copy.g = value.g;
+            copy.b = value.b;
+            this.form.outlineColor.set(copy);
+        });
+        this.outlineColor.direction(Direction.LEFT);
+        this.outlineColor.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_COLOR_TOOLTIP);
+        this.outlineThickness = new UITrackpad((value) -> this.form.outlineThickness.set(value.floatValue()));
+        this.outlineThickness.limit(0D, 32D).increment(0.5D).values(1D, 2D, 4D);
+        this.outlineThickness.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_THICKNESS_TOOLTIP);
+        this.outlineSection = UI.column(
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITORS_MODEL_OUTLINE),
+            this.outline,
+            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness)
+        );
+
         this.poseEditor = new UIModelPoseEditor();
         this.poseEditor.setDefaultTextureSupplier(() ->
         {
@@ -277,6 +306,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
+            this.outlineSection.marginTop(4),
             this.toggleSolidHitbox,
             this.poseEditor
         );
@@ -384,6 +414,10 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             : (form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
 
         this.glowTransform.setEffectTransform(glowTransform);
+
+        this.outline.setValue(form.outline.get());
+        this.outlineColor.setColor(form.outlineColor.get().getRGBColor());
+        this.outlineThickness.setValue(form.outlineThickness.get());
 
         this.shapeKeys.removeFromParent();
 
