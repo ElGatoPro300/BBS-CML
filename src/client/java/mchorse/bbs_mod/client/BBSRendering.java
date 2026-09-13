@@ -512,13 +512,26 @@ public class BBSRendering
      * TU0 on a form atlas, lightmap off, or ColorModulator dirty — the next world pass
      * (including the freeze behind the pause menu) then presents dark while UI chrome
      * still looks fine. {@link #prepareHudRenderState()} runs too late for that geometry.
+     * <p>
+     * When {@link #isCustomSize()} (film viewport offscreen), do <b>not</b> rebind the client
+     * framebuffer here: {@link #onWorldRenderBegin()} will {@link #toggleFramebuffer(boolean)
+     * toggle} to the offscreen target next. Ping-ponging client FB → offscreen at world HEAD
+     * desyncs Iris render targets on NeoForge/Connector (empty color, stale depth silhouettes).
      */
     public static void prepareWorldPresentState()
     {
-        /* Film offscreen sessions can leave toggleFramebuffer true; restore window target. */
-        ensureMainFramebuffer();
         restoreWorldRenderState();
         setShaderColor(1F, 1F, 1F, 1F);
+        clearTextureUnit0();
+
+        /* Film custom-size session: leave FBO ownership to onWorldRenderBegin / toggleFramebuffer. */
+        if (isCustomSize())
+        {
+            return;
+        }
+
+        /* Outside the film viewport: restore window target for pause freeze / normal world. */
+        ensureMainFramebuffer();
 
         Minecraft mc = Minecraft.getInstance();
 
@@ -526,8 +539,6 @@ public class BBSRendering
         {
             bindMainFramebuffer(false);
         }
-
-        clearTextureUnit0();
     }
 
     /**
