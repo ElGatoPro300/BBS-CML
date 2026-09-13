@@ -46,8 +46,6 @@ Related pause/HUD darkness (model-block in hotbar, blur sky/leaves on NeoForge):
 
 The film 3D preview uses `customSize` + `toggleFramebuffer` (offscreen) and `WindowMixin` size spoofing. `prepareWorldPresentState()` must **not** call `ensureMainFramebuffer()` / `beginWrite` while `customSize` is active: that ping-pongs client FB → offscreen at every `renderWorld` HEAD and can leave Iris on NeoForge drawing into the wrong targets (world/forms invisible, godrays/fog still visible, stale silhouettes). Outside the film viewport (`!customSize`), keep the full present-state path for pause freeze.
 
-Film viewport FBO sizing also uses `originalFramebufferScale` (framebuffer px / window px as a **float**). Capture at client start and refresh only on `WorldRenderer.onResized` — not every frame. Integer division truncated HiDPI 1.25/1.5 to 1 and could desync Iris offscreen targets (partial/dark film viewport on NeoForge windowed). This path does not resync the Iris pipeline.
-
 ## Related
 
 * Forms: `docs/architecture/forms.md`

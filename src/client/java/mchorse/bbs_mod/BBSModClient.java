@@ -348,44 +348,7 @@ public class BBSModClient implements ClientModInitializer
 
     public static float getOriginalFramebufferScale()
     {
-        return Math.max(originalFramebufferScale, 1F);
-    }
-
-    /**
-     * Window framebuffer pixels per window coordinate (HiDPI). Uses float division — integer
-     * division truncated 1.25/1.5 DPI to 1 and broke film Iris FBO sizing on NeoForge windowed.
-     * Call only on client start and window resize, not per frame.
-     */
-    public static void refreshOriginalFramebufferScale()
-    {
-        /* WindowMixin spoofs FB getters while the film offscreen pass runs — skip then. */
-        if (BBSRendering.canReplaceFramebuffer())
-        {
-            return;
-        }
-
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client == null)
-        {
-            return;
-        }
-
-        Window window = client.getWindow();
-
-        if (window == null)
-        {
-            return;
-        }
-
-        int windowWidth = window.getWidth();
-
-        if (windowWidth <= 0)
-        {
-            return;
-        }
-
-        originalFramebufferScale = (float) window.getFramebufferWidth() / (float) windowWidth;
+        return Math.max(originalFramebufferScale, 1);
     }
 
     public static ModelProperties getItemStackProperties(ItemStack stack)
@@ -989,7 +952,10 @@ public class BBSModClient implements ClientModInitializer
             BBSRendering.setupFramebuffer();
             provider.register(new MinecraftSourcePack());
             RtlFontManager.ensureLoaded();
-            BBSModClient.refreshOriginalFramebufferScale();
+
+            Window window = MinecraftClient.getInstance().getWindow();
+
+            originalFramebufferScale = window.getFramebufferWidth() / window.getWidth();
         });
 
         URLTextureErrorCallback.EVENT.register((url, error) ->
