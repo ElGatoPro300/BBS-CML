@@ -17,6 +17,7 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIModelPoseEditor;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
@@ -285,30 +286,44 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.pbrSpecularIntensity = new UITrackpad((value) -> this.form.pbrSpecularIntensity.set(value.floatValue()));
         this.pbrSpecularIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_SPECULAR_INTENSITY);
 
-        this.options.add(this.pickModel);
-        if (BBSSettings.pickLimbTexture.get())
-        {
-            this.options.add(this.pick);
-        }
-        if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
-        {
-            this.options.add(this.pbrNormalIntensity, this.pbrSpecularIntensity);
-        }
-
         this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
         this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_MODEL_HITBOX_TOOLTIP);
 
-        this.options.add(
-            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+        UIElement modelContent = UI.column(5, 0, this.pickModel);
+        if (BBSSettings.pickLimbTexture.get())
+        {
+            modelContent.add(this.pick);
+        }
+        if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
+        {
+            modelContent.add(UI.row(this.pbrNormalIntensity, this.pbrSpecularIntensity));
+        }
+        modelContent.add(this.toggleSolidHitbox);
+
+        UISection modelSection = new UISection(UIKeys.MODELS_TITLE, modelContent);
+
+        UIElement shadingContent = UI.column(5, 0,
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
             UIFormColorLayout.createExtraSection(
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
-            ).marginTop(4),
-            this.outlineSection.marginTop(4),
-            this.toggleSolidHitbox,
-            this.poseEditor
+            ).marginTop(4)
+        );
+        UISection shadingSection = new UISection(UIKeys.FORMS_EDITORS_COLORS_AND_GLOW, shadingContent);
+
+        UISection outlineSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
+            this.outline,
+            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness)
+        );
+
+        UISection poseSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_POSE, this.poseEditor);
+
+        this.options.add(
+            modelSection,
+            shadingSection.marginTop(4),
+            outlineSection.marginTop(4),
+            poseSection.marginTop(4)
         );
     }
 

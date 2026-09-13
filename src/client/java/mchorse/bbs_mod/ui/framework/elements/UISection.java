@@ -23,14 +23,13 @@ public class UISection extends UIElement
     /* Same charcoal as the film workspace chrome (#191a1c), fully opaque. */
     private static final int PANEL = 0xFF191A1C;
     private static final int PANEL_HOVER = 0xFF222326;
-    private static final int BAR_H = 14;
+    private static final int BAR_H = 16;
     private static final int CHEVRON_PAD = 2;
 
     public UILabel title;
     public UIElement fields;
     private UIAnimatedCollapseShell shell;
     private Consumer<Boolean> toggleCallback;
-
 
     private boolean open = true;
 
@@ -62,6 +61,21 @@ public class UISection extends UIElement
         this.shell.setExpanded(true, this.title, false);
     }
 
+    public UISection(IKey title, UIElement... elements)
+    {
+        this(title);
+
+        for (UIElement element : elements)
+        {
+            this.fields.add(element);
+        }
+    }
+
+    public UIAnimatedCollapseShell getShell()
+    {
+        return this.shell;
+    }
+
     @Override
     public boolean subMouseClicked(UIContext context)
     {
@@ -79,6 +93,7 @@ public class UISection extends UIElement
     public void render(UIContext context)
     {
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), PANEL);
+        context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF2A2B2F);
 
         super.render(context);
     }
@@ -162,14 +177,20 @@ public class UISection extends UIElement
         context.batcher.box(bar.x, bar.y, bar.ex(), bar.ey(), hover ? PANEL_HOVER : PANEL);
 
         Icon chevron = this.open ? Icons.UNCOLLAPSED : Icons.COLLAPSED;
-        int ix = bar.ex() - chevron.w - CHEVRON_PAD;
+        int ix = bar.x + 4;
         int iy = bar.my() - chevron.h / 2;
 
         context.batcher.icon(chevron, hover ? Colors.WHITE : 0xFFCCCCCC, ix, iy);
 
-        int maxW = Math.max(8, ix - bar.x - 6);
+        int textX = ix + chevron.w + 4;
+        int maxW = Math.max(8, bar.ex() - textX - 4);
         String text = font.limitToWidth(title.label.get(), maxW);
 
-        context.batcher.textShadow(text, bar.x + 4, bar.my() - font.getHeight() / 2, Colors.WHITE);
+        context.batcher.textShadow(text, textX, bar.my() - font.getHeight() / 2, Colors.WHITE);
+
+        if (this.open)
+        {
+            context.batcher.box(bar.x, bar.ey(), bar.ex(), bar.ey() + 1, 0xFF2A2B2F);
+        }
     }
 }
