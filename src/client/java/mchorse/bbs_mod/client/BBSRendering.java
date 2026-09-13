@@ -72,6 +72,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.Window;
@@ -414,7 +415,7 @@ public class BBSRendering
     /**
      * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
      * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
-     * {@link net.minecraft.client.render.GameRenderer#renderBlur()} then samples that state —
+     * {@link GameRenderer#renderBlur()} then samples that state —
      * NeoForge pause blur makes hotbar / sky / leaves go dark while menu buttons still draw fine.
      */
     public static void prepareMenuBackgroundState()
