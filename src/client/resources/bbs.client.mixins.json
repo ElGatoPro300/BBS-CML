@@ -59,8 +59,7 @@
         "SelectWorldScreenMixin",
         "ModelPartMixin",
         "YggdrasilServicesKeyInfoMixin",
-        "lambdynlights.LambDynLightsSettingsScreenMixin",
-        "ParticleManagerMixin"
+        "lambdynlights.LambDynLightsSettingsScreenMixin"
     ],
     "injectors": {
         "defaultRequire": 1

@@ -2,7 +2,6 @@ package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
@@ -1927,11 +1926,6 @@ public abstract class BaseFilmController
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
     {
-        if (ExportParticleFreeze.isFrozen())
-        {
-            return;
-        }
-
         if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
             return;

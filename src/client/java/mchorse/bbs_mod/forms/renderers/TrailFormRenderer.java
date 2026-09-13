@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -490,11 +489,6 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     @Override
     public void tick(IEntity entity)
     {
-        if (ExportParticleFreeze.isFrozen())
-        {
-            return;
-        }
-
         this.tick += 1;
 
         float end = this.tick - Math.max(this.form.length.get(), 0F) - 1F;

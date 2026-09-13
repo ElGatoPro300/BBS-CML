@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -145,11 +144,6 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
-        if (ExportParticleFreeze.isFrozen())
-        {
-            return;
-        }
-
         World world = entity == null ? null : entity.getWorld();
 
         if (world == null)

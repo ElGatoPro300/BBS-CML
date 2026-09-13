@@ -231,7 +231,6 @@ public class UIFilmRecorder extends UIElement
                 }
             }
 
-            recorder.filmStartTick = this.editor.getCursor();
             recorder.startRecording(audioFile, ambientAudio, id, w, h);
         }
         catch (Exception e)
