@@ -38,11 +38,15 @@ Film stub renders sort by **camera distance** (far → near) for translucency. M
 
 **Why it did not show up in ~2.0:** films iterated replays in map order (no distance sort), and ModelForm’s lightmap/equipment path was much thinner — less dirty state and no camera-driven reorder.
 
-**Mitigation (keep Fabric visuals unchanged):** in `BaseFilmController#render`, when not an Iris shadow pass, call `BBSRendering.prepareVanillaEntityLighting()` before each replay and `BBSRendering.restoreWorldRenderState()` after (plus a final prepare after the loop). Do **not** “fix” this by changing packed world light sampling or `LightingSettings` semantics unless the bug is actually a track/migration issue.
+**Mitigation (keep Fabric visuals unchanged):** in `BaseFilmController#render`, when not an Iris shadow pass, call `BBSRendering.prepareVanillaEntityLighting()` before each replay. Call `BBSRendering.restoreWorldRenderState()` after each replay **only when Iris shaders are off**. Under Iris (especially NeoForge/Connector), a full mid-pass restore can desync gbuffer / FBO bindings (empty film viewport color, screen-fixed depth silhouettes). Still re-arm lighting once after the loop. Do **not** “fix” lighting by changing packed world light sampling or `LightingSettings` semantics unless the bug is actually a track/migration issue.
 
 Related pause/HUD darkness (model-block in hotbar): same GL-state family.
 * **1.21+:** `restoreAfterGuiItemForm` (re-enable lightmap) + `prepareMenuBackgroundState` before `GameRenderer.renderBlur` + `prepareWorldPresentState` at world-begin.
 * **1.20.1 / 1.20.4:** no menu blur — use `preparePauseScreenState` before `Screen.renderBackground` (1.20.4 also hooks `renderInGameBackground`; blend stays on for the gradient), plus the same HUD / world present restores. Do not inject `renderBlur` on these versions (`defaultRequire: 1` would fail boot).
+
+### 5.1 Film viewport FBO + Iris (NeoForge)
+
+The film 3D preview uses `customSize` + `toggleFramebuffer` (offscreen) and `WindowMixin` size spoofing. `prepareWorldPresentState()` must **not** call `ensureMainFramebuffer()` / `beginWrite` while `customSize` is active: that ping-pongs client FB → offscreen at every `renderWorld` HEAD and can leave Iris on NeoForge drawing into the wrong targets (world/forms invisible, godrays/fog still visible, stale silhouettes). Outside the film viewport (`!customSize`), keep the full present-state path for pause freeze.
 
 ## Related
 

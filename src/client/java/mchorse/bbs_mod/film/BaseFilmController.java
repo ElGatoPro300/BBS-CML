@@ -2327,8 +2327,11 @@ public abstract class BaseFilmController
 
         /* NeoForge/Connector can leak lightmap/diffuse between ModelForm draws; Fabric usually
          * tolerates it. Re-arm vanilla lighting before each replay and restore after so camera
-         * distance reorder cannot tint the next form. Skip Iris shadow (different GL contract). */
+         * distance reorder cannot tint the next form. Skip Iris shadow (different GL contract).
+         * Under Iris shaders (world pass), skip full restoreWorldRenderState mid-pass — it can
+         * desync Connector/NeoForge gbuffer bindings (empty viewport, screen-fixed silhouettes). */
         boolean isolateReplayLighting = !BBSRendering.isIrisShadowPass();
+        boolean restoreAfterReplay = isolateReplayLighting && !BBSRendering.isIrisShadersEnabled();
 
         for (Map.Entry<Integer, IEntity> entry : sorted)
         {
@@ -2352,7 +2355,7 @@ public abstract class BaseFilmController
             }
             finally
             {
-                if (isolateReplayLighting)
+                if (restoreAfterReplay)
                 {
                     BBSRendering.restoreWorldRenderState();
                 }
