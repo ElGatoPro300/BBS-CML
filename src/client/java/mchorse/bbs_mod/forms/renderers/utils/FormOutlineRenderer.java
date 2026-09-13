@@ -8,6 +8,7 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.pose.Pose;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
@@ -21,6 +22,9 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 
+import mchorse.bbs_mod.utils.MatrixStackUtils;
+
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -28,6 +32,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 public class FormOutlineRenderer
@@ -41,14 +47,42 @@ public class FormOutlineRenderer
 
     private static boolean rendering;
 
+    public static final class BodyPartData
+    {
+        public final Matrix4f relativeTransform;
+        public final ModelInstance model;
+        public final ShapeKeys shapeKeys;
+        public final Function<String, Link> textureResolver;
+        public final Pose pose;
+        public final List<BodyPartData> children;
+
+        public BodyPartData(Matrix4f relativeTransform, ModelInstance model, ShapeKeys shapeKeys, Function<String, Link> textureResolver, Pose pose, List<BodyPartData> children)
+        {
+            this.relativeTransform = relativeTransform;
+            this.model = model;
+            this.shapeKeys = shapeKeys;
+            this.textureResolver = textureResolver;
+            this.pose = pose;
+            this.children = children != null ? children : Collections.emptyList();
+        }
+    }
+
     private FormOutlineRenderer()
     {
     }
 
     /**
-     * Draws a single outer-silhouette outline around the given model
+     * Draws a single outer-silhouette outline around the given model and its attached body parts.
      */
     public static void render(MatrixStack stack, ModelInstance model, ShapeKeys shapeKeys, Function<String, Link> textureResolver, int light, Color outlineColor, float thickness)
+    {
+        render(stack, model, shapeKeys, textureResolver, light, outlineColor, thickness, Collections.emptyList());
+    }
+
+    /**
+     * Draws a single outer-silhouette outline around the given model and its attached body parts.
+     */
+    public static void render(MatrixStack stack, ModelInstance model, ShapeKeys shapeKeys, Function<String, Link> textureResolver, int light, Color outlineColor, float thickness, List<BodyPartData> bodyParts)
     {
         if (rendering || model == null || thickness <= 0F || outlineColor == null || outlineColor.a <= 0.001F)
         {
@@ -113,6 +147,7 @@ public class FormOutlineRenderer
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
 
             GL11.glClearColor(0F, 0F, 0F, 0F);
+            GL11.glClearDepth(1.0D);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousFramebuffer);
@@ -143,11 +178,11 @@ public class FormOutlineRenderer
             boolean polygonOffsetWasEnabled = GL11.glIsEnabled(GL11.GL_POLYGON_OFFSET_FILL);
 
             GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-            GL11.glPolygonOffset(-1.0F, -1.0F);
+            GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
 
             try
             {
-                model.render(stack, BBSShaders::getOutlineMask, Color.white(), light, OverlayTexture.DEFAULT_UV, (StencilMap) null, shapeKeys, textureResolver);
+                renderMaskGeometry(stack, model, shapeKeys, textureResolver, light, bodyParts);
             }
             finally
             {
@@ -172,6 +207,7 @@ public class FormOutlineRenderer
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 
             RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
             RenderSystem.disableBlend();
             RenderSystem.disableCull();
 
@@ -271,6 +307,45 @@ public class FormOutlineRenderer
             }
 
             rendering = false;
+        }
+    }
+
+    private static void renderMaskGeometry(
+        MatrixStack stack,
+        ModelInstance model,
+        ShapeKeys shapeKeys,
+        Function<String, Link> textureResolver,
+        int light,
+        List<BodyPartData> bodyParts)
+    {
+        if (model != null)
+        {
+            model.render(stack, BBSShaders::getOutlineMask, Color.white(), light, OverlayTexture.DEFAULT_UV, (StencilMap) null, shapeKeys, textureResolver);
+        }
+
+        if (bodyParts != null && !bodyParts.isEmpty())
+        {
+            for (BodyPartData part : bodyParts)
+            {
+                if (part.model == null)
+                {
+                    continue;
+                }
+
+                if (part.pose != null && part.model.model != null)
+                {
+                    part.model.model.resetPose();
+                    part.model.model.applyPose(part.pose);
+                }
+
+                MatrixStack partStack = new MatrixStack();
+
+                MatrixStackUtils.multiply(partStack, stack.peek().getPositionMatrix());
+                MatrixStackUtils.multiply(partStack, part.relativeTransform);
+                partStack.peek().getNormalMatrix().set(stack.peek().getNormalMatrix());
+
+                renderMaskGeometry(partStack, part.model, part.shapeKeys, part.textureResolver, light, part.children);
+            }
         }
     }
 

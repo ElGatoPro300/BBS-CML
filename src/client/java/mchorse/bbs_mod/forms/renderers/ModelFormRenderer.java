@@ -3929,6 +3929,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         Color capturedColor = new Color().set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
         float capturedThickness = thickness;
 
+        List<FormOutlineRenderer.BodyPartData> bodyParts = this.captureBodyPartsOutlineData(context);
+
         /* When Iris shaders are active and we are inside its entity/gbuffer world pass,
          * Iris intercepts RenderSystem.setShader() and replaces our custom outline_mask
          * shader with its own gbuffer program — the outline mask buffer never gets written.
@@ -3943,25 +3945,97 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
              * running our Runnable, so RenderSystem.getModelViewMatrix() will be IDENTITY.
              * Bake camera * entity_local into the stack now so that:
              *   ModelViewMat = identity * (camera * entity_local) = correct world transform. */
-            Matrix4f baked = new Matrix4f(RenderSystem.getModelViewMatrix());
-
-            baked.mul(context.stack.peek().getPositionMatrix());
+            Matrix4f baked = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
 
             MatrixStack deferredStack = new MatrixStack();
 
             MatrixStackUtils.multiply(deferredStack, baked);
             deferredStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
 
-            ModelVAORenderer.enqueuePaintOverlay(
+            ModelVAORenderer.submitOutlineOverlay(
                 new Matrix4f(RenderSystem.getProjectionMatrix()),
                 new Matrix4f(RenderSystem.getModelViewMatrix()),
-                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness)
+                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, bodyParts)
             );
         }
         else
         {
-            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness);
+            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, bodyParts);
         }
+    }
+
+    private List<FormOutlineRenderer.BodyPartData> captureBodyPartsOutlineData(FormRenderingContext context)
+    {
+        List<BodyPart> parts = this.form.parts.getAllTyped();
+
+        if (parts.isEmpty())
+        {
+            return Collections.emptyList();
+        }
+
+        List<FormOutlineRenderer.BodyPartData> list = new ArrayList<>(parts.size());
+        float transition = context != null ? context.getTransition() : 0F;
+        IEntity entity = context != null ? context.entity : this.entity;
+
+        for (BodyPart part : parts)
+        {
+            Form partForm = part.getForm();
+
+            if (partForm instanceof ModelForm partModelForm)
+            {
+                FormRenderer<?> renderer = FormUtilsClient.getRenderer(partModelForm);
+
+                if (renderer instanceof ModelFormRenderer partModelRenderer)
+                {
+                    partModelRenderer.ensureAnimator(transition);
+                    ModelInstance partModel = partModelRenderer.getModel();
+
+                    if (partModel != null && partModel.getModel() != null)
+                    {
+                        MatrixStack partStack = new MatrixStack();
+                        MatrixCacheEntry entry = this.bones.get(part.bone.get());
+
+                        if (entry != null && entry.matrix() != null)
+                        {
+                            MatrixStackUtils.multiply(partStack, entry.matrix());
+                        }
+                        else
+                        {
+                            partStack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+                        }
+
+                        MatrixStackUtils.applyTransform(partStack, part.transform.get());
+                        partModelRenderer.applyTransforms(partStack, false, transition);
+                        partStack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+
+                        Matrix4f rel = new Matrix4f(partStack.peek().getPositionMatrix());
+                        Link link = partModelForm.texture.get();
+                        Link partTexture = link == null ? partModel.texture : link;
+                        Function<String, Link> partResolver = partModelRenderer.getTextureResolver(partModel, partTexture);
+                        ShapeKeys partKeys = partModelForm.shapeKeys.get();
+
+                        IEntity partEntity = part.useTarget.get() ? entity : part.getEntity();
+
+                        partModel.model.resetPose();
+
+                        if (partModelRenderer.animator != null)
+                        {
+                            partModelRenderer.animator.applyActions(partEntity, partModel, transition);
+                        }
+
+                        Pose partPose = partModelRenderer.getPose();
+
+                        partModel.model.applyPose(partPose);
+
+                        List<FormOutlineRenderer.BodyPartData> childParts = partModelRenderer.captureBodyPartsOutlineData(context);
+
+                        list.add(new FormOutlineRenderer.BodyPartData(rel, partModel, partKeys, partResolver, partPose != null ? partPose.copy() : null, childParts));
+                    }
+                }
+            }
+        }
+
+        return list;
     }
 
     @Override

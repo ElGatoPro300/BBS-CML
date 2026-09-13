@@ -27,6 +27,7 @@ void main()
     }
 
     float bestDist = 1.0e6;
+    float bestDepth = 1.0;
     bool found = false;
 
     for (int y = -radius; y <= radius; y++)
@@ -52,6 +53,7 @@ void main()
         if (dist <= Thickness && dist < bestDist)
         {
             bestDist = dist;
+            bestDepth = sampleData.r;
             found = true;
         }
     }
