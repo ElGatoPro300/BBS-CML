@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.mixin.client;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -91,6 +92,9 @@ public class WorldRendererMixin
     @Inject(at = @At("RETURN"), method = "onResized")
     private void onResized(CallbackInfo info)
     {
+        /* Refresh HiDPI FB scale only on window resize (not every frame). */
+        BBSModClient.refreshOriginalFramebufferScale();
+
         if (this.entityOutlinesFramebuffer == null)
         {
             return;
