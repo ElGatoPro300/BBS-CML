@@ -3928,6 +3928,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         int light = context.light;
         Color capturedColor = new Color().set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
         float capturedThickness = thickness;
+        boolean rainbow = this.form.outlineRainbow.get();
+        float rainbowSpeed = this.form.outlineRainbowSpeed.get();
+        float rainbowScale = this.form.outlineRainbowScale.get();
 
         List<FormOutlineRenderer.BodyPartData> bodyParts = this.captureBodyPartsOutlineData(context);
 
@@ -3955,12 +3958,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.submitOutlineOverlay(
                 new Matrix4f(RenderSystem.getProjectionMatrix()),
                 new Matrix4f(RenderSystem.getModelViewMatrix()),
-                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, bodyParts)
+                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, rainbow, rainbowSpeed, rainbowScale, bodyParts)
             );
         }
         else
         {
-            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, bodyParts);
+            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, rainbow, rainbowSpeed, rainbowScale, bodyParts);
         }
     }
 

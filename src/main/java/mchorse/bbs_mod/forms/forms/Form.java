@@ -87,6 +87,9 @@ public abstract class Form extends ValueGroup
     public final ValueBoolean outline = new ValueBoolean("outline", false);
     public final ValueColor outlineColor = new ValueColor("outline_color", new Color().set(1F, 0.85F, 0F, 1F));
     public final ValueFloat outlineThickness = new ValueFloat("outline_thickness", 2F);
+    public final ValueBoolean outlineRainbow = new ValueBoolean("outline_rainbow", false);
+    public final ValueFloat outlineRainbowSpeed = new ValueFloat("outline_rainbow_speed", 1F);
+    public final ValueFloat outlineRainbowScale = new ValueFloat("outline_rainbow_scale", 1F);
 
     /* Illusions: purely visual duplicates of this form that spread away from it in
      * the picked directions (no extra entities, so they're cheap to render) */
@@ -192,6 +195,9 @@ public abstract class Form extends ValueGroup
         this.add(this.outline);
         this.add(this.outlineColor);
         this.add(this.outlineThickness);
+        this.add(this.outlineRainbow);
+        this.add(this.outlineRainbowSpeed);
+        this.add(this.outlineRainbowScale);
 
         this.add(this.illusion);
         this.add(this.illusionOverlay);

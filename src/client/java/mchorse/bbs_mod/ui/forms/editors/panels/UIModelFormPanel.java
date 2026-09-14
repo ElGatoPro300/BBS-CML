@@ -54,6 +54,10 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
     public UIToggle outline;
     public UIColor outlineColor;
     public UITrackpad outlineThickness;
+    public UIToggle outlineRainbow;
+    public UITrackpad outlineRainbowSpeed;
+    public UITrackpad outlineRainbowScale;
+    public UIElement rainbowRow;
     public UIElement outlineSection;
 
     public UIModelPoseEditor poseEditor;
@@ -234,10 +238,31 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.outlineThickness = new UITrackpad((value) -> this.form.outlineThickness.set(value.floatValue()));
         this.outlineThickness.limit(0D, 32D).increment(0.5D).values(1D, 2D, 4D);
         this.outlineThickness.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_THICKNESS_TOOLTIP);
+
+        this.outlineRainbow = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW, (b) ->
+        {
+            this.form.outlineRainbow.set(b.getValue());
+            this.rainbowRow.setVisible(b.getValue());
+            this.options.resize();
+        });
+        this.outlineRainbow.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_TOOLTIP);
+
+        this.outlineRainbowSpeed = new UITrackpad((value) -> this.form.outlineRainbowSpeed.set(value.floatValue()));
+        this.outlineRainbowSpeed.limit(-20D, 20D).increment(0.1D).values(0.5D, 1D, 2D);
+        this.outlineRainbowSpeed.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_SPEED_TOOLTIP);
+
+        this.outlineRainbowScale = new UITrackpad((value) -> this.form.outlineRainbowScale.set(value.floatValue()));
+        this.outlineRainbowScale.limit(0.05D, 10D).increment(0.1D).values(0.5D, 1D, 2D);
+        this.outlineRainbowScale.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_SCALE_TOOLTIP);
+
+        this.rainbowRow = UI.row(this.outlineRainbowSpeed, this.outlineRainbowScale);
+
         this.outlineSection = UI.column(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITORS_MODEL_OUTLINE),
             this.outline,
-            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness)
+            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
+            this.outlineRainbow,
+            this.rainbowRow
         );
 
         this.poseEditor = new UIModelPoseEditor();
@@ -314,7 +339,9 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
         UISection outlineSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
             this.outline,
-            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness)
+            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
+            this.outlineRainbow,
+            this.rainbowRow
         );
 
         UISection poseSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_POSE, this.poseEditor);
@@ -433,6 +460,10 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.outline.setValue(form.outline.get());
         this.outlineColor.setColor(form.outlineColor.get().getRGBColor());
         this.outlineThickness.setValue(form.outlineThickness.get());
+        this.outlineRainbow.setValue(form.outlineRainbow.get());
+        this.outlineRainbowSpeed.setValue(form.outlineRainbowSpeed.get());
+        this.outlineRainbowScale.setValue(form.outlineRainbowScale.get());
+        this.rainbowRow.setVisible(form.outlineRainbow.get());
 
         this.shapeKeys.removeFromParent();
 

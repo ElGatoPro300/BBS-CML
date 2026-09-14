@@ -83,6 +83,14 @@ public class FormOutlineRenderer
      */
     public static void render(MatrixStack stack, ModelInstance model, ShapeKeys shapeKeys, Function<String, Link> textureResolver, int light, Color outlineColor, float thickness, List<BodyPartData> bodyParts)
     {
+        render(stack, model, shapeKeys, textureResolver, light, outlineColor, thickness, false, 1F, 1F, bodyParts);
+    }
+
+    /**
+     * Draws a single outer-silhouette outline around the given model and its attached body parts, with optional animated rainbow gradient.
+     */
+    public static void render(MatrixStack stack, ModelInstance model, ShapeKeys shapeKeys, Function<String, Link> textureResolver, int light, Color outlineColor, float thickness, boolean rainbow, float rainbowSpeed, float rainbowScale, List<BodyPartData> bodyParts)
+    {
         if (rendering || model == null || thickness <= 0F || outlineColor == null || outlineColor.a <= 0.001F)
         {
             return;
@@ -265,6 +273,31 @@ public class FormOutlineRenderer
             if (colorUniform != null)
             {
                 colorUniform.set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
+            }
+
+            GlUniform rainbowUniform = compositeShader.getUniform("Rainbow");
+            GlUniform speedUniform = compositeShader.getUniform("RainbowSpeed");
+            GlUniform scaleUniform = compositeShader.getUniform("RainbowScale");
+            GlUniform timeUniform = compositeShader.getUniform("GameTime");
+
+            if (rainbowUniform != null)
+            {
+                rainbowUniform.set(rainbow ? 1F : 0F);
+            }
+
+            if (speedUniform != null)
+            {
+                speedUniform.set(rainbowSpeed);
+            }
+
+            if (scaleUniform != null)
+            {
+                scaleUniform.set(rainbowScale);
+            }
+
+            if (timeUniform != null)
+            {
+                timeUniform.set((float) ((System.currentTimeMillis() % 36000000L) / 1000.0));
             }
 
             drawFullscreenQuad(0F);

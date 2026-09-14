@@ -17,6 +17,10 @@
     "uniforms": [
         { "name": "TexelSize", "type": "float", "count": 2, "values": [ 0.001, 0.001 ] },
         { "name": "Thickness", "type": "float", "count": 1, "values": [ 2.0 ] },
-        { "name": "OutlineMaskColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] }
+        { "name": "OutlineMaskColor", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
+        { "name": "Rainbow", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "RainbowSpeed", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "RainbowScale", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "GameTime", "type": "float", "count": 1, "values": [ 0.0 ] }
     ]
 }
