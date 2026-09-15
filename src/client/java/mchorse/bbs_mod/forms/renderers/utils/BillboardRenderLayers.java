@@ -2,7 +2,6 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -13,13 +12,13 @@ import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.BlendFactor;
 import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.platform.DestFactor;
+import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -41,22 +40,24 @@ public class BillboardRenderLayers
                 ? (depthWrite ? RenderPipelines.ENTITY_CUTOUT : RenderPipelines.ENTITY_TRANSLUCENT)
                 : RenderPipelines.GUI_TEXTURED;
             BlendFunction blend = glow
-                ? new BlendFunction(BlendFactor.SRC_ALPHA, BlendFactor.ONE, BlendFactor.ONE, BlendFactor.ZERO)
+                ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
                 : BlendFunction.TRANSLUCENT;
 
             RenderPipeline.Builder builder = RenderPipelineUtils.withUniforms(source)
                 .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/billboard_" + index))
                 .withVertexShader(source.getVertexShader())
                 .withFragmentShader(source.getFragmentShader())
-                .withVertexBinding(0, shaded ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR)
-                .withPrimitiveTopology(quads ? PrimitiveTopology.QUADS : PrimitiveTopology.TRIANGLES)
+                .withVertexFormat(shaded ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR,
+                    quads ? VertexFormat.Mode.QUADS : VertexFormat.Mode.TRIANGLES)
+                .withSampler("Sampler0")
                 .withColorTargetState(new ColorTargetState(blend))
                 .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, depthWrite))
                 .withCull(cull);
 
             if (shaded)
             {
-                builder.withShaderDefine("PER_FACE_LIGHTING")
+                builder.withSampler("Sampler1").withSampler("Sampler2")
+                    .withShaderDefine("PER_FACE_LIGHTING")
                     .withShaderDefine("ALPHA_CUTOUT", 0.001F);
             }
 
@@ -100,7 +101,7 @@ public class BillboardRenderLayers
         VertexFormat format = buffer.drawState().format();
         boolean shaded = format == DefaultVertexFormat.ENTITY
             || (BBSRendering.isIrisLoaded() && IrisFormPipelines.isEntityFormat(format));
-        boolean quads = buffer.drawState().primitiveTopology() == PrimitiveTopology.QUADS;
+        boolean quads = buffer.drawState().mode() == VertexFormat.Mode.QUADS;
         FilterMode filter = linear ? FilterMode.LINEAR : FilterMode.NEAREST;
         RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline(shaded, depthWrite, cull, quads, glow))
             .withTexture("Sampler0", id, () -> RenderSystem.getSamplerCache().getSampler(
@@ -111,6 +112,6 @@ public class BillboardRenderLayers
             setup.useLightmap().useOverlay();
         }
 
-        BufferRenderer.draw(RenderType.create("bbs_billboard", setup.createRenderSetup()), buffer);
+        RenderType.create("bbs_billboard", setup.createRenderSetup()).draw(buffer);
     }
 }

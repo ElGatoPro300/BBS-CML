@@ -1,10 +1,8 @@
 package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
@@ -20,6 +18,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 
 import org.joml.Matrix4f;
 
@@ -125,12 +124,12 @@ public class FilmControllerContext
         this.entities = entities;
         this.entity = entity;
         this.replay = replay;
-        this.camera = Minecraft.getInstance().gameRenderer.mainCamera();
+        this.camera = Minecraft.getInstance().gameRenderer.getMainCamera();
 
         if (context.poseStack() == null)
         {
             this.stack = new PoseStack();
-            MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrixCopy());
+            MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
         else if (!BBSRendering.isIrisShadersEnabled())
         {
@@ -143,7 +142,7 @@ public class FilmControllerContext
             this.stack = context.poseStack();
         }
 
-        this.consumers = FormUtilsClient.getProvider();
+        this.consumers = Minecraft.getInstance().renderBuffers().bufferSource();
         this.transition = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
 
         return this;

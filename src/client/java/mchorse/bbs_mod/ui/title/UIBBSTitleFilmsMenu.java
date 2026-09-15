@@ -47,7 +47,7 @@ public class UIBBSTitleFilmsMenu extends UIBaseMenu
 
         this.backButton = new UIButton(UIKeys.RAW_BACK, (b) ->
         {
-            Minecraft.getInstance().gui.setScreen(this.returnScreen);
+            Minecraft.getInstance().setScreen(this.returnScreen);
         });
 
         this.statusLabel = new UILabel(UIKeys.TITLE_MENU_FILMS_LOADING);

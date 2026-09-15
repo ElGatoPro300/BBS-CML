@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.model;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
@@ -177,7 +176,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
 
         this.lastPerspective = mc.options.getCameraType();
         mc.options.setCameraType(CameraType.FIRST_PERSON);
-        BBSRendering.setHudHidden(false);
+        mc.options.hideGui = false;
 
         BBSModClient.getCameraController().remove(this.dashboard.camera);
 
@@ -205,7 +204,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
         this.host.forceSave();
         this.restore();
 
-        BBSRendering.setHudHidden(true);
+        Minecraft.getInstance().options.hideGui = true;
         BBSModClient.getCameraController().add(this.dashboard.camera);
     }
 

@@ -3,11 +3,7 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.render.ImmediateMesh;
-import mchorse.bbs_mod.client.renderer.FontRendererHelper;
 import mchorse.bbs_mod.client.renderer.LightTexture;
-import mchorse.bbs_mod.client.renderer.MultiBufferSource;
-import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -19,10 +15,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.MultiBufferSource;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -36,7 +32,9 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryStack;
@@ -44,7 +42,7 @@ import org.lwjgl.system.MemoryStack;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 public class UISubtitleRenderer
 {
@@ -70,7 +68,7 @@ public class UISubtitleRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         /* Legacy subtitles use half-resolution framebuffer pixels, independent of GUI scale. */
-        RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
+        RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         int subtitleWidth = main.width / 2;
         int subtitleHeight = main.height / 2;
         float depth = Math.max(1000F, Math.max(subtitleWidth, subtitleHeight) * 8F);
@@ -150,7 +148,7 @@ public class UISubtitleRenderer
                     consumers.endBatch();
                 }
 
-                FontRendererHelper.drawInBatch(font, line, x, y, Colors.setA(subtitle.color, 1F), subtitle.textShadow, matrix,
+                font.drawInBatch(line, x, y, Colors.setA(subtitle.color, 1F), subtitle.textShadow, matrix,
                     consumers, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
                 consumers.endBatch();
                 y += subtitle.lineHeight;
@@ -172,7 +170,7 @@ public class UISubtitleRenderer
         float x = -textureWidth * subtitle.anchorX;
         float y = -textureHeight * subtitle.anchorY;
         int color = Colors.setA(Colors.WHITE, Colors.getA(subtitle.color));
-        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
         builder.addVertex(x, y, 0F).setUv(0F, 1F).setColor(color);
         builder.addVertex(x, y + textureHeight, 0F).setUv(0F, 0F).setColor(color);
@@ -184,17 +182,21 @@ public class UISubtitleRenderer
             ByteBuffer data = Std140Builder.onStack(memory, 80).putMat4f(transform)
                 .putFloat(subtitle.shadow).putFloat(subtitle.shadowOpaque ? 1F : 0F)
                 .putFloat(textureWidth).putFloat(textureHeight).get();
+            GpuBuffer vertices = DefaultVertexFormat.POSITION_TEX_COLOR.uploadImmediateVertexBuffer(buffer.vertexBuffer());
+            RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(VertexFormat.Mode.QUADS);
+            GpuBuffer indexBuffer = indices.getBuffer(6);
             GpuTextureView destination = RenderSystem.outputColorTextureOverride != null
-                ? RenderSystem.outputColorTextureOverride : Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
+                ? RenderSystem.outputColorTextureOverride : Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
 
-            try (ImmediateMesh mesh = new ImmediateMesh(buffer);
-                 GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle parameters", GpuBuffer.USAGE_UNIFORM, data);
-                 RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "BBS subtitle", destination, Optional.empty()))
+            try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle parameters", GpuBuffer.USAGE_UNIFORM, data);
+                 RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "BBS subtitle", destination, OptionalInt.empty()))
             {
                 pass.setPipeline(BBSShaders.subtitlesPipeline);
                 pass.setUniform("SubtitleParameters", uniforms);
                 pass.bindTexture("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().getSampler(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
-                mesh.draw(pass);
+                pass.setVertexBuffer(0, vertices);
+                pass.setIndexBuffer(indexBuffer, indices.type());
+                pass.drawIndexed(0, 0, 6, 1);
             }
         }
     }

@@ -172,17 +172,17 @@ public class WorldLaunchHelper
         WorldLaunchHelper.clearPending();
         WorldLaunchHelper.ensureRenderTarget(client);
 
-        if (client.gui.screen() == null)
+        if (client.screen == null)
         {
-            client.gui.setScreen(new TitleScreen());
+            client.setScreen(new TitleScreen());
         }
     }
 
     private static void prepareClientForWorldSwitch(Minecraft client)
     {
-        if (client.gui.screen() instanceof UIScreen)
+        if (client.screen instanceof UIScreen)
         {
-            client.gui.setScreen(null);
+            client.setScreen(null);
         }
 
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();

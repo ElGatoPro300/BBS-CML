@@ -34,11 +34,14 @@ public final class ItemRenderHelper
 
             isolatedQueue = new SubmitNodeStorage();
             isolatedDispatcher = new FeatureRenderDispatcher(
-                client.gameRenderer.renderBuffers(),
+                isolatedQueue,
                 client.getModelManager(),
+                client.renderBuffers().bufferSource(),
                 client.getAtlasManager(),
+                client.renderBuffers().outlineBufferSource(),
+                client.renderBuffers().crumblingBufferSource(),
                 client.font,
-                client.gameRenderer.gameRenderState()
+                client.gameRenderer.getGameRenderState()
             );
         }
     }
@@ -80,15 +83,14 @@ public final class ItemRenderHelper
         {
             ensureIsolatedDispatcher();
             STATE.submit(matrices, isolatedQueue, light, overlay, 0);
-            isolatedDispatcher.renderAllFeatures(isolatedQueue);
+            isolatedDispatcher.renderAllFeatures();
             FormUtilsClient.getProvider().draw();
         }
         else
         {
-            SubmitNodeStorage queue = new SubmitNodeStorage();
+            SubmitNodeCollector queue = client.gameRenderer.getSubmitNodeStorage();
 
             STATE.submit(matrices, queue, light, overlay, 0);
-            client.gameRenderer.featureRenderDispatcher().renderAllFeatures(queue);
         }
     }
 

@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.renderer.LightTexture;
-import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.cubic.render.vao.IModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.cubic.render.vao.StructureVAOCollector;
@@ -30,8 +29,8 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.FluidRenderer;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
@@ -650,7 +649,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             BBSRendering.bindTexture(TextureAtlas.LOCATION_BLOCKS);
             StructureData.syncFancyGraphicsFromOptions();
 
-            CustomVertexConsumerProvider immediateConsumers = FormUtilsClient.getProvider();
+            MultiBufferSource.BufferSource immediateConsumers = Minecraft.getInstance().renderBuffers().bufferSource();
 
             overlayStack.pushPose();
             overlayStack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
@@ -663,7 +662,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 BBSRendering.colorMask(false, false, false, false);
                 BBSRendering.disableBlend();
                 this.renderStructureSoftBlock(entry, info, overlayStack, immediateConsumers, recolor);
-                immediateConsumers.draw();
+                immediateConsumers.endBatch();
                 BBSRendering.enableBlend();
                 BBSRendering.defaultBlendFunc();
                 BBSRendering.colorMask(true, true, true, true);
@@ -674,7 +673,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             this.beginStructureSoftGlowColorModulator(glowShaderTint);
             this.renderStructureSoftBlock(entry, info, overlayStack, immediateConsumers, recolor);
             overlayStack.popPose();
-            immediateConsumers.draw();
+            immediateConsumers.endBatch();
             RecolorVertexConsumer.newColor = null;
             CustomVertexConsumerProvider.clearRunnables();
         }
@@ -822,7 +821,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         RenderInfo info = this.calculateRenderInfo(context, false);
         List<BlockEntry> sorted = new ArrayList<>(this.data.getBlocks());
         Matrix4f drawMatrix = stack.last().pose();
-        Matrix4f viewLocal = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).mul(drawMatrix);
+        Matrix4f viewLocal = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(drawMatrix);
 
         sorted.sort((a, b) ->
         {
@@ -839,7 +838,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return Boolean.compare(this.isSoftStructureNonSolid(a.state), this.isSoftStructureNonSolid(b.state));
         });
 
-        CustomVertexConsumerProvider immediateConsumers = FormUtilsClient.getProvider();
+        MultiBufferSource.BufferSource immediateConsumers = Minecraft.getInstance().renderBuffers().bufferSource();
 
         try
         {
@@ -851,7 +850,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 stack.popPose();
             }
 
-            immediateConsumers.draw();
+            immediateConsumers.endBatch();
         }
         finally
         {
@@ -1461,18 +1460,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 try
                 {
-                    FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.featureRenderDispatcher();
-                    SubmitNodeStorage storage = new SubmitNodeStorage();
+                    FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher();
                     CameraRenderState cameraRenderState = new CameraRenderState();
 
-                    raw.submit(state, stack, storage, cameraRenderState);
+                    raw.submit(state, stack, dispatcher.getSubmitNodeStorage(), cameraRenderState);
 
                     if (beTint != null)
                     {
                         BBSRendering.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
                     }
 
-                    dispatcher.renderAllFeatures(storage);
+                    dispatcher.renderAllFeatures();
                 }
                 finally
                 {
@@ -1655,7 +1653,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void submitDeferredStructureBlockEntityTint(FormRenderingContext context, int overlay)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
         Matrix4f exactStack = new Matrix4f(context.stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(context.stack.last().normal());
 
@@ -1703,9 +1701,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         try
         {
-            CustomVertexConsumerProvider beConsumers = FormUtilsClient.getProvider();
+            MultiBufferSource beConsumers = Minecraft.getInstance().renderBuffers().bufferSource();
             this.renderBlockEntitiesOnly(context, stack, beConsumers, light, overlay, applyColorTint);
-            beConsumers.draw();
+
+            if (beConsumers instanceof MultiBufferSource.BufferSource immediate)
+            {
+                immediate.endBatch();
+            }
         }
         catch (Throwable ignored)
         {
@@ -1772,18 +1774,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                     try
                     {
-                        FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.featureRenderDispatcher();
-                        SubmitNodeStorage storage = new SubmitNodeStorage();
+                        FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher();
                         CameraRenderState cameraRenderState = new CameraRenderState();
 
-                        raw.submit(state, stack, storage, cameraRenderState);
+                        raw.submit(state, stack, dispatcher.getSubmitNodeStorage(), cameraRenderState);
 
                         if (beTint != null)
                         {
                             BBSRendering.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
                         }
 
-                        dispatcher.renderAllFeatures(storage);
+                        dispatcher.renderAllFeatures();
                     }
                     finally
                     {

@@ -5,7 +5,6 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.renderer.LightTexture;
-import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAOData;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
@@ -30,11 +29,11 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
@@ -304,7 +303,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 float[] vertices = mesh.vertices();
                 float[] normals = mesh.normals();
                 float[] uvs = mesh.texCoords();
-                BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, format);
+                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
 
                 for (int vertex = 0; vertex < vertices.length / 3; vertex++)
                 {
@@ -342,7 +341,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                     glowSettings.resolveColor(legacyGlow, resolvedGlow);
 
                     float glowAlpha = alpha * Math.min(1F, Math.abs(glowIntensity));
-                    BufferBuilder glowBuilder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+                    BufferBuilder glowBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
 
                     for (int vertex = 0; vertex < vertices.length / 3; vertex++)
                     {

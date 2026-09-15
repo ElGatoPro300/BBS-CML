@@ -8,7 +8,6 @@ import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.entity.ActorEntity;
@@ -103,7 +102,6 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -111,6 +109,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.glfw.GLFW;
@@ -822,7 +821,7 @@ public class UIFilmController extends UIElement
                 MobCaptureRecordingSetup.pending = setup;
             }
 
-            Minecraft.getInstance().gui.setScreen(null);
+            Minecraft.getInstance().setScreen(null);
 
             Replay replay = this.panel.replayEditor.getReplay();
             int index = this.panel.getData().replays.getList().indexOf(replay);
@@ -2111,7 +2110,7 @@ public class UIFilmController extends UIElement
                 int tick = runner.ticks;
                 int duration = runner.getContext().clips == null ? 0 : runner.getContext().clips.calculateDuration();
 
-                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), duration, runner.getPosition(), Minecraft.getInstance().gameRenderer.mainCamera(), context.poseStack());
+                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), duration, runner.getPosition(), Minecraft.getInstance().gameRenderer.getMainCamera(), context.poseStack());
             }
         }
 
@@ -2177,11 +2176,11 @@ public class UIFilmController extends UIElement
         double vx = itemDrop.velocityX.get();
         double vy = itemDrop.velocityY.get();
         double vz = itemDrop.velocityZ.get();
-        double cx = Minecraft.getInstance().gameRenderer.mainCamera().position().x;
-        double cy = Minecraft.getInstance().gameRenderer.mainCamera().position().y;
-        double cz = Minecraft.getInstance().gameRenderer.mainCamera().position().z;
+        double cx = Minecraft.getInstance().gameRenderer.getMainCamera().position().x;
+        double cy = Minecraft.getInstance().gameRenderer.getMainCamera().position().y;
+        double cz = Minecraft.getInstance().gameRenderer.getMainCamera().position().z;
         Tesselator tessellator = Tesselator.getInstance();
-        BufferBuilder builder = tessellator.begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         /* Preview path follows ItemEntity-like drag and gravity and stops on first block hit. */
         int primaryColor = BBSSettings.primaryColor.get() & 0x00FFFFFF;

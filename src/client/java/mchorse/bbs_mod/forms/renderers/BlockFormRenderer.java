@@ -30,7 +30,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
@@ -49,7 +48,6 @@ import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.Level;
@@ -734,7 +732,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return fallback;
         }
 
-        int sampled = LightCoordsUtil.getLightCoords(world, blockPos);
+        int sampled = LevelRenderer.getLightCoords(world, blockPos);
 
         if (luminance > 0)
         {
@@ -942,20 +940,20 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (layer == ChunkSectionLayer.SOLID)
         {
-            return RenderTypes.solidMovingBlock();
+            return Sheets.cutoutBlockSheet();
         }
 
         if (layer == ChunkSectionLayer.CUTOUT)
         {
-            return RenderTypes.cutoutMovingBlock();
+            return Sheets.cutoutBlockSheet();
         }
 
         if (layer == ChunkSectionLayer.TRANSLUCENT)
         {
-            return RenderTypes.translucentMovingBlock();
+            return Sheets.translucentBlockSheet();
         }
 
-        return RenderTypes.cutoutMovingBlock();
+        return Sheets.cutoutBlockSheet();
     }
 
     private int resolveBlockTint(BlockState state, BlockPos worldPos)
@@ -1505,7 +1503,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockEntityTint(FormRenderingContext context, int overlay)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
         Matrix4f exactStack = new Matrix4f(context.stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(context.stack.last().normal());
 
@@ -1616,18 +1614,17 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         try
         {
-            FeatureRenderDispatcher renderDispatcher = client.gameRenderer.featureRenderDispatcher();
-            SubmitNodeStorage storage = new SubmitNodeStorage();
+            FeatureRenderDispatcher renderDispatcher = client.gameRenderer.getFeatureRenderDispatcher();
             CameraRenderState cameraRenderState = new CameraRenderState();
 
-            raw.submit(state, stack, storage, cameraRenderState);
+            raw.submit(state, stack, renderDispatcher.getSubmitNodeStorage(), cameraRenderState);
 
             if (applyTint)
             {
                 BBSRendering.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
             }
 
-            renderDispatcher.renderAllFeatures(storage);
+            renderDispatcher.renderAllFeatures();
         }
         finally
         {
@@ -1637,7 +1634,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockColorTintOverlay(FormRenderingContext context, PoseStack stack, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
         Matrix4f exactStack = new Matrix4f(stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         Color formColorSnapshot = formColor.copy();
@@ -1749,7 +1746,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockPaintOverlay(FormRenderingContext context, PoseStack stack, Color resolvedPaint, float alpha, int overlay, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean ui)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
         Matrix4f exactStack = new Matrix4f(stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         Color paintOverlay = this.resolvePaintOverlayDrawColor(resolvedPaint, alpha);
@@ -1911,7 +1908,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockGlowOverlayMasked(FormRenderingContext context, PoseStack stack, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, EffectTransform glowTransform)
     {
-        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
         Matrix4f exactStack = new Matrix4f(stack.last().pose());
         Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         GlowSettings glowSnapshot = glowSettings.copy();

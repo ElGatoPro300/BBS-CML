@@ -4,8 +4,6 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.data.Angle;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.render.BufferRenderer;
-import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
@@ -17,7 +15,6 @@ import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -31,6 +28,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 
@@ -53,8 +51,7 @@ public class Draw
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
-            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
-            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true))
             .withCull(false)
@@ -66,8 +63,7 @@ public class Draw
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color_no_depth"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
-            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
-            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
             .withCull(false)
@@ -79,8 +75,7 @@ public class Draw
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color_lines"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
-            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
-            .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINES)
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.DEBUG_LINES)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true))
             .withCull(false)
@@ -145,7 +140,7 @@ public class Draw
 
         if (built != null)
         {
-            BufferRenderer.draw(layer, built);
+            layer.draw(built);
         }
     }
 
@@ -180,7 +175,7 @@ public class Draw
         float fd = (float) d;
         float t = 1 / 96F + (float) (Math.sqrt(w * w + h + h + d + d) / 2000);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         /* Pillars: fillBox(builder, -t, -t, -t, t, t, t, r, g, b, a); */
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
@@ -291,7 +286,7 @@ public class Draw
         ProjectionType savedType = RenderSystem.getProjectionType();
         PoseStack stack = new PoseStack();
 
-        GlStateManager._disableBlend(0);
+        GlStateManager._disableBlend();
         GlStateManager._disableDepthTest();
         MatrixStackUtils.pushIdentityModelView();
 
@@ -326,7 +321,7 @@ public class Draw
 
             if (savedBlend)
             {
-                GlStateManager._enableBlend(0);
+                GlStateManager._enableBlend();
             }
         }
     }
@@ -334,7 +329,7 @@ public class Draw
     private static void renderBoxSolidEdges(PoseStack stack, float fw, float fh, float fd, float r, float g, float b)
     {
         float t = 1 / 96F + (float) (Math.sqrt(fw * fw + fh + fh + fd + fd) / 2000);
-        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, 1F);
@@ -368,9 +363,9 @@ public class Draw
         float z2 = (float) d;
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
 
-        GlStateManager._disableBlend(0);
+        GlStateManager._disableBlend();
 
-        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
 
         wireLine(builder, matrix, x1, y1, z1, x2, y1, z1, r, g, b, a);
         wireLine(builder, matrix, x2, y1, z1, x2, y1, z2, r, g, b, a);
@@ -391,7 +386,7 @@ public class Draw
 
         if (savedBlend)
         {
-            GlStateManager._enableBlend(0);
+            GlStateManager._enableBlend();
         }
 
         stack.popPose();
@@ -447,7 +442,7 @@ public class Draw
         if (stack == null)
         {
             stack = new PoseStack();
-            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrixCopy());
+            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrix());
         }
 
         float dx = x2 - x1;
@@ -496,7 +491,7 @@ public class Draw
         outlineSize *= scale;
         outlineOffset *= scale;
 
-        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillBox(builder, stack, 0, -outlineOffset, -outlineOffset, outlineSize, outlineOffset, outlineOffset, 0, 0, 0);
         fillBox(builder, stack, -outlineOffset, 0, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);

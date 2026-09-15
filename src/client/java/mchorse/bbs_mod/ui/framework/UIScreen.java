@@ -42,12 +42,12 @@ public class UIScreen extends Screen implements IFileDropListener
 
     public static void open(UIBaseMenu menu)
     {
-        Minecraft.getInstance().gui.setScreen(new UIScreen(Component.empty(), menu));
+        Minecraft.getInstance().setScreen(new UIScreen(Component.empty(), menu));
     }
 
     public static UIBaseMenu getCurrentMenu()
     {
-        Screen currentScreen = Minecraft.getInstance().gui.screen();
+        Screen currentScreen = Minecraft.getInstance().screen;
 
         if (currentScreen instanceof UIScreen uiScreen)
         {
@@ -137,7 +137,7 @@ public class UIScreen extends Screen implements IFileDropListener
 
         if (this.menu.canHideHUD())
         {
-            BBSRendering.setHudHidden(false);
+            Minecraft.getInstance().options.hideGui = false;
         }
     }
 
@@ -154,7 +154,7 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.onOpen(null);
         DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
 
-        BBSRendering.setHudHidden(this.menu.canHideHUD());
+        client.options.hideGui = this.menu.canHideHUD();
     }
 
     /**
@@ -294,7 +294,7 @@ public class UIScreen extends Screen implements IFileDropListener
             this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
             this.menu.context.render.executeRunnables();
         });
-        BBSRendering.setHudHidden(this.menu.canHideHUD());
+        this.minecraft.options.hideGui = this.menu.canHideHUD();
     }
 
     @Override

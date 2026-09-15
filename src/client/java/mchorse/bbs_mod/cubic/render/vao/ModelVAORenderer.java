@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.BBSUniform;
-import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
@@ -24,7 +23,6 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlProgram;
@@ -36,6 +34,8 @@ import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -146,7 +146,7 @@ public class ModelVAORenderer
     public static DeferredFogSnapshot captureCurrentFog()
     {
         GpuBufferSlice fogBuffer = RenderSystem.getShaderFog();
-        Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
         if (Math.abs(modelViewInverse.determinant()) > 1.0E-8F)
@@ -331,7 +331,7 @@ public class ModelVAORenderer
      */
     public static Matrix4f capturePaintOverlayRootMatrix(Matrix4f rootStackMatrix)
     {
-        return new Matrix4f(RenderSystem.getModelViewMatrixCopy()).mul(rootStackMatrix);
+        return new Matrix4f(RenderSystem.getModelViewMatrix()).mul(rootStackMatrix);
     }
 
     public static void clearPaintOverlayQueue()
@@ -373,7 +373,7 @@ public class ModelVAORenderer
     {
         enqueuePaintOverlay(
             RenderSystem.getProjectionMatrixBuffer(),
-            new Matrix4f(RenderSystem.getModelViewMatrixCopy()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
             false,
             true,
             false,
@@ -450,7 +450,7 @@ public class ModelVAORenderer
     {
         enqueuePaintOverlay(
             RenderSystem.getProjectionMatrixBuffer(),
-            new Matrix4f(RenderSystem.getModelViewMatrixCopy()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
             false,
             false,
             false,
@@ -475,7 +475,7 @@ public class ModelVAORenderer
         BBSRendering.bindProgram(BBSShaders.getModel());
 
         RenderSystem.backupProjectionMatrix();
-        Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy());
+        Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         try
         {
@@ -568,7 +568,7 @@ public class ModelVAORenderer
     {
         ModelVAORenderer.enqueuePaintOverlay(
             RenderSystem.getProjectionMatrixBuffer(),
-            new Matrix4f(RenderSystem.getModelViewMatrixCopy()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
             synced,
             draw
         );
@@ -582,7 +582,7 @@ public class ModelVAORenderer
     {
         ModelVAORenderer.enqueuePaintOverlay(
             RenderSystem.getProjectionMatrixBuffer(),
-            new Matrix4f(RenderSystem.getModelViewMatrixCopy()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
             false,
             false,
             true,
@@ -601,7 +601,7 @@ public class ModelVAORenderer
     {
         ModelVAORenderer.enqueuePaintOverlay(
             RenderSystem.getProjectionMatrixBuffer(),
-            new Matrix4f(RenderSystem.getModelViewMatrixCopy()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
             false,
             false,
             false,
@@ -1824,7 +1824,7 @@ public class ModelVAORenderer
             }
 
             /* Retained meshes need an explicit pass to bind picking uniforms and attachments. */
-            BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES,
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES,
                 DefaultVertexFormat.ENTITY);
 
             for (int i = 0; i < data.vertices().length / 3; i++)
@@ -1936,7 +1936,7 @@ public class ModelVAORenderer
             }
             else
             {
-                BBSUniform.setMatrix4f(shader, "ModelViewMat", RenderSystem.getModelViewMatrixCopy());
+                BBSUniform.setMatrix4f(shader, "ModelViewMat", RenderSystem.getModelViewMatrix());
             }
         }
         else
@@ -1962,7 +1962,7 @@ public class ModelVAORenderer
             }
             else
             {
-                Matrix3f normalMat = RenderSystem.getModelViewMatrixCopy().normal(new Matrix3f());
+                Matrix3f normalMat = RenderSystem.getModelViewMatrix().normal(new Matrix3f());
                 normalMat.mul(stack.last().normal());
                 BBSUniform.setMatrix3f(shader, "NormalMat", normalMat);
             }
@@ -2155,7 +2155,7 @@ public class ModelVAORenderer
         else
         {
             /* Iris / UI: best-effort strip view from composed model-view. */
-            SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrixCopy()).mul(stackMatrix);
+            SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
             MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
             SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
         }
@@ -2192,7 +2192,7 @@ public class ModelVAORenderer
             return;
         }
 
-        SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrixCopy()).mul(stackMatrix);
+        SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
         BBSUniform.setMatrix4f(shader, "ModelViewMat", SCRATCH_MODEL_VIEW);
     }
 }

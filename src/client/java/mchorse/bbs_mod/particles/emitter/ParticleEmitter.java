@@ -5,7 +5,6 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.render.BufferRenderer;
-import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.ParticleRenderLayers;
@@ -33,12 +32,12 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
@@ -510,7 +509,7 @@ public class ParticleEmitter
             this.setParticleVariables(this.uiParticle, transition);
 
             Matrix4f matrix = stack.last().pose();
-            BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             for (IComponentParticleRender render : list)
             {
@@ -546,7 +545,7 @@ public class ParticleEmitter
         if (!this.particles.isEmpty())
         {
             Matrix4f matrix = stack.last().pose();
-            BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, format);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
 
             this.bindTexture();
 
@@ -617,7 +616,7 @@ public class ParticleEmitter
 
         FlatGlowOverlayPass.render(this.glowSettings, this.legacyGlow, this.glowAlpha, glowIntensity, (glowColor) ->
         {
-            BufferBuilder glowBuilder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             if (ui)
             {

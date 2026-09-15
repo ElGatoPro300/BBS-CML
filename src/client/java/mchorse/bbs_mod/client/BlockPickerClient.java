@@ -128,17 +128,17 @@ public class BlockPickerClient
     public static void openInGameOverlay(UIOverlayPanel panel, int width, int height)
     {
         Minecraft client = Minecraft.getInstance();
-        Screen returnScreen = client.gui.screen();
+        Screen returnScreen = client.screen;
 
         panel.onClose((event) ->
         {
             if (returnScreen != null)
             {
-                client.gui.setScreen(returnScreen);
+                client.setScreen(returnScreen);
             }
             else
             {
-                client.gui.setScreen(null);
+                client.setScreen(null);
             }
         });
 

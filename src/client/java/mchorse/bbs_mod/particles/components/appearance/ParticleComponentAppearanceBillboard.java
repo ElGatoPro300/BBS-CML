@@ -20,7 +20,6 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.LightCoordsUtil;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
@@ -745,7 +744,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
         {
             Vector3d pos = particle.getGlobalPosition(emitter);
             BlockPos blockPos = new BlockPos((int) pos.x, (int) pos.y, (int) pos.z);
-            int lightLevel = LightCoordsUtil.getLightCoords(emitter.world, blockPos);
+            int lightLevel = LevelRenderer.getLightCoords(emitter.world, blockPos);
 
             this.light = lightLevel;
         }

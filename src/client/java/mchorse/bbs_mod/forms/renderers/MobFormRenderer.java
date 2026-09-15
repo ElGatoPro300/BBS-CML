@@ -29,7 +29,6 @@ import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.RemotePlayer;
-import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -324,8 +323,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             HolderLookup.Provider lookup = this.entity.level() != null ? this.entity.level().registryAccess() : Minecraft.getInstance().level.registryAccess();
             ValueInput readView = TagValueInput.create(ProblemReporter.DISCARDING, lookup, compound);
             this.entity.load(readView);
-            /* Detached preview entities never receive a server ID in 26.2. */
-            this.entity.setId(-1 - (this.entity.getUUID().hashCode() & Integer.MAX_VALUE));
             this.entity.noPhysics = true;
         }
     }
@@ -568,7 +565,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 FeatureRenderDispatcher dispatcher = EntityPreviewRenderHelper.getDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
                 entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, stack, EntityPreviewRenderHelper.getQueue());
-                dispatcher.renderAllFeatures(EntityPreviewRenderHelper.getQueue());
+                dispatcher.renderAllFeatures();
                 EntityPreviewRenderHelper.flushEntityBuffers();
             }
             finally
@@ -715,11 +712,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     renderState.shadowPieces.clear();
                 }
 
-                FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.featureRenderDispatcher();
-                SubmitNodeStorage storage = new SubmitNodeStorage();
+                FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
-                entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, context.stack, storage);
-                dispatcher.renderAllFeatures(storage);
+                entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, context.stack, dispatcher.getSubmitNodeStorage());
+                dispatcher.renderAllFeatures();
             }
             finally
             {

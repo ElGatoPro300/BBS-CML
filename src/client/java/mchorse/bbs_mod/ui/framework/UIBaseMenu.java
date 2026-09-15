@@ -371,7 +371,7 @@ public abstract class UIBaseMenu
      */
     protected void closeMenu()
     {
-        Minecraft.getInstance().gui.setScreen(null);
+        Minecraft.getInstance().setScreen(null);
     }
 
     public void closeThisMenu()

@@ -314,7 +314,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._disableBlend(0);
+        GlStateManager._disableBlend();
         GlStateManager._disableCull();
         // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
@@ -466,7 +466,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             return;
         }
 
-        GlStateManager._enableBlend(0);
+        GlStateManager._enableBlend();
 
         if (!this.stencil.hasPicked())
         {

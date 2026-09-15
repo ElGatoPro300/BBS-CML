@@ -914,7 +914,7 @@ public class UIFilmPreview extends UIElement
 
     private void renderCursor(UIContext context)
     {
-        net.minecraft.client.Camera mcCamera = Minecraft.getInstance().gameRenderer.mainCamera();
+        net.minecraft.client.Camera mcCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
         Matrix4fStack stack = RenderSystem.getModelViewStack();
 
         stack.pushMatrix();

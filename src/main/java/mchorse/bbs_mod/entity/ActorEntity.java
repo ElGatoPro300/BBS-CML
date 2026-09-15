@@ -892,7 +892,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
 
     @Override
-    public void knockback(double strength, double x, double z, DamageSource damageSource, float knockbackResistance, boolean bl)
+    public void knockback(double strength, double x, double z)
     {
         /* Film actors are pose-driven by keyframes; vanilla hit knockback causes
          * a visible hop on lethal hits. */
@@ -901,7 +901,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             return;
         }
 
-        super.knockback(strength, x, z, damageSource, knockbackResistance, bl);
+        super.knockback(strength, x, z);
     }
 
     @Override

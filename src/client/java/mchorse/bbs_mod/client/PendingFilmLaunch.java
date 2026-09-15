@@ -90,7 +90,7 @@ public class PendingFilmLaunch
             return false;
         }
 
-        Screen screen = client.gui.screen();
+        Screen screen = client.screen;
 
         if (screen instanceof LevelLoadingScreen)
         {

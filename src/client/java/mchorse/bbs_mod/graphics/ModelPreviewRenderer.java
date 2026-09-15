@@ -6,10 +6,7 @@ import net.minecraft.client.renderer.fog.FogRenderer;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
-import org.joml.Vector4f;
-import org.joml.Vector4fc;
 
-import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -30,8 +27,6 @@ import java.nio.ByteBuffer;
  */
 public class ModelPreviewRenderer implements AutoCloseable
 {
-    private static final Vector4fc CLEAR_COLOR = new Vector4f(0F, 0F, 0F, 0F);
-
     private TextureTarget framebuffer;
     private GpuBuffer projection;
     private GpuBuffer fog;
@@ -87,7 +82,7 @@ public class ModelPreviewRenderer implements AutoCloseable
         BBSRendering.projection.set(projectionMatrix);
 
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
-            this.framebuffer.getColorTexture(), CLEAR_COLOR, this.framebuffer.getDepthTexture(), 1D);
+            this.framebuffer.getColorTexture(), 0, this.framebuffer.getDepthTexture(), 1D);
 
         this.previousColor = RenderSystem.outputColorTextureOverride;
         this.previousDepth = RenderSystem.outputDepthTextureOverride;
@@ -119,7 +114,7 @@ public class ModelPreviewRenderer implements AutoCloseable
     {
         if (this.framebuffer == null)
         {
-            this.framebuffer = new TextureTarget("BBS model preview", width, height, true, GpuFormat.RGBA8_UNORM);
+            this.framebuffer = new TextureTarget("BBS model preview", width, height, true);
         }
         else if (this.framebuffer.width != width || this.framebuffer.height != height)
         {

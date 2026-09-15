@@ -64,6 +64,12 @@ public class WorldRendererMixin
         }
     }
 
+    @Inject(at = @At("RETURN"), method = "initOutline")
+    private void onLoadEntityOutlineShader(CallbackInfo info)
+    {
+        BBSRendering.resizeExtraFramebuffers();
+    }
+
     @Inject(at = @At("RETURN"), method = "resize")
     private void onResized(int width, int height, CallbackInfo info)
     {

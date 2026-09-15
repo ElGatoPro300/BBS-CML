@@ -4,14 +4,11 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
-import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
-import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -34,6 +31,7 @@ import net.fabricmc.api.Environment;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 
@@ -64,6 +62,7 @@ public class ShadowRendererMixin
     @Inject(method = "renderEntities", at = @At("TAIL"))
     private void bbs$renderFormsShadows(LevelRendererAccessor levelRenderer,
                                         EntityRenderDispatcher dispatcher,
+                                        MultiBufferSource.BufferSource consumers,
                                         PoseStack shadowStack,
                                         float tickDelta,
                                         Frustum frustum,
@@ -87,7 +86,7 @@ public class ShadowRendererMixin
 
         try
         {
-            this.bbs$drawFormShadows(shadowStack, tickDelta, camX, camY, camZ);
+            this.bbs$drawFormShadows(consumers, shadowStack, tickDelta, camX, camY, camZ);
         }
         finally
         {
@@ -97,12 +96,11 @@ public class ShadowRendererMixin
     }
 
     @Unique
-    private void bbs$drawFormShadows(PoseStack shadowStack,
+    private void bbs$drawFormShadows(MultiBufferSource.BufferSource consumers, PoseStack shadowStack,
                                    float tickDelta, double camX, double camY, double camZ)
     {
-        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         UIBaseMenu menu = UIScreen.getCurrentMenu();
-        Camera gameCamera = Minecraft.getInstance().gameRenderer.mainCamera();
+        Camera gameCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
         BBSRendering.enableDepthTest();
 
         /* Case 1: film panel open – keep existing onion skin and panel-specific logic */
@@ -336,7 +334,7 @@ public class ShadowRendererMixin
             ModelBlockEntityRenderer.renderIntoShadowMap(modelBlock, shadowStack, consumers, tickDelta, camX, camY, camZ);
         }
 
-        consumers.draw();
+        consumers.endBatch();
     }
 
     private static void renderOnionGhostShadows(FilmEditorController editorController,
@@ -346,7 +344,7 @@ public class ShadowRendererMixin
                                                 KeyframeChannel<?> pose,
                                                 int direction,
                                                 PoseStack shadowStack,
-                                                MultiBufferSource consumers,
+                                                MultiBufferSource.BufferSource consumers,
                                                 Camera camera)
     {
         int cursor = controller.panel.getCursor();

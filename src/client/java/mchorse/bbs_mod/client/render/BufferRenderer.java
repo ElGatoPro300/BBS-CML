@@ -1,22 +1,17 @@
 package mchorse.bbs_mod.client.render;
 
-import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
-import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
- * Compatibility shim for 26.2 where vanilla {@code BufferRenderer} was removed.
+ * Compatibility shim for 1.21.11 where vanilla {@code BufferRenderer} was removed.
  * Routes {@link MeshData} draws to appropriate {@link RenderType} pipelines.
  */
 public class BufferRenderer
@@ -50,56 +45,7 @@ public class BufferRenderer
 
         RenderType layer = resolveLayer(params);
 
-        draw(layer, buffer);
-    }
-
-    public static void draw(RenderType layer, MeshData buffer)
-    {
-        if (buffer == null)
-        {
-            return;
-        }
-
-        if (layer == null)
-        {
-            drawWithGlobalProgram(buffer);
-
-            return;
-        }
-
-        MeshData.DrawState params = buffer.drawState();
-
-        if (params == null || params.vertexCount() == 0)
-        {
-            buffer.close();
-
-            return;
-        }
-
-        try (buffer)
-        {
-            ModelEffectPass.bound(null);
-            CustomVertexConsumerProvider.drawLayer(layer);
-            PreparedRenderType prepared = layer.prepare();
-
-            if (ModelEffectPass.hasBinding())
-            {
-                for (PreparedRenderType.Texture texture : prepared.textures())
-                {
-                    if (texture.name().equals("Sampler0") && texture.textureView() != null
-                        && texture.textureView().texture() instanceof GlTexture glTexture
-                        && ModelEffectPass.drawBound(buffer, AdoptedTexture.identifier(glTexture.glId(), glTexture.getWidth(0), glTexture.getHeight(0), false)))
-                    {
-                        return;
-                    }
-                }
-            }
-
-            try (ImmediateMesh mesh = new ImmediateMesh(buffer))
-            {
-                mesh.draw(prepared);
-            }
-        }
+        layer.draw(buffer);
     }
 
     public static void draw(MeshData buffer)
@@ -110,9 +56,9 @@ public class BufferRenderer
     private static RenderType resolveLayer(MeshData.DrawState params)
     {
         VertexFormat format = params.format();
-        PrimitiveTopology mode = params.primitiveTopology();
+        VertexFormat.Mode mode = params.mode();
 
-        if (mode == PrimitiveTopology.LINES || mode == PrimitiveTopology.DEBUG_LINES)
+        if (mode == VertexFormat.Mode.LINES || mode == VertexFormat.Mode.DEBUG_LINES || mode == VertexFormat.Mode.DEBUG_LINE_STRIP)
         {
             if (defaultLinesLayer == null)
             {
