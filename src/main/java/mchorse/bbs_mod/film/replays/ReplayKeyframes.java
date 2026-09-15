@@ -590,6 +590,8 @@ public class ReplayKeyframes extends ValueGroup
      * {@code tick}, then clear from {@code tick} so the new take does not lerp into
      * deleted future keys. Empty channels are left alone — never seed defaults (0° =
      * south) or from-scratch recordings would face south until the first real insert.
+     * Vanilla pose/action zeros follow {@link #restoreVanillaPoseAction} so legacy
+     * tick-0 placeholders are not rewritten on every re-record.
      */
     public void bridgeRecordingFrom(float tick, List<String> groups)
     {
@@ -663,24 +665,28 @@ public class ReplayKeyframes extends ValueGroup
 
         if (poseActions)
         {
-            this.restoreDouble(this.sneaking, tick, sneaking);
-            this.restoreDouble(this.sprinting, tick, sprinting);
-            this.restoreDouble(this.swimming, tick, swimming);
-            this.restoreDouble(this.flying, tick, flying);
-            this.restoreDouble(this.fallFlying, tick, fallFlying);
-            this.restoreDouble(this.crawling, tick, crawling);
-            this.restoreDouble(this.climbing, tick, climbing);
-            this.restoreDouble(this.blocking, tick, blocking);
-            this.restoreDouble(this.sleeping, tick, sleeping);
-            this.restoreDouble(this.riptide, tick, riptide);
-            this.restoreDouble(this.grounded, tick, grounded);
-            this.restoreDouble(this.damage, tick, damage);
-            this.restoreDouble(this.deathTime, tick, deathTime);
-            this.restoreDouble(this.usingItem, tick, usingItem);
-            this.restoreDouble(this.itemUseTime, tick, itemUseTime);
-            this.restoreDouble(this.fire, tick, fire);
-            this.restoreDouble(this.particles, tick, particles);
-            this.restoreDouble(this.activeHand, tick, activeHand);
+            /* Idle-zero bridge policy: do not re-plant legacy tick-0 zeros when the cut
+             * does not need to break a prior hold. Live recording still seeds 0 via
+             * insertIfChanged so states do not extrapolate backwards before the first
+             * non-zero key (elytra / damage / sneak, etc.). */
+            this.restoreVanillaPoseAction(this.sneaking, tick, sneaking);
+            this.restoreVanillaPoseAction(this.sprinting, tick, sprinting);
+            this.restoreVanillaPoseAction(this.swimming, tick, swimming);
+            this.restoreVanillaPoseAction(this.flying, tick, flying);
+            this.restoreVanillaPoseAction(this.fallFlying, tick, fallFlying);
+            this.restoreVanillaPoseAction(this.crawling, tick, crawling);
+            this.restoreVanillaPoseAction(this.climbing, tick, climbing);
+            this.restoreVanillaPoseAction(this.blocking, tick, blocking);
+            this.restoreVanillaPoseAction(this.sleeping, tick, sleeping);
+            this.restoreVanillaPoseAction(this.riptide, tick, riptide);
+            this.restoreVanillaPoseAction(this.grounded, tick, grounded);
+            this.restoreVanillaPoseAction(this.damage, tick, damage);
+            this.restoreVanillaPoseAction(this.deathTime, tick, deathTime);
+            this.restoreVanillaPoseAction(this.usingItem, tick, usingItem);
+            this.restoreVanillaPoseAction(this.itemUseTime, tick, itemUseTime);
+            this.restoreVanillaPoseAction(this.fire, tick, fire);
+            this.restoreVanillaPoseAction(this.particles, tick, particles);
+            this.restoreVanillaPoseAction(this.activeHand, tick, activeHand);
             /* riding/ridden: cleared in clearFrom but not restored — live recordMountKeyframes
              * rewrites from entity state so a non-sitting re-take does not keep old sitting keys. */
         }
@@ -690,16 +696,18 @@ public class ReplayKeyframes extends ValueGroup
         this.restoreDouble(this.headYaw, tick, headYaw);
         this.restoreDouble(this.bodyYaw, tick, bodyYaw);
 
-        this.restoreDouble(this.stickLeftX, tick, stickLeftX);
-        this.restoreDouble(this.stickLeftY, tick, stickLeftY);
-        this.restoreDouble(this.stickRightX, tick, stickRightX);
-        this.restoreDouble(this.stickRightY, tick, stickRightY);
-        this.restoreDouble(this.triggerLeft, tick, triggerLeft);
-        this.restoreDouble(this.triggerRight, tick, triggerRight);
-        this.restoreDouble(this.extra1X, tick, extra1X);
-        this.restoreDouble(this.extra1Y, tick, extra1Y);
-        this.restoreDouble(this.extra2X, tick, extra2X);
-        this.restoreDouble(this.extra2Y, tick, extra2Y);
+        /* Sticks/triggers/extras often carry legacy sole-0@0 keys on old films — same
+         * idle-zero policy as pose/action so re-record does not rewrite them. */
+        this.restoreVanillaPoseAction(this.stickLeftX, tick, stickLeftX);
+        this.restoreVanillaPoseAction(this.stickLeftY, tick, stickLeftY);
+        this.restoreVanillaPoseAction(this.stickRightX, tick, stickRightX);
+        this.restoreVanillaPoseAction(this.stickRightY, tick, stickRightY);
+        this.restoreVanillaPoseAction(this.triggerLeft, tick, triggerLeft);
+        this.restoreVanillaPoseAction(this.triggerRight, tick, triggerRight);
+        this.restoreVanillaPoseAction(this.extra1X, tick, extra1X);
+        this.restoreVanillaPoseAction(this.extra1Y, tick, extra1Y);
+        this.restoreVanillaPoseAction(this.extra2X, tick, extra2X);
+        this.restoreVanillaPoseAction(this.extra2Y, tick, extra2Y);
 
         if (mainHand != null)
         {
@@ -857,6 +865,61 @@ public class ReplayKeyframes extends ValueGroup
         {
             channel.insert(tick, value);
         }
+    }
+
+    /**
+     * Bridge-restore for idle-prone doubles (pose/action flags, sticks, triggers,
+     * extras) after {@link #clearFrom}. Non-zero values always restore. Zero
+     * restores only when a prior keyframe holds a different value that must be
+     * cut at {@code tick} — otherwise legacy films with a sole {@code 0} at tick
+     * 0 would keep re-seeding those tracks on every re-record.
+     * <p>
+     * Live {@link #record} still seeds idle {@code 0} via {@code insertIfChanged}
+     * so empty channels get an initial key and do not extrapolate a later non-zero
+     * state backwards (elytra / damage / sneak, etc.).
+     */
+    private void restoreVanillaPoseAction(KeyframeChannel<Double> channel, float tick, Double value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        if (value == 0D)
+        {
+            Keyframe<Double> previous = this.findLastKeyframeBefore(channel, tick);
+
+            if (previous == null)
+            {
+                return;
+            }
+
+            Double previousValue = previous.getValue();
+
+            if (previousValue != null && previousValue == 0D)
+            {
+                return;
+            }
+        }
+
+        channel.insert(tick, value);
+    }
+
+    private Keyframe<Double> findLastKeyframeBefore(KeyframeChannel<Double> channel, float tick)
+    {
+        Keyframe<Double> previous = null;
+
+        for (Keyframe<Double> frame : channel.getKeyframes())
+        {
+            if (frame.getTick() >= tick)
+            {
+                break;
+            }
+
+            previous = frame;
+        }
+
+        return previous;
     }
 
     private void insertVanillaFlag(KeyframeChannel<Double> channel, float tick, boolean active)
