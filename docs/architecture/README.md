@@ -11,7 +11,7 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 | [ui-localization.md](ui-localization.md) | `IKey` / `UIKeys` / `en_us.json` |
 | [ui-framework.md](ui-framework.md) | `UIElement`, layouts, dashboard/panels |
 | [values-and-registration.md](values-and-registration.md) | `Value` system, registration, model formats |
-| [rendering-iris.md](rendering-iris.md) | Iris/shadow/render-state rules |
+| [rendering-iris.md](rendering-iris.md) | Iris/shadow/render-state rules; film ModelForm lightmap isolation |
 
 ## Film / forms
 
@@ -39,3 +39,4 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 * `docs/ADDONS.md`, `docs/FILM_FRAME_TIMELINE.md`, opacity/limb docs, etc.
 * `AGENTS.md`, `CONTRIBUTING.md`
 * User wiki: `bbs-mod-wiki.wiki/`
+* Greenfield rewrite (3.0): [BBS-CML-3.0](https://github.com/ElGatoPro300/BBS-CML-3.0) — bootstrap / code-organization live **there**, not in this folder (older UI-redesign migration drafts were removed from 2.2).

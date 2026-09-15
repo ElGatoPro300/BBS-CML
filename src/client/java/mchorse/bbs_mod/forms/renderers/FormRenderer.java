@@ -128,10 +128,15 @@ public abstract class FormRenderer <T extends Form>
 
         if (activeScissor != null)
         {
-            ix = activeScissor.left();
-            iy = activeScissor.top();
-            iw = activeScissor.width();
-            ih = activeScissor.height();
+            int sx1 = activeScissor.left();
+            int sy1 = activeScissor.top();
+            int sx2 = sx1 + activeScissor.width();
+            int sy2 = sy1 + activeScissor.height();
+
+            ix = Math.max(cellX, sx1);
+            iy = Math.max(cellY, sy1);
+            iw = Math.min(cellX + cellW, sx2) - ix;
+            ih = Math.min(cellY + cellH, sy2) - iy;
         }
         else
         {

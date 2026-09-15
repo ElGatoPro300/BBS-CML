@@ -122,7 +122,8 @@ public class BOBJModel implements IModel
             PoseTransform poseTransform = pose.get(key);
             BOBJBone group = this.armature.bones.get(key);
 
-            poseTransform.copy(group.transform);
+            /* Export the pose layer only — animator state stays on bone.transform. */
+            poseTransform.copy(group.poseTransform);
         }
 
         return pose;
@@ -157,7 +158,7 @@ public class BOBJModel implements IModel
 
             if (transform.fix > 0F)
             {
-                bone.transform.lerp(Transform.DEFAULT, transform.fix);
+                bone.poseTransform.lerp(Transform.DEFAULT, transform.fix);
             }
 
             bone.lighting = transform.lighting;
@@ -170,10 +171,12 @@ public class BOBJModel implements IModel
             bone.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(transform.paintColor.a);
             bone.texture = transform.texture;
             bone.textureBlend = transform.textureBlend;
-            bone.transform.translate.add(transform.translate);
-            bone.transform.scale.add(transform.scale).sub(1, 1, 1);
-            bone.transform.rotate.add(transform.rotate);
-            bone.transform.rotate2.add(transform.rotate2);
+            /* Pose T/R/S/P go on poseTransform so pivot only surrounds pose R/S (not bind/anim). */
+            bone.poseTransform.translate.add(transform.translate);
+            bone.poseTransform.scale.add(transform.scale).sub(1, 1, 1);
+            bone.poseTransform.rotate.add(transform.rotate);
+            bone.poseTransform.rotate2.add(transform.rotate2);
+            bone.poseTransform.pivot.add(transform.pivot);
         }
     }
 
