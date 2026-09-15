@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.cubic.render.vanilla;
 
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
+import mchorse.bbs_mod.client.renderer.VertexMultiConsumer;
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
@@ -10,7 +12,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.object.equipment.ElytraModel;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.entity.ArmorModelSet;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -33,7 +34,6 @@ import net.minecraft.world.item.equipment.trim.ArmorTrim;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexMultiConsumer;
 
 import com.google.common.collect.Maps;
 
@@ -103,11 +103,11 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.zRot = -this.elytraModel.leftWing.zRot;
 
                 VertexConsumer consumer = vertexConsumers.getBuffer(RenderTypes.armorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY);
+                this.elytraModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY, -1);
 
                 if (itemStack.hasFoil())
                 {
-                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY);
+                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY, -1);
                 }
 
                 matrices.popPose();

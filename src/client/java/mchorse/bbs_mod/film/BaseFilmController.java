@@ -6,6 +6,7 @@ import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.Film;
@@ -72,7 +73,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -80,6 +81,7 @@ import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -268,7 +270,7 @@ public abstract class BaseFilmController
         {
             BlockPos pos = BlockPos.containing(position.x, position.y + entity.getEyeHeight(), position.z);
 
-            light = LevelRenderer.getLightCoords(world, pos);
+            light = LightCoordsUtil.getLightCoords(world, pos);
         }
         else
         {
@@ -1149,7 +1151,7 @@ public abstract class BaseFilmController
 
         matrices.pushPose();
         matrices.translate(0F, hitboxH, 0F);
-        matrices.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().rotation());
+        matrices.mulPose(Minecraft.getInstance().gameRenderer.mainCamera().rotation());
         matrices.scale(0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.last().pose();
@@ -2334,7 +2336,7 @@ public abstract class BaseFilmController
 
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
         float transition = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
 
         sorted.sort(Comparator

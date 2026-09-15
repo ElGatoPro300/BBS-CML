@@ -118,7 +118,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
         if (context.type == FormRenderType.PREVIEW)
         {
-            Camera realCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
+            Camera realCamera = Minecraft.getInstance().gameRenderer.mainCamera();
 
             positionMatrix = new Matrix4f().rotation(realCamera.rotation());
             positionMatrix.mul(context.stack.last().pose());

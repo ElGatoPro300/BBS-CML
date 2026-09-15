@@ -412,7 +412,7 @@ public class UIInverseKinematicsEditor extends UIElement
             int iconY = y + (this.scroll.scrollItemSize - 16) / 2;
             int iconColor = locked ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.35F);
 
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             context.batcher.icon(Icons.CHECKMARK, iconColor, iconX, iconY);
 
             int textX = x + 22;

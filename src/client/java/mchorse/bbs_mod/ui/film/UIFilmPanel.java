@@ -7242,7 +7242,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             }
             else
             {
-                this.lastView.set(RenderSystem.getModelViewMatrix());
+                this.lastView.set(RenderSystem.getModelViewMatrixCopy());
             }
         }
 

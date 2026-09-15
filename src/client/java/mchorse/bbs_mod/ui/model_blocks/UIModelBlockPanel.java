@@ -238,7 +238,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.keyDude = new UIElement().noCulling();
         this.keyDude.keys().register(Keys.MODEL_BLOCKS_MOVE_TO, () -> {
             Minecraft mc = Minecraft.getInstance();
-            Camera camera = mc.gameRenderer.getMainCamera();
+            Camera camera = mc.gameRenderer.mainCamera();
             BlockHitResult blockHitResult = RayTracing.rayTrace(mc.level, camera.position(),
                     RayTracing.fromVector3f(this.mouseDirection), 512F);
 
@@ -371,7 +371,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 return;
             this.beginUndoCapture();
             this.modelBlock.getProperties().setGlobal(b.getValue());
-            Minecraft.getInstance().levelRenderer.allChanged();
+            Minecraft.getInstance().levelRenderer.resetLevelRenderData();
             this.endUndoCapture();
         });
         this.lookAt = new UIToggle(UIKeys.CAMERA_PANELS_LOOK_AT, (b) -> {
@@ -2273,7 +2273,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             matrices = new PoseStack();
         }
 
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
         Vec3 pos = camera.position();
 
         Minecraft mc = Minecraft.getInstance();

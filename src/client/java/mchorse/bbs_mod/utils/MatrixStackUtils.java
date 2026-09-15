@@ -60,7 +60,7 @@ public class MatrixStackUtils
      */
     public static Matrix4f getInverseViewRotationMatrix()
     {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
         Matrix4f inverse = new Matrix4f().rotation(camera.rotation().conjugate(MatrixStackUtils.tempQuaternion));
         CameraController controller = BBSModClient.getCameraController();
 
@@ -83,7 +83,7 @@ public class MatrixStackUtils
      */
     public static void loadInverseViewRotationMatrix4(Matrix4f dest)
     {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
 
         dest.rotation(camera.rotation().conjugate(MatrixStackUtils.tempQuaternion));
 
@@ -105,7 +105,7 @@ public class MatrixStackUtils
      */
     public static Matrix4f getViewRotationMatrix()
     {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
 
         return new Matrix4f().rotation(camera.rotation());
     }
@@ -133,8 +133,8 @@ public class MatrixStackUtils
     {
         /* Cache the global stuff */
         RenderSystem.backupProjectionMatrix();
-        oldMV.set(RenderSystem.getModelViewMatrix());
-        oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
+        oldMV.set(RenderSystem.getModelViewMatrixCopy());
+        oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrixCopy()));
 
         Matrix4fStack mvStack = RenderSystem.getModelViewStack();
         mvStack.identity();

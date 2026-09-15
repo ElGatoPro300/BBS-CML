@@ -1060,7 +1060,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         }
 
         Minecraft mc = Minecraft.getInstance();
-        Camera camera = mc.gameRenderer.getMainCamera();
+        Camera camera = mc.gameRenderer.mainCamera();
         Vec3 pos = camera.position();
 
         Matrix4f proj = new Matrix4f().setPerspective((float) Math.toRadians(mc.options.fov().get()), (float) mc.getWindow().getScreenWidth() / (float) mc.getWindow().getScreenHeight(), 0.05F, mc.options.getEffectiveRenderDistance() * 16 * 4F);
@@ -1073,7 +1073,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), mouseDirection);
 
         GlStateManager._enableDepthTest();
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         context.poseStack().pushPose();
@@ -1111,7 +1111,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         context.poseStack().popPose();
 
         GlStateManager._enableDepthTest();
-        GlStateManager._disableBlend();
+        GlStateManager._disableBlend(0);
     }
 
     private void renderBox(PoseStack stack, TriggerBlockEntity entity, float r, float g, float b)

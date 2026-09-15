@@ -370,7 +370,7 @@ public class ShaderOpacityPatch
             afterFluids,
             irisCamera,
             new Matrix4f(),
-            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            new Matrix4f(RenderSystem.getModelViewMatrixCopy()),
             ModelVAORenderer.captureCurrentFog(),
             draw
         ));
@@ -438,7 +438,7 @@ public class ShaderOpacityPatch
         }
         catch (Throwable ignored)
         {
-            return mc.levelRenderer != null && mc.levelRenderer.getTranslucentTarget() != null;
+            return mc.levelRenderer != null && mc.levelRenderer.translucentTarget() != null;
         }
     }
 
@@ -473,7 +473,7 @@ public class ShaderOpacityPatch
 
         if (fabulousTranslucentPass && mc.levelRenderer != null)
         {
-            RenderTarget translucent = mc.levelRenderer.getTranslucentTarget();
+            RenderTarget translucent = mc.levelRenderer.translucentTarget();
 
             if (translucent != null)
             {
@@ -523,7 +523,7 @@ public class ShaderOpacityPatch
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
             int opaqueDepth = getTextureId(targets.getDepthTextureNoTranslucents());
-            int mainDepth = getTextureId(Minecraft.getInstance().getMainRenderTarget().getDepthTexture());
+            int mainDepth = getTextureId(Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTexture());
 
             if (width > 0 && height > 0 && opaqueDepth > 0 && mainDepth > 0)
             {
@@ -821,7 +821,7 @@ public class ShaderOpacityPatch
         }
 
         RenderTarget paintTarget = BBSRendering.getPaintOverlaySourceFramebuffer();
-        RenderTarget mainTarget = mc.getMainRenderTarget();
+        RenderTarget mainTarget = mc.gameRenderer.mainRenderTarget();
 
         if (paintTarget == null || mainTarget == null)
         {
@@ -935,7 +935,7 @@ public class ShaderOpacityPatch
     {
         RenderSystem.backupProjectionMatrix();
         Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-        Matrix4f savedModelView = RenderSystem.getModelViewMatrix();
+        Matrix4f savedModelView = RenderSystem.getModelViewMatrixCopy();
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
 
@@ -987,7 +987,7 @@ public class ShaderOpacityPatch
             /* Isolate entries: soft Block/Structure can leave lightmap off, additive blend,
              * or colorMask false — that darkens soft limbs drawn later in the same flush. */
             GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
             GlStateManager._depthMask(savedDepthMask);
             if (flushingPostDeferred)

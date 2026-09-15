@@ -22,9 +22,8 @@ import org.joml.Vector4f;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.BlendFactor;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.platform.DestFactor;
-import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
@@ -48,28 +47,28 @@ public class UIImageRenderer
             switch (mode)
             {
                 case 1: /* Multiply: dst * src */
-                    blend = new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE);
+                    blend = new BlendFunction(BlendFactor.DST_COLOR, BlendFactor.ZERO, BlendFactor.ZERO, BlendFactor.ONE);
                     break;
                 case 2: /* Screen: 1 - (1-src)*(1-dst) */
-                    blend = new BlendFunction(SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    blend = new BlendFunction(BlendFactor.ONE, BlendFactor.ONE_MINUS_SRC_COLOR, BlendFactor.ONE, BlendFactor.ONE_MINUS_SRC_ALPHA);
                     break;
                 case 3: /* Add / Linear Dodge: src + dst */
-                    blend = new BlendFunction(SourceFactor.ONE, DestFactor.ONE, SourceFactor.ONE, DestFactor.ONE);
+                    blend = new BlendFunction(BlendFactor.ONE, BlendFactor.ONE, BlendFactor.ONE, BlendFactor.ONE);
                     break;
                 case 4: /* Saturation */
-                    blend = new BlendFunction(SourceFactor.SRC_COLOR, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    blend = new BlendFunction(BlendFactor.SRC_COLOR, BlendFactor.ONE_MINUS_SRC_COLOR, BlendFactor.SRC_ALPHA, BlendFactor.ONE_MINUS_SRC_ALPHA);
                     break;
                 case 5: /* Incrustation (Silhouette Luma) */
-                    blend = new BlendFunction(SourceFactor.ZERO, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.ZERO, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    blend = new BlendFunction(BlendFactor.ZERO, BlendFactor.ONE_MINUS_SRC_COLOR, BlendFactor.ZERO, BlendFactor.ONE_MINUS_SRC_ALPHA);
                     break;
                 case 6: /* Exclusion */
-                    blend = new BlendFunction(SourceFactor.ONE_MINUS_DST_COLOR, DestFactor.ONE_MINUS_SRC_COLOR, SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    blend = new BlendFunction(BlendFactor.ONE_MINUS_DST_COLOR, BlendFactor.ONE_MINUS_SRC_COLOR, BlendFactor.ONE, BlendFactor.ONE_MINUS_SRC_ALPHA);
                     break;
                 case 7: /* Overlay */
-                    blend = new BlendFunction(SourceFactor.DST_COLOR, DestFactor.SRC_COLOR, SourceFactor.ONE, DestFactor.ONE_MINUS_SRC_ALPHA);
+                    blend = new BlendFunction(BlendFactor.DST_COLOR, BlendFactor.SRC_COLOR, BlendFactor.ONE, BlendFactor.ONE_MINUS_SRC_ALPHA);
                     break;
                 case 8: /* Color Dodge */
-                    blend = new BlendFunction(SourceFactor.SRC_COLOR, DestFactor.ONE, SourceFactor.SRC_ALPHA, DestFactor.ONE);
+                    blend = new BlendFunction(BlendFactor.SRC_COLOR, BlendFactor.ONE, BlendFactor.SRC_ALPHA, BlendFactor.ONE);
                     break;
                 default:
                     blend = BlendFunction.TRANSLUCENT;
