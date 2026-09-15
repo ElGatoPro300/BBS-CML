@@ -122,11 +122,12 @@ public class ShaderBridge1201 implements IShaderBridge { ... }
 
 ## §5 — Preparing for BBS 3.0 Rewrite
 
-Version 3.0 (`BBS-CML-3.0`) will be a complete rewrite from scratch. Following these rules directly accelerates 3.0 development:
+Version 3.0 lives in a separate repository: [BBS-CML-3.0](https://github.com/ElGatoPro300/BBS-CML-3.0) (greenfield rewrite). Bootstrap / organization plans: `docs/architecture/bbs-3.0-bootstrap-plan.md` and `docs/architecture/code-organization.md` **in that repo**. Following these 2.2 rules still accelerates 3.0:
 
 - **Clean Domain Code = 3.0 Code**: Any domain logic (data models, interpolation, timelines, state machines) written decoupled from Minecraft APIs will be directly transferable to 3.0 without rewriting.
-- **Architectural Reference**: The abstractions and interfaces built in 2.2 will serve as the architectural specification for 3.0 subsystems.
+- **Architectural Reference**: The abstractions and interfaces built in 2.2 serve as the functional/architectural specification for 3.0 subsystems (3.0 reimplements; it does not paste 2.2 god-files).
 - Never tightly couple new features to Minecraft internal classes. Always isolate engine dependencies behind adapters.
+- Do **not** invent ports or commits into the 3.0 repo unless the developer explicitly asks.
 
 ---
 

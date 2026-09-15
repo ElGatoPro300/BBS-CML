@@ -132,3 +132,4 @@ Folder index: `docs/architecture/README.md`
 - `docs/FLUID_SIMULATION.md`, `docs/GECKO_ANIMATIONS_MIGRATION.md` — specialized subsystems
 - `AGENTS.md` — build commands, code style, module split overview
 - `CONTRIBUTING.md` — contribution and style enforcement
+- BBS CML 3.0 (greenfield rewrite): https://github.com/ElGatoPro300/BBS-CML-3.0 — bootstrap plan `docs/architecture/bbs-3.0-bootstrap-plan.md`
