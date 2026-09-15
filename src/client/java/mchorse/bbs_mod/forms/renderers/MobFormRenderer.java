@@ -568,7 +568,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 FeatureRenderDispatcher dispatcher = EntityPreviewRenderHelper.getDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
                 entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, stack, EntityPreviewRenderHelper.getQueue());
-                dispatcher.renderAllFeatures();
+                dispatcher.renderAllFeatures(EntityPreviewRenderHelper.getQueue());
                 EntityPreviewRenderHelper.flushEntityBuffers();
             }
             finally
