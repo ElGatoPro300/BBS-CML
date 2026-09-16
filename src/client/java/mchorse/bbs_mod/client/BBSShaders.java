@@ -23,6 +23,7 @@ public class BBSShaders
     private static ShaderProgram multiLink;
     private static ShaderProgram subtitles;
     private static ShaderProgram imageOverlay;
+    private static ShaderProgram video;
 
     private static ShaderProgram pickerPreview;
     private static ShaderProgram pickerBillboard;
@@ -34,6 +35,9 @@ public class BBSShaders
     private static ShaderProgram blockGlowOverlay;
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
+    private static ShaderProgram outlineMask;
+    private static ShaderProgram outlineDilateH;
+    private static ShaderProgram outlineComposite;
 
     /* Avoid reloading every BBS shader on each draw when model compile fails. */
     private static boolean modelLoadRetried;
@@ -69,6 +73,12 @@ public class BBSShaders
         {
             imageOverlay.close();
             imageOverlay = null;
+        }
+
+        if (video != null)
+        {
+            video.close();
+            video = null;
         }
 
         if (pickerPreview != null)
@@ -131,6 +141,24 @@ public class BBSShaders
             flatColorTintOverlay = null;
         }
 
+        if (outlineMask != null)
+        {
+            outlineMask.close();
+            outlineMask = null;
+        }
+
+        if (outlineDilateH != null)
+        {
+            outlineDilateH.close();
+            outlineDilateH = null;
+        }
+
+        if (outlineComposite != null)
+        {
+            outlineComposite.close();
+            outlineComposite = null;
+        }
+
         try
         {
             ResourceFactory factory = new ProxyResourceFactory(MinecraftClient.getInstance().getResourceManager());
@@ -150,6 +178,10 @@ public class BBSShaders
             blockGlowOverlay = new ShaderProgram(factory, "block_glow_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            outlineMask = new ShaderProgram(factory, "outline_mask", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            outlineDilateH = new ShaderProgram(factory, "outline_dilate_h", VertexFormats.POSITION_TEXTURE);
+            outlineComposite = new ShaderProgram(factory, "outline_composite", VertexFormats.POSITION_TEXTURE);
+            video = new ShaderProgram(factory, "video", VertexFormats.POSITION_TEXTURE);
         
             for (Runnable runnable : LOADERS)
             {
@@ -241,6 +273,31 @@ public class BBSShaders
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
         return flatColorTintOverlay;
+    }
+
+    public static ShaderProgram getVideoProgram()
+    {
+        if (video == null)
+        {
+            setup();
+        }
+
+        return video;
+    }
+
+    public static ShaderProgram getOutlineMask()
+    {
+        return outlineMask;
+    }
+
+    public static ShaderProgram getOutlineDilateH()
+    {
+        return outlineDilateH;
+    }
+
+    public static ShaderProgram getOutlineComposite()
+    {
+        return outlineComposite;
     }
 
     private static class ProxyResourceFactory implements ResourceFactory
