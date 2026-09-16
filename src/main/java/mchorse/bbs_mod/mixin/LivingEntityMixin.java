@@ -156,10 +156,10 @@ public class LivingEntityMixin
     }
 
     /**
-     * LivingEntity overrides {@link Entity#getStepHeight()}, so the boost must live here
+     * LivingEntity overrides {@link Entity#maxUpStep()}, so the boost must live here
      * (not on Entity) or players never receive the higher step for short solid hitboxes.
      */
-    @Inject(method = "getStepHeight", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "maxUpStep", at = @At("RETURN"), cancellable = true)
     private void bbs$boostSolidHitboxStepHeight(CallbackInfoReturnable<Float> info)
     {
         Entity entity = (Entity) (Object) this;

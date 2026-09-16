@@ -108,7 +108,7 @@ public class EntityMixin
      * Inject solid model/structure hitboxes into every movement collision list,
      * including the step-up pass ({@code list2}) which previously only saw block shapes.
      */
-    @Inject(method = "findCollisionsForMovement", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "collectColliders", at = @At("RETURN"), cancellable = true)
     private static void bbs$appendSolidHitboxes(
         @Nullable Entity entity,
         Level world,

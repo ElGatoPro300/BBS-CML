@@ -32,8 +32,8 @@ public class StructurePickerEntityHitMixin
         info.setReturnValue(false);
     }
 
-    @Inject(method = "canBeCollidedWith", at = @At("HEAD"), cancellable = true)
-    private void bbs$structurePickerDisableFormCollidable(CallbackInfoReturnable<Boolean> info)
+    @Inject(method = "canBeCollidedWith(Lnet/minecraft/world/entity/Entity;)Z", at = @At("HEAD"), cancellable = true)
+    private void bbs$structurePickerDisableFormCollidable(Entity entity, CallbackInfoReturnable<Boolean> info)
     {
         if (!StructurePickerClient.isActive() || !this.bbs$hasFormHitbox())
         {
