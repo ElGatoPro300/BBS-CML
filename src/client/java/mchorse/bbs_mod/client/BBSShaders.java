@@ -25,7 +25,9 @@ public class BBSShaders
     public static RenderPipeline multiLinkPipeline;
     public static RenderPipeline subtitlesPipeline;
     public static RenderPipeline imageOverlayPipeline;
+    public static RenderPipeline videoPipeline;
 
+    public static RenderPipeline pickerPreviewPipeline;
     public static RenderPipeline pickerBillboardPipeline;
     public static RenderPipeline pickerBillboardNoShadingPipeline;
     public static RenderPipeline pickerParticlesPipeline;
@@ -33,8 +35,12 @@ public class BBSShaders
     public static RenderPipeline blockPaintOverlayPipeline;
     public static RenderPipeline flatPaintOverlayPipeline;
     public static RenderPipeline blockGlowOverlayPipeline;
+    public static RenderPipeline flatGlowOverlayPipeline;
     public static RenderPipeline blockColorTintOverlayPipeline;
     public static RenderPipeline flatColorTintOverlayPipeline;
+    public static RenderPipeline outlineMaskPipeline;
+    public static RenderPipeline outlineDilateHPipeline;
+    public static RenderPipeline outlineCompositePipeline;
 
     static
     {
@@ -80,6 +86,22 @@ public class BBSShaders
             .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/image_overlay"))
             .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"))
             .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"))
+            .withSampler("Sampler0")
+            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .build());
+
+        videoPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/video"))
+            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/video"))
+            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/video"))
+            .withSampler("Sampler0")
+            .withVertexFormat(VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS)
+            .build());
+
+        pickerPreviewPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/picker_preview"))
+            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"))
+            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"))
             .withSampler("Sampler0")
             .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
             .build());
@@ -140,6 +162,14 @@ public class BBSShaders
             .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
             .build());
 
+        flatGlowOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/flat_glow_overlay"))
+            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/flat_glow_overlay"))
+            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/flat_glow_overlay"))
+            .withSampler("Sampler0")
+            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .build());
+
         blockColorTintOverlayPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.BLOCK_SNIPPET)
             .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/block_color_tint_overlay"))
             .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
@@ -154,6 +184,32 @@ public class BBSShaders
             .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
             .withSampler("Sampler0")
             .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .build());
+
+        outlineMaskPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/outline_mask"))
+            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/outline_mask"))
+            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/outline_mask"))
+            .withSampler("Sampler0")
+            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .build());
+
+        outlineDilateHPipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/outline_dilate_h"))
+            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/outline_composite"))
+            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/outline_dilate_h"))
+            .withSampler("Sampler0")
+            .withVertexFormat(VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS)
+            .build());
+
+        outlineCompositePipeline = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/outline_composite"))
+            .withVertexShader(Identifier.of(BBSMod.MOD_ID, "core/outline_composite"))
+            .withFragmentShader(Identifier.of(BBSMod.MOD_ID, "core/outline_composite"))
+            .withSampler("Sampler0")
+            .withSampler("Sampler1")
+            .withVertexFormat(VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS)
+            .withBlend(BlendFunction.TRANSLUCENT)
             .build());
 
         for (Runnable runnable : LOADERS)
@@ -187,6 +243,11 @@ public class BBSShaders
     public static ShaderProgram getImageOverlayProgram()
     {
         return BBSRendering.getProgram(imageOverlayPipeline);
+    }
+
+    public static ShaderProgram getPickerPreviewProgram()
+    {
+        return BBSRendering.getProgram(pickerPreviewPipeline);
     }
 
     public static ShaderProgram getPickerBillboardProgram()
@@ -224,6 +285,11 @@ public class BBSShaders
         return ModelEffectPass.program("block_glow_overlay");
     }
 
+    public static ShaderProgram getFlatGlowOverlayProgram()
+    {
+        return ModelEffectPass.program("flat_glow_overlay");
+    }
+
     public static ShaderProgram getBlockColorTintOverlayProgram()
     {
         return ModelEffectPass.program("block_color_tint_overlay");
@@ -232,5 +298,25 @@ public class BBSShaders
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
         return ModelEffectPass.program("flat_color_tint_overlay");
+    }
+
+    public static ShaderProgram getVideoProgram()
+    {
+        return BBSRendering.getProgram(videoPipeline);
+    }
+
+    public static ShaderProgram getOutlineMask()
+    {
+        return BBSRendering.getProgram(outlineMaskPipeline);
+    }
+
+    public static ShaderProgram getOutlineDilateH()
+    {
+        return BBSRendering.getProgram(outlineDilateHPipeline);
+    }
+
+    public static ShaderProgram getOutlineComposite()
+    {
+        return BBSRendering.getProgram(outlineCompositePipeline);
     }
 }

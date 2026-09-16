@@ -13,32 +13,48 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Supplier;
 
 public class PresetManager
 {
-    public static final PresetManager CLIPS = new PresetManager(BBSMod.getSettingsPath("presets/clips"));
-    public static final PresetManager CLIP_LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/clip_layouts"));
-    public static final PresetManager PARTICLE_LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/particle_layouts"));
-    public static final PresetManager BODY_PARTS = new PresetManager(BBSMod.getSettingsPath("presets/body_parts"));
-    public static final PresetManager TEXTURES = new PresetManager(BBSMod.getSettingsPath("presets/textures"));
-    public static final PresetManager KEYFRAMES = new PresetManager(BBSMod.getSettingsPath("presets/keyframes"));
-    public static final PresetManager GUNS = new PresetManager(BBSMod.getSettingsPath("presets/guns"));
-    public static final PresetManager ANIMATION_STATES = new PresetManager(BBSMod.getSettingsPath("presets/animation_states"));
-    public static final PresetManager SHAPE_GRAPHS = new PresetManager(BBSMod.getSettingsPath("presets/shape_graphs"));
-    public static final PresetManager LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/layouts"));
+    public static final PresetManager CLIPS = new PresetManager("presets/clips");
+    public static final PresetManager CLIP_LAYOUTS = new PresetManager("presets/clip_layouts");
+    public static final PresetManager PARTICLE_LAYOUTS = new PresetManager("presets/particle_layouts");
+    public static final PresetManager BODY_PARTS = new PresetManager("presets/body_parts");
+    public static final PresetManager TEXTURES = new PresetManager("presets/textures");
+    public static final PresetManager KEYFRAMES = new PresetManager("presets/keyframes");
+    public static final PresetManager GUNS = new PresetManager("presets/guns");
+    public static final PresetManager ANIMATION_STATES = new PresetManager("presets/animation_states");
+    public static final PresetManager SHAPE_GRAPHS = new PresetManager("presets/shape_graphs");
+    public static final PresetManager LAYOUTS = new PresetManager("presets/layouts");
 
-    private File folder;
+    private Supplier<File> folderSupplier;
+
+    public PresetManager(String relativePath)
+    {
+        this(() -> BBSMod.getSettingsPath(relativePath));
+    }
 
     public PresetManager(File folder)
     {
-        this.folder = folder;
+        this(() -> folder);
+    }
 
-        this.folder.mkdirs();
+    public PresetManager(Supplier<File> folderSupplier)
+    {
+        this.folderSupplier = folderSupplier;
     }
 
     public File getFolder()
     {
-        return this.folder;
+        File f = this.folderSupplier.get();
+
+        if (f != null)
+        {
+            f.mkdirs();
+        }
+
+        return f;
     }
 
     private static String normalizePath(String path)
@@ -67,14 +83,14 @@ public class PresetManager
     {
         String normalized = normalizePath(id);
 
-        return new File(this.folder, normalized + ".json");
+        return new File(this.getFolder(), normalized + ".json");
     }
 
     private File getDirectory(String directory)
     {
         String normalized = normalizePath(directory);
 
-        return normalized.isEmpty() ? this.folder : new File(this.folder, normalized);
+        return normalized.isEmpty() ? this.getFolder() : new File(this.getFolder(), normalized);
     }
 
     public boolean exists(String id)
@@ -120,7 +136,7 @@ public class PresetManager
             return false;
         }
 
-        this.folder.mkdirs();
+        this.getFolder().mkdirs();
 
         File file = this.getPresetFile(id);
         File parent = file.getParentFile();
@@ -130,7 +146,7 @@ public class PresetManager
             parent.mkdirs();
         }
 
-        File tempFile = new File(parent == null ? this.folder : parent, file.getName() + ".tmp");
+        File tempFile = new File(parent == null ? this.getFolder() : parent, file.getName() + ".tmp");
 
         if (!DataToString.writeSilently(tempFile, mapType, true))
         {
@@ -248,7 +264,7 @@ public class PresetManager
     {
         ArrayList<String> keys = new ArrayList<>();
 
-        this.collectKeysRecursive(this.folder, "", keys);
+        this.collectKeysRecursive(this.getFolder(), "", keys);
         keys.sort(Comparator.comparing((s) -> s.toLowerCase(Locale.ROOT)));
 
         return keys;
