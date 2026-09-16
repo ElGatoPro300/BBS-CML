@@ -21,6 +21,7 @@ public class BBSShaders
     private static ShaderProgram multiLink;
     private static ShaderProgram subtitles;
     private static ShaderProgram imageOverlay;
+    private static ShaderProgram video;
 
     private static ShaderProgram pickerPreview;
     private static ShaderProgram pickerBillboard;
@@ -32,6 +33,9 @@ public class BBSShaders
     private static ShaderProgram blockGlowOverlay;
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
+    private static ShaderProgram outlineMask;
+    private static ShaderProgram outlineDilateH;
+    private static ShaderProgram outlineComposite;
 
     /* Avoid reloading every BBS shader on each draw when model compile fails. */
     private static boolean modelLoadRetried;
@@ -67,6 +71,12 @@ public class BBSShaders
         {
             imageOverlay.close();
             imageOverlay = null;
+        }
+
+        if (video != null)
+        {
+            video.close();
+            video = null;
         }
 
         if (pickerPreview != null)
@@ -129,6 +139,24 @@ public class BBSShaders
             flatColorTintOverlay = null;
         }
 
+        if (outlineMask != null)
+        {
+            outlineMask.close();
+            outlineMask = null;
+        }
+
+        if (outlineDilateH != null)
+        {
+            outlineDilateH.close();
+            outlineDilateH = null;
+        }
+
+        if (outlineComposite != null)
+        {
+            outlineComposite.close();
+            outlineComposite = null;
+        }
+
         ShaderLoader loader = MinecraftClient.getInstance().getShaderLoader();
         Defines defines = Defines.EMPTY;
 
@@ -136,6 +164,7 @@ public class BBSShaders
         ShaderProgramKey multiLinkKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/multilink"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey subtitlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/subtitles"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey imageOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
+        ShaderProgramKey videoKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/video"), VertexFormats.POSITION_TEXTURE, defines);
 
         ShaderProgramKey pickerPreviewKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey pickerBillboardKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
@@ -149,10 +178,15 @@ public class BBSShaders
         ShaderProgramKey blockColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
         ShaderProgramKey flatColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
 
+        ShaderProgramKey outlineMaskKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/outline_mask"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey outlineDilateHKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/outline_dilate_h"), VertexFormats.POSITION_TEXTURE, defines);
+        ShaderProgramKey outlineCompositeKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/outline_composite"), VertexFormats.POSITION_TEXTURE, defines);
+
         model = loader.getOrCreateProgram(modelKey);
         multiLink = loader.getOrCreateProgram(multiLinkKey);
         subtitles = loader.getOrCreateProgram(subtitlesKey);
         imageOverlay = loader.getOrCreateProgram(imageOverlayKey);
+        video = loader.getOrCreateProgram(videoKey);
 
         pickerPreview = loader.getOrCreateProgram(pickerPreviewKey);
         pickerBillboard = loader.getOrCreateProgram(pickerBillboardKey);
@@ -164,6 +198,10 @@ public class BBSShaders
         blockGlowOverlay = loader.getOrCreateProgram(blockGlowOverlayKey);
         blockColorTintOverlay = loader.getOrCreateProgram(blockColorTintOverlayKey);
         flatColorTintOverlay = loader.getOrCreateProgram(flatColorTintOverlayKey);
+
+        outlineMask = loader.getOrCreateProgram(outlineMaskKey);
+        outlineDilateH = loader.getOrCreateProgram(outlineDilateHKey);
+        outlineComposite = loader.getOrCreateProgram(outlineCompositeKey);
 
         for (Runnable runnable : LOADERS)
         {
@@ -250,5 +288,30 @@ public class BBSShaders
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
         return flatColorTintOverlay;
+    }
+
+    public static ShaderProgram getVideoProgram()
+    {
+        if (video == null)
+        {
+            setup();
+        }
+
+        return video;
+    }
+
+    public static ShaderProgram getOutlineMask()
+    {
+        return outlineMask;
+    }
+
+    public static ShaderProgram getOutlineDilateH()
+    {
+        return outlineDilateH;
+    }
+
+    public static ShaderProgram getOutlineComposite()
+    {
+        return outlineComposite;
     }
 }

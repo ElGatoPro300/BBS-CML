@@ -8,11 +8,28 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 
+import org.lwjgl.util.tinyfd.TinyFileDialogs;
+
+import java.awt.FileDialog;
+import java.awt.Frame;
+import java.awt.Toolkit;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
+import javax.swing.JFileChooser;
+import javax.swing.UIManager;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class UIUtils
 {
+    private static final AtomicBoolean AWT_READY = new AtomicBoolean(false);
+
     /**
      * Open web link (in default web browser)
      */
@@ -33,8 +50,72 @@ public class UIUtils
     }
 
     /**
-     * Open a folder (in default file browser)
+     * Open native OS folder chooser dialog using modern File Explorer.
      */
+    public static String selectFolder(String title, String defaultPath)
+    {
+        if (OS.CURRENT == OS.WINDOWS)
+        {
+            try
+            {
+                String initial = (defaultPath != null && !defaultPath.isEmpty() && new File(defaultPath).exists())
+                    ? defaultPath.replace("'", "''")
+                    : "";
+
+                String desc = (title == null ? "Select BBS Folder" : title).replace("'", "''");
+
+                String script = "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');"
+                    + "$f=New-Object System.Windows.Forms.FolderBrowserDialog;"
+                    + "$f.AutoUpgradeEnabled=$true;"
+                    + "$f.Description='" + desc + "';"
+                    + (initial.isEmpty() ? "" : "$f.SelectedPath='" + initial + "';")
+                    + "if($f.ShowDialog()-eq[System.Windows.Forms.DialogResult]::OK){[Console]::Out.Write($f.SelectedPath)}";
+
+                ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-STA", "-Command", script);
+                Process process = pb.start();
+
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), "UTF-8")))
+                {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+
+                    while ((line = reader.readLine()) != null)
+                    {
+                        if (sb.length() > 0)
+                        {
+                            sb.append(System.lineSeparator());
+                        }
+
+                        sb.append(line);
+                    }
+
+                    process.waitFor();
+                    String result = sb.toString().trim();
+
+                    if (!result.isEmpty())
+                    {
+                        return result;
+                    }
+                }
+            }
+            catch (Throwable t)
+            {
+                t.printStackTrace();
+            }
+        }
+
+        try
+        {
+            return TinyFileDialogs.tinyfd_selectFolderDialog(title, defaultPath == null ? "" : defaultPath);
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+
+            return null;
+        }
+    }
+
     public static boolean openFolder(File folder)
     {
         try
@@ -60,6 +141,319 @@ public class UIUtils
         }
 
         return false;
+    }
+
+    /**
+     * Native OS "Open" dialog. On Windows prefers the real WinForms picker (same look as
+     * Explorer). Falls back to Swing / AWT. Runs off the render thread; {@code onPicked}
+     * runs on the Minecraft client thread.
+     */
+    public static void pickOpenFile(String title, String windowsFilter, String[] extensions, Consumer<File> onPicked)
+    {
+        if (onPicked == null)
+        {
+            return;
+        }
+
+        String dialogTitle = title == null || title.isEmpty() ? "Open" : title;
+        String[] exts = extensions == null ? new String[0] : extensions;
+
+        Thread thread = new Thread(() ->
+        {
+            File selected = null;
+
+            try
+            {
+                /* Windows Forms first (real Explorer dialog, appears above Minecraft). */
+                if (OS.CURRENT == OS.WINDOWS)
+                {
+                    selected = pickOpenFileWindowsForms(dialogTitle, exts);
+                }
+
+                if (selected == null || !selected.isFile())
+                {
+                    selected = pickOpenFileSwing(dialogTitle, exts);
+                }
+
+                if (selected == null || !selected.isFile())
+                {
+                    selected = pickOpenFileAwt(dialogTitle, windowsFilter, exts);
+                }
+            }
+            catch (Throwable t)
+            {
+                t.printStackTrace();
+            }
+
+            if (selected == null || !selected.isFile())
+            {
+                return;
+            }
+
+            File picked = selected;
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            if (client != null)
+            {
+                client.execute(() -> onPicked.accept(picked));
+            }
+            else
+            {
+                onPicked.accept(picked);
+            }
+        }, "bbs-native-file-dialog");
+
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /**
+     * Real Windows OpenFileDialog via PowerShell STA — matches Explorer UI.
+     */
+    private static File pickOpenFileWindowsForms(String title, String[] extensions)
+    {
+        String filter = buildWindowsFormsFilter(extensions);
+        String safeTitle = escapePowerShellSingleQuoted(title);
+        String safeFilter = escapePowerShellSingleQuoted(filter);
+        String script =
+            "Add-Type -AssemblyName System.Windows.Forms; "
+                + "$d = New-Object System.Windows.Forms.OpenFileDialog; "
+                + "$d.Title = '" + safeTitle + "'; "
+                + "$d.Filter = '" + safeFilter + "'; "
+                + "$d.FilterIndex = 1; "
+                + "$d.Multiselect = $false; "
+                + "$d.CheckFileExists = $true; "
+                + "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+                + "[Console]::Out.Write($d.FileName) "
+                + "}";
+
+        try
+        {
+            ProcessBuilder builder = new ProcessBuilder(
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-STA",
+                "-Command",
+                script
+            );
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+            StringBuilder out = new StringBuilder();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8)))
+            {
+                String line;
+
+                while ((line = reader.readLine()) != null)
+                {
+                    if (out.length() > 0)
+                    {
+                        out.append('\n');
+                    }
+
+                    out.append(line);
+                }
+            }
+
+            int code = process.waitFor();
+            String path = out.toString().trim();
+
+            if (code == 0 && !path.isEmpty())
+            {
+                File file = new File(path);
+
+                if (file.isFile())
+                {
+                    return file;
+                }
+            }
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private static String buildWindowsFormsFilter(String[] extensions)
+    {
+        if (extensions == null || extensions.length == 0)
+        {
+            return "All files (*.*)|*.*";
+        }
+
+        StringBuilder patterns = new StringBuilder();
+        StringBuilder label = new StringBuilder("Video (");
+
+        for (int i = 0; i < extensions.length; i++)
+        {
+            String extension = extensions[i] == null ? "" : extensions[i].toLowerCase(Locale.ROOT);
+
+            if (extension.isEmpty())
+            {
+                continue;
+            }
+
+            if (patterns.length() > 0)
+            {
+                patterns.append(';');
+                label.append(", ");
+            }
+
+            patterns.append("*.").append(extension);
+            label.append(extension);
+        }
+
+        label.append(')');
+
+        return label + "|" + patterns + "|MP4 (*.mp4)|*.mp4|All files (*.*)|*.*";
+    }
+
+    private static String escapePowerShellSingleQuoted(String value)
+    {
+        if (value == null)
+        {
+            return "";
+        }
+
+        return value.replace("'", "''");
+    }
+
+    private static File pickOpenFileSwing(String title, String[] extensions)
+    {
+        ensureAwt();
+
+        try
+        {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        }
+        catch (Throwable ignored)
+        {}
+
+        Frame owner = null;
+
+        try
+        {
+            owner = new Frame();
+            owner.setAlwaysOnTop(true);
+            owner.setLocationRelativeTo(null);
+            owner.setVisible(true);
+
+            JFileChooser chooser = new JFileChooser();
+
+            chooser.setDialogTitle(title);
+            chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            chooser.setMultiSelectionEnabled(false);
+            chooser.setAcceptAllFileFilterUsed(true);
+
+            File videoDir = new File(BBSMod.getAssetsFolder(), "video");
+
+            if (videoDir.isDirectory())
+            {
+                chooser.setCurrentDirectory(videoDir.getParentFile());
+            }
+
+            if (extensions != null && extensions.length > 0)
+            {
+                chooser.setFileFilter(new FileNameExtensionFilter("Video files", extensions));
+            }
+
+            int result = chooser.showOpenDialog(owner);
+
+            if (result == JFileChooser.APPROVE_OPTION)
+            {
+                return chooser.getSelectedFile();
+            }
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
+        finally
+        {
+            if (owner != null)
+            {
+                owner.dispose();
+            }
+        }
+
+        return null;
+    }
+
+    private static File pickOpenFileAwt(String title, String windowsFilter, String[] extensions)
+    {
+        ensureAwt();
+
+        try
+        {
+            FileDialog dialog = new FileDialog((Frame) null, title, FileDialog.LOAD);
+
+            if (windowsFilter != null && !windowsFilter.isEmpty())
+            {
+                dialog.setFile(windowsFilter);
+            }
+
+            if (extensions != null && extensions.length > 0)
+            {
+                dialog.setFilenameFilter((dir, name) ->
+                {
+                    if (name == null)
+                    {
+                        return false;
+                    }
+
+                    String lower = name.toLowerCase(Locale.ROOT);
+
+                    for (String extension : extensions)
+                    {
+                        if (extension != null && lower.endsWith("." + extension.toLowerCase(Locale.ROOT)))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                });
+            }
+
+            dialog.setMultipleMode(false);
+            dialog.setVisible(true);
+
+            String file = dialog.getFile();
+            String directory = dialog.getDirectory();
+
+            if (file != null && directory != null)
+            {
+                return new File(directory, file);
+            }
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private static void ensureAwt()
+    {
+        if (AWT_READY.get())
+        {
+            return;
+        }
+
+        try
+        {
+            System.setProperty("java.awt.headless", "false");
+            Toolkit.getDefaultToolkit();
+            AWT_READY.set(true);
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
     }
 
     private static boolean runSysCommand(String... command)

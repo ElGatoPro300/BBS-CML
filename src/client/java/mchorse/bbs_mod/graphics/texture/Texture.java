@@ -108,11 +108,21 @@ public class Texture
 
     public void bind()
     {
+        if (this.id <= 0)
+        {
+            return;
+        }
+
         GlStateManager._bindTexture(this.id);
     }
 
     public void bind(int texture)
     {
+        if (this.id <= 0)
+        {
+            return;
+        }
+
         GlStateManager._activeTexture(texture);
         GlStateManager._bindTexture(this.id);
     }
