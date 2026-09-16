@@ -16,4 +16,3 @@ public class LightForm extends Form
         this.add(this.level);
     }
 }
-

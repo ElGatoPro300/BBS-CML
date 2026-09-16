@@ -12,7 +12,6 @@ import mchorse.bbs_mod.vox.data.VoxTransform;
 import org.joml.Matrix3f;
 import org.joml.Vector3f;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;

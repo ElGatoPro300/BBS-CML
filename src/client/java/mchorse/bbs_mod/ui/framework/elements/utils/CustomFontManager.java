@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.framework.elements.utils;
 import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.Font;
 import net.minecraft.client.font.FontStorage;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.font.TrueTypeFont;

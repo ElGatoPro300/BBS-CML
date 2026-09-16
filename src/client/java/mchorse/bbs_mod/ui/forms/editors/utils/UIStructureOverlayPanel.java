@@ -34,8 +34,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import org.apache.commons.io.FileUtils;
-
 /**
  * Overlay panel for picking structures with three tabs: World, Vanilla, and Favorites.
  */

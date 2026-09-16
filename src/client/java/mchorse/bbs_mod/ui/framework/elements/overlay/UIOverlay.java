@@ -15,8 +15,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import org.joml.Vector2i;
 
-import org.lwjgl.glfw.GLFW;
-
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
