@@ -20,8 +20,6 @@ import mchorse.bbs_mod.camera.clips.screen.nodes.SineWaveNode;
 import mchorse.bbs_mod.camera.clips.screen.nodes.SquareWaveNode;
 import mchorse.bbs_mod.camera.clips.screen.nodes.VignetteEffectNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.ShapeNode;
-import mchorse.bbs_mod.l10n.L10n;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.toolbar.ToolbarItem;
 import mchorse.bbs_mod.ui.forms.editors.panels.shape.UIShapeNodeEditor;

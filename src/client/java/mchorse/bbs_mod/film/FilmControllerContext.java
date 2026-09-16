@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;

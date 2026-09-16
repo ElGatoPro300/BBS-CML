@@ -17,14 +17,11 @@ import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.io.DataInputStream;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 /**
  * List component for vanilla Minecraft structure files (.nbt)

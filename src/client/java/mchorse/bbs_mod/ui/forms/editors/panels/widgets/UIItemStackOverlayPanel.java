@@ -25,8 +25,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
-import com.mojang.brigadier.StringReader;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;

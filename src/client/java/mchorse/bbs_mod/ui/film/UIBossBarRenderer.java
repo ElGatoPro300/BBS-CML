@@ -10,10 +10,7 @@ import net.minecraft.util.Mth;
 
 import org.joml.Matrix3x2fStack;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.lwjgl.opengl.GL11;
 
 import java.util.List;
 

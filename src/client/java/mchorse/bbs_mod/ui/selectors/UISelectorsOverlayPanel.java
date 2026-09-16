@@ -21,8 +21,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.Identifier;
 
-import com.mojang.brigadier.StringReader;
-
 import java.util.List;
 
 public class UISelectorsOverlayPanel extends UIOverlayPanel

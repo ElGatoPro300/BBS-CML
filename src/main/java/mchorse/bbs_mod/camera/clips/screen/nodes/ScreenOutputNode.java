@@ -2,7 +2,6 @@ package mchorse.bbs_mod.camera.clips.screen.nodes;
 
 import mchorse.bbs_mod.forms.forms.shape.nodes.ShapeNode;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 

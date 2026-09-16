@@ -24,7 +24,6 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.math.IExpression;
 import mchorse.bbs_mod.math.MathBuilder;
@@ -87,8 +86,6 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
@@ -99,6 +96,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -813,7 +811,7 @@ public class UIReplayList extends UIList<Replay> {
                             double minSepSq = minSep * minSep;
                             long seed = (long) Math.round(scatterSeed.getValue());
 
-                            java.util.Random random = new java.util.Random(seed);
+                            Random random = new Random(seed);
                             List<double[]> placed = new ArrayList<>();
 
                             for (int order = 0; order < count; order++) {
@@ -1248,7 +1246,7 @@ public class UIReplayList extends UIList<Replay> {
                             double max = randomMax.getValue();
                             double start = Math.min(min, max);
                             double end = Math.max(min, max);
-                            java.util.Random random = new java.util.Random((long) Math.round(seed));
+                            Random random = new Random((long) Math.round(seed));
                             int count = indices.size();
 
                             for (int order = 0; order < count; order++) {

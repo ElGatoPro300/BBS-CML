@@ -25,7 +25,6 @@ import mchorse.bbs_mod.ui.utils.resizers.layout.ColumnResizer;
 import mchorse.bbs_mod.ui.utils.resizers.layout.GridResizer;
 import mchorse.bbs_mod.ui.utils.resizers.layout.RowResizer;
 import mchorse.bbs_mod.utils.Direction;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.undo.IUndoElement;
 
 import java.util.ArrayList;
