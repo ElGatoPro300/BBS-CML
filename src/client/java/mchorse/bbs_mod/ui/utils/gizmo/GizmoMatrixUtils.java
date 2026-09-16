@@ -1,8 +1,6 @@
 package mchorse.bbs_mod.ui.utils.gizmo;
 
-import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import org.joml.Matrix4f;

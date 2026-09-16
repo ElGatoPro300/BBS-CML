@@ -63,7 +63,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
-import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -72,6 +71,8 @@ import com.mojang.logging.LogUtils;
 
 import org.lwjgl.opengl.GL11;
 
+import org.slf4j.Logger;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -79,8 +80,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import org.slf4j.Logger;
 
 public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurface
 {

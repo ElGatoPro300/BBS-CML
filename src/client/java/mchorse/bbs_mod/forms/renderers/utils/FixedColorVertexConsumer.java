@@ -4,8 +4,6 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4f;
-
 /**
  * VertexConsumer que fija un color constante (incluido alpha) en el
  * Buffer subyacente mediante {@link VertexConsumer#fixedColor}.
