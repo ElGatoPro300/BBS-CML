@@ -27,8 +27,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.util.List;
 
 public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>

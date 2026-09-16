@@ -6,8 +6,6 @@ import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4f;
-
 public class GlowEmissionVertexConsumer implements VertexConsumer
 {
     public static Color emissionColor;

@@ -23,8 +23,6 @@ import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.Registries;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;

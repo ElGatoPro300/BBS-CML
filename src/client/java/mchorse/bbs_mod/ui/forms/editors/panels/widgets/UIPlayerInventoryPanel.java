@@ -16,8 +16,6 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.util.function.Consumer;
 
 public class UIPlayerInventoryPanel extends UIOverlayPanel

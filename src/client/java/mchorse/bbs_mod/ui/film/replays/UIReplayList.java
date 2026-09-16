@@ -85,8 +85,6 @@ import net.minecraft.world.World;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
