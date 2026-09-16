@@ -70,6 +70,7 @@ import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
@@ -416,9 +417,9 @@ public class BBSRendering
     /**
      * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
      * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
-     * On 1.21+ {@link net.minecraft.client.render.GameRenderer#renderBlur()} samples that state
+     * On 1.21+ {@link GameRenderer#renderBlur()} samples that state
      * (NeoForge pause blur → dark hotbar / sky). This build has no menu blur — use
-     * {@link #preparePauseScreenState()} before {@link net.minecraft.client.gui.screen.Screen}
+     * {@link #preparePauseScreenState()} before {@link Screen}
      * backgrounds instead; keep this helper for shared TU0/FB cleanup when blend must stay off.
      */
     public static void prepareMenuBackgroundState()
