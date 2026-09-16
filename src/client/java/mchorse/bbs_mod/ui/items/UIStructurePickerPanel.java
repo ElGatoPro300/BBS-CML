@@ -44,9 +44,6 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-
-
-
 /**
  * Immersive Structure Picker: tools on left, mode list on right; slide in from each side.
  */

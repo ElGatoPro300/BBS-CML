@@ -6,6 +6,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
+import mchorse.bbs_mod.mixin.client.MinecraftClientInvoker;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -15,8 +16,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
-
-import mchorse.bbs_mod.mixin.client.MinecraftClientInvoker;
 
 import org.joml.Matrix4f;
 
@@ -40,12 +39,6 @@ import java.util.Set;
 import org.watermedia.api.media.MRL;
 import org.watermedia.api.media.MediaAPI;
 import org.watermedia.api.media.players.MediaPlayer;
-
-
-
-
-
-
 
 public class VideoRenderer
 {
