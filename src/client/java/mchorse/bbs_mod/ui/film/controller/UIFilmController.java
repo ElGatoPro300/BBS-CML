@@ -42,6 +42,7 @@ import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIReplaysOverlayPanel;
+import mchorse.bbs_mod.ui.film.utils.UIFilmUndoHandler;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -75,7 +76,6 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
@@ -302,7 +302,7 @@ public class UIFilmController extends UIElement
             /* Match free-look: center before DISABLED so look deltas are not relative to UI. */
             Window.centerCursor();
             GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
-            this.syncLastMouseFromClientMouse();
+            this.syncLastMouseFromGrabbedCursor();
             this.controlLookPrimed = false;
         }
         else
@@ -321,11 +321,13 @@ public class UIFilmController extends UIElement
         }
     }
 
-    private void syncLastMouseFromClientMouse()
+    private void syncLastMouseFromGrabbedCursor()
     {
-        Mouse mouse = MinecraftClient.getInstance().mouse;
+        double[] x = new double[1];
+        double[] y = new double[1];
 
-        this.lastMouse.set(mouse.getX(), mouse.getY());
+        Window.getCursorPos(x, y);
+        this.lastMouse.set(x[0], y[0]);
     }
 
     public ValueOnionSkin getOnionSkin()
@@ -1001,24 +1003,43 @@ public class UIFilmController extends UIElement
         }
 
         Replay replay = this.getReplay();
+        UIFilmUndoHandler undoHandler = this.panel.getUndoHandler();
 
         if (replay != null && recordedOld != null)
         {
-            for (KeyframeChannel<?> channel : replay.keyframes.getChannels())
+            /* simplify/seal call preNotify — suppress so they cannot cache post-take
+             * channel state (containsKey would then block the real pre-take snapshot). */
+            if (undoHandler != null)
             {
-                channel.simplify();
+                undoHandler.setSuppressValueCache(true);
             }
 
-            /* After simplify: plant position holds one tick before the first new-take key
-             * when it differs from the pre-record timeline (avoids long XYZ lerps). */
-            replay.keyframes.sealPositionRecordingCut(recordedFromTick, recordedOld, recordedGroups);
+            try
+            {
+                for (KeyframeChannel<?> channel : replay.keyframes.getChannels())
+                {
+                    channel.simplify();
+                }
 
-            BaseType newData = replay.keyframes.toData();
+                /* After simplify: plant position holds one tick before the first new-take key
+                 * when it differs from the pre-record timeline (avoids long XYZ lerps). */
+                replay.keyframes.sealPositionRecordingCut(recordedFromTick, recordedOld, recordedGroups);
+            }
+            finally
+            {
+                if (undoHandler != null)
+                {
+                    undoHandler.setSuppressValueCache(false);
+                }
+            }
 
-            replay.keyframes.fromData(recordedOld);
-            replay.keyframes.preNotify();
-            replay.keyframes.fromData(newData);
-            replay.keyframes.postNotify();
+            /* Force pre-take → post-take undo and flush before action packets return.
+             * receiveActions must not collapse this via reduceUndoRedundancy. */
+            if (undoHandler != null)
+            {
+                undoHandler.replaceCachedValue(replay.keyframes, recordedOld);
+                undoHandler.commitCachedUndoNoMerging();
+            }
 
             this.recordingOld = null;
         }
@@ -1032,7 +1053,8 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorMobCapture().clear();
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
-        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer. */
+        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer.
+         * Keyframe undo is already committed above so this async path cannot swallow it. */
         this.stopViewportActionRecording();
 
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
@@ -2153,9 +2175,15 @@ public class UIFilmController extends UIElement
             }
         }
 
-        Mouse mouse = MinecraftClient.getInstance().mouse;
-        double x = mouse.getX();
-        double y = mouse.getY();
+        /* Look/sticks use raw GLFW (same space as centerCursor / free-look). Minecraft
+         * Mouse.getX/Y can stay on the Record-overlay click for a frame after the warp. */
+        double[] cursorX = new double[1];
+        double[] cursorY = new double[1];
+
+        Window.getCursorPos(cursorX, cursorY);
+
+        double x = cursorX[0];
+        double y = cursorY[0];
 
         if (this.canControl())
         {

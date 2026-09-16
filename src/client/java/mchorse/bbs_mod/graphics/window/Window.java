@@ -185,6 +185,16 @@ public class Window
         moveCursor(window.getWidth() / 2, window.getHeight() / 2);
     }
 
+    /**
+     * Raw GLFW cursor position in window coordinates (same space as {@link #moveCursor}
+     * / free-look). Prefer this over {@code Mouse.getX/Y()} right after a warp — Minecraft's
+     * mouse state can lag one frame behind {@code glfwSetCursorPos}.
+     */
+    public static void getCursorPos(double[] x, double[] y)
+    {
+        GLFW.glfwGetCursorPos(getWindow(), x, y);
+    }
+
     public static void setStandardCursor(int shape)
     {
         long window = getWindow();

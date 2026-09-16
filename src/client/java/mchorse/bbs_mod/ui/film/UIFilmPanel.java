@@ -5785,12 +5785,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (film != null && film.getId().equals(filmId) && CollectionUtils.inRange(film.replays.getList(), replayId))
         {
-            BaseValue.edit(film.replays.getList().get(replayId), IValueListener.FLAG_UNMERGEABLE, (replay) ->
+            /* Edit actions only — never the whole Replay. Caching the replay parent would
+             * let reduceUndoRedundancy drop a pending/sibling keyframes undo and permanently
+             * lose the pre-viewport-recording snapshot (Only rotation / similar takes). */
+            Replay replay = film.replays.getList().get(replayId);
+
+            BaseValue.edit(replay.actions, IValueListener.FLAG_UNMERGEABLE, (actions) ->
             {
                 Clips newClips = new Clips("", BBSMod.getFactoryActionClips());
 
                 newClips.fromData(clips);
-                replay.actions.copyOver(newClips, tick);
+                actions.copyOver(newClips, tick);
             });
         }
 

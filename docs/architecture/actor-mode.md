@@ -46,7 +46,9 @@ Two representations. **Do not collapse them.** Toggling Actor never deletes the 
 ## Actor control mouse capture
 
 * Enabling control must **center** the cursor (`Window.centerCursor`) and **skip the first look/stick delta** (`controlLookPrimed`), same idea as editor free-look flight.
+* Look/stick deltas while controlling read **raw GLFW** (`Window.getCursorPos`), not `Mouse.getX/Y` — Minecraft's mouse can still sit on the Record-overlay click for a frame after `glfwSetCursorPos`.
 * Disabling while flight + `editorFlightFreeLook` is active hands the grab to `UIFilmPanel.captureFreeFlightMouse()` (no `NORMAL` flash between owners).
+* Record / insert-frame overlays unlock the cursor but `canControl()` stays false while they are open; re-grab on submit uses the same center + GLFW baseline path.
 
 ## Iris
 
