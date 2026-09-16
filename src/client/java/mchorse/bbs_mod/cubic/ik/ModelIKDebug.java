@@ -10,12 +10,14 @@ import mchorse.bbs_mod.cubic.render.CubicRenderer.PivotFrame;
 import mchorse.bbs_mod.cubic.render.DebugOverlay;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.settings.values.ui.ValueDebugElement;
 import mchorse.bbs_mod.settings.values.ui.ValueIKDebug;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
@@ -210,17 +212,10 @@ public final class ModelIKDebug
         GlStateManager._enableDepthTest();
     }
 
-    /** A limb whose markers are all hidden leaves an empty buffer, and {@code end()} throws on one. */
+    /** A limb whose markers are all hidden leaves an empty buffer, and {@code flush()} safely ignores an empty buffer. */
     private static void drawIfNotEmpty(BufferBuilder builder)
     {
-        try
-        {
-            BufferRenderer.drawWithGlobalProgram(builder.end());
-        }
-        catch (IllegalStateException ignored)
-        {
-            /* Nothing to draw this pass. */
-        }
+        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
     }
 
     /** Draws one pickable marker — the element's own shape and size — encoding the next stencil id, and claims it for {@code bone}. */
@@ -321,6 +316,9 @@ public final class ModelIKDebug
 
         Matrix4f matrix = stack.peek().getPositionMatrix();
         float dash = unit * 0.12F;
+        boolean xray = config.xray.get();
+        RenderLayer linesLayer = xray ? Draw.getPositionColorLinesNoDepthLayer() : Draw.getPositionColorLinesLayer();
+        RenderLayer trisLayer = xray ? Draw.getPositionColorNoDepthLayer() : Draw.getPositionColorLayer();
 
         /* Lines: hairline GL lines by default, boxes once a thickness is set. */
         if (anyLine && !boxes)
@@ -329,7 +327,7 @@ public final class ModelIKDebug
 
             emitLines(lines, matrix, 0F, dash, pts, target, pole, a, config);
 
-            BufferRenderer.drawWithGlobalProgram(lines.end());
+            Draw.flush(lines, linesLayer);
         }
 
         if (!anyDot && !boxes)
@@ -372,7 +370,7 @@ public final class ModelIKDebug
             DebugOverlay.marker(dots, stack, config.pole.shape.get(), pole, unit * config.pole.size.get(), DebugOverlay.rgb(config.pole.color.get()), a);
         }
 
-        BufferRenderer.drawWithGlobalProgram(dots.end());
+        Draw.flush(dots, trisLayer);
     }
 
     /** The limb's wires plus the bridges to the goal and the pole — the bridges are always dashed relationship lines. */

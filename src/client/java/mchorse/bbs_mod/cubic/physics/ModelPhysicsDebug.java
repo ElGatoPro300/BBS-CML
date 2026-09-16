@@ -10,12 +10,14 @@ import mchorse.bbs_mod.cubic.render.CubicRenderer.PivotFrame;
 import mchorse.bbs_mod.cubic.render.DebugOverlay;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.settings.values.ui.ValueDebugElement;
 import mchorse.bbs_mod.settings.values.ui.ValuePhysicsDebug;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
@@ -213,17 +215,10 @@ public final class ModelPhysicsDebug
         GlStateManager._enableDepthTest();
     }
 
-    /** A chain whose markers are all hidden leaves an empty buffer, and {@code end()} throws on one. */
+    /** A chain whose markers are all hidden leaves an empty buffer, and {@code flush()} safely ignores an empty buffer. */
     private static void drawIfNotEmpty(BufferBuilder builder)
     {
-        try
-        {
-            BufferRenderer.drawWithGlobalProgram(builder.end());
-        }
-        catch (IllegalStateException ignored)
-        {
-            /* Nothing to draw this pass. */
-        }
+        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
     }
 
     /** Draws one pickable marker — the element's own shape and size — encoding the next stencil id, and claims it for {@code bone}. */
@@ -319,6 +314,9 @@ public final class ModelPhysicsDebug
 
         Matrix4f matrix = stack.peek().getPositionMatrix();
         float dash = unit * 0.12F;
+        boolean xray = config.xray.get();
+        RenderLayer linesLayer = xray ? Draw.getPositionColorLinesNoDepthLayer() : Draw.getPositionColorLinesLayer();
+        RenderLayer trisLayer = xray ? Draw.getPositionColorNoDepthLayer() : Draw.getPositionColorLayer();
 
         /* Lines: hairline GL lines by default, boxes once a thickness is set. */
         if (anyLine && !boxes)
@@ -327,7 +325,7 @@ public final class ModelPhysicsDebug
 
             emitLines(lines, matrix, 0F, dash, pts, target, a, config);
 
-            drawIfNotEmpty(lines);
+            Draw.flush(lines, linesLayer);
         }
 
         if (!anyDot && !boxes)
@@ -371,7 +369,7 @@ public final class ModelPhysicsDebug
             DebugOverlay.marker(dots, stack, config.attach.shape.get(), target, unit * config.attach.size.get(), DebugOverlay.rgb(config.attach.color.get()), a);
         }
 
-        drawIfNotEmpty(dots);
+        Draw.flush(dots, trisLayer);
     }
 
     /** The chain's wires plus the bridge to the pin target — the bridge is always a dashed relationship line. */
@@ -446,7 +444,11 @@ public final class ModelPhysicsDebug
             tips.add(end);
         }
 
-        drawIfNotEmpty(lines);
+        boolean xray = config.xray.get();
+        RenderLayer linesLayer = xray ? Draw.getPositionColorLinesNoDepthLayer() : Draw.getPositionColorLinesLayer();
+        RenderLayer trisLayer = xray ? Draw.getPositionColorNoDepthLayer() : Draw.getPositionColorLayer();
+
+        Draw.flush(lines, linesLayer);
 
         BufferBuilder dots = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
@@ -455,7 +457,7 @@ public final class ModelPhysicsDebug
             DebugOverlay.marker(dots, stack, ValueDebugElement.SHAPE_SPHERE, end, unit * 0.05F, color, a);
         }
 
-        drawIfNotEmpty(dots);
+        Draw.flush(dots, trisLayer);
     }
 
     /**

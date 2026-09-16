@@ -79,9 +79,21 @@ public class Draw
             .build()
     );
 
+    private static final RenderPipeline POSITION_COLOR_LINES_NO_DEPTH = RenderPipelines.register(
+        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_lines_no_depth"))
+            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.DEBUG_LINES)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withDepthWrite(false)
+            .withCull(false)
+            .build()
+    );
+
     private static RenderLayer positionColorLayer;
     private static RenderLayer positionColorNoDepthLayer;
     private static RenderLayer positionColorLinesLayer;
+    private static RenderLayer positionColorLinesNoDepthLayer;
 
     static
     {
@@ -90,6 +102,7 @@ public class Draw
             IrisFormPipelines.registerColor(POSITION_COLOR_TRIS);
             IrisFormPipelines.registerColor(POSITION_COLOR_TRIS_NO_DEPTH);
             IrisFormPipelines.registerColor(POSITION_COLOR_LINES);
+            IrisFormPipelines.registerColor(POSITION_COLOR_LINES_NO_DEPTH);
         }
     }
 
@@ -124,6 +137,17 @@ public class Draw
         }
 
         return positionColorLinesLayer;
+    }
+
+    public static RenderLayer getPositionColorLinesNoDepthLayer()
+    {
+        if (positionColorLinesNoDepthLayer == null)
+        {
+            positionColorLinesNoDepthLayer = RenderLayer.of(BBSMod.MOD_ID + "_draw_position_color_lines_no_depth",
+                RenderSetup.builder(POSITION_COLOR_LINES_NO_DEPTH).translucent().build());
+        }
+
+        return positionColorLinesNoDepthLayer;
     }
 
     public static void flushLines(BufferBuilder builder)

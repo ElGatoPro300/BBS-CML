@@ -354,7 +354,7 @@ public class StructurePickerRenderer
                 stack.pop();
             }
 
-            BufferRenderer.drawWithGlobalProgram(fill.end());
+            Draw.flush(fill, Draw.getPositionColorLayer());
         }
 
         if (edgeAlpha <= 0.001F)
@@ -394,7 +394,7 @@ public class StructurePickerRenderer
             );
         }
 
-        BufferRenderer.drawWithGlobalProgram(edges.end());
+        Draw.flush(edges, Draw.getPositionColorLayer());
     }
 
     private static void appendBoxEdges(BufferBuilder builder, MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
@@ -584,7 +584,7 @@ public class StructurePickerRenderer
         Draw.fillBox(builder, stack, 0F, 0F, 0F, (float) w, (float) h, (float) d, r, g, b, a);
         stack.pop();
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        Draw.flush(builder, Draw.getPositionColorLayer());
     }
 
     private static void renderCubeCorners(MatrixStack stack, BlockPos first, BlockPos second)
@@ -701,7 +701,7 @@ public class StructurePickerRenderer
         }
 
         stack.pop();
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        Draw.flush(builder, Draw.getPositionColorLayer());
     }
 
     private static void renderAxisArm(MatrixStack stack, double ox, double oy, double oz, StructurePickerAxis axis, float len, float t, float r, float g, float b, boolean highlight)
