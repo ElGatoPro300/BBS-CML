@@ -50,9 +50,9 @@ The record overlay has no dedicated pose/action buttons. Pose flags (`sneaking`,
 
 Position-only / rotation-only / stick takes **leave those tracks alone**.
 
-When all-groups recording writes a pose/action channel that is **empty**, a value of `0` is **not** inserted (intentionally cleared tracks stay empty until the entity actually enters a non-zero state).
+When all-groups recording captures pose/action channels and `riding`, initial keyframes (e.g. `0`) are recorded at the start tick via `insertIfChanged`. This ensures that states do not improperly extrapolate backwards prior to later state changes (e.g. a sneak at tick 50 having `0` at tick 0 so the player is not seen crouching before tick 50). Subsequent unchanged ticks skip redundant insertions, and transitions automatically insert hold keyframes.
 
-Bridge restore for those tracks matches that policy: a snapshotted `0` is **not** re-inserted when there is no prior key to cut, or when the last key before `T` is already `0`. That stops legacy films (sole `0` at tick 0) from rewriting pose/action keys on every re-record. A `0` **is** still restored when a prior non-zero hold must end at `T`. The same idle-zero restore policy applies to **sticks / triggers / extras** (also commonly seeded with sole `0@0` on older films).
+Bridge restore for those tracks uses a separate idle-zero policy: a snapshotted `0` is **not** re-inserted when there is no prior key to cut, or when the last key before `T` is already `0`. That stops legacy films (sole `0` at tick 0) from rewriting pose/action keys on every re-record. A `0` **is** still restored when a prior non-zero hold must end at `T`. The same idle-zero restore policy applies to **sticks / triggers / extras**. Live recording still seeds idle `0` so new takes stay correct.
 
 Outside / world re-record uses `ReplayKeyframes.copyOver`. If a source channel is **empty** (no keys written in the new take), destination keys from the take start onward are still cleared — previously `KeyframeChannel.copyOver` no-op'd on empty sources and left legacy pose/action keys in place.
 
@@ -70,7 +70,7 @@ Yaw/pitch/body stay on plain `DOUBLE`. `apply()` unwraps prev yaw toward current
 
 ### Not bridge-restored (cleared + live-recaptured on all-groups)
 
-* `riding` (**Double**), `ridden` (**MountLink**) — cleared from `T` in `clearFrom`; rewritten by `RecorderMobCapture.recordMountKeyframes` (empty `riding` is not seeded with `0`)
+* `riding` (**Double**), `ridden` (**MountLink**) — cleared from `T` in `clearFrom`; rewritten by `RecorderMobCapture.recordMountKeyframes`
 
 ### Not bridged / not viewport-recorded (pre-existing)
 

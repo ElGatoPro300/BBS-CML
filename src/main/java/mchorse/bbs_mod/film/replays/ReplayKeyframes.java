@@ -665,8 +665,10 @@ public class ReplayKeyframes extends ValueGroup
 
         if (poseActions)
         {
-            /* Same empty/zero policy as insertVanillaFlag — do not re-plant legacy tick-0
-             * zeros from old films when the cut does not need to break a prior hold. */
+            /* Idle-zero bridge policy: do not re-plant legacy tick-0 zeros when the cut
+             * does not need to break a prior hold. Live recording still seeds 0 via
+             * insertIfChanged so states do not extrapolate backwards before the first
+             * non-zero key (elytra / damage / sneak, etc.). */
             this.restoreVanillaPoseAction(this.sneaking, tick, sneaking);
             this.restoreVanillaPoseAction(this.sprinting, tick, sprinting);
             this.restoreVanillaPoseAction(this.swimming, tick, swimming);
@@ -871,6 +873,10 @@ public class ReplayKeyframes extends ValueGroup
      * restores only when a prior keyframe holds a different value that must be
      * cut at {@code tick} — otherwise legacy films with a sole {@code 0} at tick
      * 0 would keep re-seeding those tracks on every re-record.
+     * <p>
+     * Live {@link #record} still seeds idle {@code 0} via {@code insertIfChanged}
+     * so empty channels get an initial key and do not extrapolate a later non-zero
+     * state backwards (elytra / damage / sneak, etc.).
      */
     private void restoreVanillaPoseAction(KeyframeChannel<Double> channel, float tick, Double value)
     {
@@ -916,10 +922,6 @@ public class ReplayKeyframes extends ValueGroup
         return previous;
     }
 
-    /**
-     * Record a 0/1 pose flag. Skips seeding {@code 0} into an empty channel so
-     * intentionally cleared tracks stay empty until the entity actually enters the state.
-     */
     private void insertVanillaFlag(KeyframeChannel<Double> channel, float tick, boolean active)
     {
         this.insertVanillaDouble(channel, tick, active ? 1D : 0D);
@@ -927,11 +929,6 @@ public class ReplayKeyframes extends ValueGroup
 
     private void insertVanillaDouble(KeyframeChannel<Double> channel, float tick, double value)
     {
-        if (channel.isEmpty() && value == 0D)
-        {
-            return;
-        }
-
         channel.insertIfChanged(tick, value);
     }
 
@@ -963,8 +960,6 @@ public class ReplayKeyframes extends ValueGroup
 
         if (wantsVanillaPoseActions(groups))
         {
-            /* Empty channels: do not plant 0D — user-cleared pose/action tracks stay empty
-             * until the entity actually enters that state (or a non-zero action value). */
             this.insertVanillaFlag(this.sneaking, tick, entity.isSneaking());
             this.insertVanillaFlag(this.sprinting, tick, entity.isSprinting());
             this.insertVanillaFlag(this.swimming, tick, entity.isSwimming());

@@ -262,11 +262,7 @@ public final class RecorderMobCapture
 
         double ridingValue = mountIndex >= 0 ? 1D : 0D;
 
-        /* Do not plant riding=0 on an empty track (user-cleared / never recorded). */
-        if (!riderKeyframes.riding.isEmpty() || ridingValue != 0D)
-        {
-            riderKeyframes.riding.insertIfChanged(tick, ridingValue);
-        }
+        riderKeyframes.riding.insertIfChanged(tick, ridingValue);
 
         if (mountIndex >= 0 && replays != null && mountIndex < replays.size())
         {

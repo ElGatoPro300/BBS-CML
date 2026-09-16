@@ -118,10 +118,6 @@ Detail: `docs/architecture/keybinds.md`
 - New Form (data + renderer + editor panel + registration) → `docs/architecture/how-to-form.md`
 - New Clip (data + factory + UI + registration) → `docs/architecture/how-to-clip.md`
 
-## UI redesign branch
-
-Work on the FS ~1.10–based UI redesign branch, or migrating current CML features onto it → read `docs/architecture/ui-redesign-migration.md` and `docs/architecture/code-organization.md` first. Short agent rule: `.cursor/rules/ui-redesign-migration.mdc`.
-
 Folder index: `docs/architecture/README.md`
 
 ---
@@ -132,7 +128,6 @@ Folder index: `docs/architecture/README.md`
 - `docs/FILM_FRAME_TIMELINE.md` — frame/tick timeline and export FPS
 - `docs/LIMB_TRANSPARENCY.md`, `docs/SOFT_OPACITY_*.md`, `docs/SOFT_LIMB_BONE_SORT.md` — opacity / limb rendering notes
 - `docs/FLUID_SIMULATION.md`, `docs/GECKO_ANIMATIONS_MIGRATION.md` — specialized subsystems
-- `docs/architecture/ui-redesign-migration.md` — redesign branch migration plan
-- `docs/architecture/code-organization.md` — structural maintainability patterns
 - `AGENTS.md` — build commands, code style, module split overview
 - `CONTRIBUTING.md` — contribution and style enforcement
+- BBS CML 3.0 (greenfield rewrite): https://github.com/ElGatoPro300/BBS-CML-3.0 — bootstrap plan `docs/architecture/bbs-3.0-bootstrap-plan.md`
