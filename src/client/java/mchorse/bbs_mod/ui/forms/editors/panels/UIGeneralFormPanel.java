@@ -31,9 +31,9 @@ import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 
 import com.mojang.logging.LogUtils;
 
-import java.util.function.Consumer;
-
 import org.slf4j.Logger;
+
+import java.util.function.Consumer;
 
 public class UIGeneralFormPanel extends UIFormPanel
 {

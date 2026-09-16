@@ -1,12 +1,10 @@
 package mchorse.bbs_mod.cubic.model.gltf;
 
 import mchorse.bbs_mod.cubic.model.gltf.data.GLTF;
-import mchorse.bbs_mod.utils.IOUtils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;

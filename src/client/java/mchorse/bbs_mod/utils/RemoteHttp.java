@@ -2,6 +2,8 @@ package mchorse.bbs_mod.utils;
 
 import com.mojang.logging.LogUtils;
 
+import org.slf4j.Logger;
+
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.URI;
@@ -9,8 +11,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-
-import org.slf4j.Logger;
 
 /**
  * Small HTTP helper for optional remote content (news, banners, CDN, etc.).

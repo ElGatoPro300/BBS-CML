@@ -5,8 +5,6 @@ import mchorse.bbs_mod.data.types.MapType;
 
 import net.minecraft.util.Identifier;
 
-import java.util.Objects;
-
 public class ParticleSettings implements IMapSerializable
 {
     public Identifier particle = Identifier.of("minecraft", "flame");
