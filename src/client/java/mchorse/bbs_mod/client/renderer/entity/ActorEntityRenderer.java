@@ -12,8 +12,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.model.Dilation;
-import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
@@ -28,7 +26,6 @@ import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.util.Atlases;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;

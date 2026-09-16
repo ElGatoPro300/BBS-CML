@@ -22,9 +22,9 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.MathHelper;
 
-import java.util.List;
-
 import io.netty.util.collection.IntObjectMap;
+
+import java.util.List;
 
 /**
  * Links rider and mount replay entities so mob morph renderers can call

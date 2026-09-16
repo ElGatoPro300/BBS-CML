@@ -25,8 +25,6 @@ import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
-import com.mojang.brigadier.StringReader;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;

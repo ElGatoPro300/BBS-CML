@@ -14,8 +14,6 @@ import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
 import net.minecraft.util.Identifier;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import org.lwjgl.opengl.GL11;
 
 import java.io.InputStream;

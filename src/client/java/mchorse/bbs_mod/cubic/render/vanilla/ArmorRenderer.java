@@ -33,7 +33,6 @@ import net.minecraft.item.equipment.trim.ArmorTrim;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
 
 import com.google.common.collect.Maps;
 

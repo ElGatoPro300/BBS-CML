@@ -14,6 +14,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -67,7 +68,7 @@ public class UISubtitleRenderer
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         /* Legacy subtitles use half-resolution framebuffer pixels, independent of GUI scale. */
-        net.minecraft.client.gl.Framebuffer main = MinecraftClient.getInstance().getFramebuffer();
+        Framebuffer main = MinecraftClient.getInstance().getFramebuffer();
         int subtitleWidth = main.textureWidth / 2;
         int subtitleHeight = main.textureHeight / 2;
         float depth = Math.max(1000F, Math.max(subtitleWidth, subtitleHeight) * 8F);

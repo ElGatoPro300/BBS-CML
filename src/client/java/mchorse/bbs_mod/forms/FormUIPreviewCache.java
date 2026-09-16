@@ -19,10 +19,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.util.math.MatrixStack;
 
-import org.joml.Matrix4f;
-
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;

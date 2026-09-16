@@ -10,6 +10,7 @@ import mchorse.bbs_mod.utils.iris.IrisCustomPass;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gl.ScissorState;
 import net.minecraft.client.gl.ShaderProgram;
@@ -258,7 +259,7 @@ public final class ModelEffectPass
                 indexType = draws.indexType();
             }
 
-            net.minecraft.client.gl.Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
+            Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
 
             try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS model effects", GpuBuffer.USAGE_UNIFORM, ModelEffectUniforms.data(parameters));
                  RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "BBS model effects",

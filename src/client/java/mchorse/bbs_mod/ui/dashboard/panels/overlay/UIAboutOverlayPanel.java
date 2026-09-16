@@ -24,7 +24,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import org.lwjgl.opengl.GL11;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 public class UIAboutOverlayPanel extends UIOverlayPanel
 {

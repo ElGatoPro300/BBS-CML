@@ -31,8 +31,6 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3x2fStack;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;

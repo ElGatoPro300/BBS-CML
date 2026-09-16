@@ -8,8 +8,6 @@ import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
 
-import org.lwjgl.opengl.GL11;
-
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;

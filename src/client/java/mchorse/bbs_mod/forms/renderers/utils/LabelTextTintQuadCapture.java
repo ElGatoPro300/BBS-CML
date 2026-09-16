@@ -1,13 +1,9 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import mchorse.bbs_mod.utils.TextureFont;
-
-import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 
-import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 import java.util.ArrayList;

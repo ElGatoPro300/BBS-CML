@@ -776,5 +776,3 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
         return null;
     }
 }
-
-

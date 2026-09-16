@@ -10,7 +10,6 @@ import mchorse.bbs_mod.camera.clips.misc.CurveClientClip;
 import mchorse.bbs_mod.camera.clips.misc.TrackerClientClip;
 import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
 import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
@@ -25,7 +24,6 @@ import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
-import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
 import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
@@ -49,8 +47,6 @@ import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
 import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
-import mchorse.bbs_mod.events.register.RegisterShadersEvent;
-import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
 import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
@@ -62,7 +58,6 @@ import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormCategories;
 import mchorse.bbs_mod.forms.FormUIPreviewCache;
-import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Draw;
@@ -127,15 +122,11 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
-import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.metadata.ContactInformation;
 import net.fabricmc.loader.api.metadata.ModMetadata;
@@ -146,42 +137,34 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
 import net.minecraft.client.render.item.model.special.SpecialModelTypes;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 
-import org.joml.Matrix4f;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
 import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.serialization.MapCodec;
 
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 public class BBSModClient implements ClientModInitializer
 {

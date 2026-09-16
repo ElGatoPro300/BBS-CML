@@ -8,12 +8,12 @@ import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.util.Identifier;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -21,7 +21,6 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GL43;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
@@ -634,7 +633,7 @@ public class ColorGradeRenderer
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        net.minecraft.client.gl.Framebuffer fb = BBSRendering.getPaintOverlaySourceFramebuffer();
+        Framebuffer fb = BBSRendering.getPaintOverlaySourceFramebuffer();
 
         if (fb == null)
         {

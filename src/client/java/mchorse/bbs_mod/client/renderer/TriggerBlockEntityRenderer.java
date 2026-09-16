@@ -14,8 +14,6 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.opengl.GlStateManager;
 
 import java.util.HashSet;

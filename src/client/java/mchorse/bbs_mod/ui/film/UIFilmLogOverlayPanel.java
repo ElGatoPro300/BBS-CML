@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmContributor;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -14,7 +13,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.util.Identifier;
 
 import com.mojang.authlib.GameProfile;

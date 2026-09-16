@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.mixin.client;
 
-import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
