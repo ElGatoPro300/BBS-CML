@@ -50,7 +50,6 @@ import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import org.joml.Matrix4f;
-import org.joml.Vector2i;
 
 import java.util.ArrayList;
 import java.util.HashMap;

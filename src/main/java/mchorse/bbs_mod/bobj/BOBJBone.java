@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.bobj;
 
-import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
