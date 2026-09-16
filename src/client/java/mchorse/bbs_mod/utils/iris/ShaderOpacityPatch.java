@@ -12,6 +12,7 @@ import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.util.math.MatrixStack;
 
+import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
@@ -157,7 +158,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }
@@ -610,7 +611,7 @@ public class ShaderOpacityPatch
         try
         {
             WorldRenderingPipeline pipeline =
-                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+                Iris.getPipelineManager().getPipelineNullable();
 
             if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
             {
@@ -694,7 +695,7 @@ public class ShaderOpacityPatch
         }
 
         WorldRenderingPipeline pipeline =
-            net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+            Iris.getPipelineManager().getPipelineNullable();
 
         if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
         {
@@ -848,7 +849,7 @@ public class ShaderOpacityPatch
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
 
             WorldRenderingPipeline pipeline =
-                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+                Iris.getPipelineManager().getPipelineNullable();
 
             if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
             {

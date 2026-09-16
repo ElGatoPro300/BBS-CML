@@ -6,7 +6,6 @@ import mchorse.bbs_mod.utils.AABB;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LimbAnimator;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;

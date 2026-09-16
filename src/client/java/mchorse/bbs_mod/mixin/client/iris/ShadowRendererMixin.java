@@ -39,6 +39,11 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.irisshaders.iris.mixin.LevelRendererAccessor;
 import net.irisshaders.iris.shadows.ShadowRenderer;
 
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -47,11 +52,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
 @Mixin(value = ShadowRenderer.class, remap = false)

@@ -1,7 +1,5 @@
 package mchorse.bbs_mod.utils;
 
-import mchorse.bbs_mod.utils.MatrixUtils;
-
 import org.joml.Matrix3d;
 import org.joml.Vector3d;
 

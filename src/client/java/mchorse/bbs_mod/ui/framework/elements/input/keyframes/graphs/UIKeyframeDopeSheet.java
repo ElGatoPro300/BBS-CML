@@ -7,19 +7,15 @@ import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
-import mchorse.bbs_mod.ui.film.toolbar.TimelineTrackEligibility;
 import mchorse.bbs_mod.ui.film.toolbar.UIInteractionModeOverlay;
 import mchorse.bbs_mod.ui.film.toolbar.UIKeyframeSelectNeighborInteraction;
-import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.IKeyframeShapeRenderer;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShapeRenderers;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.tooltips.LabelTooltip;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -48,8 +44,6 @@ import net.minecraft.client.render.VertexFormats;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
