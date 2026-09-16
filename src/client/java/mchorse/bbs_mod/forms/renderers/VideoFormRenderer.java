@@ -16,7 +16,11 @@ import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.VideoResolution;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
+import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
@@ -37,6 +41,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -694,131 +699,53 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     /** Front face only — nothing on the back. Restores GL state so terrain stays valid. */
     private void drawVideoFront(Matrix4f matrix, Color tint, Quad quad, int textureId, boolean linear)
     {
-        boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-        boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        ShaderProgram program = BBSShaders.getVideoProgram();
+        Identifier id = AdoptedTexture.identifier(textureId, (int) this.lastFrameW, (int) this.lastFrameH, linear);
 
-        try
+        if (id == null)
         {
-            if (program != null)
-            {
-                BBSRendering.bindProgram(program);
-                BBSUniform.set(program, "Sampler0", 0);
-
-                Color formColor = this.form.color.get();
-
-                if (formColor != null && formColor.hasColorAdjustments())
-                {
-                    BBSUniform.set(program, "FormColorGrade", formColor.brightness, formColor.contrast, formColor.hue, formColor.saturation);
-                }
-                else
-                {
-                    BBSUniform.set(program, "FormColorGrade", 0F, 0F, 0F, 0F);
-                }
-            }
-
-            BBSRendering.setShaderColor(tint.r, tint.g, tint.b, tint.a);
-
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(textureId);
-
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-            GlStateManager._disableCull();
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
-
-            BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE);
-
-            this.tex(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F);
-            this.tex(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, 1F, 1F);
-            this.tex(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F);
-
-            this.tex(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F);
-            this.tex(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F);
-            this.tex(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F);
-
-            BufferRenderer.drawWithGlobalProgram(buffer.end());
-
-            if (program != null)
-            {
-                BBSRendering.unbindProgram();
-            }
+            return;
         }
-        finally
-        {
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._depthMask(true);
-            GlStateManager._enableCull();
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-            BBSRendering.restoreWorldRenderState();
 
-            if (!previousCull)
-            {
-                GlStateManager._disableCull();
-            }
+        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            if (!previousDepthMask)
-            {
-                GlStateManager._depthMask(false);
-            }
-        }
+        this.texCol(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F, tint);
+        this.texCol(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F, tint);
+        this.texCol(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, 1F, 1F, tint);
+
+        this.texCol(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F, tint);
+        this.texCol(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, 1F, 1F, tint);
+        this.texCol(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F, tint);
+
+        BillboardRenderLayers.draw(buffer.end(), id, linear, false, true, false);
     }
 
     private void drawSolidFront(Matrix4f matrix, Color color, Quad quad, ShaderProgram shader)
     {
-        boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-        boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
-        try
+        this.col(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color);
+        this.col(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color);
+        this.col(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color);
+
+        this.col(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color);
+        this.col(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color);
+        this.col(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color);
+
+        if (shader != null)
         {
-            if (shader != null)
-            {
-                BBSRendering.bindProgram(shader);
-            }
-
-            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-            GlStateManager._disableCull();
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthMask(true);
-
-            BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
-
-            this.col(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color);
-            this.col(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color);
-            this.col(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color);
-
-            this.col(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color);
-            this.col(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color);
-            this.col(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color);
-
+            ModelEffectPass.bound(shader);
             BufferRenderer.drawWithGlobalProgram(buffer.end());
-
-            if (shader != null)
-            {
-                BBSRendering.unbindProgram();
-            }
+            ModelEffectPass.bound(null);
         }
-        finally
+        else
         {
-            GlStateManager._depthMask(previousDepthMask);
-
-            if (previousCull)
-            {
-                GlStateManager._enableCull();
-            }
-            else
-            {
-                GlStateManager._disableCull();
-            }
+            Draw.getPositionColorLayer().draw(buffer.end());
         }
     }
 
-    private void tex(BufferBuilder buffer, Matrix4f matrix, float x, float y, float z, float u, float v)
+    private void texCol(BufferBuilder buffer, Matrix4f matrix, float x, float y, float z, float u, float v, Color color)
     {
-        buffer.vertex(matrix, x, y, z).texture(u, v);
+        buffer.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a);
     }
 
     private void col(BufferBuilder buffer, Matrix4f matrix, float x, float y, float z, Color color)

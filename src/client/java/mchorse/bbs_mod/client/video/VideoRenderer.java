@@ -4,6 +4,8 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.render.BufferRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -16,6 +18,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 
 import org.joml.Matrix4f;
 
@@ -301,33 +304,28 @@ public class VideoRenderer
             return;
         }
 
-        BBSRendering.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GlStateManager._bindTexture(frame.textureId);
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._disableCull();
+        Identifier id = AdoptedTexture.identifier(frame.textureId, Math.max(1, absW), Math.max(1, absH), false);
 
+        if (id == null)
+        {
+            return;
+        }
+
+        int color = Colors.setA(Colors.WHITE, opacity);
         Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
         Matrix4f matrix = stack.peek().getPositionMatrix();
 
         /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
         int drawX = x + Math.round(absW * left) * wSign;
         int drawY = y + Math.round(absH * top) * hSign;
 
-        buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1);
-        buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
-        buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
-        buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
+        buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1).color(color);
+        buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1).color(color);
+        buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0).color(color);
+        buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0).color(color);
 
-        GlStateManager._enableCull();
-        GlStateManager._depthMask(true);
-        GlStateManager._enableDepthTest();
-        BBSRendering.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        BillboardRenderLayers.draw(buffer.end(), id, false, false, false, false);
     }
 
     /**
