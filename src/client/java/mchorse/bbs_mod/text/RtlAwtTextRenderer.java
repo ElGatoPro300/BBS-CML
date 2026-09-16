@@ -11,7 +11,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.CustomFontManager;
 import net.minecraft.client.MinecraftClient;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -33,8 +32,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import javax.imageio.ImageIO;
 
 /**
  * Renders Persian/Arabic UI text with Java2D {@link TextLayout}, which applies

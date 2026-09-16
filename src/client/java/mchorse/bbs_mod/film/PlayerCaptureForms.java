@@ -11,7 +11,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerSkinType;
-import net.minecraft.entity.player.SkinTextures;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.storage.NbtWriteView;
 import net.minecraft.util.ErrorReporter;

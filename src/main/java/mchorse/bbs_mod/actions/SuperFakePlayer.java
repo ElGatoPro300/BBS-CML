@@ -22,13 +22,13 @@ import com.mojang.authlib.GameProfile;
 
 import com.google.common.collect.MapMaker;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.UUID;
-
-import org.jetbrains.annotations.Nullable;
 
 public class SuperFakePlayer extends ServerPlayerEntity
 {

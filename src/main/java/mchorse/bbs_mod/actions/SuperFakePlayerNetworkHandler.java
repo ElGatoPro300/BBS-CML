@@ -9,6 +9,7 @@ import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import io.netty.channel.ChannelFutureListener;
+
 import org.jetbrains.annotations.Nullable;
 
 public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler

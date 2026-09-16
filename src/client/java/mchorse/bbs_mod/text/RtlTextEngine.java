@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.text;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.BBSSettings;
 
 import java.text.Bidi;
 import java.util.LinkedHashMap;

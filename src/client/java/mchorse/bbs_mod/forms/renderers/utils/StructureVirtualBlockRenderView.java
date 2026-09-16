@@ -108,4 +108,3 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
         return Math.max(sky, block);
     }
 }
-
