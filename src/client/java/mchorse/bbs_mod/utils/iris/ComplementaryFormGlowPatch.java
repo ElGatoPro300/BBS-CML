@@ -2,6 +2,8 @@ package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.BBSSettings;
 
+import net.irisshaders.iris.Iris;
+
 import java.util.Locale;
 
 /**
@@ -419,7 +421,7 @@ public final class ComplementaryFormGlowPatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }
