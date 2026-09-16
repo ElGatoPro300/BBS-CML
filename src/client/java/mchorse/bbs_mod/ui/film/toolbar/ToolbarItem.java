@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.film.toolbar;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.ui.utils.context.ColorfulContextAction;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 

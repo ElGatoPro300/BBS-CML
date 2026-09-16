@@ -1,7 +1,5 @@
 package mchorse.bbs_mod.ui.utils;
 
-import mchorse.bbs_mod.BBSSettings;
-
 public class TimelineRuler
 {
     private static final int MIN_LABEL_SPACING = 70;

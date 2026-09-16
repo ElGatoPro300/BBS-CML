@@ -6,7 +6,6 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
-import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.resources.Link;

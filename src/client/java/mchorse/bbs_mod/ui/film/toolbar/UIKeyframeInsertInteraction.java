@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.film.toolbar;
 
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;

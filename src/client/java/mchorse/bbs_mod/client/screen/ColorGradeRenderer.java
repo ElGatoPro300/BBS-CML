@@ -7,6 +7,7 @@ import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.util.Identifier;
 
@@ -629,7 +630,7 @@ public class ColorGradeRenderer
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        net.minecraft.client.gl.Framebuffer fb = mc.getFramebuffer();
+        Framebuffer fb = mc.getFramebuffer();
         int fbW = fb.textureWidth;
         int fbH = fb.textureHeight;
 

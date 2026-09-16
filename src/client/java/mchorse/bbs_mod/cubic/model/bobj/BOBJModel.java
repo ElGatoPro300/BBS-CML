@@ -15,7 +15,6 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
-import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;

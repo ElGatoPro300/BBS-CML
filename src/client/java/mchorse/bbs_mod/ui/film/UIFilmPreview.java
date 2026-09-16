@@ -6,7 +6,6 @@ import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.audio.AudioRenderer;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.misc.AudioClip;
-import mchorse.bbs_mod.camera.clips.misc.VideoClip;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.camera.data.Angle;
 import mchorse.bbs_mod.camera.data.Point;
@@ -18,7 +17,6 @@ import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.settings.ui.UISettingsOverlayPanel;
 import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueViewportToolbar;
 import mchorse.bbs_mod.ui.Keys;
@@ -58,7 +56,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4fStack;

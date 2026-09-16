@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.dashboard.textures;
 
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.color.UIColorPicker;
 
 import org.lwjgl.glfw.GLFW;
