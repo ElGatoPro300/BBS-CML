@@ -4,6 +4,8 @@ import net.minecraft.core.BlockPos;
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
