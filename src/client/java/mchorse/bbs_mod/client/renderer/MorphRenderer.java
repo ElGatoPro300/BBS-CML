@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client.renderer;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -20,7 +21,6 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -91,7 +91,7 @@ public class MorphRenderer
                 }
                 else
                 {
-                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
+                    Minecraft.getInstance().gameRenderer.lighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
                 }
 
                 int overlay = OverlayTexture.NO_OVERLAY;
@@ -110,7 +110,7 @@ public class MorphRenderer
                 {
                     FormRenderingContext morphContext = new FormRenderingContext()
                         .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                        .camera(Minecraft.getInstance().gameRenderer.getMainCamera());
+                        .camera(Minecraft.getInstance().gameRenderer.mainCamera());
 
                     /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
                     if (!worldPass)
@@ -128,7 +128,7 @@ public class MorphRenderer
                             morph.entity,
                             morph.getForm(),
                             g,
-                            Minecraft.getInstance().gameRenderer.getMainCamera(),
+                            Minecraft.getInstance().gameRenderer.mainCamera(),
                             false
                         );
                     }
@@ -146,7 +146,7 @@ public class MorphRenderer
                 }
                 else
                 {
-                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_3D);
+                    Minecraft.getInstance().gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_3D);
                     BBSRendering.restoreWorldRenderState();
                 }
             }
@@ -216,7 +216,7 @@ public class MorphRenderer
             {
                 FormUtilsClient.render(form, new FormRenderingContext()
                     .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
-                    .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
+                    .camera(Minecraft.getInstance().gameRenderer.mainCamera()));
 
                 if (owner.entity.getFireTicks() > 0)
                 {
@@ -226,7 +226,7 @@ public class MorphRenderer
                         owner.entity,
                         form,
                         g,
-                        Minecraft.getInstance().gameRenderer.getMainCamera(),
+                        Minecraft.getInstance().gameRenderer.mainCamera(),
                         false
                     );
                 }

@@ -72,6 +72,7 @@ public final class ItemUseRenderState
         if (proxy == null || proxyWorld != clientWorld)
         {
             proxy = new RemotePlayer(clientWorld, new GameProfile(UUID.randomUUID(), "bbs_item_use"));
+            proxy.setId(999999);
             proxy.noPhysics = true;
             proxyWorld = clientWorld;
         }

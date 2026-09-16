@@ -69,7 +69,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
         Minecraft client = Minecraft.getInstance();
 
-        Screen returnScreen = client.screen;
+        Screen returnScreen = client.gui.screen();
 
 
 
@@ -85,7 +85,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
             {
 
-                client.setScreen(returnScreen);
+                client.gui.setScreen(returnScreen);
 
             }
 
@@ -93,7 +93,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
             {
 
-                client.setScreen(null);
+                client.gui.setScreen(null);
 
             }
 
@@ -187,7 +187,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
 
 
-        Screen currentScreen = Minecraft.getInstance().screen;
+        Screen currentScreen = Minecraft.getInstance().gui.screen();
 
 
 

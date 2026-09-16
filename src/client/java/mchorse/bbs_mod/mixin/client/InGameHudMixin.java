@@ -7,7 +7,6 @@ import mchorse.bbs_mod.client.BBSRendering;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class InGameHudMixin
 {
     @Inject(method = "extractRenderState", at = @At(value = "HEAD"), cancellable = true)
-    public void render(GuiGraphicsExtractor drawContext, DeltaTracker tickCounter, CallbackInfo info)
+    public void render(DeltaTracker tickCounter, boolean bl, boolean bl2, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 

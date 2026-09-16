@@ -35,7 +35,7 @@ public class FlatGlowOverlayPass
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ZERO);
         GlStateManager._depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);

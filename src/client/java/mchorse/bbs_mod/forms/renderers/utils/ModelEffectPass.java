@@ -11,22 +11,26 @@ import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.IndexType;
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.BlendFactor;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.platform.DestFactor;
-import com.mojang.blaze3d.platform.SourceFactor;
 import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
@@ -38,11 +42,13 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
@@ -52,7 +58,7 @@ public final class ModelEffectPass
     private static final class Key
     {
         private final VertexFormat format;
-        private final VertexFormat.Mode mode;
+        private final PrimitiveTopology mode;
         private final boolean picking;
         private final boolean depthWrite;
         private final boolean cull;
@@ -61,7 +67,7 @@ public final class ModelEffectPass
         private final boolean multiply;
         private final boolean additive;
 
-        public Key(VertexFormat format, VertexFormat.Mode mode, boolean picking, boolean depthWrite, boolean cull, boolean overlay, String shader, boolean multiply, boolean additive)
+        public Key(VertexFormat format, PrimitiveTopology mode, boolean picking, boolean depthWrite, boolean cull, boolean overlay, String shader, boolean multiply, boolean additive)
         {
             this.format = format;
             this.mode = mode;
@@ -79,7 +85,7 @@ public final class ModelEffectPass
             return this.format;
         }
 
-        public VertexFormat.Mode mode()
+        public PrimitiveTopology mode()
         {
             return this.mode;
         }
@@ -196,10 +202,7 @@ public final class ModelEffectPass
 
         Identifier vertex = Identifier.fromNamespaceAndPath("bbs", "core/" + (key.shader().equals("block_glow_overlay") ? "block_paint_overlay" : key.shader()));
         Identifier fragment = Identifier.fromNamespaceAndPath("bbs", "core/" + key.shader());
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath("bbs", "pipeline/model_effect_" + PIPELINES.size()))
-            .withVertexShader(vertex).withFragmentShader(fragment)
-            .withVertexFormat(key.format(), key.mode())
+        BindGroupLayout.Builder layoutBuilder = BindGroupLayout.builder()
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform("BbsModelEffects", UniformType.UNIFORM_BUFFER)
             .withSampler("Sampler0");
@@ -208,17 +211,22 @@ public final class ModelEffectPass
 
         if (!key.picking())
         {
-            builder.withUniform("Fog", UniformType.UNIFORM_BUFFER)
+            layoutBuilder.withUniform("Fog", UniformType.UNIFORM_BUFFER)
                 .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
                 .withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3");
             blend = key.multiply()
-                ? new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE)
+                ? new BlendFunction(BlendFactor.DST_COLOR, BlendFactor.ZERO, BlendFactor.ZERO, BlendFactor.ONE)
                 : key.additive() || key.shader().equals("block_glow_overlay")
-                ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
+                ? new BlendFunction(BlendFactor.SRC_ALPHA, BlendFactor.ONE, BlendFactor.ONE, BlendFactor.ZERO)
                 : BlendFunction.TRANSLUCENT;
         }
 
-        builder.withColorTargetState(blend != null ? new ColorTargetState(blend) : ColorTargetState.DEFAULT)
+        RenderPipeline.Builder builder = RenderPipeline.builder()
+            .withLocation(Identifier.fromNamespaceAndPath("bbs", "pipeline/model_effect_" + PIPELINES.size()))
+            .withVertexShader(vertex).withFragmentShader(fragment)
+            .withVertexBinding(0, key.format()).withPrimitiveTopology(key.mode())
+            .withBindGroupLayout(layoutBuilder.build())
+            .withColorTargetState(blend != null ? new ColorTargetState(blend) : ColorTargetState.DEFAULT)
             .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, key.depthWrite(), 0F, key.overlay() ? -4F : 0F))
             .withCull(key.cull());
 
@@ -259,7 +267,7 @@ public final class ModelEffectPass
     private static GlProgram createProgram(String name)
     {
         GlProgram shader = ModelEffectUniforms.register(BBSRendering.getProgram(pipeline(new Key(
-            DefaultVertexFormat.ENTITY, VertexFormat.Mode.TRIANGLES,
+            DefaultVertexFormat.ENTITY, PrimitiveTopology.TRIANGLES,
             name.startsWith("picker_"), true, false, false, name, false, false))));
 
         if (shader != null && shader != GlProgram.INVALID_PROGRAM)
@@ -313,7 +321,7 @@ public final class ModelEffectPass
         GlProgram parameters = shader;
         if (pretransformed)
         {
-            BBSUniform.setMatrix4f(parameters, "ModelViewMat", new Matrix4f(RenderSystem.getModelViewMatrix()));
+            BBSUniform.setMatrix4f(parameters, "ModelViewMat", new Matrix4f(RenderSystem.getModelViewMatrixCopy()));
         }
 
         if (BBSRendering.isIrisLoaded())
@@ -366,7 +374,7 @@ public final class ModelEffectPass
             }
 
             MeshData.DrawState draws = buffer.drawState();
-            RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.mode(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
+            RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.primitiveTopology(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
                 (ModelVAORenderer.isColorTintOverlayPass() || PROGRAMS.get(parameters).endsWith("color_tint_overlay"))
                     && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F, ModelVAORenderer.isGlowEmissionPass()));
             RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline).withTexture("Sampler0", id);
@@ -391,28 +399,38 @@ public final class ModelEffectPass
                 setup.useLightmap().useOverlay().withTexture("Sampler3", sceneId != null ? sceneId : id);
             }
 
-            Map<String, RenderSetup.TextureAndSampler> textures = setup.createRenderSetup().getTextures();
-            GpuBuffer vertices = draws.format().uploadImmediateVertexBuffer(buffer.vertexBuffer());
+            RenderSetup renderSetup = setup.createRenderSetup();
+            List<PreparedRenderType.Texture> textures = renderSetup.prepareTextures(
+                Minecraft.getInstance().getTextureManager(),
+                RenderSystem.getSamplerCache(),
+                Minecraft.getInstance().gameRenderer.overlayTexture().getTextureView(),
+                Minecraft.getInstance().gameRenderer.lightmap()
+            );
+            GpuDevice device = RenderSystem.getDevice();
+            ByteBuffer vbData = buffer.vertexBuffer();
+            GpuBuffer vertices = device.createBuffer(PASS_LABEL, GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, vbData);
             GpuBuffer indices;
-            VertexFormat.IndexType indexType;
+            boolean customIb = false;
+            IndexType indexType;
 
             if (buffer.indexBuffer() == null)
             {
-                RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(draws.mode());
+                RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(draws.primitiveTopology());
                 indices = sequential.getBuffer(draws.indexCount());
                 indexType = sequential.type();
             }
             else
             {
-                indices = draws.format().uploadImmediateIndexBuffer(buffer.indexBuffer());
+                indices = device.createBuffer(PASS_LABEL, GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_COPY_DST, buffer.indexBuffer());
+                customIb = true;
                 indexType = draws.indexType();
             }
 
-            RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+            RenderTarget target = Minecraft.getInstance().gameRenderer.mainRenderTarget();
 
             try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(PASS_LABEL, GpuBuffer.USAGE_UNIFORM, ModelEffectUniforms.data(parameters));
                  RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(PASS_LABEL,
-                     RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView(), OptionalInt.empty(),
+                     RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView(), Optional.empty(),
                      RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView(), OptionalDouble.empty()))
             {
                 pass.setPipeline(pipeline);
@@ -425,15 +443,24 @@ public final class ModelEffectPass
 
                 RenderSystem.bindDefaultUniforms(pass);
                 pass.setUniform("BbsModelEffects", uniforms);
-                pass.setVertexBuffer(0, vertices);
+                pass.setVertexBuffer(0, vertices.slice());
                 pass.setIndexBuffer(indices, indexType);
 
-                for (Map.Entry<String, RenderSetup.TextureAndSampler> entry : textures.entrySet())
+                for (PreparedRenderType.Texture texture : textures)
                 {
-                    pass.bindTexture(entry.getKey(), entry.getValue().textureView(), entry.getValue().sampler());
+                    pass.bindTexture(texture.name(), texture.textureView(), texture.sampler());
                 }
 
-                pass.drawIndexed(0, 0, draws.indexCount(), 1);
+                pass.drawIndexed(draws.indexCount(), 1, 0, 0, 0);
+            }
+            finally
+            {
+                vertices.close();
+
+                if (customIb && indices != null)
+                {
+                    indices.close();
+                }
             }
         }
     }

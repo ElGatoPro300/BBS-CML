@@ -5,6 +5,8 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
+import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -31,18 +33,22 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -55,6 +61,72 @@ import java.util.function.Consumer;
 
 public class LabelFormRenderer extends FormRenderer<LabelForm>
 {
+    public static void drawInBatch(
+        Font renderer,
+        FormattedCharSequence text,
+        float x,
+        float y,
+        int color,
+        boolean shadow,
+        Matrix4f pose,
+        MultiBufferSource consumers,
+        Font.DisplayMode mode,
+        int backgroundColor,
+        int light
+    )
+    {
+        Font.PreparedText prepared = renderer.prepareText(
+            text,
+            x,
+            y,
+            color,
+            shadow,
+            false,
+            backgroundColor
+        );
+
+        prepared.visit(new Font.GlyphVisitor()
+        {
+            @Override
+            public void acceptRenderable(TextRenderable renderable)
+            {
+                RenderType renderType = renderable.renderType(mode);
+                VertexConsumer consumer = consumers.getBuffer(renderType);
+
+                renderable.render(pose, consumer, light, false);
+            }
+        });
+    }
+
+    public static void drawInBatch(
+        Font renderer,
+        String content,
+        float x,
+        float y,
+        int color,
+        boolean shadow,
+        Matrix4f pose,
+        MultiBufferSource consumers,
+        Font.DisplayMode mode,
+        int backgroundColor,
+        int light
+    )
+    {
+        drawInBatch(
+            renderer,
+            FormattedCharSequence.forward(content, Style.EMPTY),
+            x,
+            y,
+            color,
+            shadow,
+            pose,
+            consumers,
+            mode,
+            backgroundColor,
+            light
+        );
+    }
+
     /**
      * Minecraft's {@link Font} treats {@code (color & 0xFC000000) == 0} as fully
      * opaque, so alpha bytes 0–3 become 255. Keep a minimum of 4 when opacity is intended.
@@ -478,7 +550,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
         else
         {
-            renderer.drawInBatch(
+            drawInBatch(renderer, 
                 content,
                 x,
                 y,
@@ -563,7 +635,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.ENTITY);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -708,10 +780,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     }
                     else
                     {
-                        renderer.drawInBatch(content, x - ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
-                        renderer.drawInBatch(content, x + ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
-                        renderer.drawInBatch(content, x, y - ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
-                        renderer.drawInBatch(content, x, y + ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                        drawInBatch(renderer, content, x - ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                        drawInBatch(renderer, content, x + ow, y, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                        drawInBatch(renderer, content, x, y - ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                        drawInBatch(renderer, content, x, y + ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
                     }
                 }
 
@@ -984,10 +1056,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                         }
                         else
                         {
-                            renderer.drawInBatch(line, lx - ow, outlineY, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
-                            renderer.drawInBatch(line, lx + ow, outlineY, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
-                            renderer.drawInBatch(line, lx, outlineY - ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
-                            renderer.drawInBatch(line, lx, outlineY + ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                            drawInBatch(renderer, line, lx - ow, outlineY, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                            drawInBatch(renderer, line, lx + ow, outlineY, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                            drawInBatch(renderer, line, lx, outlineY - ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+                            drawInBatch(renderer, line, lx, outlineY + ow, oc, false, context.stack.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
                         }
                     }
 
@@ -1105,7 +1177,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
         else
         {
-            renderer.drawInBatch(
+            drawInBatch(renderer, 
                 content,
                 drawX,
                 drawY,
@@ -1133,7 +1205,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
         else
         {
-            renderer.drawInBatch(content, x, y, opaqueWhite, false, this.identityMatrix, capture, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
+            drawInBatch(renderer, content, x, y, opaqueWhite, false, this.identityMatrix, capture, Font.DisplayMode.NORMAL, 0, this.resolveLabelLight(light));
         }
     }
 
@@ -1295,7 +1367,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.ENTITY);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1347,7 +1419,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatPaintOverlay(formRootInverse, paintTransform, false, this.maskHalfExtents);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.ENTITY);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -1482,7 +1554,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         context.stack.pushPose();
         context.stack.translate(0, 0, -0.2F);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillQuad(
             builder, context.stack,

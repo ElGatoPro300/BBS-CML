@@ -4,18 +4,22 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.data.Angle;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.BlendFunction;
@@ -23,17 +27,18 @@ import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +56,8 @@ public class Draw
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true))
             .withCull(false)
@@ -63,7 +69,8 @@ public class Draw
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color_no_depth"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
             .withCull(false)
@@ -75,7 +82,8 @@ public class Draw
             .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/draw_position_color_lines"))
             .withVertexShader("core/position_color")
             .withFragmentShader("core/position_color")
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.DEBUG_LINES)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+            .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINES)
             .withColorTargetState(new ColorTargetState(BLEND))
             .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true))
             .withCull(false)
@@ -140,7 +148,52 @@ public class Draw
 
         if (built != null)
         {
-            layer.draw(built);
+            drawMeshData(built, layer);
+            built.close();
+        }
+    }
+
+    public static void drawMeshData(MeshData meshData, RenderType layer)
+    {
+        MeshData.DrawState state = meshData.drawState();
+
+        if (state.vertexCount() == 0)
+        {
+            return;
+        }
+
+        GpuDevice device = RenderSystem.getDevice();
+        ByteBuffer vbData = meshData.vertexBuffer();
+        GpuBuffer vb = device.createBuffer(() -> "bbs_draw_vb", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, vbData);
+
+        ByteBuffer ibData = meshData.indexBuffer();
+        GpuBuffer ib = null;
+        boolean customIb = false;
+
+        if (ibData != null)
+        {
+            ib = device.createBuffer(() -> "bbs_draw_ib", GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_COPY_DST, ibData);
+            customIb = true;
+        }
+        else
+        {
+            ib = RenderSystem.getSequentialBuffer(state.primitiveTopology()).getBuffer(state.indexCount());
+        }
+
+        try
+        {
+            PreparedRenderType prepared = layer.prepare();
+
+            prepared.drawFromBuffer(vb, ib, state.indexType(), state.indexCount(), 0, 0);
+        }
+        finally
+        {
+            vb.close();
+
+            if (customIb && ib != null)
+            {
+                ib.close();
+            }
         }
     }
 
@@ -175,7 +228,7 @@ public class Draw
         float fd = (float) d;
         float t = 1 / 96F + (float) (Math.sqrt(w * w + h + h + d + d) / 2000);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         /* Pillars: fillBox(builder, -t, -t, -t, t, t, t, r, g, b, a); */
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
@@ -232,7 +285,7 @@ public class Draw
     /**
      * Bake a camera-relative model matrix for the Iris LAST flush. Prefer the stack alone
      * when it already includes the view; otherwise compose with {@link BBSRendering#camera}.
-     * Never multiply {@code RenderSystem.getModelViewMatrix()} — that was double-applying
+     * Never multiply {@code RenderSystem.getModelViewMatrixCopy()} — that was double-applying
      * the camera and parking boxes in the sky. Mirrors {@code Gizmo.composeVisualMatrix}.
      */
     private static Matrix4f bakeIrisBoxMatrix(PoseStack stack, double x, double y, double z)
@@ -286,7 +339,7 @@ public class Draw
         ProjectionType savedType = RenderSystem.getProjectionType();
         PoseStack stack = new PoseStack();
 
-        GlStateManager._disableBlend();
+        GlStateManager._disableBlend(0);
         GlStateManager._disableDepthTest();
         MatrixStackUtils.pushIdentityModelView();
 
@@ -321,7 +374,7 @@ public class Draw
 
             if (savedBlend)
             {
-                GlStateManager._enableBlend();
+                GlStateManager._enableBlend(0);
             }
         }
     }
@@ -329,7 +382,7 @@ public class Draw
     private static void renderBoxSolidEdges(PoseStack stack, float fw, float fh, float fd, float r, float g, float b)
     {
         float t = 1 / 96F + (float) (Math.sqrt(fw * fw + fh + fh + fd + fd) / 2000);
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, 1F);
@@ -363,9 +416,9 @@ public class Draw
         float z2 = (float) d;
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
 
-        GlStateManager._disableBlend();
+        GlStateManager._disableBlend(0);
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
 
         wireLine(builder, matrix, x1, y1, z1, x2, y1, z1, r, g, b, a);
         wireLine(builder, matrix, x2, y1, z1, x2, y1, z2, r, g, b, a);
@@ -386,7 +439,7 @@ public class Draw
 
         if (savedBlend)
         {
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
         }
 
         stack.popPose();
@@ -442,7 +495,7 @@ public class Draw
         if (stack == null)
         {
             stack = new PoseStack();
-            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrix());
+            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrixCopy());
         }
 
         float dx = x2 - x1;
@@ -491,7 +544,7 @@ public class Draw
         outlineSize *= scale;
         outlineOffset *= scale;
 
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillBox(builder, stack, 0, -outlineOffset, -outlineOffset, outlineSize, outlineOffset, outlineOffset, 0, 0, 0);
         fillBox(builder, stack, -outlineOffset, 0, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);

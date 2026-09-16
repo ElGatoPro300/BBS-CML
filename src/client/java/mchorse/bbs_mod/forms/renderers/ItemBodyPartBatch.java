@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
@@ -162,11 +163,17 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(context.color);
                     BlockFormRenderer.color.mul(item.color.get());
 
-                    FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-                    cachedRenderState.submit(context.stack, dispatcher.getSubmitNodeStorage(), context.light, context.overlay, 0);
-                    if (!flushOnce)
+                    FeatureRenderDispatcher dispatcher = client.gameRenderer.featureRenderDispatcher();
+                    SubmitNodeStorage storage = BBSRendering.getSubmitNodeStorage();
+
+                    if (storage != null)
                     {
-                        dispatcher.renderAllFeatures();
+                        cachedRenderState.submit(context.stack, storage, context.light, context.overlay, 0);
+
+                        if (!flushOnce)
+                        {
+                            dispatcher.renderAllFeatures(storage);
+                        }
                     }
 
                     if (context.isPicking())
@@ -196,8 +203,13 @@ public final class ItemBodyPartBatch
 
             if (flushOnce)
             {
-                FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
-                dispatcher.renderAllFeatures();
+                FeatureRenderDispatcher dispatcher = client.gameRenderer.featureRenderDispatcher();
+                SubmitNodeStorage storage = BBSRendering.getSubmitNodeStorage();
+
+                if (storage != null)
+                {
+                    dispatcher.renderAllFeatures(storage);
+                }
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
                 BBSRendering.defaultBlendFunc();

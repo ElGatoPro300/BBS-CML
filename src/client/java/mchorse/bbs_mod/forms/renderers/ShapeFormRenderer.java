@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.shape.ShapeGraphEvaluator;
@@ -35,11 +36,11 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 
@@ -289,7 +290,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             try
             {
-                BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.ENTITY);
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
@@ -309,7 +310,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.unshadedVertices = true;
 
-                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+                BufferBuilder glowBuilder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
                 this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightTexture.FULL_BRIGHT);
 
@@ -381,7 +382,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         Tesselator tessellator = Tesselator.getInstance();
         BufferBuilder builder = tessellator.begin(
-            VertexFormat.Mode.QUADS,
+            PrimitiveTopology.QUADS,
             unshaded ? DefaultVertexFormat.POSITION_TEX_COLOR : DefaultVertexFormat.ENTITY
         );
 
@@ -394,7 +395,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             this.unshadedVertices = true;
 
-            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 
             this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightTexture.FULL_BRIGHT);
             BillboardRenderLayers.draw(glowBuilder.buildOrThrow(), texObj, false, false, false, false, true);
@@ -1124,7 +1125,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             {
                 Texture texObj = this.resolveTexture(texture);
                 Tesselator tessellator = Tesselator.getInstance();
-                BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.ENTITY);
                 int paintLight = LightTexture.FULL_BRIGHT;
 
                 this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
@@ -1189,7 +1190,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             {
                 Texture texObj = this.resolveTexture(texture);
                 Tesselator tessellator = Tesselator.getInstance();
-                BufferBuilder builder = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.ENTITY);
+                BufferBuilder builder = tessellator.begin(PrimitiveTopology.QUADS, DefaultVertexFormat.ENTITY);
                 int tintLight = LightTexture.FULL_BRIGHT;
 
                 this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);

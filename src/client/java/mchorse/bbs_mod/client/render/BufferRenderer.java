@@ -1,11 +1,13 @@
 package mchorse.bbs_mod.client.render;
 
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
+import mchorse.bbs_mod.graphics.Draw;
 
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -45,7 +47,8 @@ public class BufferRenderer
 
         RenderType layer = resolveLayer(params);
 
-        layer.draw(buffer);
+        Draw.drawMeshData(buffer, layer);
+        buffer.close();
     }
 
     public static void draw(MeshData buffer)
@@ -56,9 +59,9 @@ public class BufferRenderer
     private static RenderType resolveLayer(MeshData.DrawState params)
     {
         VertexFormat format = params.format();
-        VertexFormat.Mode mode = params.mode();
+        PrimitiveTopology mode = params.primitiveTopology();
 
-        if (mode == VertexFormat.Mode.LINES || mode == VertexFormat.Mode.DEBUG_LINES || mode == VertexFormat.Mode.DEBUG_LINE_STRIP)
+        if (mode == PrimitiveTopology.LINES || mode == PrimitiveTopology.DEBUG_LINES || mode == PrimitiveTopology.DEBUG_LINE_STRIP)
         {
             if (defaultLinesLayer == null)
             {

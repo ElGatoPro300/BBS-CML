@@ -10,6 +10,7 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -17,6 +18,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Entity.class)
 public class EntityMixin
 {
+    @Shadow
+    private int id;
+
+    @Inject(method = "getId", at = @At("HEAD"), cancellable = true)
+    public void bbs$safeGetId(CallbackInfoReturnable<Integer> info)
+    {
+        if (this.id == 0)
+        {
+            this.id = -100000 - Math.abs(System.identityHashCode(this) % 800000);
+            info.setReturnValue(this.id);
+        }
+    }
+
     @Inject(method = "getEyeHeight(Lnet/minecraft/world/entity/Pose;)F", at = @At("HEAD"), cancellable = true)
     public void getEyeHeight(Pose pose, CallbackInfoReturnable<Float> info)
     {
@@ -52,7 +66,7 @@ public class EntityMixin
     }
 
     @Inject(method = "canBeCollidedWith", at = @At("HEAD"), cancellable = true)
-    public void onIsCollidable(CallbackInfoReturnable<Boolean> info)
+    public void onIsCollidable(Entity other, CallbackInfoReturnable<Boolean> info)
     {
         if ((Object) this instanceof IMorphProvider provider)
         {

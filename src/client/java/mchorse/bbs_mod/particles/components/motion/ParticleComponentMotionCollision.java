@@ -98,7 +98,7 @@ public class ParticleComponentMotionCollision extends ParticleComponentBase impl
             }
 
             AABB box = new AABB(prev.x - r, prev.y - r, prev.z - r, prev.x + r, prev.y + r, prev.z + r);
-            Vec3 vec = Entity.collideBoundingBox(null, new Vec3(x, y, z), box, emitter.world, Collections.emptyList());
+            Vec3 vec = Entity.collideBoundingBox((Entity) null, new Vec3(x, y, z), box, emitter.world, Collections.emptyList());
 
             if (vec.x != x || vec.y != y || vec.z != z)
             {

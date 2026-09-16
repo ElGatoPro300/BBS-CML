@@ -29,6 +29,7 @@ import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -319,6 +320,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         if (this.entity != null)
         {
+            this.entity.setId(1000000 + Math.abs(id.hashCode() % 1000000) + 1);
             compound.putString("id", id);
             HolderLookup.Provider lookup = this.entity.level() != null ? this.entity.level().registryAccess() : Minecraft.getInstance().level.registryAccess();
             ValueInput readView = TagValueInput.create(ProblemReporter.DISCARDING, lookup, compound);
@@ -565,7 +567,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 FeatureRenderDispatcher dispatcher = EntityPreviewRenderHelper.getDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
                 entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, stack, EntityPreviewRenderHelper.getQueue());
-                dispatcher.renderAllFeatures();
+                dispatcher.renderAllFeatures(EntityPreviewRenderHelper.getQueue());
                 EntityPreviewRenderHelper.flushEntityBuffers();
             }
             finally
@@ -712,10 +714,14 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     renderState.shadowPieces.clear();
                 }
 
-                FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher();
+                FeatureRenderDispatcher dispatcher = Minecraft.getInstance().gameRenderer.featureRenderDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
-                entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, context.stack, dispatcher.getSubmitNodeStorage());
-                dispatcher.renderAllFeatures();
+                SubmitNodeStorage storage = BBSRendering.getSubmitNodeStorage();
+                if (storage != null)
+                {
+                    entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, context.stack, storage);
+                    dispatcher.renderAllFeatures(storage);
+                }
             }
             finally
             {

@@ -1,7 +1,7 @@
 accessWidener v2 official
 
-accessible field net/minecraft/client/Minecraft mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
-mutable field net/minecraft/client/Minecraft mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
+accessible field net/minecraft/client/renderer/GameRenderer mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
+mutable field net/minecraft/client/renderer/GameRenderer mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
 
 accessible method net/minecraft/world/entity/LivingEntity setLivingEntityFlag (IZ)V
 accessible method net/minecraft/world/entity/Entity setSharedFlag (IZ)V
@@ -21,6 +21,8 @@ mutable field net/minecraft/client/player/ClientInput moveVector Lnet/minecraft/
 
 accessible field net/minecraft/client/renderer/GameRenderer guiRenderer Lnet/minecraft/client/gui/render/GuiRenderer;
 accessible field net/minecraft/client/renderer/GameRenderer fogRenderer Lnet/minecraft/client/renderer/fog/FogRenderer;
+accessible field net/minecraft/client/renderer/GameRenderer handAndScreenSubmitNodeStorage Lnet/minecraft/client/renderer/SubmitNodeStorage;
+accessible field net/minecraft/client/renderer/LevelRenderer submitNodeStorage Lnet/minecraft/client/renderer/SubmitNodeStorage;
 
 accessible field net/minecraft/client/renderer/special/SpecialModelRenderers ID_MAPPER Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
 
@@ -28,3 +30,10 @@ accessible field net/minecraft/client/model/object/equipment/ElytraModel leftWin
 accessible field net/minecraft/client/model/object/equipment/ElytraModel rightWing Lnet/minecraft/client/model/geom/ModelPart;
 
 accessible method net/minecraft/world/level/block/state/BlockBehaviour getLightDampening (Lnet/minecraft/world/level/block/state/BlockState;)I
+
+accessible field net/minecraft/client/gui/Hud isHidden Z
+mutable field net/minecraft/client/gui/Hud isHidden Z
+
+accessible class net/minecraft/client/renderer/rendertype/RenderSetup$TextureBinding
+accessible field net/minecraft/client/renderer/rendertype/RenderSetup textures Ljava/util/Map;
+accessible field net/minecraft/client/renderer/rendertype/RenderSetup pipeline Lcom/mojang/blaze3d/pipeline/RenderPipeline;

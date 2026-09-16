@@ -11,7 +11,7 @@ import mchorse.bbs_mod.morphing.Morph;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -37,7 +37,7 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
         {
             registerContext.register(BBSMod.ACTOR_ENTITY, LUMINANCE_PROVIDER);
             registerContext.register(BBSMod.GUN_PROJECTILE_ENTITY, LUMINANCE_PROVIDER);
-            registerContext.register(EntityType.PLAYER, LUMINANCE_PROVIDER);
+            registerContext.register(EntityTypes.PLAYER, LUMINANCE_PROVIDER);
         });
     }
 

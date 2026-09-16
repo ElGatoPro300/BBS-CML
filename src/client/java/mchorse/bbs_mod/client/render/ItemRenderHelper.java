@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.client.render;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 
 import net.minecraft.client.Minecraft;
@@ -34,14 +35,11 @@ public final class ItemRenderHelper
 
             isolatedQueue = new SubmitNodeStorage();
             isolatedDispatcher = new FeatureRenderDispatcher(
-                isolatedQueue,
+                client.gameRenderer.renderBuffers(),
                 client.getModelManager(),
-                client.renderBuffers().bufferSource(),
                 client.getAtlasManager(),
-                client.renderBuffers().outlineBufferSource(),
-                client.renderBuffers().crumblingBufferSource(),
                 client.font,
-                client.gameRenderer.getGameRenderState()
+                client.gameRenderer.gameRenderState()
             );
         }
     }
@@ -83,14 +81,17 @@ public final class ItemRenderHelper
         {
             ensureIsolatedDispatcher();
             STATE.submit(matrices, isolatedQueue, light, overlay, 0);
-            isolatedDispatcher.renderAllFeatures();
+            isolatedDispatcher.renderAllFeatures(isolatedQueue);
             FormUtilsClient.getProvider().draw();
         }
         else
         {
-            SubmitNodeCollector queue = client.gameRenderer.getSubmitNodeStorage();
+            SubmitNodeCollector queue = BBSRendering.getSubmitNodeStorage();
 
-            STATE.submit(matrices, queue, light, overlay, 0);
+            if (queue != null)
+            {
+                STATE.submit(matrices, queue, light, overlay, 0);
+            }
         }
     }
 

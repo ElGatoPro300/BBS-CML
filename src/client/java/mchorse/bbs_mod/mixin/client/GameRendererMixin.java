@@ -38,7 +38,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
 {
     @Shadow
     @Final
-    private SubmitNodeStorage submitNodeStorage;
+    private SubmitNodeStorage handAndScreenSubmitNodeStorage;
     @Shadow
     @Final
     private FeatureRenderDispatcher featureRenderDispatcher;
@@ -56,7 +56,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
     {
         if (this.bbs$worldOverlays == null)
         {
-            this.bbs$worldOverlays = new WorldOverlayRenderer(this.submitNodeStorage, this.featureRenderDispatcher);
+            this.bbs$worldOverlays = new WorldOverlayRenderer(this.handAndScreenSubmitNodeStorage, this.featureRenderDispatcher);
         }
 
         return this.bbs$worldOverlays;
@@ -210,7 +210,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"), index = 0)
     private Matrix4f bbs$captureWorldProjection(Matrix4f projection)
     {
-        CameraRenderState camera = Minecraft.getInstance().gameRenderer.getGameRenderState().levelRenderState.cameraRenderState;
+        CameraRenderState camera = Minecraft.getInstance().gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
 
         BBSRendering.camera.set(camera.viewRotationMatrix);
         BBSRendering.projection.set(projection);

@@ -1,10 +1,10 @@
 package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.MultiBufferSource;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;

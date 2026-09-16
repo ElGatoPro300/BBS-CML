@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.render.BufferRenderer;
+import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.forms.forms.FramebufferForm;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.Renderbuffer;
@@ -22,6 +23,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlProgram;
@@ -29,7 +31,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
@@ -176,7 +177,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private void renderQuad(VertexFormat format, Texture texture, GlProgram shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition)
     {
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
+        BufferBuilder builder = Tesselator.getInstance().begin(PrimitiveTopology.TRIANGLES, format);
         Color color = Color.white();
         PoseStack.Pose entry = matrices.last();
         Matrix4f matrix = entry.pose();

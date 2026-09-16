@@ -1,7 +1,8 @@
 package mchorse.bbs_mod.client.render;
 
+import mchorse.bbs_mod.forms.FormUtilsClient;
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 
@@ -29,18 +30,15 @@ public final class EntityPreviewRenderHelper
 
         isolatedQueue = new SubmitNodeStorage();
         isolatedDispatcher = new FeatureRenderDispatcher(
-            isolatedQueue,
+            client.gameRenderer.renderBuffers(),
             client.getModelManager(),
-            client.renderBuffers().bufferSource(),
             client.getAtlasManager(),
-            client.renderBuffers().outlineBufferSource(),
-            client.renderBuffers().crumblingBufferSource(),
             client.font,
-            client.gameRenderer.getGameRenderState()
+            client.gameRenderer.gameRenderState()
         );
     }
 
-    public static SubmitNodeCollector getQueue()
+    public static SubmitNodeStorage getQueue()
     {
         ensureIsolatedDispatcher();
 
@@ -54,9 +52,9 @@ public final class EntityPreviewRenderHelper
         return isolatedDispatcher;
     }
 
-    /** Flush vanilla entity layers submitted during the preview draw. */
+    /** Flush entity layers submitted during the preview draw. */
     public static void flushEntityBuffers()
     {
-        Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
+        FormUtilsClient.getProvider().draw();
     }
 }

@@ -1,9 +1,7 @@
 package mchorse.bbs_mod.mixin.client;
 
-import mchorse.bbs_mod.forms.FormUtilsClient;
-
 import net.minecraft.client.renderer.ItemInHandRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -26,17 +24,16 @@ public class HeldItemRendererMixin
         at = @At("HEAD"),
         argsOnly = true
     )
-    private MultiBufferSource bbs$routeMobFormBuiltinItems(
-        MultiBufferSource consumers,
+    private SubmitNodeCollector bbs$routeMobFormBuiltinItems(
+        SubmitNodeCollector collector,
         LivingEntity entity,
         ItemStack stack,
         ItemDisplayContext mode,
-        boolean leftHanded,
         PoseStack matrices,
-        MultiBufferSource ignored,
+        SubmitNodeCollector ignored,
         int light
     )
     {
-        return FormUtilsClient.routeMobFormBuiltinItemConsumers(stack, mode, consumers);
+        return collector;
     }
 }

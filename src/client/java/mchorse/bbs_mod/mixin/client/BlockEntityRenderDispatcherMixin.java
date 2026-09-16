@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class BlockEntityRenderDispatcherMixin
 {
     @Inject(method = "tryExtractRenderState", at = @At("HEAD"), cancellable = true)
-    private <E extends BlockEntity, S extends BlockEntityRenderState> void onGetRenderState(E blockEntity, float tickDelta, ModelFeatureRenderer.CrumblingOverlay crumbling, CallbackInfoReturnable<S> info)
+    private <E extends BlockEntity, S extends BlockEntityRenderState> void onGetRenderState(E blockEntity, float tickDelta, ModelFeatureRenderer.CrumblingOverlay crumbling, boolean bl, CallbackInfoReturnable<S> info)
     {
         if (BBSRendering.shouldHideChromaBlockEntity(blockEntity))
         {
