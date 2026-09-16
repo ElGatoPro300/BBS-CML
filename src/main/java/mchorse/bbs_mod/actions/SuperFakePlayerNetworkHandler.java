@@ -9,6 +9,7 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 
 import io.netty.channel.ChannelFutureListener;
+
 import org.jetbrains.annotations.Nullable;
 
 public class SuperFakePlayerNetworkHandler extends ServerGamePacketListenerImpl

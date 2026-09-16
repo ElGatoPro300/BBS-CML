@@ -18,7 +18,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
-import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
@@ -35,7 +34,6 @@ import net.minecraft.world.level.Level;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -46,9 +44,9 @@ import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
 
-import java.util.function.Function;
-
 import org.slf4j.Logger;
+
+import java.util.function.Function;
 
 public class ItemFormRenderer extends FormRenderer<ItemForm>
 {

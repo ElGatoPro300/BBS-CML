@@ -10,13 +10,13 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
 import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
 
-import com.mojang.blaze3d.textures.GpuSampler;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.mojang.blaze3d.textures.GpuSampler;
 
 @Environment(EnvType.CLIENT)
 @Pseudo

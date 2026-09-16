@@ -8,7 +8,6 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import java.awt.Color;

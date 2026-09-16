@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import mchorse.bbs_mod.mixin.client.sodium.ColorAttributeMixin;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;

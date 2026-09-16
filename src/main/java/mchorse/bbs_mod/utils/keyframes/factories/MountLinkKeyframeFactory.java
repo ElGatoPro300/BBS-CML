@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.replays.MountLink;
 import mchorse.bbs_mod.utils.interps.IInterp;
 

@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -9,6 +8,7 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -32,7 +32,6 @@ import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -43,7 +42,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.brigadier.StringReader;
 
 import java.util.ArrayList;
@@ -63,10 +61,10 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     private static class TrackedParticle
     {
         public SingleQuadParticle particle;
-        public mchorse.bbs_mod.utils.colors.Color startColor;
-        public mchorse.bbs_mod.utils.colors.Color endColor;
+        public Color startColor;
+        public Color endColor;
 
-        public TrackedParticle(SingleQuadParticle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
+        public TrackedParticle(SingleQuadParticle particle, Color startColor, Color endColor)
         {
             this.particle = particle;
             this.startColor = startColor.copy();
@@ -246,8 +244,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         {}
                     }
 
-                    mchorse.bbs_mod.utils.colors.Color color1 = this.form.color.get();
-                    mchorse.bbs_mod.utils.colors.Color color2 = this.form.color2.get();
+                    Color color1 = this.form.color.get();
+                    Color color2 = this.form.color2.get();
                     int colorMode = this.form.colorMode.get();
 
                     boolean isEffect = path.contains("effect");
@@ -279,7 +277,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         else if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
+                            int rgb = new Color(colorR, colorG, colorB).getRGBColor();
                             int rgb2 = (colorMode == 1 && color2 != null) ? color2.getRGBColor() : rgb;
 
                             effect = new DustColorTransitionOptions(rgb, rgb2, scale);
@@ -288,7 +286,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         else if (isDust)
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
+                            int rgb = new Color(colorR, colorG, colorB).getRGBColor();
 
                             effect = new DustParticleOptions(rgb, scale);
                             parsedCustom = true;
@@ -412,7 +410,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         siteRot.transform(siteForward);
     }
 
-    private void spawnParticle(Level world, ParticleOptions effect, String path, float velocity, float colorR, float colorG, float colorB, float colorA, mchorse.bbs_mod.utils.colors.Color color1, mchorse.bbs_mod.utils.colors.Color color2, int colorMode, boolean hasCustomRgb, boolean hasCustomAlpha, Matrix3f siteRot, Vector3f siteForward, Vector3f siteOrigin, Matrix3f m, Vector3f v, Vector3f temp3f)
+    private void spawnParticle(Level world, ParticleOptions effect, String path, float velocity, float colorR, float colorG, float colorB, float colorA, Color color1, Color color2, int colorMode, boolean hasCustomRgb, boolean hasCustomAlpha, Matrix3f siteRot, Vector3f siteForward, Vector3f siteOrigin, Matrix3f m, Vector3f v, Vector3f temp3f)
     {
         float velocityX = siteForward.x * velocity;
         float velocityY = siteForward.y * velocity;

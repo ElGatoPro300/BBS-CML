@@ -21,7 +21,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILoader;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.NaturalOrderComparator;
 import mchorse.bbs_mod.utils.RemoteHttp;
@@ -31,7 +30,6 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 
 import net.minecraft.client.Minecraft;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 
 import com.google.gson.Gson;
@@ -39,9 +37,10 @@ import com.google.gson.reflect.TypeToken;
 
 import org.lwjgl.opengl.GL11;
 
+import org.slf4j.Logger;
+
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -51,8 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
-import org.slf4j.Logger;
 
 public class UINewsPanel extends UISidebarDashboardPanel
 {

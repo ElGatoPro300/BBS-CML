@@ -7,10 +7,6 @@ import mchorse.bbs_mod.items.GunZoom;
 
 import net.minecraft.client.Camera;
 
-import org.joml.Vector3d;
-
-import com.mojang.blaze3d.platform.Window;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +14,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import org.joml.Vector3d;
+
+import com.mojang.blaze3d.platform.Window;
 
 @Mixin(Camera.class)
 public abstract class CameraMixin
