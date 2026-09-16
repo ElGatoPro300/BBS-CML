@@ -116,6 +116,8 @@ public class ModelVAORenderer
     private static boolean colorGradeOverlayPass;
     /* Captured-matrix redraw after Iris (or immediate low-opacity bypass) — not the paint-overlay shader branch. */
     private static boolean deferredTranslucentPass;
+    /* Silhouette outline pass post-Iris composite (runs FormOutlineRenderer without paintPass). */
+    private static boolean outlineOverlayPass;
 
     /**
      * Fog state at enqueue time for soft / deferred mesh redraws. After Iris composite (and often
@@ -305,12 +307,13 @@ public class ModelVAORenderer
         private final boolean colorTint;
         private final boolean colorGrade;
         private final boolean vanillaComposite;
+        private final boolean outline;
         private final boolean depthWrite;
         private final boolean depthTest;
         private final DeferredFogSnapshot fog;
         private final Runnable draw;
 
-        private PaintOverlayEntry(GpuBufferSlice projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, DeferredFogSnapshot fog, Runnable draw)
+        private PaintOverlayEntry(GpuBufferSlice projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean outline, boolean depthWrite, boolean depthTest, DeferredFogSnapshot fog, Runnable draw)
         {
             this.projection = projection;
             this.modelView = modelView;
@@ -319,6 +322,7 @@ public class ModelVAORenderer
             this.colorTint = colorTint;
             this.colorGrade = colorGrade;
             this.vanillaComposite = vanillaComposite;
+            this.outline = outline;
             this.depthWrite = depthWrite;
             this.depthTest = depthTest;
             this.fog = fog;
@@ -405,6 +409,11 @@ public class ModelVAORenderer
 
     private static void enqueuePaintOverlay(GpuBufferSlice projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
     {
+        enqueuePaintOverlay(projection, modelView, synced, fullModel, colorTint, colorGrade, vanillaComposite, false, depthWrite, depthTest, draw);
+    }
+
+    private static void enqueuePaintOverlay(GpuBufferSlice projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean outline, boolean depthWrite, boolean depthTest, Runnable draw)
+    {
         /* Shadow-pass matrices are light-space (Iris and IRLights bake). Flushing them on the
          * color buffer draws tint/paint ghosts at wrong NDC (screen-edge masks when a light
          * touches a colored actor, or tiny blobs at center for Iris shadows). */
@@ -421,6 +430,7 @@ public class ModelVAORenderer
             colorTint,
             colorGrade,
             vanillaComposite,
+            outline,
             depthWrite,
             depthTest,
             fullModel ? captureCurrentFog() : null,
@@ -501,6 +511,10 @@ public class ModelVAORenderer
             {
                 beginVanillaPostCompositePass();
             }
+            else if (entry.outline)
+            {
+                beginOutlineOverlayPass();
+            }
             else
             {
                 beginPaintOverlayPass(entry.synced);
@@ -537,6 +551,10 @@ public class ModelVAORenderer
                 else if (entry.vanillaComposite)
                 {
                     endVanillaPostCompositePass();
+                }
+                else if (entry.outline)
+                {
+                    endOutlineOverlayPass();
                 }
                 else
                 {
@@ -613,6 +631,44 @@ public class ModelVAORenderer
     }
 
     /**
+     * Queues an outline overlay for {@link #flushPaintOverlayQueue()} at the end of the
+     * world frame after Iris compositing.
+     */
+    public static void submitOutlineOverlay(Runnable draw)
+    {
+        ModelVAORenderer.enqueuePaintOverlay(
+            RenderSystem.getProjectionMatrixBuffer(),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            true,
+            true,
+            draw
+        );
+    }
+
+    public static void submitOutlineOverlay(GpuBufferSlice projection, Matrix4f modelView, Runnable draw)
+    {
+        enqueuePaintOverlay(
+            projection,
+            modelView,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            true,
+            true,
+            draw
+        );
+    }
+
+    /**
      * Queues a paint/glow overlay for {@link #flushPaintOverlayQueue()} at the end of the
      * world frame.
      */
@@ -683,7 +739,8 @@ public class ModelVAORenderer
 
             /* Paint/glow overlays first, then full soft-model redraws (Opacity "No shading"
              * path) so translucency composites over painted actors behind the soft form.
-             * Ensure color tint runs before paint overlays so paint covers the primary tint. */
+             * Ensure color tint runs before paint overlays so paint covers the primary tint.
+             * Outline overlays run after models so the silhouette traces all composited geometry. */
             paintOverlayQueue.sort((a, b) ->
             {
                 int cmp = Boolean.compare(a.fullModel, b.fullModel);
@@ -696,6 +753,11 @@ public class ModelVAORenderer
                 if (a.colorTint != b.colorTint)
                 {
                     return a.colorTint ? -1 : 1;
+                }
+
+                if (a.outline != b.outline)
+                {
+                    return a.outline ? 1 : -1;
                 }
 
                 return 0;
@@ -1108,6 +1170,25 @@ public class ModelVAORenderer
         }
     }
 
+    public static void beginOutlineOverlayPass()
+    {
+        outlineOverlayPass = true;
+        paintOverlayPass = false;
+        paintOverlaySynced = false;
+        colorTintOverlayPass = false;
+        colorGradeOverlayPass = false;
+    }
+
+    public static void endOutlineOverlayPass()
+    {
+        outlineOverlayPass = false;
+    }
+
+    public static boolean isOutlineOverlayPass()
+    {
+        return outlineOverlayPass;
+    }
+
     public static boolean isPaintOverlayPass()
     {
         return paintOverlayPass;
@@ -1130,7 +1211,7 @@ public class ModelVAORenderer
 
     private static boolean usesCapturedModelView()
     {
-        return paintOverlayPass || deferredTranslucentPass || colorTintOverlayPass || colorGradeOverlayPass || glowEmissionPass;
+        return paintOverlayPass || deferredTranslucentPass || colorTintOverlayPass || colorGradeOverlayPass || glowEmissionPass || outlineOverlayPass;
     }
 
     /**

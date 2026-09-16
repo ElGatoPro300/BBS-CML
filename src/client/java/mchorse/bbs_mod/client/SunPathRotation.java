@@ -14,8 +14,6 @@ import com.mojang.math.Axis;
  */
 public final class SunPathRotation
 {
-    private static Matrix4f savedMatrix;
-
     private SunPathRotation()
     {
     }
@@ -38,28 +36,54 @@ public final class SunPathRotation
         return getDegrees() != 0F;
     }
 
-    public static void begin(Matrix4f matrix)
+    /**
+     * Returns {@code modelView} unchanged, or a yaw-rotated <em>copy</em> for sky rendering.
+     * The input matrix is never written.
+     */
+    public static Matrix4f copyWithSkyYaw(Matrix4f modelView)
     {
-        float degrees = getDegrees();
-
-        if (degrees == 0F)
-        {
-            savedMatrix = null;
-
-            return;
-        }
-
-        savedMatrix = new Matrix4f(matrix);
-        applyY(matrix, degrees);
+        return copyWithSkyYaw(modelView, false);
     }
 
+    /**
+     * @param thickFog Nether / thick-fog sky — skip rotation (sky is not drawn usefully).
+     */
+    public static Matrix4f copyWithSkyYaw(Matrix4f modelView, boolean thickFog)
+    {
+        if (modelView == null || thickFog || !isActive())
+        {
+            return modelView;
+        }
+
+        Matrix4f copy = new Matrix4f(modelView);
+
+        applyY(copy, getDegrees());
+
+        return copy;
+    }
+
+    /** @deprecated No-op kept for call-site compatibility; do not mutate shared matrices. */
+    @Deprecated
+    public static void begin(Matrix4f matrix)
+    {
+    }
+
+    /** @deprecated No-op kept for call-site compatibility. */
+    @Deprecated
+    public static void begin(Matrix4f matrix, boolean thickFog)
+    {
+    }
+
+    /** @deprecated No-op kept for call-site compatibility. */
+    @Deprecated
     public static void end(Matrix4f matrix)
     {
-        if (savedMatrix != null)
-        {
-            matrix.set(savedMatrix);
-            savedMatrix = null;
-        }
+    }
+
+    /** @deprecated No-op; shared model-view is no longer mutated by sky path. */
+    @Deprecated
+    public static void forceClear()
+    {
     }
 
     public static void applyY(Matrix4f matrix)

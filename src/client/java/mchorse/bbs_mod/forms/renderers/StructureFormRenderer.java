@@ -103,6 +103,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         StructureVaoManager.clearAllCachedVaos();
     }
 
+    /**
+     * Drop parsed/VAO caches so open StructureForms reload after an on-disk overwrite.
+     */
+    public static void notifyStructureFileChanged()
+    {
+        StructureVaoManager.clearAllCachedVaos();
+    }
+
     public StructureFormRenderer(StructureForm form)
     {
         super(form);

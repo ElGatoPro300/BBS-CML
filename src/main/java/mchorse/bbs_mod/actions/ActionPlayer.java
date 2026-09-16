@@ -983,7 +983,7 @@ public class ActionPlayer
             return false;
         }
 
-        int relative = tick - actionClip.tick.get();
+        int relative = tick - actionClip.getTickInt();
         int frequency = actionClip.frequency.get();
 
         if (frequency == 0)

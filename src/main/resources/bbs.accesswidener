@@ -2,6 +2,8 @@ accessWidener v2 official
 
 accessible field net/minecraft/client/Minecraft mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
 mutable field net/minecraft/client/Minecraft mainRenderTarget Lcom/mojang/blaze3d/pipeline/RenderTarget;
+accessible field net/minecraft/client/Minecraft gameThread Ljava/lang/Thread;
+accessible method net/minecraft/util/thread/BlockableEventLoop getRunningThread ()Ljava/lang/Thread;
 
 accessible method net/minecraft/world/entity/LivingEntity setLivingEntityFlag (IZ)V
 accessible method net/minecraft/world/entity/Entity setSharedFlag (IZ)V

@@ -89,6 +89,11 @@ public class BillboardRenderLayers
         }
     }
 
+    public static void draw(MeshData buffer, Identifier id, boolean linear, boolean mipmap, boolean depthWrite, boolean cull)
+    {
+        draw(buffer, id, linear, mipmap, depthWrite, cull, false);
+    }
+
     public static void draw(MeshData buffer, Identifier id, boolean linear, boolean mipmap, boolean depthWrite, boolean cull, boolean glow)
     {
         if (id == null)

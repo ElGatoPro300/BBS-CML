@@ -477,13 +477,8 @@ public class BBSRendering
     /**
      * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
      * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
-<<<<<<< HEAD
      * Blur post-processing then samples that state — keep state clean so the pause-menu world
      * renders correctly while menu buttons draw fine.
-=======
-     * {@link GameRenderer#renderBlur()} then samples that state —
-     * NeoForge pause blur makes hotbar / sky / leaves go dark while menu buttons still draw fine.
->>>>>>> 1.21.11
      */
     public static void prepareMenuBackgroundState()
     {
