@@ -10,8 +10,6 @@ import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Box;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.HashSet;

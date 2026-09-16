@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.cubic.model.loaders;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJAction;
 import mchorse.bbs_mod.bobj.BOBJChannel;
@@ -33,8 +32,6 @@ import org.lwjgl.opengl.GL11;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;

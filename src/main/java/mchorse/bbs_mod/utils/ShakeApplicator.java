@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.utils;
 
-import mchorse.bbs_mod.camera.clips.modifiers.ShakeClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.utils.pose.Transform;
 

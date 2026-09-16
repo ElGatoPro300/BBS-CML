@@ -2,7 +2,6 @@ package mchorse.bbs_mod.mixin;
 
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.IMorphProvider;
-import mchorse.bbs_mod.morphing.Morph;
 
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityPose;

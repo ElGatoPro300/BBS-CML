@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.blocks.entities;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -28,14 +27,14 @@ import net.minecraft.world.World;
 
 import org.joml.Vector3f;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import org.jetbrains.annotations.Nullable;
 
 public class TriggerBlockEntity extends BlockEntity
 {

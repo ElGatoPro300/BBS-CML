@@ -10,11 +10,11 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 
 import com.mojang.logging.LogUtils;
 
+import org.slf4j.Logger;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-
-import org.slf4j.Logger;
 
 public class GeckoAnimationController
 {

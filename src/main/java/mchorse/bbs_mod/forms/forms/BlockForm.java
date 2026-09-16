@@ -9,7 +9,6 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.block.Blocks;
 import net.minecraft.registry.Registries;
 
 public class BlockForm extends Form

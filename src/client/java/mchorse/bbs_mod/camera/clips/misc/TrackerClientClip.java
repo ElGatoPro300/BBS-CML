@@ -6,7 +6,6 @@ import mchorse.bbs_mod.camera.data.Angle;
 import mchorse.bbs_mod.camera.data.Point;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.forms.entities.IEntity;
-import mchorse.bbs_mod.ui.film.clips.UITrackerClip;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.interps.Lerps;

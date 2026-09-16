@@ -5,7 +5,6 @@ import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.resources.AssetProvider;
 import mchorse.bbs_mod.resources.Link;
-import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import java.io.File;
 import java.util.ArrayList;

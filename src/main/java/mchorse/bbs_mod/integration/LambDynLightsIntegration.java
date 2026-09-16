@@ -76,4 +76,3 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
         return 0;
     }
 }
-

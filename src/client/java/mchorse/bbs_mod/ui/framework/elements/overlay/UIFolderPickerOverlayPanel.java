@@ -1,18 +1,14 @@
 package mchorse.bbs_mod.ui.framework.elements.overlay;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIFileLinkList;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 import java.io.File;
 import java.util.function.Consumer;
