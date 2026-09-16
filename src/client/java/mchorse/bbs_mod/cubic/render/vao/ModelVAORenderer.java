@@ -15,6 +15,7 @@ import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.Fog;
@@ -977,7 +978,7 @@ public class ModelVAORenderer
      */
     public static boolean captureGradeSceneColor()
     {
-        net.minecraft.client.gl.Framebuffer source = BBSRendering.getPaintOverlaySourceFramebuffer();
+        Framebuffer source = BBSRendering.getPaintOverlaySourceFramebuffer();
 
         if (source == null)
         {

@@ -3,7 +3,6 @@ package mchorse.bbs_mod.film;
 import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintDef;
-import mchorse.bbs_mod.cubic.ik.LimbConstraintProcessor;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintSerializer;
 import mchorse.bbs_mod.cubic.ik.LimbDynamicParams;
 import mchorse.bbs_mod.data.types.MapType;

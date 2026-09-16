@@ -20,7 +20,6 @@ import mchorse.bbs_mod.utils.resources.FilteredLink;
 
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.GameRenderer;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 

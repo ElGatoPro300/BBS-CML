@@ -4,7 +4,6 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 public abstract class UISidebarDashboardPanel extends UIDashboardPanel
 {

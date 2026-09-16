@@ -116,4 +116,3 @@ public class LightmapModelVAO implements IModelVAO
         GL30.glBindVertexArray(previousVAO);
     }
 }
-
