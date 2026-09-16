@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.forms.categories;
 
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.categories.ParticleFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;

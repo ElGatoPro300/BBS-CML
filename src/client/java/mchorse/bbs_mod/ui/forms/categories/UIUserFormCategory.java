@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.forms.categories;
 
-import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.categories.FormCategory;

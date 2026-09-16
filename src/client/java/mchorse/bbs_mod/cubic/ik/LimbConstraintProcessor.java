@@ -4,7 +4,6 @@ import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.constraints.JointLimitConfig.JointLimit;
 import mchorse.bbs_mod.cubic.constraints.JointLimitEnforcer;
-import mchorse.bbs_mod.cubic.ik.LimbDynamicParams;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 

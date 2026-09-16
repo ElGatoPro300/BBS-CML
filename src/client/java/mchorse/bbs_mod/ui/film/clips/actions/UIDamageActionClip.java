@@ -4,7 +4,6 @@ import mchorse.bbs_mod.actions.types.DamageActionClip;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.utils.UI;
 
 public class UIDamageActionClip extends UIActionClip<DamageActionClip>
 {

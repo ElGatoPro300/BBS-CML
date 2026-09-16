@@ -471,5 +471,3 @@ public class UIStructurePickerPanel extends UIOverlayPanel
     }
 
 }
-
-
