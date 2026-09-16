@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.client;
 
-import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;

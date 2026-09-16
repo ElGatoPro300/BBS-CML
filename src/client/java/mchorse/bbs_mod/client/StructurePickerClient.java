@@ -3,6 +3,7 @@ package mchorse.bbs_mod.client;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.blocks.ModelBlock;
+import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.OrbitCamera;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -46,6 +47,9 @@ import org.joml.Vector4f;
 
 import org.lwjgl.glfw.GLFW;
 
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -53,9 +57,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-
-import it.unimi.dsi.fastutil.longs.LongIterator;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 public class StructurePickerClient
 {
@@ -473,7 +474,7 @@ public class StructurePickerClient
 
         if (UIStructurePickerPanel.isOpened())
         {
-            mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
+            Camera camera = BBSModClient.getCameraController().camera;
             Vector3f look = Matrices.rotation(camera.rotation.x, MathUtils.PI - camera.rotation.y);
 
             return new Vec3(look.x, look.y, look.z);
@@ -531,7 +532,7 @@ public class StructurePickerClient
     {
         if (UIStructurePickerPanel.isOpened())
         {
-            mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
+            Camera camera = BBSModClient.getCameraController().camera;
 
             if (StructurePickerClient.freecamOrbit != null)
             {
@@ -2101,7 +2102,7 @@ public class StructurePickerClient
      */
     private static StructurePickerAxis pickAxisGizmoScreen(Minecraft mc, Vec3 gizmo, boolean positive, boolean arrowTips)
     {
-        mchorse.bbs_mod.camera.Camera camera = StructurePickerClient.syncPickCamera(mc);
+        Camera camera = StructurePickerClient.syncPickCamera(mc);
 
         if (camera == null)
         {
@@ -2157,9 +2158,9 @@ public class StructurePickerClient
         return best;
     }
 
-    private static mchorse.bbs_mod.camera.Camera syncPickCamera(Minecraft mc)
+    private static Camera syncPickCamera(Minecraft mc)
     {
-        mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
+        Camera camera = BBSModClient.getCameraController().camera;
 
         if (StructurePickerClient.freecamOrbit != null && UIStructurePickerPanel.isOpened())
         {
@@ -2175,7 +2176,7 @@ public class StructurePickerClient
         return camera;
     }
 
-    private static double[] projectWorldToScreen(mchorse.bbs_mod.camera.Camera camera, Vec3 world, int width, int height)
+    private static double[] projectWorldToScreen(Camera camera, Vec3 world, int width, int height)
     {
         Vector3f rel = camera.getRelative(world.x, world.y, world.z);
         Vector4f clip = new Vector4f(rel.x, rel.y, rel.z, 1F);
