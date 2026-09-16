@@ -80,6 +80,7 @@ IMPORT_GROUPS = [
 # If they are already imported, they will be kept.
 WHITELIST = {
     "java.lang.Math",
+    "net.minecraft.world.phys.AABB",
 }
 
 # Regex for matching:
