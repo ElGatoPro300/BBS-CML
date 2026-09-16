@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.utils.gizmo;
 
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.Area;

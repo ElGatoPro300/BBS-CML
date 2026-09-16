@@ -5,8 +5,6 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4f;
-
 public class RecolorVertexConsumer implements VertexConsumer
 {
     public static Color newColor;
