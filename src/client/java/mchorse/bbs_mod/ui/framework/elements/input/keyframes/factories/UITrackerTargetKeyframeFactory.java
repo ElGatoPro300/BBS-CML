@@ -11,9 +11,9 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.utils.UIBezierHandles;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import java.util.List;
-
 import io.netty.util.collection.IntObjectMap;
+
+import java.util.List;
 
 /**
  * Target track editor for tracker keyframes: pick the tracked replay/morph

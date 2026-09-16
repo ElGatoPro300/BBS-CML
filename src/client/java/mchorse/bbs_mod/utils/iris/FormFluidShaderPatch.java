@@ -6,9 +6,9 @@ import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.fluid.FluidState;
 
+import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.pipeline.WorldRenderingPhase;
@@ -25,6 +25,8 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
+
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -173,7 +175,7 @@ public final class FormFluidShaderPatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }
@@ -315,7 +317,7 @@ public final class FormFluidShaderPatch
 
         try
         {
-            pipeline = net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+            pipeline = Iris.getPipelineManager().getPipelineNullable();
         }
         catch (Throwable ignored)
         {}
@@ -469,7 +471,7 @@ public final class FormFluidShaderPatch
     {
         try
         {
-            it.unimi.dsi.fastutil.objects.Object2IntMap<BlockState> ids =
+            Object2IntMap<BlockState> ids =
                 WorldRenderingSettings.INSTANCE.getBlockStateIds();
 
             if (ids == null || ids.isEmpty() || !ids.containsKey(state))
