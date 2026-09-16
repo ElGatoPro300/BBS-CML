@@ -43,6 +43,11 @@ Two representations. **Do not collapse them.** Toggling Actor never deletes the 
 * Combat death: do **not** feed `death_time` keyframes into `ActorEntity.deathTime` (stuck red overlay).
 * Related settings: `BBSSettings.actorDamageFlash`, `actorDamageAnimation`, `editorActorPauseAnimations`.
 
+## Actor control mouse capture
+
+* Enabling control must **center** the cursor (`Window.centerCursor`) and **skip the first look/stick delta** (`controlLookPrimed`), same idea as editor free-look flight.
+* Disabling while flight + `editorFlightFreeLook` is active hands the grab to `UIFilmPanel.captureFreeFlightMouse()` (no `NORMAL` flash between owners).
+
 ## Iris
 
 * `ShadowRendererMixin` must skip stub bodies for actor replays (the physical entity already casts the shadow).

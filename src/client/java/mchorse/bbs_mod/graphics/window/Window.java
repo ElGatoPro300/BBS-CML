@@ -168,6 +168,23 @@ public class Window
         GLFW.glfwSetCursorPos(getWindow(), x, y);
     }
 
+    /**
+     * Center the OS/GLFW cursor in the game window. Used by film free-look and
+     * actor-control mouse capture so the first look delta is not relative to a
+     * stale UI hover position.
+     */
+    public static void centerCursor()
+    {
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+
+        if (window == null)
+        {
+            return;
+        }
+
+        moveCursor(window.getWidth() / 2, window.getHeight() / 2);
+    }
+
     public static void setStandardCursor(int shape)
     {
         long window = getWindow();

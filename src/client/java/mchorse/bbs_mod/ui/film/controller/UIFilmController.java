@@ -142,6 +142,11 @@ public class UIFilmController extends UIElement
     /* Character control */
     private IEntity controlled;
     private final Vector2d lastMouse = new Vector2d();
+    /**
+     * After grab/center, skip one look/stick delta frame (same idea as free-look
+     * {@code freeFlightLookPrimed}) so stale UI cursor coords do not jump yaw/pitch.
+     */
+    private boolean controlLookPrimed;
     private int mouseMode;
     private final Vector2f mouseStick = new Vector2f();
 
@@ -294,12 +299,33 @@ public class UIFilmController extends UIElement
 
         if (disable)
         {
+            /* Match free-look: center before DISABLED so look deltas are not relative to UI. */
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+            this.syncLastMouseFromClientMouse();
+            this.controlLookPrimed = false;
         }
         else
         {
+            this.controlLookPrimed = false;
+
+            /* Hand off to free-look without a NORMAL flash when flight free-look is active. */
+            if (this.panel.isFlying() && BBSSettings.editorFlightFreeLook.get())
+            {
+                this.panel.captureFreeFlightMouse();
+
+                return;
+            }
+
             GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
         }
+    }
+
+    private void syncLastMouseFromClientMouse()
+    {
+        Mouse mouse = MinecraftClient.getInstance().mouse;
+
+        this.lastMouse.set(mouse.getX(), mouse.getY());
     }
 
     public ValueOnionSkin getOnionSkin()
@@ -2133,7 +2159,13 @@ public class UIFilmController extends UIElement
 
         if (this.canControl())
         {
-            if (this.isMouseLookMode() && ClientNetwork.isIsBBSModOnServer())
+            if (!this.controlLookPrimed)
+            {
+                /* First frame after grab/center: arm baseline, apply no look/stick delta. */
+                this.lastMouse.set(x, y);
+                this.controlLookPrimed = true;
+            }
+            else if (this.isMouseLookMode() && ClientNetwork.isIsBBSModOnServer())
             {
                 float cursorDeltaX = (float) (x - this.lastMouse.x) / 2F;
                 float cursorDeltaY = (float) (y - this.lastMouse.y) / 2F;

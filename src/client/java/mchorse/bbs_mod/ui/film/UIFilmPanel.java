@@ -7083,7 +7083,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (flight)
         {
-            this.centerCursor(window);
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
@@ -7098,6 +7098,25 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    /**
+     * Re-grab free-look capture after actor control ends so the cursor never
+     * flashes {@code NORMAL} between the two grab owners.
+     */
+    public void captureFreeFlightMouse()
+    {
+        if (!this.isFlying() || !BBSSettings.editorFlightFreeLook.get())
+        {
+            return;
+        }
+
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+
+        Window.centerCursor();
+        GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        this.resetFreeFlightLookDrag = true;
+        this.freeFlightLookPrimed = false;
+    }
+
     private boolean enforceFreeFlightMouseCapture()
     {
         if (!this.isFlying() || !BBSSettings.editorFlightFreeLook.get())
@@ -7109,17 +7128,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (GLFW.glfwGetInputMode(window.getHandle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
         {
-            this.centerCursor(window);
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             return true;
         }
 
         return false;
-    }
-
-    private void centerCursor(net.minecraft.client.util.Window window)
-    {
-        mchorse.bbs_mod.graphics.window.Window.moveCursor(window.getWidth() / 2, window.getHeight() / 2);
     }
 
     private void updateFreeFlightLookFromRawCursor(boolean orbitFlight)
