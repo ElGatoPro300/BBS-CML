@@ -730,8 +730,27 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Y_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_y-tooltip");
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_z-tooltip");
     public static final IKey FORMS_EDITORS_EXTRUDED_TITLE = L10n.lang("bbs.ui.forms.editors.extruded.title");
+    public static final IKey FORMS_EDITORS_VIDEO_TITLE = L10n.lang("bbs.ui.forms.editors.video.title");
+    public static final IKey FORMS_EDITORS_VIDEO_PICK_VIDEO = L10n.lang("bbs.ui.forms.editors.video.pick_video");
+    public static final IKey FORMS_EDITORS_VIDEO_BILLBOARD = L10n.lang("bbs.ui.forms.editors.video.billboard");
+    public static final IKey FORMS_EDITORS_VIDEO_LOOP = L10n.lang("bbs.ui.forms.editors.video.loop");
+    public static final IKey FORMS_EDITORS_VIDEO_PAUSED = L10n.lang("bbs.ui.forms.editors.video.paused");
+    public static final IKey FORMS_EDITORS_VIDEO_PAUSED_TOOLTIP = L10n.lang("bbs.ui.forms.editors.video.paused_tooltip");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION = L10n.lang("bbs.ui.forms.editors.video.resolution");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP = L10n.lang("bbs.ui.forms.editors.video.resolution_tooltip");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE = L10n.lang("bbs.ui.forms.editors.video.resolution.native");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_1080 = L10n.lang("bbs.ui.forms.editors.video.resolution.1080");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_720 = L10n.lang("bbs.ui.forms.editors.video.resolution.720");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_480 = L10n.lang("bbs.ui.forms.editors.video.resolution.480");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_360 = L10n.lang("bbs.ui.forms.editors.video.resolution.360");
+    public static final IKey FORMS_EDITORS_VIDEO_RESOLUTION_240 = L10n.lang("bbs.ui.forms.editors.video.resolution.240");
+    public static final IKey FORMS_EDITORS_VIDEO_SPEED = L10n.lang("bbs.ui.forms.editors.video.speed");
+    public static final IKey FORMS_EDITORS_VIDEO_SPEED_TOOLTIP = L10n.lang("bbs.ui.forms.editors.video.speed_tooltip");
+    public static final IKey FORMS_EDITORS_VIDEO_TIME = L10n.lang("bbs.ui.forms.editors.video.time");
+    public static final IKey FORMS_EDITORS_VIDEO_TIME_TOOLTIP = L10n.lang("bbs.ui.forms.editors.video.time_tooltip");
     public static final IKey FORMS_EDITORS_GENERAL = L10n.lang("bbs.ui.forms.editors.general");
     public static final IKey FORMS_EDITOR_GIZMO_TOOLBAR_HINT = L10n.lang("bbs.ui.forms.editor.gizmo_toolbar.hint");
+    public static final IKey FORMS_EDITORS_BLEND_COLOR = L10n.lang("bbs.ui.forms.editors.blend_color");
     public static final IKey FORMS_EDITORS_PAINT_COLOR = L10n.lang("bbs.ui.forms.editors.paint_color");
     public static final IKey FORMS_EDITORS_COLOR_GRADE = L10n.lang("bbs.ui.forms.editors.color_grade");
     public static final IKey FORMS_EDITORS_COLOR_GRADE_HIDE = L10n.lang("bbs.ui.forms.editors.color_grade_hide");
@@ -923,6 +942,18 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_MOB_TITLE = L10n.lang("bbs.ui.forms.editors.mob.title");
     public static final IKey FORMS_EDITORS_MODEL_ACTIONS = L10n.lang("bbs.ui.forms.editors.model.actions");
     public static final IKey FORMS_EDITORS_MODEL_POSE = L10n.lang("bbs.ui.forms.editors.model.pose");
+    public static final IKey FORMS_EDITORS_MODEL_HITBOX = L10n.lang("bbs.ui.forms.editors.model.hitbox");
+    public static final IKey FORMS_EDITORS_MODEL_HITBOX_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.hitbox-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE = L10n.lang("bbs.ui.forms.editors.model.outline");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_COLOR_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_color-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_THICKNESS_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_thickness-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_RAINBOW = L10n.lang("bbs.ui.forms.editors.model.outline_rainbow");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_rainbow-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_SPEED_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_rainbow_speed-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_SCALE_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.outline_rainbow_scale-tooltip");
+    public static final IKey FORMS_EDITORS_STRUCTURE_HITBOX = L10n.lang("bbs.ui.forms.editors.structure.hitbox");
+    public static final IKey FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP = L10n.lang("bbs.ui.forms.editors.structure.hitbox-tooltip");
     public static final IKey FORMS_EDITORS_TRAIL_LENGTH = L10n.lang("bbs.ui.forms.editors.trail.length");
     public static final IKey FORMS_EDITORS_TRAIL_LOOP = L10n.lang("bbs.ui.forms.editors.trail.loop");
     public static final IKey FORMS_EDITORS_TRAIL_TITLE = L10n.lang("bbs.ui.forms.editors.trail.title");
@@ -1160,9 +1191,19 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_MODE_TRIANGLE = L10n.lang("bbs.ui.items.structure_picker.mode.triangle");
     public static final IKey STRUCTURE_PICKER_MODE_CONE = L10n.lang("bbs.ui.items.structure_picker.mode.cone");
     public static final IKey STRUCTURE_PICKER_MODE_CYLINDER = L10n.lang("bbs.ui.items.structure_picker.mode.cylinder");
+    public static final IKey STRUCTURE_PICKER_MODE_SAME = L10n.lang("bbs.ui.items.structure_picker.mode.same");
+    public static final IKey STRUCTURE_PICKER_MODE_BRUSH = L10n.lang("bbs.ui.items.structure_picker.mode.brush");
+    public static final IKey STRUCTURE_PICKER_SAME_LIMIT = L10n.lang("bbs.ui.items.structure_picker.same_limit");
+    public static final IKey STRUCTURE_PICKER_BRUSH_SHAPE = L10n.lang("bbs.ui.items.structure_picker.brush_shape");
+    public static final IKey STRUCTURE_PICKER_BRUSH_SPHERE = L10n.lang("bbs.ui.items.structure_picker.brush_sphere");
+    public static final IKey STRUCTURE_PICKER_BRUSH_CUBE = L10n.lang("bbs.ui.items.structure_picker.brush_cube");
+    public static final IKey STRUCTURE_PICKER_BRUSH_RADIUS = L10n.lang("bbs.ui.items.structure_picker.brush_radius");
+    public static final IKey STRUCTURE_PICKER_BRUSH_DEPTH = L10n.lang("bbs.ui.items.structure_picker.brush_depth");
     public static final IKey STRUCTURE_PICKER_CONFIRM_TITLE = L10n.lang("bbs.ui.items.structure_picker.confirm.title");
     public static final IKey STRUCTURE_PICKER_MAKE_MODEL_BLOCK = L10n.lang("bbs.ui.items.structure_picker.confirm.model_block");
     public static final IKey STRUCTURE_PICKER_IMPORT_FILM = L10n.lang("bbs.ui.items.structure_picker.confirm.import_film");
+    public static final IKey STRUCTURE_PICKER_IMPORT_FILM_DISABLED = L10n.lang("bbs.ui.items.structure_picker.confirm.import_film_disabled");
+    public static final IKey STRUCTURE_PICKER_NAME_PLACEHOLDER = L10n.lang("bbs.ui.items.structure_picker.name_placeholder");
     public static final IKey STRUCTURE_PICKER_APPLY = L10n.lang("bbs.ui.items.structure_picker.confirm.apply");
     public static final IKey STRUCTURE_PICKER_REMOVE_SELECTION = L10n.lang("bbs.ui.items.structure_picker.remove_selection");
     public static final IKey STRUCTURE_PICKER_SUBTRACT_SELECTION = L10n.lang("bbs.ui.items.structure_picker.subtract_selection");
@@ -1171,6 +1212,16 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_REMOVE_CONFIRM = L10n.lang("bbs.ui.items.structure_picker.remove_confirm");
     public static final IKey STRUCTURE_PICKER_BREAK_CONFIRM = L10n.lang("bbs.ui.items.structure_picker.break_confirm");
     public static final IKey STRUCTURE_PICKER_CLICK_ON_AIR = L10n.lang("bbs.ui.items.structure_picker.click_on_air");
+    public static final IKey STRUCTURE_PICKER_CUBE_RESIZE = L10n.lang("bbs.ui.items.structure_picker.cube_resize");
+    public static final IKey STRUCTURE_PICKER_CUBE_RESIZE_HINT = L10n.lang("bbs.ui.items.structure_picker.cube_resize_hint");
+    public static final IKey STRUCTURE_PICKER_PLACE_STRUCTURE = L10n.lang("bbs.ui.items.structure_picker.place_structure");
+    public static final IKey STRUCTURE_PICKER_SAVE_STRUCTURE = L10n.lang("bbs.ui.items.structure_picker.save_structure");
+    public static final IKey STRUCTURE_PICKER_SAVE_STRUCTURE_HINT = L10n.lang("bbs.ui.items.structure_picker.save_structure_hint");
+    public static final IKey STRUCTURE_PICKER_PLACE_AND_SELECT = L10n.lang("bbs.ui.items.structure_picker.place_and_select");
+    public static final IKey STRUCTURE_PICKER_PLACE_CANCEL = L10n.lang("bbs.ui.items.structure_picker.place_cancel");
+    public static final IKey STRUCTURE_PICKER_PLACE_HINT = L10n.lang("bbs.ui.items.structure_picker.place_hint");
+    public static final IKey STRUCTURE_PICKER_BROWSE_TITLE = L10n.lang("bbs.ui.items.structure_picker.browse_title");
+    /** Indexed by {@link StructurePickerMode#index}. */
     public static final IKey[] STRUCTURE_PICKER_MODE_LABELS = new IKey[]
     {
         STRUCTURE_PICKER_MODE_BLOCK,
@@ -1180,7 +1231,9 @@ public class UIKeys
         STRUCTURE_PICKER_MODE_SPHERE,
         STRUCTURE_PICKER_MODE_TRIANGLE,
         STRUCTURE_PICKER_MODE_CONE,
-        STRUCTURE_PICKER_MODE_CYLINDER
+        STRUCTURE_PICKER_MODE_CYLINDER,
+        STRUCTURE_PICKER_MODE_SAME,
+        STRUCTURE_PICKER_MODE_BRUSH
     };
     public static final IKey GENERAL_EXPORT = L10n.lang("bbs.ui.export");
     public static final IKey GENERAL_FFMPEG_ERROR_DESCRIPTION = L10n.lang("bbs.ui.ffmpeg.error-description");
@@ -1523,6 +1576,14 @@ public class UIKeys
     public static final IKey MODELS_IK_EXTENSIBLE = L10n.lang("bbs.ui.models.ik.extensible");
     public static final IKey MODELS_IK_BEND_OFFSET = L10n.lang("bbs.ui.models.ik.bend_offset");
     public static final IKey MODELS_IK_FLEXIBILITY = L10n.lang("bbs.ui.models.ik.flexibility");
+    public static final IKey MODELS_IK_DEBUG_TOOLTIP = L10n.lang("bbs.ui.models.ik.debug_tooltip");
+    public static final IKey MODELS_IK_CLASSIC_SOLVER = L10n.lang("bbs.ui.models.ik.classic_solver");
+    public static final IKey MODELS_IK_CLASSIC_SOLVER_TOOLTIP = L10n.lang("bbs.ui.models.ik.classic_solver_tooltip");
+    public static final IKey MODELS_IK_PRESET_COPY = L10n.lang("bbs.ui.models.ik.preset_copy");
+    public static final IKey MODELS_IK_PRESET_PASTE = L10n.lang("bbs.ui.models.ik.preset_paste");
+    public static final IKey MODELS_IK_PRESET_CLEAR = L10n.lang("bbs.ui.models.ik.preset_clear");
+    public static final IKey MODELS_IK_PRESET_SAVE = L10n.lang("bbs.ui.models.ik.preset_save");
+    public static final IKey MODELS_IK_PRESET_NAME = L10n.lang("bbs.ui.models.ik.preset_name");
     public static final IKey MODELS_PHYS_BONES_EDITOR = L10n.lang("bbs.ui.models.dynamic_bones");
     public static final IKey MODELS_PHYS_BONES_ADD = L10n.lang("bbs.ui.models.phys_bones.add");
     public static final IKey MODELS_PHYS_BONES_ADD_TOOLTIP = L10n.lang("bbs.ui.models.phys_bones.add-tooltip");
@@ -1589,6 +1650,17 @@ public class UIKeys
     public static final IKey MODELS_PHYS_BONES_WIND_GUSTINESS = L10n.lang("bbs.ui.models.phys_bones.wind_gustiness");
     public static final IKey MODELS_PHYS_BONES_WIND_GUST_SPEED = L10n.lang("bbs.ui.models.phys_bones.wind_gust_speed");
     public static final IKey MODELS_PHYS_BONES_WIND_GUST_SCALE = L10n.lang("bbs.ui.models.phys_bones.wind_gust_scale");
+    public static final IKey MODELS_PHYS_BONES_DEBUG_TOOLTIP = L10n.lang("bbs.ui.models.phys_bones.debug_tooltip");
+    public static final IKey MODELS_PHYS_BONES_END_BONE_TOOLTIP = L10n.lang("bbs.ui.models.phys_bones.end_bone_tooltip");
+    public static final IKey MODELS_PHYS_BONES_END_BONE_CLEAR = L10n.lang("bbs.ui.models.phys_bones.end_bone_clear");
+    public static final IKey MODELS_PHYS_BONES_END_BONE_AUTO = L10n.lang("bbs.ui.models.phys_bones.end_bone_auto");
+    public static final IKey MODELS_DEBUG_SHOW = L10n.lang("bbs.ui.models.debug.show");
+    public static final IKey MODELS_DEBUG_DRAW_OVERLAY = L10n.lang("bbs.ui.models.debug.draw_overlay");
+    public static final IKey MODELS_DEBUG_DRAW_THROUGH_MODEL = L10n.lang("bbs.ui.models.debug.draw_through_model");
+    public static final IKey MODELS_DEBUG_DASHED_LINES = L10n.lang("bbs.ui.models.debug.dashed_lines");
+    public static final IKey MODELS_DEBUG_OPACITY = L10n.lang("bbs.ui.models.debug.opacity");
+    public static final IKey MODELS_DEBUG_MARKER_SHAPE = L10n.lang("bbs.ui.models.debug.marker_shape");
+    public static final IKey MODELS_DEBUG_CONFIGURE = L10n.lang("bbs.ui.models.debug.configure");
     public static final IKey MODELS_GEOMETRY_EDITOR = L10n.lang("bbs.ui.models.geometry_editor");
     public static final IKey MODELS_GEOMETRY_BONE_HIERARCHY = L10n.lang("bbs.ui.models.geometry_bone_hierarchy");
     public static final IKey MODELS_GEOMETRY_ADD_CUBE = L10n.lang("bbs.ui.models.geometry_add_cube");
@@ -1667,6 +1739,9 @@ public class UIKeys
     public static final IKey OVERLAYS_VIDEOS_ADD_EXTERNAL = L10n.lang("bbs.ui.overlays.videos.add_external");
     public static final IKey OVERLAYS_VIDEOS_ADD_EXTERNAL_TITLE = L10n.lang("bbs.ui.overlays.videos.add_external.title");
     public static final IKey OVERLAYS_VIDEOS_ADD_EXTERNAL_MESSAGE = L10n.lang("bbs.ui.overlays.videos.add_external.message");
+    public static final IKey OVERLAYS_VIDEOS_IMPORT_SUCCESS = L10n.lang("bbs.ui.overlays.videos.import_success");
+    public static final IKey OVERLAYS_VIDEOS_IMPORT_FAILED = L10n.lang("bbs.ui.overlays.videos.import_failed");
+    public static final IKey OVERLAYS_VIDEOS_IMPORT_UNSUPPORTED = L10n.lang("bbs.ui.overlays.videos.import_unsupported");
     public static final IKey OVERLAYS_VIDEOS_MAIN = L10n.lang("bbs.ui.overlays.videos.main");
     public static final IKey OVERLAYS_VIDEOS_CLIENT_MODE = L10n.lang("bbs.ui.overlays.videos.client_mode");
     public static final IKey OVERLAYS_VIDEOS_EXTERNAL_MODE = L10n.lang("bbs.ui.overlays.videos.external_mode");
@@ -1928,6 +2003,9 @@ public class UIKeys
     public static final IKey SNOWSTORM_SPACE_TITLE = L10n.lang("bbs.ui.snowstorm.space.title");
     public static final IKey SNOWSTORM_SPACE_VELOCITY = L10n.lang("bbs.ui.snowstorm.space.velocity");
     public static final IKey SNOWSTORM_TITLE = L10n.lang("bbs.ui.snowstorm.title");
+    public static final IKey SNOWSTORM_EMITTER_TITLE = L10n.lang("bbs.ui.snowstorm.emitter.title");
+    public static final IKey SNOWSTORM_PARTICLE_TITLE = L10n.lang("bbs.ui.snowstorm.particle.title");
+    public static final IKey SNOWSTORM_MOLANG_TITLE = L10n.lang("bbs.ui.snowstorm.molang.title");
     public static final IKey SUPPORTERS_CC = L10n.lang("bbs.ui.supporters.cc");
     public static final IKey SUPPORTERS_COMMUNITY = L10n.lang("bbs.ui.supporters.community");
     public static final IKey SUPPORTERS_COMMUNITY_LINK = L10n.lang("bbs.ui.supporters.community_link");
@@ -2193,6 +2271,10 @@ public class UIKeys
     public static final IKey UTILITY_TITLE = L10n.lang("studio.ui.utility.title");
     public static final IKey SETTINGS_FONT_BROWSE = L10n.lang("bbs.ui.settings.font_browse");
     public static final IKey SETTINGS_FONT_RESET = L10n.lang("bbs.ui.settings.font_reset");
+    public static final IKey SETTINGS_FOLDER_BROWSE = L10n.lang("bbs.ui.settings.folder_browse");
+    public static final IKey SETTINGS_FOLDER_SYNC = L10n.lang("bbs.ui.settings.folder_sync");
+    public static final IKey SETTINGS_FOLDER_OPEN = L10n.lang("bbs.ui.settings.folder_open");
+    public static final IKey SETTINGS_FOLDER_RESET = L10n.lang("bbs.ui.settings.folder_reset");
     public static final IKey WORLD_PROPERTIES = L10n.lang("bbs.ui.world.properties");
     public static final IKey WORLD_TIME_LABEL = L10n.lang("bbs.ui.world.time_label");
     public static final IKey WORLD_SUN_PATH_ROTATION = L10n.lang("bbs.ui.world.sun_path_rotation");

@@ -15,9 +15,11 @@ import mchorse.bbs_mod.settings.values.ui.ValueColors;
 import mchorse.bbs_mod.settings.values.ui.ValueEditorLayout;
 import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
+import mchorse.bbs_mod.settings.values.ui.ValueIKDebug;
 import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
 import mchorse.bbs_mod.settings.values.ui.ValueMobCaptureConditions;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
+import mchorse.bbs_mod.settings.values.ui.ValuePhysicsDebug;
 import mchorse.bbs_mod.settings.values.ui.ValueStringKeys;
 import mchorse.bbs_mod.settings.values.ui.ValueTimelineToolbarDocks;
 import mchorse.bbs_mod.settings.values.ui.ValueUILayoutPreferences;
@@ -161,6 +163,8 @@ public class BBSSettings
     public static ValueViewportToolbar editorViewportToolbar;
     public static ValueFormEditorGizmoToolbar editorFormGizmoToolbar;
     public static ValueOnionSkin editorOnionSkin;
+    public static ValueIKDebug ikDebug;
+    public static ValuePhysicsDebug physicsDebug;
     public static ValueBoolean editorSnapToMarkers;
     public static ValueBoolean editorClipPreview;
     public static ValueBoolean editorClipTypeLabels;
@@ -253,6 +257,8 @@ public class BBSSettings
     public static ValueFloat shaderShadowOpacity;
     public static ValueBoolean shaderShadowDither;
     public static ValueBoolean lodShaderReloadFix;
+    public static ValueBoolean irisFormFluidPatch;
+    public static ValueBoolean irisFormGlowBloomPatch;
 
     public static ValueBoolean audioWaveformVisible;
     public static ValueInt audioWaveformDensity;
@@ -283,6 +289,9 @@ public class BBSSettings
     public static ValueBoolean autoSpectatorInEditors;
 
     public static ValueBoolean usingInMemoryClipboard;
+
+    public static ValueBoolean globalAssetsEnabled;
+    public static ValueString globalAssetsPath;
     public static ValueBoolean discordPresence;
     public static ValueString discordApplicationId;
 
@@ -773,6 +782,10 @@ public class BBSSettings
         uiLayoutPreferences.invisible();
         builder.register(timelineToolbarDocks = new ValueTimelineToolbarDocks("timeline_toolbar_docks"));
         builder.register(editorOnionSkin = new ValueOnionSkin("onion_skin"));
+        /* Overlays drawn over the preview, edited through the gear in the IK and
+         * dynamic-bone panels — stored here, no row of their own in the settings. */
+        builder.register(ikDebug = new ValueIKDebug("ik_debug"));
+        builder.register(physicsDebug = new ValuePhysicsDebug("physics_debug"));
         editorSnapToMarkers = builder.getBoolean("snap_to_markers", false);
         editorClipPreview = builder.getBoolean("clip_preview", true);
         editorRewind = builder.getBoolean("rewind", true);
@@ -889,6 +902,8 @@ public class BBSSettings
         shaderShadowOpacity = builder.getFloat("shader_shadow_opacity", 1F, 0F, 1F);
         shaderShadowDither = builder.getBoolean("shader_shadow_dither", true);
         lodShaderReloadFix = builder.getBoolean("lod_shader_reload_fix", true);
+        irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
+        irisFormGlowBloomPatch = builder.getBoolean("iris_form_glow_bloom_patch", true);
 
         builder.category("fluid_simulation");
         fluidRealisticModelInteraction = builder.getBoolean("realistic_model_interaction", false);
@@ -907,6 +922,10 @@ public class BBSSettings
         builder.category("cdn");
         cdnUrl = builder.getString("url", "");
         cdnToken = builder.getString("token", "");
+
+        builder.category("storage");
+        globalAssetsEnabled = builder.getBoolean("global_assets_enabled", false);
+        globalAssetsPath = builder.getString("global_assets_path", "");
 
         BBSMod.events.post(new RegisterBBSSettingsEvent(builder));
         syncAppliedAppearance();

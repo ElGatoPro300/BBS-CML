@@ -68,7 +68,8 @@ dependencies {
 	// modImplementation "net.fabricmc.fabric-api:fabric-api-deprecated:${project.fabric_version}"
 	modImplementation "maven.modrinth:sodium:mc1.20.4-0.5.8"
 	modImplementation "maven.modrinth:iris:1.7.2+1.20.4"
-	modImplementation "maven.modrinth:watermedia:2.1.37"
+	modImplementation "maven.modrinth:watermedia:3.0.0.23"
+	modImplementation "maven.modrinth:watermedia-binaries:3.0.0.6"
 	modImplementation "maven.modrinth:lambdynamiclights:2.3.4+1.20.4"
 
 	modImplementation "org.anarres:jcpp:1.4.14"

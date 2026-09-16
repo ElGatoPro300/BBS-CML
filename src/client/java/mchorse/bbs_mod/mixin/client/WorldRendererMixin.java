@@ -10,6 +10,7 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
 
 import org.joml.Matrix4f;
@@ -43,17 +44,28 @@ public class WorldRendererMixin
             RenderSystem.setShaderFogColor(color.r, color.g, color.b, 1F);
 
             info.cancel();
-
             return;
         }
 
-        SunPathRotation.begin(matrices.peek().getPositionMatrix());
+        if (SunPathRotation.isActive() && !thickFog)
+        {
+            matrices.push();
+            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(SunPathRotation.getDegrees()));
+        }
     }
 
     @Inject(method = "renderSky(Lnet/minecraft/client/util/math/MatrixStack;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("RETURN"))
     public void onRenderSkyReturn(MatrixStack matrices, Matrix4f projectionMatrix, float tickDelta, Camera camera, boolean thickFog, Runnable fogCallback, CallbackInfo info)
     {
-        SunPathRotation.end(matrices.peek().getPositionMatrix());
+        if (BBSRendering.isChromaSkyEnabled())
+        {
+            return;
+        }
+
+        if (SunPathRotation.isActive() && !thickFog)
+        {
+            matrices.pop();
+        }
     }
 
     @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true)
