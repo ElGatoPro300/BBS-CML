@@ -8,6 +8,7 @@
         "CameraMixin",
         "GameRendererMixin",
         "MouseMixin",
+        "MouseAccessor",
         "EntityRendererDispatcherInvoker",
         "EntityAccessor",
         "PlayerEntityRendererMixin",
