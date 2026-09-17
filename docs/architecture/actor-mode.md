@@ -53,9 +53,10 @@ Two representations. **Do not collapse them.** Toggling Actor never deletes the 
 * Disabling while flight + `editorFlightFreeLook` is active hands the grab to `UIFilmPanel.captureFreeFlightMouse()` (no `NORMAL` flash between owners).
 * Record / insert-frame overlays unlock the cursor but `canControl()` stays false while they are open; cancel/close re-grabs via `onClose` → `toggleMousePointer(controlled != null)`.
 
-## Iris
+## Iris / lighting
 
 * `ShadowRendererMixin` must skip stub bodies for actor replays (the physical entity already casts the shadow).
+* NeoForge ModelForm lightmap isolation: stubs are covered in `BaseFilmController#render`; actors must re-arm via `ActorEntityRenderer` → `prepareVanillaEntityLighting()` (see `docs/architecture/rendering-iris.md` §5). Toggling Actor without that call reintroduces position-order lighting contamination.
 
 ## Gizmos
 
