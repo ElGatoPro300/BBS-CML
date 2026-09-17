@@ -5,8 +5,10 @@ import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.mixin.client.MouseAccessor;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.util.InputUtil;
 
@@ -169,9 +171,11 @@ public class Window
     }
 
     /**
-     * Center the OS/GLFW cursor in the game window. Used by film free-look and
-     * actor-control mouse capture so the first look delta is not relative to a
-     * stale UI hover position.
+     * Center the OS/GLFW cursor and force-sync Minecraft {@link Mouse} to the same
+     * point (clearing accumulated cursor deltas). Actor-control / free-look read
+     * {@code Mouse.getX/Y()} for deltas; without this sync those values can still
+     * sit on a UI click for one or more frames after {@code glfwSetCursorPos}, which
+     * causes a yaw/pitch jump on the first real look movement.
      */
     public static void centerCursor()
     {
@@ -182,13 +186,38 @@ public class Window
             return;
         }
 
-        moveCursor(window.getWidth() / 2, window.getHeight() / 2);
+        double x = window.getWidth() / 2D;
+        double y = window.getHeight() / 2D;
+
+        moveCursor((int) x, (int) y);
+        syncClientMouseTo(x, y);
     }
 
     /**
-     * Raw GLFW cursor position in window coordinates (same space as {@link #moveCursor}
-     * / free-look). Prefer this over {@code Mouse.getX/Y()} right after a warp — Minecraft's
-     * mouse state can lag one frame behind {@code glfwSetCursorPos}.
+     * Align Minecraft's mouse absolute position with a GLFW warp and drop any
+     * pending look deltas from the UI→center transition.
+     */
+    public static void syncClientMouseTo(double x, double y)
+    {
+        Mouse mouse = MinecraftClient.getInstance().mouse;
+
+        if (!(mouse instanceof MouseAccessor accessor))
+        {
+            return;
+        }
+
+        accessor.bbs$setX(x);
+        accessor.bbs$setY(y);
+        accessor.bbs$setCursorDeltaX(0D);
+        accessor.bbs$setCursorDeltaY(0D);
+    }
+
+    /**
+     * Raw GLFW cursor position in window coordinates (same space as {@link #moveCursor}).
+     * Useful for one-shot warps / diagnostics. Do <b>not</b> use frame-to-frame differences
+     * for actor-control or free-look while {@code GLFW_CURSOR_DISABLED}: many platforms
+     * keep this value at the centered warp, so look deltas become zero. Prefer Minecraft
+     * {@code Mouse.getX/Y()} for continuous look deltas after {@link #centerCursor()}.
      */
     public static void getCursorPos(double[] x, double[] y)
     {

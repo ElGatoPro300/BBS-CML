@@ -7128,19 +7128,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void updateFreeFlightLookFromRawCursor(boolean orbitFlight)
     {
-        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
-
         if (this.enforceFreeFlightMouseCapture())
         {
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
         }
 
-        double[] rawX = new double[1];
-        double[] rawY = new double[1];
-        GLFW.glfwGetCursorPos(window.getHandle(), rawX, rawY);
-        int mouseX = (int) Math.round(rawX[0]);
-        int mouseY = (int) Math.round(rawY[0]);
+        /* Same hybrid as actor control: Mouse callbacks under DISABLED, not glfwGetCursorPos. */
+        net.minecraft.client.Mouse mouse = MinecraftClient.getInstance().mouse;
+        int mouseX = (int) Math.round(mouse.getX());
+        int mouseY = (int) Math.round(mouse.getY());
 
         if (this.resetFreeFlightLookDrag || !this.freeFlightLookPrimed)
         {

@@ -320,11 +320,11 @@ public class UIFilmController extends UIElement
 
     private void syncLastMouseFromGrabbedCursor()
     {
-        double[] x = new double[1];
-        double[] y = new double[1];
+        /* centerCursor() already force-synced Mouse x/y to the warp; re-read that
+         * baseline so lastMouse matches before the first primed look frame. */
+        net.minecraft.client.Mouse mouse = MinecraftClient.getInstance().mouse;
 
-        Window.getCursorPos(x, y);
-        this.lastMouse.set(x[0], y[0]);
+        this.lastMouse.set(mouse.getX(), mouse.getY());
     }
 
     public ValueOnionSkin getOnionSkin()
@@ -659,9 +659,25 @@ public class UIFilmController extends UIElement
         this.setMouseMode(this.mouseMode);
         this.toggleMousePointer(this.controlled != null);
 
+        /* Match Only-rotation / Record overlay: a second grab on the next client tick
+         * re-centers and re-primes after the UI click that toggled control, so platforms
+         * that still emit a stale Mouse frame after the first DISABLED warp do not jump. */
+        if (this.controlled != null)
+        {
+            MinecraftClient.getInstance().execute(this::regrabControlMouse);
+        }
+
         if (this.controlled == null && this.recording)
         {
             this.stopRecording();
+        }
+    }
+
+    private void regrabControlMouse()
+    {
+        if (this.controlled != null)
+        {
+            this.toggleMousePointer(true);
         }
     }
 
@@ -681,6 +697,8 @@ public class UIFilmController extends UIElement
         player.setClimbing(false);
         player.setRiptide(false);
         player.setVelocity(0F, 0F, 0F);
+        /* Rotation/prev are applied by PlayerUtils.teleport after this — keep physics
+         * neutral here so keyframed velocity/flying do not ice-slide the puppet. */
     }
 
     /**
@@ -1517,6 +1535,7 @@ public class UIFilmController extends UIElement
 
         panel.onMobCaptureCancel(() -> this.openRecordOverlay(true));
         panel.setMobToMorph(mobToMorph);
+        panel.onClose((event) -> this.toggleMousePointer(this.controlled != null));
 
         UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> panel.submit(Arrays.asList("outside")));
 
@@ -2172,15 +2191,12 @@ public class UIFilmController extends UIElement
             }
         }
 
-        /* Look/sticks use raw GLFW (same space as centerCursor / free-look). Minecraft
-         * Mouse.getX/Y can stay on the Record-overlay click for a frame after the warp. */
-        double[] cursorX = new double[1];
-        double[] cursorY = new double[1];
-
-        Window.getCursorPos(cursorX, cursorY);
-
-        double x = cursorX[0];
-        double y = cursorY[0];
+        /* Look/sticks: center+prime absorbs the post-warp frame; per-frame deltas come
+         * from Minecraft Mouse (cursor callbacks). Raw glfwGetCursorPos under
+         * GLFW_CURSOR_DISABLED often stays at the centered warp and zeros rotation. */
+        net.minecraft.client.Mouse mouse = MinecraftClient.getInstance().mouse;
+        double x = mouse.getX();
+        double y = mouse.getY();
 
         if (this.canControl())
         {

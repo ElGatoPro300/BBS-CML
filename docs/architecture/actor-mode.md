@@ -46,9 +46,12 @@ Two representations. **Do not collapse them.** Toggling Actor never deletes the 
 ## Actor control mouse capture
 
 * Enabling control must **center** the cursor (`Window.centerCursor`) and **skip the first look/stick delta** (`controlLookPrimed`), same idea as editor free-look flight.
-* Look/stick deltas while controlling read **raw GLFW** (`Window.getCursorPos`), not `Mouse.getX/Y` — Minecraft's mouse can still sit on the Record-overlay click for a frame after `glfwSetCursorPos`.
+* `Window.centerCursor` also **force-syncs** Minecraft `Mouse` x/y to the warp and clears `cursorDeltaX/Y` (`MouseAccessor`). Without that, `Mouse.getX/Y` can stay on the UI click for several frames after `glfwSetCursorPos`, and the first real look movement jumps yaw/pitch.
+* After enabling control, a **deferred second grab** (`regrabControlMouse` on next client tick) matches the multi-grab timing of Only-rotation / Record overlay close — one priming frame is not enough on some platforms after a POSE-icon click.
+* `PlayerUtils.teleport` seeds `prevYaw` / `prevHeadYaw` / `prevBodyYaw` / `prevPitch` to the teleported pose. Actor control uses `setupActorControlPlayer` (no full stub `copy`), so without prev seed the first `changeLookDirection` lerps from the old player look and snaps procedural head/limbs/bodyYaw.
+* Look/stick **deltas** while controlling come from Minecraft `Mouse.getX/Y()` (cursor callbacks). Do **not** derive deltas from `glfwGetCursorPos` under `GLFW_CURSOR_DISABLED` — on many platforms that position stays at the warp center and rotation becomes zero while WASD position still works.
 * Disabling while flight + `editorFlightFreeLook` is active hands the grab to `UIFilmPanel.captureFreeFlightMouse()` (no `NORMAL` flash between owners).
-* Record / insert-frame overlays unlock the cursor but `canControl()` stays false while they are open; re-grab on submit uses the same center + GLFW baseline path.
+* Record / insert-frame overlays unlock the cursor but `canControl()` stays false while they are open; cancel/close re-grabs via `onClose` → `toggleMousePointer(controlled != null)`.
 
 ## Iris
 
