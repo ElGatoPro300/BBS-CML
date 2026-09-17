@@ -119,6 +119,7 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.player.LocalPlayer;
 
 import org.joml.Matrix3x2fc;
@@ -5766,12 +5767,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (film != null && film.getId().equals(filmId) && CollectionUtils.inRange(film.replays.getList(), replayId))
         {
-            BaseValue.edit(film.replays.getList().get(replayId), IValueListener.FLAG_UNMERGEABLE, (replay) ->
+            /* Edit actions only — never the whole Replay. Caching the replay parent would
+             * let reduceUndoRedundancy drop a pending/sibling keyframes undo and permanently
+             * lose the pre-viewport-recording snapshot (Only rotation / similar takes). */
+            Replay replay = film.replays.getList().get(replayId);
+
+            BaseValue.edit(replay.actions, IValueListener.FLAG_UNMERGEABLE, (actions) ->
             {
                 Clips newClips = new Clips("", BBSMod.getFactoryActionClips());
 
                 newClips.fromData(clips);
-                replay.actions.copyOver(newClips, tick);
+                actions.copyOver(newClips, tick);
             });
         }
 
@@ -7064,7 +7070,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (flight)
         {
-            this.centerCursor(window);
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
@@ -7079,6 +7085,25 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    /**
+     * Re-grab free-look capture after actor control ends so the cursor never
+     * flashes {@code NORMAL} between the two grab owners.
+     */
+    public void captureFreeFlightMouse()
+    {
+        if (!this.isFlying() || !BBSSettings.editorFlightFreeLook.get())
+        {
+            return;
+        }
+
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
+
+        Window.centerCursor();
+        GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        this.resetFreeFlightLookDrag = true;
+        this.freeFlightLookPrimed = false;
+    }
+
     private boolean enforceFreeFlightMouseCapture()
     {
         if (!this.isFlying() || !BBSSettings.editorFlightFreeLook.get())
@@ -7090,7 +7115,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (GLFW.glfwGetInputMode(window.handle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
         {
-            this.centerCursor(window);
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             return true;
         }
@@ -7098,26 +7123,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return false;
     }
 
-    private void centerCursor(com.mojang.blaze3d.platform.Window window)
-    {
-        Window.moveCursor(window.getScreenWidth() / 2, window.getScreenHeight() / 2);
-    }
-
     private void updateFreeFlightLookFromRawCursor(boolean orbitFlight)
     {
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
-
         if (this.enforceFreeFlightMouseCapture())
         {
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
         }
 
-        double[] rawX = new double[1];
-        double[] rawY = new double[1];
-        GLFW.glfwGetCursorPos(window.handle(), rawX, rawY);
-        int mouseX = (int) Math.round(rawX[0]);
-        int mouseY = (int) Math.round(rawY[0]);
+        /* Same hybrid as actor control: Mouse callbacks under DISABLED, not glfwGetCursorPos. */
+        MouseHandler mouse = Minecraft.getInstance().mouseHandler;
+        int mouseX = (int) Math.round(mouse.xpos());
+        int mouseY = (int) Math.round(mouse.ypos());
 
         if (this.resetFreeFlightLookDrag || !this.freeFlightLookPrimed)
         {

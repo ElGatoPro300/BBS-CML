@@ -32,6 +32,14 @@ For **every other factory** (Boolean, ItemStack, Pose, Color, ShadowSettings, Mo
 
 This is intentional for the generic channel API — not a replay-recording limitation. Do **not** assume `interpolate(tick)` is non-null for non-numeric tracks.
 
+## Viewport recording undo
+
+Stopping a film-editor viewport take (`Only rotation` and other record-overlay groups) commits one explicit keyframe undo: pre-take `recordingOld` → post-simplify/seal state, flushed immediately and marked non-mergeable. `simplify`/`seal` notifies are suppressed during that finalize so they cannot poison the undo cache. Incoming `receiveActions` must edit `replay.actions` only (not the whole `Replay`), or `reduceUndoRedundancy` can drop the keyframes snapshot and Ctrl+Z will not restore the pre-take timeline.
+
+## Procedural limb swing (ModelForm stubs)
+
+`ProceduralAnimator` soft-fills walk swing when `horizontalSpeed > 0.08` but vanilla `LimbAnimator` is still idle. For **film-driven** targets (`StubEntity` and `ActorEntity`), that speed must come from **prev→pos XZ displacement only** — never from `vX`/`vZ` / entity velocity. Otherwise a stationary stub (position truncated, velocity leftover or apply-time velocity) gets ghost arm/leg motion timed to old walk data. Live players / non-film entities still use `max(velocity, displacement)`.
+
 ## Replay recording resume
 
 Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups, liveEntity)`:
