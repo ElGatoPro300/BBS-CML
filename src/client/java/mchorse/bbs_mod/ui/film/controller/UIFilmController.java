@@ -74,6 +74,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
@@ -322,7 +323,7 @@ public class UIFilmController extends UIElement
     {
         /* centerCursor() already force-synced Mouse x/y to the warp; re-read that
          * baseline so lastMouse matches before the first primed look frame. */
-        net.minecraft.client.Mouse mouse = MinecraftClient.getInstance().mouse;
+        Mouse mouse = MinecraftClient.getInstance().mouse;
 
         this.lastMouse.set(mouse.getX(), mouse.getY());
     }
@@ -2194,7 +2195,7 @@ public class UIFilmController extends UIElement
         /* Look/sticks: center+prime absorbs the post-warp frame; per-frame deltas come
          * from Minecraft Mouse (cursor callbacks). Raw glfwGetCursorPos under
          * GLFW_CURSOR_DISABLED often stays at the centered warp and zeros rotation. */
-        net.minecraft.client.Mouse mouse = MinecraftClient.getInstance().mouse;
+        Mouse mouse = MinecraftClient.getInstance().mouse;
         double x = mouse.getX();
         double y = mouse.getY();
 
