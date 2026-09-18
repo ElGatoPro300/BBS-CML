@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.blockentity.SkullBlockRenderer;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -188,17 +189,13 @@ public final class ItemRenderHelper
             renderLayer = SkullBlockRenderer.getSkullRenderType(skullType, null);
         }
 
-        ensureIsolatedDispatcher();
-
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BBSRendering.enableBlend());
         consumers.setSubstitute(BBSRendering.getColorConsumer(color));
 
-        SkullBlockRenderer.submitSkull(180F, matrices, isolatedQueue, light, skullModel, renderLayer, 0, null);
+        skullModel.renderToBuffer(matrices, consumers.getBuffer(renderLayer), light, OverlayTexture.NO_OVERLAY, -1);
 
-        isolatedDispatcher.renderAllFeatures();
-        client.renderBuffers().bufferSource().endBatch();
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();
