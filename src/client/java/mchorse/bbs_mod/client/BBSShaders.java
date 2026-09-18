@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
 import net.minecraft.client.renderer.BindGroupLayouts;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.PrimitiveTopology;
@@ -17,7 +16,6 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.List;
