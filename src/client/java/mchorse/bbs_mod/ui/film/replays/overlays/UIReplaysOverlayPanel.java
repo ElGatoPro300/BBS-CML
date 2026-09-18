@@ -40,11 +40,11 @@ import net.minecraft.client.player.LocalPlayer;
 
 import com.mojang.logging.LogUtils;
 
+import org.slf4j.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
 
 public class UIReplaysOverlayPanel extends UIOverlayPanel
 {

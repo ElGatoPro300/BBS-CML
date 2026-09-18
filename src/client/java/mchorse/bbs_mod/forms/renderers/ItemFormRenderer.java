@@ -44,9 +44,9 @@ import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
 
-import java.util.function.Function;
-
 import org.slf4j.Logger;
+
+import java.util.function.Function;
 
 public class ItemFormRenderer extends FormRenderer<ItemForm>
 {

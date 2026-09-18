@@ -17,11 +17,11 @@ import net.minecraft.client.Minecraft;
 
 import com.mojang.logging.LogUtils;
 
+import org.slf4j.Logger;
+
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
 
 /**
  * Updates Discord Rich Presence while Minecraft with BBS CML is running.

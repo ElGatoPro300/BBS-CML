@@ -18,12 +18,6 @@ import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
 
-import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
-
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -32,6 +26,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin implements WorldOverlayRenderer.Provider

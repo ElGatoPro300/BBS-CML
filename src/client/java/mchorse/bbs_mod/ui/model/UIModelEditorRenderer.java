@@ -70,6 +70,8 @@ import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
 
+import org.slf4j.Logger;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -77,8 +79,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import org.slf4j.Logger;
 
 public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurface
 {
