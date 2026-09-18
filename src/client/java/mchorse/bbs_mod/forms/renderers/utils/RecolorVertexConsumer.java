@@ -41,6 +41,34 @@ public class RecolorVertexConsumer implements VertexConsumer
     }
 
     @Override
+    public void vertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        int a = (color >> 24) & 0xFF;
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = color & 0xFF;
+
+        r = MathUtils.clamp((int) (this.color.r * r), 0, 255);
+        g = MathUtils.clamp((int) (this.color.g * g), 0, 255);
+        b = MathUtils.clamp((int) (this.color.b * b), 0, 255);
+        a = MathUtils.clamp((int) (this.color.a * a), 0, 255);
+
+        if (this.paintColor != null)
+        {
+            int[] rgb = { r, g, b };
+
+            FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
+            r = MathUtils.clamp(rgb[0], 0, 255);
+            g = MathUtils.clamp(rgb[1], 0, 255);
+            b = MathUtils.clamp(rgb[2], 0, 255);
+        }
+
+        int recolored = (a << 24) | (r << 16) | (g << 8) | b;
+
+        this.consumer.vertex(x, y, z, recolored, u, v, overlay, light, normalX, normalY, normalZ);
+    }
+
+    @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         red = MathUtils.clamp((int) (this.color.r * red), 0, 255);
