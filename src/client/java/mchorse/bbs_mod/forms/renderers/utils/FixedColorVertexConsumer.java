@@ -83,4 +83,10 @@ public class FixedColorVertexConsumer implements VertexConsumer
     {
         return this.delegate.setLineWidth(width);
     }
+
+    @Override
+    public VertexConsumer setUv3(float u, float v)
+    {
+        return this.delegate.setUv3(u, v);
+    }
 }

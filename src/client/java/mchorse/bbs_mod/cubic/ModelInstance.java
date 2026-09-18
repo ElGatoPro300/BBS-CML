@@ -44,10 +44,10 @@ import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -801,7 +801,7 @@ public class ModelInstance implements IModelInstance
             CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
             boolean effects = stencilMap != null || ModelVAORenderer.isPaintOverlayPass()
                 || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass() || !BBSRendering.isIrisShadersEnabled()
-                || RenderSystem.outputColorTextureOverride != null;
+                || BBSRendering.outputColorTextureOverride != null;
 
             if (effects)
             {
@@ -824,7 +824,7 @@ public class ModelInstance implements IModelInstance
             if (!vaos.isEmpty())
             {
                 stack.pushPose();
-                stack.mulPose(Axis.YP.rotationDegrees(180F));
+                stack.rotate(Axis.YP.rotationDegrees(180F));
 
                 model.getArmature().setupMatrices();
 
@@ -838,7 +838,7 @@ public class ModelInstance implements IModelInstance
                     }
 
                     if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorTintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass() && !ModelVAORenderer.isGlowEmissionPass()
-                        && BBSRendering.isIrisShadersEnabled() && RenderSystem.outputColorTextureOverride == null)
+                        && BBSRendering.isIrisShadersEnabled() && BBSRendering.outputColorTextureOverride == null)
                     {
                         vao.renderLayer(stack, color, light, overlay, texture, this.culling);
                     }

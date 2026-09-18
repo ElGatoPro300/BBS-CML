@@ -16,7 +16,9 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
+
+import java.net.URI;
 
 public class UIAddonsOverlayPanel extends UIOverlayPanel
 {
@@ -134,7 +136,7 @@ public class UIAddonsOverlayPanel extends UIOverlayPanel
         {
             try
             {
-                Util.getPlatform().openUri(url);
+                Blaze3D.openUri(URI.create(url));
             }
             catch (Exception e)
             {

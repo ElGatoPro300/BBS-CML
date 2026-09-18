@@ -149,7 +149,7 @@ public final class FormDeathTilt
 
         if (degrees != 0F)
         {
-            matrices.mulPose(Axis.ZP.rotationDegrees(degrees));
+            matrices.rotate(Axis.ZP.rotationDegrees(degrees));
         }
     }
 

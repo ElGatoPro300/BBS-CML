@@ -67,6 +67,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -80,21 +81,25 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.opengl.GlRenderPipeline;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
 import com.mojang.blaze3d.pipeline.MainTarget;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompiledRenderPipeline;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
+import com.mojang.renderpearl.backend.opengl.GlRenderPipeline;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
+import com.mojang.renderpearl.frontend.FrontendRenderPipeline;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -107,11 +112,16 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.function.Function;
 
 public class BBSRendering
 {
+    public static GpuTextureView outputColorTextureOverride;
+    public static GpuTextureView outputDepthTextureOverride;
+
     /**
      * Cached rendered model blocks
      */
@@ -341,8 +351,8 @@ public class BBSRendering
     {
         RenderTarget fb = Minecraft.getInstance().gameRenderer != null ? Minecraft.getInstance().gameRenderer.mainRenderTarget() : null;
 
-        RenderSystem.outputColorTextureOverride = null;
-        RenderSystem.outputDepthTextureOverride = null;
+        outputColorTextureOverride = null;
+        outputDepthTextureOverride = null;
 
         if (clear && fb != null && fb.getColorTexture() != null && fb.getDepthTexture() != null)
         {
@@ -359,8 +369,8 @@ public class BBSRendering
             return;
         }
 
-        RenderSystem.outputColorTextureOverride = fb.getColorTextureView();
-        RenderSystem.outputDepthTextureOverride = fb.getDepthTextureView();
+        outputColorTextureOverride = fb.getColorTextureView();
+        outputDepthTextureOverride = fb.getDepthTextureView();
 
         if (clear && fb.getColorTexture() != null && fb.getDepthTexture() != null)
         {
@@ -741,25 +751,9 @@ public class BBSRendering
 
     public static void resizeExtraFramebuffers()
     {
-        Minecraft mc = Minecraft.getInstance();
-
-        if (mc.levelRenderer == null)
+        if (framebuffer != null)
         {
-            return;
-        }
-
-        Set<RenderTarget> buffers = new HashSet<>();
-
-        buffers.add(mc.levelRenderer.entityOutlineTarget());
-        buffers.add(mc.levelRenderer.translucentTarget());
-        buffers.add(mc.levelRenderer.itemEntityTarget());
-        buffers.add(mc.levelRenderer.particlesTarget());
-        buffers.add(mc.levelRenderer.weatherTarget());
-        buffers.add(mc.levelRenderer.cloudsTarget());
-
-        for (RenderTarget buffer : buffers)
-        {
-            resizeFramebuffer(buffer);
+            resizeFramebuffer(framebuffer);
         }
     }
 
@@ -1934,6 +1928,37 @@ public class BBSRendering
         GlStateManager._depthMask(mask);
     }
 
+    public static void renderFeatures(FeatureRenderDispatcher dispatcher, SubmitNodeStorage storage)
+    {
+        if (dispatcher == null || storage == null)
+        {
+            return;
+        }
+
+        FeatureRenderDispatcher.PreparedFrame frame = dispatcher.prepareFrame(storage);
+
+        if (frame == null)
+        {
+            return;
+        }
+
+        RenderTarget target = Minecraft.getInstance().gameRenderer != null ? Minecraft.getInstance().gameRenderer.mainRenderTarget() : null;
+        GpuTextureView colorView = outputColorTextureOverride != null ? outputColorTextureOverride : (target != null ? target.getColorTextureView() : null);
+        GpuTextureView depthView = outputDepthTextureOverride != null ? outputDepthTextureOverride : (target != null ? target.getDepthTextureView() : null);
+
+        if (colorView != null)
+        {
+            CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
+
+            try (RenderPass pass = depthView != null
+                ? encoder.createRenderPass(() -> "bbs_features", colorView, Optional.empty(), depthView, OptionalDouble.empty())
+                : encoder.createRenderPass(() -> "bbs_features", colorView, Optional.empty()))
+            {
+                FeatureRenderDispatcher.renderAllFeatures(pass, frame);
+            }
+        }
+    }
+
     public static GlProgram getProgram(RenderPipeline pipeline)
     {
         if (pipeline == null)
@@ -1943,8 +1968,9 @@ public class BBSRendering
 
         try
         {
-            CompiledRenderPipeline compiled = RenderSystem.getDevice().precompilePipeline(pipeline);
-            if (compiled instanceof GlRenderPipeline shaderPipeline)
+            CompiledRenderPipeline compiled = RenderSystem.getCompiledPipeline(pipeline);
+
+            if (compiled instanceof FrontendRenderPipeline frontend && frontend.backendRenderPipeline() instanceof GlRenderPipeline shaderPipeline)
             {
                 return shaderPipeline.program();
             }
@@ -2013,7 +2039,7 @@ public class BBSRendering
     {
         ModelEffectPass.bound(program);
 
-        if (program != null && program != GlProgram.INVALID_PROGRAM && program.getProgramId() > 0)
+        if (program != null && program.getProgramId() > 0)
         {
             GL20.glUseProgram(program.getProgramId());
         }

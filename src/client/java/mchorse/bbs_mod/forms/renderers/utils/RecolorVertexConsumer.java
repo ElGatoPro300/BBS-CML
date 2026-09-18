@@ -93,4 +93,10 @@ public class RecolorVertexConsumer implements VertexConsumer
     {
         return this.consumer.setLineWidth(width);
     }
+
+    @Override
+    public VertexConsumer setUv3(float u, float v)
+    {
+        return this.consumer.setUv3(u, v);
+    }
 }

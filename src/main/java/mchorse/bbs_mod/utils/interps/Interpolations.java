@@ -5,8 +5,6 @@ import mchorse.bbs_mod.utils.interps.easings.Easings;
 import mchorse.bbs_mod.utils.interps.types.BaseInterp;
 import mchorse.bbs_mod.utils.interps.types.EasingInterp;
 
-import org.lwjgl.glfw.GLFW;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -14,9 +12,9 @@ public class Interpolations
 {
     public static final Map<String, IInterp> MAP = new LinkedHashMap<>();
 
-    public static final IInterp LINEAR = new EasingInterp("linear", GLFW.GLFW_KEY_L, Easings.LINEAR);
-    public static final IInterp CONST = new EasingInterp("constant", GLFW.GLFW_KEY_T, Easings.CONST);
-    public static final IInterp STEP = new BaseInterp("step", GLFW.GLFW_KEY_P)
+    public static final IInterp LINEAR = new EasingInterp("linear", 'L', Easings.LINEAR);
+    public static final IInterp CONST = new EasingInterp("constant", 'T', Easings.CONST);
+    public static final IInterp STEP = new BaseInterp("step", 'P')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -43,47 +41,47 @@ public class Interpolations
         }
     };
 
-    public static final IInterp SINE_IN = new EasingInterp("sine_in", GLFW.GLFW_KEY_I, Easings.SINE);
-    public static final IInterp SINE_OUT = new EasingInterp("sine_out", GLFW.GLFW_KEY_I, Easings.out(Easings.SINE));
-    public static final IInterp SINE_INOUT = new EasingInterp("sine_inout", GLFW.GLFW_KEY_I, Easings.inOut(Easings.SINE));
+    public static final IInterp SINE_IN = new EasingInterp("sine_in", 'I', Easings.SINE);
+    public static final IInterp SINE_OUT = new EasingInterp("sine_out", 'I', Easings.out(Easings.SINE));
+    public static final IInterp SINE_INOUT = new EasingInterp("sine_inout", 'I', Easings.inOut(Easings.SINE));
 
-    public static final IInterp CIRCLE_IN = new EasingInterp("circle_in", GLFW.GLFW_KEY_R, Easings.CIRCLE);
-    public static final IInterp CIRCLE_OUT = new EasingInterp("circle_out", GLFW.GLFW_KEY_R, Easings.out(Easings.CIRCLE));
-    public static final IInterp CIRCLE_INOUT = new EasingInterp("circle_inout", GLFW.GLFW_KEY_R, Easings.inOut(Easings.CIRCLE));
+    public static final IInterp CIRCLE_IN = new EasingInterp("circle_in", 'R', Easings.CIRCLE);
+    public static final IInterp CIRCLE_OUT = new EasingInterp("circle_out", 'R', Easings.out(Easings.CIRCLE));
+    public static final IInterp CIRCLE_INOUT = new EasingInterp("circle_inout", 'R', Easings.inOut(Easings.CIRCLE));
 
-    public static final IInterp QUAD_IN = new EasingInterp("quad_in", GLFW.GLFW_KEY_Q, Easings.QUADRATIC);
-    public static final IInterp QUAD_OUT = new EasingInterp("quad_out", GLFW.GLFW_KEY_Q, Easings.out(Easings.QUADRATIC));
-    public static final IInterp QUAD_INOUT = new EasingInterp("quad_inout", GLFW.GLFW_KEY_Q, Easings.inOut(Easings.QUADRATIC));
+    public static final IInterp QUAD_IN = new EasingInterp("quad_in", 'Q', Easings.QUADRATIC);
+    public static final IInterp QUAD_OUT = new EasingInterp("quad_out", 'Q', Easings.out(Easings.QUADRATIC));
+    public static final IInterp QUAD_INOUT = new EasingInterp("quad_inout", 'Q', Easings.inOut(Easings.QUADRATIC));
 
-    public static final IInterp CUBIC_IN = new EasingInterp("cubic_in", GLFW.GLFW_KEY_C, Easings.CUBIC);
-    public static final IInterp CUBIC_OUT = new EasingInterp("cubic_out", GLFW.GLFW_KEY_C, Easings.out(Easings.CUBIC));
-    public static final IInterp CUBIC_INOUT = new EasingInterp("cubic_inout", GLFW.GLFW_KEY_C, Easings.inOut(Easings.CUBIC));
+    public static final IInterp CUBIC_IN = new EasingInterp("cubic_in", 'C', Easings.CUBIC);
+    public static final IInterp CUBIC_OUT = new EasingInterp("cubic_out", 'C', Easings.out(Easings.CUBIC));
+    public static final IInterp CUBIC_INOUT = new EasingInterp("cubic_inout", 'C', Easings.inOut(Easings.CUBIC));
 
-    public static final IInterp QUART_IN = new EasingInterp("quart_in", GLFW.GLFW_KEY_U, Easings.QUARTIC);
-    public static final IInterp QUART_OUT = new EasingInterp("quart_out", GLFW.GLFW_KEY_U, Easings.out(Easings.QUARTIC));
-    public static final IInterp QUART_INOUT = new EasingInterp("quart_inout", GLFW.GLFW_KEY_U, Easings.inOut(Easings.QUARTIC));
+    public static final IInterp QUART_IN = new EasingInterp("quart_in", 'U', Easings.QUARTIC);
+    public static final IInterp QUART_OUT = new EasingInterp("quart_out", 'U', Easings.out(Easings.QUARTIC));
+    public static final IInterp QUART_INOUT = new EasingInterp("quart_inout", 'U', Easings.inOut(Easings.QUARTIC));
 
-    public static final IInterp QUINT_IN = new EasingInterp("quint_in", GLFW.GLFW_KEY_N, Easings.QUINTIC);
-    public static final IInterp QUINT_OUT = new EasingInterp("quint_out", GLFW.GLFW_KEY_N, Easings.out(Easings.QUINTIC));
-    public static final IInterp QUINT_INOUT = new EasingInterp("quint_inout", GLFW.GLFW_KEY_N, Easings.inOut(Easings.QUINTIC));
+    public static final IInterp QUINT_IN = new EasingInterp("quint_in", 'N', Easings.QUINTIC);
+    public static final IInterp QUINT_OUT = new EasingInterp("quint_out", 'N', Easings.out(Easings.QUINTIC));
+    public static final IInterp QUINT_INOUT = new EasingInterp("quint_inout", 'N', Easings.inOut(Easings.QUINTIC));
 
-    public static final IInterp EXP_IN = new EasingInterp("exp_in", GLFW.GLFW_KEY_E, Easings.EXP);
-    public static final IInterp EXP_OUT = new EasingInterp("exp_out", GLFW.GLFW_KEY_E, Easings.out(Easings.EXP));
-    public static final IInterp EXP_INOUT = new EasingInterp("exp_inout", GLFW.GLFW_KEY_E, Easings.inOut(Easings.EXP));
+    public static final IInterp EXP_IN = new EasingInterp("exp_in", 'E', Easings.EXP);
+    public static final IInterp EXP_OUT = new EasingInterp("exp_out", 'E', Easings.out(Easings.EXP));
+    public static final IInterp EXP_INOUT = new EasingInterp("exp_inout", 'E', Easings.inOut(Easings.EXP));
 
-    public static final IInterp BACK_IN = new EasingInterp("back_in", GLFW.GLFW_KEY_B, Easings.BACK);
-    public static final IInterp BACK_OUT = new EasingInterp("back_out", GLFW.GLFW_KEY_B, Easings.out(Easings.BACK));
-    public static final IInterp BACK_INOUT = new EasingInterp("back_inout", GLFW.GLFW_KEY_B, Easings.inOut(Easings.BACK));
+    public static final IInterp BACK_IN = new EasingInterp("back_in", 'B', Easings.BACK);
+    public static final IInterp BACK_OUT = new EasingInterp("back_out", 'B', Easings.out(Easings.BACK));
+    public static final IInterp BACK_INOUT = new EasingInterp("back_inout", 'B', Easings.inOut(Easings.BACK));
 
-    public static final IInterp ELASTIC_IN = new EasingInterp("elastic_in", GLFW.GLFW_KEY_S, Easings.ELASTIC);
-    public static final IInterp ELASTIC_OUT = new EasingInterp("elastic_out", GLFW.GLFW_KEY_S, Easings.out(Easings.ELASTIC));
-    public static final IInterp ELASTIC_INOUT = new EasingInterp("elastic_inout", GLFW.GLFW_KEY_S, Easings.inOut(Easings.ELASTIC));
+    public static final IInterp ELASTIC_IN = new EasingInterp("elastic_in", 'S', Easings.ELASTIC);
+    public static final IInterp ELASTIC_OUT = new EasingInterp("elastic_out", 'S', Easings.out(Easings.ELASTIC));
+    public static final IInterp ELASTIC_INOUT = new EasingInterp("elastic_inout", 'S', Easings.inOut(Easings.ELASTIC));
 
-    public static final IInterp BOUNCE_IN = new EasingInterp("bounce_in", GLFW.GLFW_KEY_O, Easings.BOUNCE);
-    public static final IInterp BOUNCE_OUT = new EasingInterp("bounce_out", GLFW.GLFW_KEY_O, Easings.out(Easings.BOUNCE));
-    public static final IInterp BOUNCE_INOUT = new EasingInterp("bounce_inout", GLFW.GLFW_KEY_O, Easings.inOut(Easings.BOUNCE));
+    public static final IInterp BOUNCE_IN = new EasingInterp("bounce_in", 'O', Easings.BOUNCE);
+    public static final IInterp BOUNCE_OUT = new EasingInterp("bounce_out", 'O', Easings.out(Easings.BOUNCE));
+    public static final IInterp BOUNCE_INOUT = new EasingInterp("bounce_inout", 'O', Easings.inOut(Easings.BOUNCE));
 
-    public static final IInterp CUBIC = new BaseInterp("cubic", GLFW.GLFW_KEY_K)
+    public static final IInterp CUBIC = new BaseInterp("cubic", 'K')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -92,7 +90,7 @@ public class Interpolations
         }
     };
 
-    public static final IInterp HERMITE = new BaseInterp("hermite", GLFW.GLFW_KEY_H)
+    public static final IInterp HERMITE = new BaseInterp("hermite", 'H')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -101,7 +99,7 @@ public class Interpolations
         }
     };
 
-    public static final IInterp BEZIER = new BaseInterp("bezier", GLFW.GLFW_KEY_Z)
+    public static final IInterp BEZIER = new BaseInterp("bezier", 'Z')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -110,7 +108,7 @@ public class Interpolations
         }
     };
 
-    public static final IInterp BSPLINE = new BaseInterp("bspline", GLFW.GLFW_KEY_J)
+    public static final IInterp BSPLINE = new BaseInterp("bspline", 'J')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -125,7 +123,7 @@ public class Interpolations
         }
     };
 
-    public static final IInterp AKIMA = new BaseInterp("akima", GLFW.GLFW_KEY_A)
+    public static final IInterp AKIMA = new BaseInterp("akima", 'A')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -134,7 +132,7 @@ public class Interpolations
         }
     };
     
-    public static final IInterp TCB = new BaseInterp("tcb", GLFW.GLFW_KEY_M)
+    public static final IInterp TCB = new BaseInterp("tcb", 'M')
     {
         @Override
         public double interpolate(InterpContext context)
@@ -146,7 +144,7 @@ public class Interpolations
         }
     };
     
-    public static final IInterp NURBS = new BaseInterp("nurbs", GLFW.GLFW_KEY_N)
+    public static final IInterp NURBS = new BaseInterp("nurbs", 'N')
     {
         @Override
         public double interpolate(InterpContext context)

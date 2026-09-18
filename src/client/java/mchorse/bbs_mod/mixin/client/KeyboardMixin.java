@@ -23,6 +23,6 @@ public class KeyboardMixin
     @Inject(method = "keyPress", at = @At("TAIL"))
     public void onOnEndKey(long window, int action, KeyEvent input, CallbackInfo info)
     {
-        BBSModClient.onEndKey(window, input.key(), input.scancode(), action, input.modifiers(), info);
+        BBSModClient.onEndKey(window, input.key(), input.keycode(), action, input.modifiers(), info);
     }
 }

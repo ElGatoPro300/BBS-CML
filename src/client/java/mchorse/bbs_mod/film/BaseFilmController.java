@@ -98,8 +98,8 @@ import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
@@ -305,7 +305,7 @@ public abstract class BaseFilmController
 
                 if (context.map == null)
                 {
-                    stack.mulPose(camera.rotation());
+                    stack.rotate(camera.rotation());
                 }
             }
 
@@ -1145,7 +1145,7 @@ public abstract class BaseFilmController
 
         matrices.pushPose();
         matrices.translate(0F, hitboxH, 0F);
-        matrices.mulPose(Minecraft.getInstance().gameRenderer.mainCamera().rotation());
+        matrices.rotate(Minecraft.getInstance().gameRenderer.mainCamera().rotation());
         matrices.scale(0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.last().pose();

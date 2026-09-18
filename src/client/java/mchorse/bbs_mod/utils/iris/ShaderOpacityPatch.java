@@ -23,12 +23,12 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.MainTarget;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
@@ -436,7 +436,7 @@ public class ShaderOpacityPatch
         }
         catch (Throwable ignored)
         {
-            return mc.levelRenderer != null && mc.levelRenderer.translucentTarget() != null;
+            return false;
         }
     }
 
@@ -467,18 +467,6 @@ public class ShaderOpacityPatch
         if (mc == null)
         {
             return;
-        }
-
-        if (fabulousTranslucentPass && mc.levelRenderer != null)
-        {
-            RenderTarget translucent = mc.levelRenderer.translucentTarget();
-
-            if (translucent != null)
-            {
-                BBSRendering.bindFramebuffer(translucent, false);
-
-                return;
-            }
         }
 
         BBSRendering.bindMainFramebuffer(false);

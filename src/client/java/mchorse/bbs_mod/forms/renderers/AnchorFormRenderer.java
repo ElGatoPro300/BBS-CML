@@ -14,9 +14,9 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
@@ -62,7 +62,7 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
             this.applyTransforms(uiMatrix, context.getTransition());
             MatrixStackUtils.multiply(stack, uiMatrix);
             /* Why? I don't know, because fuck you */
-            stack.mulPose(Axis.YN.rotationDegrees(180F));
+            stack.rotate(Axis.YN.rotationDegrees(180F));
             MatrixStackUtils.invertUiNormalY(stack);
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();

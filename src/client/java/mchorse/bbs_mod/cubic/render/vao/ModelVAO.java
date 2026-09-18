@@ -3,7 +3,7 @@ package mchorse.bbs_mod.cubic.render.vao;
 import mchorse.bbs_mod.client.BBSRendering;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL30;
 

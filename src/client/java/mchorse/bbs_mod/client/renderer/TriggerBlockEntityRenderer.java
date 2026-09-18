@@ -13,8 +13,8 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import java.util.HashSet;
 import java.util.Set;

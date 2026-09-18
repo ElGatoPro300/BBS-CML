@@ -28,7 +28,7 @@ import org.joml.Vector4f;
 
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public class ParticleComponentAppearanceBillboard extends ParticleComponentBase implements IComponentParticleRender
 {

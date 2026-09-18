@@ -6,8 +6,8 @@ import net.irisshaders.iris.pipeline.IrisPipelines;
 import net.irisshaders.iris.pipeline.programs.ShaderKey;
 import net.irisshaders.iris.vertices.IrisVertexFormats;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public class IrisFormPipelines
 {

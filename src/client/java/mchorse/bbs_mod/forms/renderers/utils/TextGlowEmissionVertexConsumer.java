@@ -80,6 +80,12 @@ public class TextGlowEmissionVertexConsumer implements VertexConsumer
     }
 
     @Override
+    public VertexConsumer setUv3(float u, float v)
+    {
+        return this.consumer.setUv3(u, v);
+    }
+
+    @Override
     public VertexConsumer setLineWidth(float width)
     {
         return this.consumer.setLineWidth(width);

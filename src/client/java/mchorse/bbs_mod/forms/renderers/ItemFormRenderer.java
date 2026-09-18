@@ -576,7 +576,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         float angle = (age / 20F + uniqueOffset) * 57.295776F;
 
         context.stack.translate(0F, bob + 0.25F, 0F);
-        context.stack.mulPose(Axis.YP.rotationDegrees(angle));
+        context.stack.rotate(Axis.YP.rotationDegrees(angle));
     }
 
     private float getDroppedUniqueOffset()
@@ -876,7 +876,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         if (storage != null)
         {
             itemRenderState.submit(stack, storage, light, overlay, 0);
-            dispatcher.renderAllFeatures(storage);
+            BBSRendering.renderFeatures(dispatcher, storage);
         }
     }
 

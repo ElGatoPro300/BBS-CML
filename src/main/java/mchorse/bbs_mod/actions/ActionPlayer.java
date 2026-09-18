@@ -1044,7 +1044,7 @@ public class ActionPlayer
             actor.deathTime = 0;
             actor.setHealth(Math.min(hp, actor.getMaxHealth()));
             actor.hurtTime = 0;
-            actor.invulnerableTime = 0;
+            actor.setInvulnerableTime(0);
 
             if (actor instanceof ActorEntity actorEntity)
             {

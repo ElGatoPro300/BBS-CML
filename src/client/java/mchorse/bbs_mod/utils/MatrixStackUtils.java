@@ -198,12 +198,12 @@ public class MatrixStackUtils
             stack.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
         }
 
-        stack.mulPose(Axis.ZP.rotation(transform.rotate.z));
-        stack.mulPose(Axis.YP.rotation(transform.rotate.y));
-        stack.mulPose(Axis.XP.rotation(transform.rotate.x));
-        stack.mulPose(Axis.ZP.rotation(transform.rotate2.z));
-        stack.mulPose(Axis.YP.rotation(transform.rotate2.y));
-        stack.mulPose(Axis.XP.rotation(transform.rotate2.x));
+        stack.rotate(Axis.ZP.rotation(transform.rotate.z));
+        stack.rotate(Axis.YP.rotation(transform.rotate.y));
+        stack.rotate(Axis.XP.rotation(transform.rotate.x));
+        stack.rotate(Axis.ZP.rotation(transform.rotate2.z));
+        stack.rotate(Axis.YP.rotation(transform.rotate2.y));
+        stack.rotate(Axis.XP.rotation(transform.rotate2.x));
         scaleStack(stack, transform.scale.x, transform.scale.y, transform.scale.z);
 
         if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)

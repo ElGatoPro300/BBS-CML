@@ -123,6 +123,15 @@ public class VertexMultiConsumer implements VertexConsumer
     }
 
     @Override
+    public VertexConsumer setUv3(float u, float v)
+    {
+        this.first.setUv3(u, v);
+        this.second.setUv3(u, v);
+
+        return this;
+    }
+
+    @Override
     public void putBakedQuad(PoseStack.Pose pose, BakedQuad quad, QuadInstance quadInstance)
     {
         this.first.putBakedQuad(pose, quad, quadInstance);

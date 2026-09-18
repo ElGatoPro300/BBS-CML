@@ -24,10 +24,10 @@ import mchorse.bbs_mod.utils.resources.FilteredLink;
 
 import org.joml.Matrix3x2fStack;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 public class UIMultiLinkEditor extends UICanvasEditor
 {

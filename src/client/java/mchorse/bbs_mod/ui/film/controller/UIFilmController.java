@@ -85,6 +85,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -101,14 +102,14 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -1193,7 +1194,7 @@ public class UIFilmController extends UIElement
             interactions.startDestroyBlock(blockHit.getBlockPos(), blockHit.getDirection());
         }
 
-        player.swing(InteractionHand.MAIN_HAND);
+        player.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
         this.swingVisibleActor(InteractionHand.MAIN_HAND);
     }
 
@@ -1315,7 +1316,7 @@ public class UIFilmController extends UIElement
     {
         if (result.consumesAction())
         {
-            player.swing(hand);
+            player.swing(hand, SwingAnimation.DEFAULT, false);
             this.swingVisibleActor(hand);
         }
     }
@@ -1349,7 +1350,7 @@ public class UIFilmController extends UIElement
 
         if (entity instanceof LivingEntity living)
         {
-            living.swing(hand);
+            living.swing(hand, SwingAnimation.DEFAULT, false);
         }
     }
 

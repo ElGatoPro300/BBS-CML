@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ClientClockManager.class)
+@Mixin(targets = "net.minecraft.client.ClientClockManager$ClientClockInstance")
 public class ClientWorldPropertiesMixin
 {
-    @Inject(method = "getTotalTicks", at = @At("HEAD"), cancellable = true)
-    public void onGetTotalTicks(Holder<WorldClock> clock, CallbackInfoReturnable<Long> info)
+    @Inject(method = "totalTicks", at = @At("HEAD"), cancellable = true)
+    public void onGetTotalTicks(CallbackInfoReturnable<Long> info)
     {
         Long worldTime = WorldPropertiesHelper.getClientTimeOverride();
 

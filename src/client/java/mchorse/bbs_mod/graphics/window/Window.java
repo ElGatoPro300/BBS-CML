@@ -72,7 +72,7 @@ public class Window
 
     public static boolean isKeyPressed(int key)
     {
-        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key);
+        return InputConstants.isKeyDown(key);
     }
 
     public static String getClipboard()

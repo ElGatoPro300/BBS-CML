@@ -48,6 +48,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.ValueInput;
 
@@ -463,7 +464,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             if (handSwingProgress > 0F && this.prevHandSwing == 0F)
             {
-                living.swing(InteractionHand.MAIN_HAND);
+                living.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
             }
 
             this.prevHandSwing = handSwingProgress;
@@ -528,7 +529,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             if (!this.form.mobID.get().equals("minecraft:ender_dragon"))
             {
-                stack.mulPose(Axis.YP.rotation(MathUtils.PI));
+                stack.rotate(Axis.YP.rotation(MathUtils.PI));
             }
 
             MatrixStackUtils.invertUiNormalY(stack);
@@ -563,7 +564,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 FeatureRenderDispatcher dispatcher = EntityPreviewRenderHelper.getDispatcher();
                 CameraRenderState cameraRenderState = new CameraRenderState();
                 entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, stack, EntityPreviewRenderHelper.getQueue());
-                dispatcher.renderAllFeatures(EntityPreviewRenderHelper.getQueue());
+                BBSRendering.renderFeatures(dispatcher, EntityPreviewRenderHelper.getQueue());
                 EntityPreviewRenderHelper.flushEntityBuffers();
             }
             finally
@@ -632,7 +633,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             {
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
             {
-                context.stack.mulPose(Axis.YP.rotation(MathUtils.PI));
+                context.stack.rotate(Axis.YP.rotation(MathUtils.PI));
             }
 
             boolean detachedRiding = false;
@@ -716,7 +717,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 if (storage != null)
                 {
                     entityRenderManager.submit(renderState, cameraRenderState, 0.0D, 0.0D, 0.0D, context.stack, storage);
-                    dispatcher.renderAllFeatures(storage);
+                    BBSRendering.renderFeatures(dispatcher, storage);
                 }
             }
             finally
@@ -813,7 +814,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                     if (handSwingProgress > 0 && this.prevHandSwing == 0)
                     {
-                        livingEntity.swing(InteractionHand.MAIN_HAND);
+                        livingEntity.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
                     }
 
                     this.prevHandSwing = handSwingProgress;

@@ -168,7 +168,7 @@ public final class ItemBodyPartBatch
 
                         if (!flushOnce)
                         {
-                            dispatcher.renderAllFeatures(storage);
+                            BBSRendering.renderFeatures(dispatcher, storage);
                         }
                     }
 
@@ -204,7 +204,7 @@ public final class ItemBodyPartBatch
 
                 if (storage != null)
                 {
-                    dispatcher.renderAllFeatures(storage);
+                    BBSRendering.renderFeatures(dispatcher, storage);
                 }
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();

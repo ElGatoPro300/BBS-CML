@@ -56,16 +56,23 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
     @Override
     public void endBatch()
     {
-        for (Map.Entry<RenderType, BufferBuilder> entry : this.startedBuilders.entrySet())
+        if (this.startedBuilders.isEmpty())
+        {
+            this.lastLayer = null;
+            return;
+        }
+
+        Map<RenderType, BufferBuilder> copy = new LinkedHashMap<>(this.startedBuilders);
+        this.startedBuilders.clear();
+        this.lastLayer = null;
+
+        for (Map.Entry<RenderType, BufferBuilder> entry : copy.entrySet())
         {
             RenderType layer = entry.getKey();
             BufferBuilder builder = entry.getValue();
 
             this.draw(builder, layer);
         }
-
-        this.startedBuilders.clear();
-        this.lastLayer = null;
     }
 
     @Override
@@ -95,7 +102,10 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
 
     private void draw(BufferBuilder builder, RenderType layer)
     {
-        CustomVertexConsumerProvider.drawLayer(layer);
-        Draw.flush(builder, layer);
+        if (builder != null)
+        {
+            CustomVertexConsumerProvider.drawLayer(layer);
+            Draw.flush(builder, layer);
+        }
     }
 }

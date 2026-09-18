@@ -12,6 +12,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.component.SwingAnimation;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -100,9 +101,9 @@ public class SwipeActionClip extends ActionClip
                 CLIENT_ONE_SHOT_AT_TICK.put(actor, tick);
             }
 
-            if (!actor.swinging)
+            if (!actor.isSwinging())
             {
-                actor.swing(InteractionHand.MAIN_HAND);
+                actor.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
             }
 
             return;
@@ -144,7 +145,7 @@ public class SwipeActionClip extends ActionClip
 
         if (actor != null)
         {
-            actor.swing(InteractionHand.MAIN_HAND, true);
+            actor.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
         }
     }
 

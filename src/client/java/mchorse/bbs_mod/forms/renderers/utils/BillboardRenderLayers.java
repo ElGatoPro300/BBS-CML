@@ -13,19 +13,20 @@ import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.BlendFactor;
-import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.pipeline.BlendFactor;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.ShaderType;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public class BillboardRenderLayers
 {
@@ -46,8 +47,8 @@ public class BillboardRenderLayers
 
             RenderPipeline.Builder builder = RenderPipelineUtils.withUniforms(source)
                 .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/billboard_" + index))
-                .withVertexShader(source.getVertexShader())
-                .withFragmentShader(source.getFragmentShader())
+                .withVertexShader(source.getShaders().get(ShaderType.VERTEX))
+                .withFragmentShader(source.getShaders().get(ShaderType.FRAGMENT))
                 .withVertexBinding(0, shaded ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR)
                 .withPrimitiveTopology(quads ? PrimitiveTopology.QUADS : PrimitiveTopology.TRIANGLES)
                 .withColorTargetState(new ColorTargetState(blend))

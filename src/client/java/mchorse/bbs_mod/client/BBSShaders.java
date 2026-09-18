@@ -6,16 +6,16 @@ import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.UniformType;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,10 +47,10 @@ public class BBSShaders
     public static void setup()
     {
         BindGroupLayout modelSamplers = BindGroupLayout.builder()
-            .withSampler("Sampler0")
-            .withSampler("Sampler1")
-            .withSampler("Sampler2")
-            .withSampler("Sampler3")
+            .withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
+            .withUniform("Sampler1", UniformType.COMBINED_IMAGE_SAMPLER)
+            .withUniform("Sampler2", UniformType.COMBINED_IMAGE_SAMPLER)
+            .withUniform("Sampler3", UniformType.COMBINED_IMAGE_SAMPLER)
             .build();
 
         modelPipeline = RenderPipeline.builder()
@@ -63,8 +63,8 @@ public class BBSShaders
             .build();
 
         BindGroupLayout multiLinkSamplers = BindGroupLayout.builder()
-            .withSampler("Sampler0")
-            .withSampler("Sampler3")
+            .withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
+            .withUniform("Sampler3", UniformType.COMBINED_IMAGE_SAMPLER)
             .build();
 
         multiLinkPipeline = RenderPipeline.builder()
@@ -77,7 +77,7 @@ public class BBSShaders
             .build();
 
         BindGroupLayout subtitlesLayout = BindGroupLayout.builder()
-            .withSampler("Sampler0")
+            .withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
             .withUniform("SubtitleParameters", UniformType.UNIFORM_BUFFER)
             .build();
 
@@ -193,7 +193,7 @@ public class BBSShaders
     {
         GlProgram program = ModelEffectPass.program(false);
 
-        if (program == null || program == GlProgram.INVALID_PROGRAM)
+        if (program == null || program.getProgramId() <= 0)
         {
             return BBSRendering.getEntityTranslucentProgram();
         }

@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.util.Mth;
 
 import org.spongepowered.asm.mixin.Final;
@@ -32,6 +33,7 @@ import org.joml.Matrix4fc;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin implements WorldOverlayRenderer.Provider
@@ -131,8 +133,8 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         float stride = Mth.lerp(tickDelta, this.bbs$fpBobPrevStride, this.bbs$fpBobStride) * intensity;
 
         matrices.translate(Mth.sin(phase * (float) Math.PI) * stride * 0.5F, -Math.abs(Mth.cos(phase * (float) Math.PI) * stride), 0F);
-        matrices.mulPose(Axis.ZP.rotationDegrees(Mth.sin(phase * (float) Math.PI) * stride * 3F));
-        matrices.mulPose(Axis.XP.rotationDegrees(Math.abs(Mth.cos(phase * (float) Math.PI - 0.2F) * stride) * 5F));
+        matrices.rotate(Axis.ZP.rotationDegrees(Mth.sin(phase * (float) Math.PI) * stride * 3F));
+        matrices.rotate(Axis.XP.rotationDegrees(Math.abs(Mth.cos(phase * (float) Math.PI - 0.2F) * stride) * 5F));
     }
 
     private void bbs$resetReplayFirstPersonBobbing()
@@ -158,7 +160,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
             return;
         }
 
-        matrices.mulPose(Axis.ZP.rotationDegrees(controller.getRoll()));
+        matrices.rotate(Axis.ZP.rotationDegrees(controller.getRoll()));
 
         CameraEntityRenderState entityRenderState = cameraRenderState.entityRenderState;
 
@@ -170,7 +172,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
             {
                 float deathTilt = Math.min(entityRenderState.deathTime, 20.0F);
 
-                matrices.mulPose(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (deathTilt + 200.0F)));
+                matrices.rotate(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (deathTilt + 200.0F)));
             }
 
             if (f >= 0.0F && entityRenderState.hurtDuration > 0)
@@ -182,9 +184,9 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
                 Minecraft client = Minecraft.getInstance();
                 float strength = (float) (-f * 14.0 * client.options.damageTiltStrength().get());
 
-                matrices.mulPose(Axis.YP.rotationDegrees(-tiltYaw));
-                matrices.mulPose(Axis.ZP.rotationDegrees(strength));
-                matrices.mulPose(Axis.YP.rotationDegrees(tiltYaw));
+                matrices.rotate(Axis.YP.rotationDegrees(-tiltYaw));
+                matrices.rotate(Axis.ZP.rotationDegrees(strength));
+                matrices.rotate(Axis.YP.rotationDegrees(tiltYaw));
             }
         }
 
@@ -192,7 +194,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
     }
 
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
-    public void onRenderHand(CameraRenderState cameraRenderState, float tickDelta, Matrix4fc positionMatrix, CallbackInfo info)
+    public void onRenderHand(CameraRenderState cameraRenderState, PlayerRenderState playerRenderState, GpuTextureView gpuTextureView, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 
@@ -207,7 +209,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
      * LevelRenderer's Matrix4fc argument is the view rotation in 26.1.
      */
     @ModifyArg(method = "renderLevel", at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"), index = 0)
+        target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;"), index = 0)
     private Matrix4f bbs$captureWorldProjection(Matrix4f projection)
     {
         CameraRenderState camera = Minecraft.getInstance().gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
@@ -229,8 +231,8 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
      * AAA Particles pastes a cleared depth buffer and draws Effekseer.
      */
     @Inject(
-        method = "renderLevel",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderItemInHand(Lnet/minecraft/client/renderer/state/level/CameraRenderState;FLorg/joml/Matrix4fc;)V"),
+        method = "render3dHud",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderItemInHand(Lnet/minecraft/client/renderer/state/level/CameraRenderState;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lcom/mojang/renderpearl/api/textures/GpuTextureView;)V"),
         order = 900
     )
     private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)

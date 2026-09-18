@@ -42,18 +42,18 @@ public interface ICubicRenderer
     {
         if (group.orient != null)
         {
-            stack.mulPose(group.orient);
+            stack.rotate(group.orient);
 
             return;
         }
 
-        if (group.current.rotate.z != 0F) stack.mulPose(Axis.ZP.rotation(MathUtils.toRad(group.current.rotate.z)));
-        if (group.current.rotate.y != 0F) stack.mulPose(Axis.YP.rotation(MathUtils.toRad(group.current.rotate.y)));
-        if (group.current.rotate.x != 0F) stack.mulPose(Axis.XP.rotation(MathUtils.toRad(group.current.rotate.x)));
+        if (group.current.rotate.z != 0F) stack.rotate(Axis.ZP.rotation(MathUtils.toRad(group.current.rotate.z)));
+        if (group.current.rotate.y != 0F) stack.rotate(Axis.YP.rotation(MathUtils.toRad(group.current.rotate.y)));
+        if (group.current.rotate.x != 0F) stack.rotate(Axis.XP.rotation(MathUtils.toRad(group.current.rotate.x)));
 
-        if (group.current.rotate2.z != 0F) stack.mulPose(Axis.ZP.rotation(MathUtils.toRad(group.current.rotate2.z)));
-        if (group.current.rotate2.y != 0F) stack.mulPose(Axis.YP.rotation(MathUtils.toRad(group.current.rotate2.y)));
-        if (group.current.rotate2.x != 0F) stack.mulPose(Axis.XP.rotation(MathUtils.toRad(group.current.rotate2.x)));
+        if (group.current.rotate2.z != 0F) stack.rotate(Axis.ZP.rotation(MathUtils.toRad(group.current.rotate2.z)));
+        if (group.current.rotate2.y != 0F) stack.rotate(Axis.YP.rotation(MathUtils.toRad(group.current.rotate2.y)));
+        if (group.current.rotate2.x != 0F) stack.rotate(Axis.XP.rotation(MathUtils.toRad(group.current.rotate2.x)));
     }
 
     public static void scaleGroup(PoseStack stack, ModelGroup group)

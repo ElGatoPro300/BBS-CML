@@ -35,6 +35,6 @@ public class ShadowMatricesMixin
             return;
         }
 
-        target.mulPose(Axis.YP.rotationDegrees(degrees));
+        target.rotate(Axis.YP.rotationDegrees(degrees));
     }
 }

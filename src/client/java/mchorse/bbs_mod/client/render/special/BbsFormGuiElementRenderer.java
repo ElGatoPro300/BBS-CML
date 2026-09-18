@@ -41,7 +41,7 @@ public class BbsFormGuiElementRenderer extends PictureInPictureRenderer<BbsFormG
         {
             if (state.angle() != 0F)
             {
-                matrices.mulPose(new Quaternionf(new AxisAngle4f((float) Math.toRadians(state.angle()), 0F, 1F, 0F)));
+                matrices.rotate(new Quaternionf(new AxisAngle4f((float) Math.toRadians(state.angle()), 0F, 1F, 0F)));
             }
 
             FormRenderingContext context = new FormRenderingContext();

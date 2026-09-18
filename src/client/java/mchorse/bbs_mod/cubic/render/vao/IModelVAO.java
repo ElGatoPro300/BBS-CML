@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.cubic.render.vao;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public interface IModelVAO
 {

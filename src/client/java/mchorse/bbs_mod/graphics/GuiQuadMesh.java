@@ -4,8 +4,8 @@ import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 
 import org.jspecify.annotations.Nullable;
 
@@ -152,6 +152,12 @@ public class GuiQuadMesh implements VertexConsumer
 
     @Override
     public VertexConsumer setUv2(int u, int v)
+    {
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setUv3(float u, float v)
     {
         return this;
     }

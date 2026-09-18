@@ -6,9 +6,10 @@ import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.resources.Link;
 
-import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 
 /**
  * Per-bone texture crossfade matching the form-level {@link TextureBlend}
@@ -57,12 +58,12 @@ public final class CubicGroupTextureBlend
 
     public static boolean supportsShader(GlProgram shader)
     {
-        if (shader == null)
+        if (shader == null || shader.getProgramId() <= 0)
         {
             return false;
         }
 
-        return shader.getUniform("TextureBlendActive") != null;
+        return GL20.glGetUniformLocation(shader.getProgramId(), "TextureBlendActive") >= 0;
     }
 
     public static Link resolveDrawTexture(CubicGroupTextureBlend state, Link defaultTexture)

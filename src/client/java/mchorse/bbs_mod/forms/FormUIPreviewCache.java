@@ -17,10 +17,10 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.Minecraft;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;

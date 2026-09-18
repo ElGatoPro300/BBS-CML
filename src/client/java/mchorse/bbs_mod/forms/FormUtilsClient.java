@@ -43,6 +43,7 @@ import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.entity.ThrownTridentRenderer;
+import net.minecraft.client.renderer.feature.ItemFeatureRenderer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.resources.model.ModelBakery;
@@ -170,14 +171,11 @@ public class FormUtilsClient
             FormUtilsClient.assignBuffer(map, RenderTypes.solidMovingBlock());
             FormUtilsClient.assignBuffer(map, RenderTypes.cutoutMovingBlock());
             FormUtilsClient.assignBuffer(map, RenderTypes.translucentMovingBlock());
-            /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
-             * has no trim entry; our dual-shell trim must depth-write first). */
-            FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(false));
-            FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(true));
-            FormUtilsClient.assignBuffer(map, RenderTypes.armorEntityGlint());
-            FormUtilsClient.assignBuffer(map, RenderTypes.glint());
-            FormUtilsClient.assignBuffer(map, RenderTypes.glintTranslucent());
-            FormUtilsClient.assignBuffer(map, RenderTypes.entityGlint());
+            FormUtilsClient.assignBuffer(map, RenderTypes.trimmedArmorGlint());
+            FormUtilsClient.assignBuffer(map, RenderTypes.patternedShieldGlint());
+            FormUtilsClient.assignBuffer(map, RenderTypes.itemCutoutGlint(ItemFeatureRenderer.ENCHANTED_GLINT_ITEM));
+            FormUtilsClient.assignBuffer(map, RenderTypes.itemTranslucentGlint(ItemFeatureRenderer.ENCHANTED_GLINT_ITEM));
+            FormUtilsClient.assignBuffer(map, RenderTypes.entitySolidGlint(ItemFeatureRenderer.ENCHANTED_GLINT_ITEM));
             FormUtilsClient.assignBuffer(map, RenderTypes.waterMask());
             FormUtilsClient.assignBuffer(map, RenderTypes.entitySolid(ThrownTridentRenderer.TRIDENT_LOCATION));
         });

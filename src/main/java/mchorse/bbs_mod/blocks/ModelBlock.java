@@ -8,6 +8,7 @@ import mchorse.bbs_mod.network.ServerNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
@@ -190,9 +191,9 @@ public class ModelBlock extends Block implements EntityBlock, SimpleWaterloggedB
     }
 
     @Override
-    public void playerDestroy(Level world, Player player, BlockPos pos, BlockState state, BlockEntity be, ItemStack tool)
+    public void playerDestroy(ServerLevel world, ServerPlayer player, BlockPos pos, BlockState state, @Nullable BlockEntity be, ItemStack tool)
     {
-        if (!world.isClientSide() && !player.getAbilities().instabuild)
+        if (!player.getAbilities().instabuild)
         {
             if (be instanceof ModelBlockEntity model)
             {

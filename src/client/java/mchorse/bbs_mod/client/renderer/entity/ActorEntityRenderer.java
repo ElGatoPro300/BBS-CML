@@ -25,14 +25,13 @@ import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Pose;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
@@ -57,8 +56,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         /* Private copies — ArmorRenderer mutates pivots/wings; never share with vanilla players. */
         armorRenderer = new ArmorRenderer(
             ArmorModelSet.bake(ModelLayers.PLAYER_ARMOR, ctx.getModelSet(), HumanoidModel::new),
-            new ElytraModel(ctx.bakeLayer(ModelLayers.ELYTRA)),
-            Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.ARMOR_TRIMS)
+            new ElytraModel(ctx.bakeLayer(ModelLayers.ELYTRA))
         );
     }
 
@@ -256,7 +254,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     {
         if (!entity.hasPose(Pose.SLEEPING))
         {
-            matrices.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+            matrices.rotate(Axis.YP.rotationDegrees(-bodyYaw));
         }
 
         /* Float death_time tip for ModelForm and MobForm (morph.deathTime stays 0). */

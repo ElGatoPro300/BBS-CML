@@ -21,21 +21,21 @@ import net.minecraft.client.gui.Font;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryStack;
@@ -185,16 +185,16 @@ public class UISubtitleRenderer
                 .putFloat(textureWidth).putFloat(textureHeight).get();
             RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
             GpuBuffer indexBuffer = indices.getBuffer(6);
-            GpuTextureView destination = RenderSystem.outputColorTextureOverride != null
-                ? RenderSystem.outputColorTextureOverride : Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
+            GpuTextureView destination = BBSRendering.outputColorTextureOverride != null
+                ? BBSRendering.outputColorTextureOverride : Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
 
             try (GpuBuffer vertices = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle vertices", GpuBuffer.USAGE_VERTEX, buffer.vertexBuffer());
                  GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle parameters", GpuBuffer.USAGE_UNIFORM, data);
                  RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "BBS subtitle", destination, Optional.empty()))
             {
-                pass.setPipeline(BBSShaders.subtitlesPipeline);
+                pass.setPipeline(RenderSystem.getCompiledPipeline(BBSShaders.subtitlesPipeline));
                 pass.setUniform("SubtitleParameters", uniforms);
-                pass.bindTexture("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().getSampler(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+                pass.setUniform("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().getSampler(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
                 pass.setVertexBuffer(0, vertices.slice());
                 pass.setIndexBuffer(indexBuffer, indices.type());
                 pass.drawIndexed(6, 1, 0, 0, 0);

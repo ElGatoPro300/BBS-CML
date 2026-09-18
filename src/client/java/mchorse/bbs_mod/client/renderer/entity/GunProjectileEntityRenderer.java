@@ -18,9 +18,9 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEntity, GunProjectileEntityRenderer.GunProjectileEntityState>
 {
@@ -77,12 +77,12 @@ public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEnt
 
         if (properties.yaw)
         {
-            matrices.mulPose(Axis.YP.rotationDegrees(bodyYaw));
+            matrices.rotate(Axis.YP.rotationDegrees(bodyYaw));
         }
 
         if (properties.pitch)
         {
-            matrices.mulPose(Axis.XP.rotationDegrees(-pitch));
+            matrices.rotate(Axis.XP.rotationDegrees(-pitch));
         }
 
         matrices.scale(scale, scale, scale);

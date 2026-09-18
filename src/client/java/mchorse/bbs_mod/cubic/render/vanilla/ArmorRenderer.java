@@ -12,13 +12,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.object.equipment.ElytraModel;
-import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.entity.ArmorModelSet;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.EquipmentClientInfo;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -49,18 +45,16 @@ public class ArmorRenderer
     private static final float TRIM_INNER_SCALE = 0.995F;
     private final ArmorModelSet<HumanoidModel> armorModels;
     private final ElytraModel elytraModel;
-    private final TextureAtlas armorTrimsAtlas;
 
-    public ArmorRenderer(ArmorModelSet<HumanoidModel> armorModels, ElytraModel elytraModel, TextureAtlas armorTrimsAtlas)
+    public ArmorRenderer(ArmorModelSet<HumanoidModel> armorModels, ElytraModel elytraModel)
     {
         this.armorModels = armorModels;
         this.elytraModel = elytraModel;
-        this.armorTrimsAtlas = armorTrimsAtlas;
     }
 
-    public ArmorRenderer(HumanoidModel innerModel, HumanoidModel outerModel, ElytraModel elytraModel, TextureAtlas armorTrimsAtlas)
+    public ArmorRenderer(HumanoidModel innerModel, HumanoidModel outerModel, ElytraModel elytraModel)
     {
-        this(new ArmorModelSet<>(outerModel, outerModel, innerModel, outerModel), elytraModel, armorTrimsAtlas);
+        this(new ArmorModelSet<>(outerModel, outerModel, innerModel, outerModel), elytraModel);
     }
 
     public void renderArmorSlot(PoseStack matrices, MultiBufferSource vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light)
@@ -107,7 +101,7 @@ public class ArmorRenderer
 
                 if (itemStack.hasFoil())
                 {
-                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.trimmedArmorGlint()), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
                 }
 
                 matrices.popPose();
@@ -118,12 +112,13 @@ public class ArmorRenderer
         if (itemStack.get(DataComponents.EQUIPPABLE) != null)
         {
             Equippable equippable = itemStack.get(DataComponents.EQUIPPABLE);
+            HumanoidModel bipedModel = this.getModel(armorSlot);
 
-            if (equippable != null && equippable.slot() == armorSlot)
+            if (bipedModel != null)
             {
-                boolean innerModel = this.usesInnerModel(armorSlot);
-                HumanoidModel bipedModel = this.getModel(armorSlot);
                 ModelPart part = this.getPart(bipedModel, type);
+                boolean innerModel = this.usesInnerModel(armorSlot);
+                DyedItemColor itemColor = itemStack.get(DataComponents.DYED_COLOR);
 
                 this.setAllVisible(bipedModel, true);
 
@@ -131,10 +126,9 @@ public class ArmorRenderer
                 part.xRot = part.yRot = part.zRot = 0F;
                 part.xScale = part.yScale = part.zScale = 1F;
 
-                DyedItemColor dyed = itemStack.get(DataComponents.DYED_COLOR);
-                if (dyed != null)
+                if (itemColor != null)
                 {
-                    int color = dyed.rgb();
+                    int color = itemColor.rgb();
                     float r = (float)(color >> 16 & 255) / 255.0F;
                     float g = (float)(color >> 8 & 255) / 255.0F;
                     float b = (float)(color & 255) / 255.0F;
@@ -205,10 +199,10 @@ public class ArmorRenderer
 
     private void renderTrim(ModelPart part, ResourceKey<EquipmentAsset> armorAssetKey, PoseStack matrices, MultiBufferSource vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
-        TextureAtlasSprite sprite = this.armorTrimsAtlas.getSprite(this.getTrimTexture(trim, armorAssetKey, leggings));
-        VertexConsumer trimConsumer = sprite.wrap(vertexConsumers.getBuffer(Sheets.armorTrimsSheet(trim.pattern().value().decal())));
+        Identifier trimTexture = this.getTrimTexture(trim, armorAssetKey, leggings);
+        VertexConsumer trimConsumer = vertexConsumers.getBuffer(RenderTypes.armorTrim(trimTexture, trim.pattern().value().decal()));
         VertexConsumer vertexConsumer = withGlint
-            ? VertexMultiConsumer.create(trimConsumer, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()))
+            ? VertexMultiConsumer.create(trimConsumer, vertexConsumers.getBuffer(RenderTypes.trimmedArmorGlint()))
             : trimConsumer;
 
         /* Armor + trim share the same ModelPart. Uniform 1.005 alone hides inner faces
@@ -231,17 +225,16 @@ public class ArmorRenderer
 
     private Identifier getTrimTexture(ArmorTrim trim, ResourceKey<EquipmentAsset> armorAssetKey, boolean leggings)
     {
-        EquipmentClientInfo.LayerType layerType = leggings
-            ? EquipmentClientInfo.LayerType.HUMANOID_LEGGINGS
-            : EquipmentClientInfo.LayerType.HUMANOID;
+        String layerType = leggings ? "humanoid_leggings" : "humanoid";
+        String pattern = trim.pattern().value().assetId().getPath();
+        String material = trim.material().value().paletteId().getPath();
 
-        /* 26.1: trim atlas IDs moved off trims/models/armor/* — use vanilla resolver. */
-        return trim.layerAssetId(layerType.trimAssetPrefix(), armorAssetKey);
+        return Identifier.fromNamespaceAndPath("minecraft", "textures/trims/entity/" + layerType + "/" + pattern + "_" + material + ".png");
     }
 
     private void renderGlint(ModelPart part, PoseStack matrices, MultiBufferSource vertexConsumers, int light)
     {
-        part.render(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY);
+        part.render(matrices, vertexConsumers.getBuffer(RenderTypes.trimmedArmorGlint()), light, OverlayTexture.NO_OVERLAY);
     }
 
     private void renderScaledPart(ModelPart part, PoseStack matrices, VertexConsumer vertexConsumer, int light, float scale)

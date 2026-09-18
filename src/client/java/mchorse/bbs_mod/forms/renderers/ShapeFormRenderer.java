@@ -35,12 +35,12 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
 
@@ -80,8 +80,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         MatrixStackUtils.scaleStack(stack, scale, scale, scale);
 
         /* Simple rotation for UI preview */
-        stack.mulPose(Axis.YP.rotationDegrees(context.getTransition() * 2));
-        stack.mulPose(Axis.XP.rotationDegrees(20));
+        stack.rotate(Axis.YP.rotationDegrees(context.getTransition() * 2));
+        stack.rotate(Axis.XP.rotationDegrees(20));
 
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);

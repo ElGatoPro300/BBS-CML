@@ -6,7 +6,7 @@ import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public interface IComponentParticleRender extends IComponentBase
 {

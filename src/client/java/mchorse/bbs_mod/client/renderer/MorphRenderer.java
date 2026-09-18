@@ -25,10 +25,10 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.entity.LivingEntity;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 public class MorphRenderer
 {
@@ -104,7 +104,7 @@ public class MorphRenderer
                 float yaw = headYaw;
 
                 matrixStack.pushPose();
-                matrixStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+                matrixStack.rotate(Axis.YP.rotationDegrees(-bodyYaw));
 
                 morph.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
 
@@ -215,7 +215,7 @@ public class MorphRenderer
             float yaw = headYaw;
 
             matrixStack.pushPose();
-            matrixStack.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+            matrixStack.rotate(Axis.YP.rotationDegrees(-bodyYaw));
 
             owner.entity.setRotationOverride(pitch, pitch, headYaw, headYaw, bodyYaw, bodyYaw, yaw, yaw);
 

@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.GrassBlock;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.LilyPadBlock;
-import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneWireBlock;
 import net.minecraft.world.level.block.StemBlock;
 import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -525,7 +525,7 @@ public class StructureData
             || (b instanceof GrassBlock)
             || (b instanceof VineBlock)
             || (b instanceof LilyPadBlock)
-            || (b instanceof RedStoneWireBlock)
+            || (b instanceof RedstoneWireBlock)
             || (b instanceof StemBlock)
             || (b instanceof AttachedStemBlock)
             || state.is(Blocks.FERN)

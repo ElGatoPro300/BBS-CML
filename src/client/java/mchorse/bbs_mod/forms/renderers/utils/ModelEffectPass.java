@@ -18,26 +18,26 @@ import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.IndexType;
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.platform.BlendFactor;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
-import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.device.GpuDevice;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFactor;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.UniformType;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -206,7 +206,7 @@ public final class ModelEffectPass
         BindGroupLayout.Builder layoutBuilder = BindGroupLayout.builder()
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform("BbsModelEffects", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0");
+            .withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER);
 
         BlendFunction blend = null;
 
@@ -214,7 +214,9 @@ public final class ModelEffectPass
         {
             layoutBuilder.withUniform("Fog", UniformType.UNIFORM_BUFFER)
                 .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
-                .withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3");
+                .withUniform("Sampler1", UniformType.COMBINED_IMAGE_SAMPLER)
+                .withUniform("Sampler2", UniformType.COMBINED_IMAGE_SAMPLER)
+                .withUniform("Sampler3", UniformType.COMBINED_IMAGE_SAMPLER);
             blend = key.multiply()
                 ? new BlendFunction(BlendFactor.DST_COLOR, BlendFactor.ZERO, BlendFactor.ZERO, BlendFactor.ONE)
                 : key.additive() || key.shader().equals("block_glow_overlay")
@@ -271,7 +273,7 @@ public final class ModelEffectPass
             DefaultVertexFormat.ENTITY, PrimitiveTopology.TRIANGLES,
             name.startsWith("picker_"), true, false, false, name, false, false))));
 
-        if (shader != null && shader != GlProgram.INVALID_PROGRAM)
+        if (shader != null && shader.getProgramId() > 0)
         {
             PROGRAMS.put(shader, name);
         }
@@ -431,10 +433,10 @@ public final class ModelEffectPass
 
             try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(PASS_LABEL, GpuBuffer.USAGE_UNIFORM, ModelEffectUniforms.data(parameters));
                  RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(PASS_LABEL,
-                     RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView(), Optional.empty(),
-                     RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView(), OptionalDouble.empty()))
+                     BBSRendering.outputColorTextureOverride != null ? BBSRendering.outputColorTextureOverride : target.getColorTextureView(), Optional.empty(),
+                     BBSRendering.outputDepthTextureOverride != null ? BBSRendering.outputDepthTextureOverride : target.getDepthTextureView(), OptionalDouble.empty()))
             {
-                pass.setPipeline(RenderPipelineUtils.withCurrentDepth(pipeline));
+                pass.setPipeline(RenderSystem.getCompiledPipeline(RenderPipelineUtils.withCurrentDepth(pipeline)));
                 ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
 
                 if (scissor.enabled())
@@ -449,7 +451,7 @@ public final class ModelEffectPass
 
                 for (PreparedRenderType.Texture texture : textures)
                 {
-                    pass.bindTexture(texture.name(), texture.textureView(), texture.sampler());
+                    pass.setUniform(texture.name(), texture.textureView(), texture.sampler());
                 }
 
                 pass.drawIndexed(draws.indexCount(), 1, 0, 0, 0);

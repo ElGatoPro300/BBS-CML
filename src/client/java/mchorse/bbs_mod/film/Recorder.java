@@ -36,10 +36,10 @@ import org.joml.Quaternionf;
 import org.joml.Vector3d;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 
 public class Recorder extends WorldFilmController
 {
@@ -440,7 +440,7 @@ public class Recorder extends WorldFilmController
 
         stack.pushPose();
         stack.translate(x1, y1, z1);
-        stack.mulPose(rotation);
+        stack.rotate(rotation);
         Draw.fillBox(builder, stack, -thickness / 2F, -thickness / 2F, 0F, thickness / 2F, thickness / 2F, distance, r, g, b, a);
         stack.popPose();
     }

@@ -257,13 +257,13 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public boolean keyPressed(KeyEvent input)
     {
-        return this.menu.handleKey(input.key(), input.scancode(), BBSRendering.lastAction, input.modifiers());
+        return this.menu.handleKey(input.key(), input.keycode(), BBSRendering.lastAction, input.modifiers());
     }
 
     @Override
     public boolean keyReleased(KeyEvent input)
     {
-        return this.menu.handleKey(input.key(), input.scancode(), GLFW.GLFW_RELEASE, input.modifiers());
+        return this.menu.handleKey(input.key(), input.keycode(), GLFW.GLFW_RELEASE, input.modifiers());
     }
 
     @Override

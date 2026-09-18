@@ -18,6 +18,7 @@ public class ActionRecorder
     private int tick;
     private int countdown;
     private int initialTick;
+    private boolean wasSwinging;
 
     public ActionRecorder(Film film, ServerPlayer entity, int tick, int countdown)
     {
@@ -74,7 +75,9 @@ public class ActionRecorder
             return;
         }
 
-        if (player.swingTime == -1)
+        boolean isSwinging = player.isSwinging();
+
+        if (isSwinging && !this.wasSwinging)
         {
             this.add(new SwipeActionClip());
 
@@ -86,6 +89,8 @@ public class ActionRecorder
                 this.add(clip);
             }
         }
+
+        this.wasSwinging = isSwinging;
 
         this.tick += 1;
     }

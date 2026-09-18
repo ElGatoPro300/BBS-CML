@@ -519,7 +519,7 @@ public class BBSCommands
         BlockPos to = BlockPosArgument.getBlockPos(source, "to");
 
         ServerLevel world = source.getSource().getLevel();
-        StructureTemplateManager structureTemplateManager = world.getStructureManager();
+        StructureTemplateManager structureTemplateManager = world.getStructureTemplateManager();
         StructureTemplate structureTemplate;
 
         try

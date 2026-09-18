@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.utils;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.RenderPipelineUtils;
@@ -13,13 +14,13 @@ import mchorse.bbs_mod.utils.Pair;
 
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -211,13 +212,13 @@ public class StencilFormFramebuffer
 
         if (!this.applied)
         {
-            this.previousColorView = RenderSystem.outputColorTextureOverride;
-            this.previousDepthView = RenderSystem.outputDepthTextureOverride;
+            this.previousColorView = BBSRendering.outputColorTextureOverride;
+            this.previousDepthView = BBSRendering.outputDepthTextureOverride;
             this.applied = true;
         }
 
-        RenderSystem.outputColorTextureOverride = this.colorView;
-        RenderSystem.outputDepthTextureOverride = this.depthView;
+        BBSRendering.outputColorTextureOverride = this.colorView;
+        BBSRendering.outputDepthTextureOverride = this.depthView;
         activePickTarget = this;
         this.bindForPick();
     }
@@ -312,8 +313,8 @@ public class StencilFormFramebuffer
 
         if (this.applied)
         {
-            RenderSystem.outputColorTextureOverride = this.previousColorView;
-            RenderSystem.outputDepthTextureOverride = this.previousDepthView;
+            BBSRendering.outputColorTextureOverride = this.previousColorView;
+            BBSRendering.outputDepthTextureOverride = this.previousDepthView;
             this.previousColorView = null;
             this.previousDepthView = null;
             this.applied = false;

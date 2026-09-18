@@ -665,7 +665,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (this.pauseNaturalAnimations && !dying)
         {
             /* Hold limbs / emoticon clocks; still allow swipe hand-swing progress. */
-            this.updateSwingTime();
             this.updateHitboxDimensions();
 
             if (!this.level().isClientSide())
@@ -684,7 +683,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         super.tick();
 
-        this.updateSwingTime();
         this.updateHitboxDimensions();
 
         Vec3 animationVelocity = this.animationVelocityHint;

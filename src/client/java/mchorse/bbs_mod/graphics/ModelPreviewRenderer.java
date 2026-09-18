@@ -8,16 +8,16 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
 
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
@@ -88,8 +88,8 @@ public class ModelPreviewRenderer implements AutoCloseable
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
             this.framebuffer.getColorTexture(), CLEAR_COLOR, this.framebuffer.getDepthTexture(), 1D);
 
-        this.previousColor = RenderSystem.outputColorTextureOverride;
-        this.previousDepth = RenderSystem.outputDepthTextureOverride;
+        this.previousColor = BBSRendering.outputColorTextureOverride;
+        this.previousDepth = BBSRendering.outputDepthTextureOverride;
         this.previousProjection = RenderSystem.getProjectionMatrixBuffer();
         this.previousProjectionType = RenderSystem.getProjectionType();
         this.previousFog = RenderSystem.getShaderFog();
@@ -101,8 +101,8 @@ public class ModelPreviewRenderer implements AutoCloseable
         try
         {
             RenderSystem.getModelViewStack().identity();
-            RenderSystem.outputColorTextureOverride = this.framebuffer.getColorTextureView();
-            RenderSystem.outputDepthTextureOverride = this.framebuffer.getDepthTextureView();
+            BBSRendering.outputColorTextureOverride = this.framebuffer.getColorTextureView();
+            BBSRendering.outputDepthTextureOverride = this.framebuffer.getDepthTextureView();
             RenderSystem.setProjectionMatrix(this.projection.slice(), ProjectionType.PERSPECTIVE);
             RenderSystem.setShaderFog(this.fog.slice());
         }
@@ -118,7 +118,7 @@ public class ModelPreviewRenderer implements AutoCloseable
     {
         if (this.framebuffer == null)
         {
-            this.framebuffer = new TextureTarget("BBS model preview", width, height, true, GpuFormat.RGBA8_UNORM);
+            this.framebuffer = new TextureTarget("BBS model preview", width, height, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
         }
         else if (this.framebuffer.width != width || this.framebuffer.height != height)
         {
@@ -177,8 +177,8 @@ public class ModelPreviewRenderer implements AutoCloseable
             return;
         }
 
-        RenderSystem.outputColorTextureOverride = this.previousColor;
-        RenderSystem.outputDepthTextureOverride = this.previousDepth;
+        BBSRendering.outputColorTextureOverride = this.previousColor;
+        BBSRendering.outputDepthTextureOverride = this.previousDepth;
         RenderSystem.setProjectionMatrix(this.previousProjection, this.previousProjectionType);
         RenderSystem.setShaderFog(this.previousFog);
         RenderSystem.setShaderLights(this.previousLights);

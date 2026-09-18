@@ -71,10 +71,10 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
 
@@ -1476,7 +1476,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                     if (storage != null)
                     {
-                        dispatcher.renderAllFeatures(storage);
+                        BBSRendering.renderFeatures(dispatcher, storage);
                     }
                 }
                 finally
@@ -1797,7 +1797,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                         if (storage != null)
                         {
-                            dispatcher.renderAllFeatures(storage);
+                            BBSRendering.renderFeatures(dispatcher, storage);
                         }
                     }
                     finally
@@ -1972,6 +1972,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 this.parent.setUv1(0, 10);
             }
             this.parent.setUv2(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv3(float u, float v)
+        {
+            this.parent.setUv3(u, v);
             return this;
         }
 

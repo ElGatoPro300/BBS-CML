@@ -15,6 +15,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.scores.PlayerTeam;
 
@@ -75,6 +76,18 @@ public class SuperFakePlayer extends ServerPlayer
     {}
 
     @Override
+    public boolean isSpectator()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isCreative()
+    {
+        return false;
+    }
+
+    @Override
     public void awardStat(Stat<?> stat, int amount)
     {}
 
@@ -95,8 +108,10 @@ public class SuperFakePlayer extends ServerPlayer
     }
 
     @Override
-    public void startSleeping(BlockPos pos)
-    {}
+    public boolean startSleeping(BlockPos pos)
+    {
+        return false;
+    }
 
     @Override
     public boolean startRiding(Entity entity, boolean force, boolean shouldCancelInteract)
@@ -105,7 +120,7 @@ public class SuperFakePlayer extends ServerPlayer
     }
 
     @Override
-    public void openTextEdit(SignBlockEntity sign, boolean front)
+    public void openTextEdit(SignBlockEntity sign, SignTextSlot textSlot)
     {}
 
     @Override

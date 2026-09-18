@@ -60,13 +60,13 @@ import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
@@ -381,8 +381,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         stack.pushPose();
         MatrixStackUtils.multiply(stack, matrix);
-        stack.mulPose(Axis.XP.rotationDegrees(90F));
-        stack.mulPose(Axis.YP.rotationDegrees(180F));
+        stack.rotate(Axis.XP.rotationDegrees(90F));
+        stack.rotate(Axis.YP.rotationDegrees(180F));
         MatrixStackUtils.applyTransform(stack, this.fpHandPreviewSlot.transform);
 
         consumers.setSubstitute(BBSRendering.getColorConsumer(new Color().set(Colors.WHITE)));
@@ -508,7 +508,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         {
             this.applyFpHandGroupVisibility(model, fpGroupId);
             stack.pushPose();
-            stack.mulPose(Axis.YP.rotation(MathUtils.PI));
+            stack.rotate(Axis.YP.rotation(MathUtils.PI));
             MatrixStackUtils.applyTransform(stack, this.fpHandPreviewSlot.transform);
         }
 
@@ -906,7 +906,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             MatrixStackUtils.multiply(cubeStack, rootMatrix);
         }
 
-        cubeStack.mulPose(Axis.YP.rotation(MathUtils.PI));
+        cubeStack.rotate(Axis.YP.rotation(MathUtils.PI));
 
         List<ModelGroup> chain = new ArrayList<>();
 

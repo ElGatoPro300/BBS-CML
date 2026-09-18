@@ -36,4 +36,4 @@ mutable field net/minecraft/client/gui/Hud isHidden Z
 
 accessible class net/minecraft/client/renderer/rendertype/RenderSetup$TextureBinding
 accessible field net/minecraft/client/renderer/rendertype/RenderSetup textures Ljava/util/Map;
-accessible field net/minecraft/client/renderer/rendertype/RenderSetup pipeline Lcom/mojang/blaze3d/pipeline/RenderPipeline;
+accessible field net/minecraft/client/renderer/rendertype/RenderSetup pipeline Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;

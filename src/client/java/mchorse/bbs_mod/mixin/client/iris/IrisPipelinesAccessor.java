@@ -7,7 +7,7 @@ import net.irisshaders.iris.pipeline.programs.ShaderKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 
 import it.unimi.dsi.fastutil.Function;
 

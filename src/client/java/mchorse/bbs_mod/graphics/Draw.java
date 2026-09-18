@@ -9,7 +9,9 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -17,18 +19,8 @@ import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.IndexType;
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
@@ -36,12 +28,28 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.device.GpuDevice;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalDouble;
 
 public class Draw
 {
@@ -145,12 +153,24 @@ public class Draw
 
     public static void flush(BufferBuilder builder, RenderType layer)
     {
-        try (MeshData built = builder.build())
+        if (builder == null)
         {
-            if (built != null)
+            return;
+        }
+
+        try
+        {
+            try (MeshData built = builder.build())
             {
-                drawMeshData(built, layer);
+                if (built != null)
+                {
+                    drawMeshData(built, layer);
+                }
             }
+        }
+        catch (IllegalStateException e)
+        {
+            /* Builder was not building or has already been built */
         }
     }
 
@@ -207,12 +227,29 @@ public class Draw
 
             if (pipeline != prepared.pipeline())
             {
-                prepared = new PreparedRenderType(pipeline, prepared.outputTarget(), prepared.dynamicTransforms(),
+                prepared = new PreparedRenderType(prepared.name(), pipeline, prepared.oitPipelineSet(), prepared.dynamicTransforms(),
                     prepared.scissorState(), prepared.textures());
             }
 
-            /* 26.2 expects baseVertex, firstIndex, indexCount. */
-            prepared.drawFromBuffer(vb, ib, indexType, 0, 0, state.indexCount());
+            Minecraft client = Minecraft.getInstance();
+            RenderTarget target = client.gameRenderer != null ? client.gameRenderer.mainRenderTarget() : null;
+            GpuTextureView colorView = BBSRendering.outputColorTextureOverride != null ? BBSRendering.outputColorTextureOverride : (target != null ? target.getColorTextureView() : null);
+            GpuTextureView depthView = BBSRendering.outputDepthTextureOverride != null ? BBSRendering.outputDepthTextureOverride : (target != null ? target.getDepthTextureView() : null);
+
+            if (colorView != null)
+            {
+                CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
+
+                try (RenderPass pass = depthView != null
+                    ? encoder.createRenderPass(() -> "bbs_draw_mesh", colorView, Optional.empty(), depthView, OptionalDouble.empty())
+                    : encoder.createRenderPass(() -> "bbs_draw_mesh", colorView, Optional.empty()))
+                {
+                    StagedVertexBuffer.ExecuteInfo info = new StagedVertexBuffer.ExecuteInfo(
+                        vb, ib, indexType, 0, 0, state.indexCount(), state.primitiveTopology()
+                    );
+                    prepared.drawFromBuffer(info, pass);
+                }
+            }
         }
         finally
         {
@@ -535,8 +572,8 @@ public class Draw
         stack.pushPose();
 
         stack.translate(x1, y1, z1);
-        stack.mulPose(Axis.YP.rotationDegrees(angle.yaw));
-        stack.mulPose(Axis.XP.rotationDegrees(angle.pitch));
+        stack.rotate(Axis.YP.rotationDegrees(angle.yaw));
+        stack.rotate(Axis.XP.rotationDegrees(angle.pitch));
 
         fillBox(builder, stack, -thickness / 2, -thickness / 2, 0, thickness / 2, thickness / 2, (float) distance, r, g, b, a);
 
@@ -775,8 +812,8 @@ public class Draw
 
         stack.pushPose();
 
-        if (axis == mchorse.bbs_mod.utils.Axis.X) stack.mulPose(Axis.ZP.rotation(MathUtils.PI / 2F));
-        if (axis == mchorse.bbs_mod.utils.Axis.Z) stack.mulPose(Axis.XP.rotation(MathUtils.PI / 2F));
+        if (axis == mchorse.bbs_mod.utils.Axis.X) stack.rotate(Axis.ZP.rotation(MathUtils.PI / 2F));
+        if (axis == mchorse.bbs_mod.utils.Axis.Z) stack.rotate(Axis.XP.rotation(MathUtils.PI / 2F));
 
         float tubeR = thickness * 0.5F;
         Matrix4f mat = stack.last().pose();

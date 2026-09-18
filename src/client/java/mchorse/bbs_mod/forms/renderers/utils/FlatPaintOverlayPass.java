@@ -7,7 +7,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import org.lwjgl.opengl.GL11;
 

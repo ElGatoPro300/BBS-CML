@@ -5,10 +5,12 @@ import mchorse.bbs_mod.utils.iris.IrisFormPipelines;
 
 import net.minecraft.resources.Identifier;
 
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -78,9 +80,10 @@ public final class RenderPipelineUtils
         private DepthVariant(RenderPipeline source, DepthStencilState depth)
         {
             super(Identifier.fromNamespaceAndPath("bbs", "depth_variant/" + source.getLocation().getNamespace() + "/" + source.getLocation().getPath()),
-                source.getVertexShader(), source.getFragmentShader(), source.getShaderDefines(),
-                source.getBindGroupLayouts(), source.getColorTargetStates(), depth, source.getPolygonMode(),
-                source.isCull(), source.getVertexFormatBindings(), source.getPrimitiveTopology(), source.getSortKey());
+                source.getShaders(), source.getShaderDefines(),
+                source.getBindGroupLayouts(), source.getColorTargetStates().toArray(new ColorTargetState[0]), depth, source.getPolygonMode(),
+                source.isCull(), source.getVertexFormatBindings().toArray(new VertexFormat[0]), source.getPrimitiveTopology(),
+                source.pushConstantSize(), source.getSortKey());
         }
     }
 

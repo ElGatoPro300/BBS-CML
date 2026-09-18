@@ -3,7 +3,7 @@ package mchorse.bbs_mod.client;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
 
 import org.lwjgl.BufferUtils;
 
@@ -89,7 +89,7 @@ public final class ModelEffectUniforms
 
     public static GlProgram register(GlProgram program)
     {
-        if (program != null && program != GlProgram.INVALID_PROGRAM)
+        if (program != null && program.getProgramId() > 0)
         {
             VALUES.computeIfAbsent(program, ignored -> createDefaults());
         }

@@ -149,14 +149,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -1046,7 +1046,7 @@ public class BBSModClient implements ClientModInitializer
     {
         return KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key." + BBSMod.MOD_ID + "." + id,
-            InputConstants.Type.KEYSYM,
+            InputConstants.Type.KEYBOARD,
             key,
             category
         ));

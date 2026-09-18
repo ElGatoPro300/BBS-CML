@@ -34,7 +34,7 @@ import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.repos.IRepository;
 
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -333,7 +333,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
                 folder.mkdirs();
             }
 
-            Util.getPlatform().openFile(folder);
+            Blaze3D.openPath(folder.toPath());
         }
         catch (Exception e)
         {

@@ -1628,7 +1628,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             if (storage != null)
             {
-                renderDispatcher.renderAllFeatures(storage);
+                BBSRendering.renderFeatures(renderDispatcher, storage);
             }
         }
         finally

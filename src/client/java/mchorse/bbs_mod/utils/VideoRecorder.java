@@ -8,7 +8,7 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 
 import net.minecraft.client.Minecraft;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;

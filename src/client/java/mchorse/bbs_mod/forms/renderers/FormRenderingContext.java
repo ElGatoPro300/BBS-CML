@@ -81,7 +81,7 @@ public class FormRenderingContext
             float bodyYaw = Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition);
 
             this.world.translate(x, y, z);
-            this.world.mulPose(Axis.YP.rotationDegrees(-bodyYaw));
+            this.world.rotate(Axis.YP.rotationDegrees(-bodyYaw));
         }
 
         return this;

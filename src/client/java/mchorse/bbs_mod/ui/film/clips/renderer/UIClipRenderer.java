@@ -5,7 +5,6 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
 import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIClips;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -28,15 +27,15 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2fc;
 import org.joml.Vector2f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 
 public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
 {
@@ -46,10 +45,8 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
     private static Vector2f vector = new Vector2f();
     private static Vector2f previous = new Vector2f();
 
-    private static final RenderPipeline GUI_TRIANGLES = RenderPipelineUtils.withUniforms(RenderPipelines.DEBUG_FILLED_BOX)
+    private static final RenderPipeline GUI_TRIANGLES = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
         .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/clip_envelope_triangles"))
-        .withVertexShader(RenderPipelines.DEBUG_FILLED_BOX.getVertexShader())
-        .withFragmentShader(RenderPipelines.DEBUG_FILLED_BOX.getFragmentShader())
         .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
         .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
         .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))

@@ -22,18 +22,18 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.backend.opengl.GlProgram;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -919,8 +919,8 @@ public class ModelVAORenderer
         }
 
         /* Previews override the output attachment without replacing Minecraft's framebuffer. */
-        GpuTexture sourceTexture = RenderSystem.outputColorTextureOverride != null
-            ? RenderSystem.outputColorTextureOverride.texture() : source.getColorTexture();
+        GpuTexture sourceTexture = BBSRendering.outputColorTextureOverride != null
+            ? BBSRendering.outputColorTextureOverride.texture() : source.getColorTexture();
 
         if (!(sourceTexture instanceof GlTexture glTexture))
         {
@@ -1807,7 +1807,7 @@ public class ModelVAORenderer
     {
         /* Iris / resource-reload races can leave BBSShaders.getModel() null while
          * form-list UI cards still try to draw Extruded/Structure VAOs. */
-        if (shader == null || shader == GlProgram.INVALID_PROGRAM || modelVAO == null)
+        if (shader == null || shader.getProgramId() <= 0 || modelVAO == null)
         {
             return;
         }

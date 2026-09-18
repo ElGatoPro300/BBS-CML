@@ -84,10 +84,10 @@ public final class MorphFireRenderer
         }
         else if (relative)
         {
-            matrices.mulPose(camera.rotation().conjugate(MorphFireRenderer.TEMP_QUATERNION));
+            matrices.rotate(camera.rotation().conjugate(MorphFireRenderer.TEMP_QUATERNION));
         }
 
-        matrices.mulPose(Axis.YP.rotation(MathUtils.toRad(bodyYaw)));
+        matrices.rotate(Axis.YP.rotation(MathUtils.toRad(bodyYaw)));
 
         FIRE_RENDER_STATE.boundingBoxWidth = size[0];
         FIRE_RENDER_STATE.boundingBoxHeight = size[1];
