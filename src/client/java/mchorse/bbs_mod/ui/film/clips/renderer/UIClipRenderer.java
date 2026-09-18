@@ -120,15 +120,22 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
         int labelY = alignTop ? y + 3 : y + (h - font.getHeight()) / 2;
         float iconAnchorY = alignTop ? 0F : 0.5F;
         int iconY = alignTop ? y + 3 : y + h / 2;
+        int maxTextWidth = right - left - 10;
 
         if (right - left >= 20)
         {
             context.batcher.icon(data.icon, Colors.mulA(Colors.mulRGB(Colors.WHITE, 0.75F), 0.5F), right - 2, iconY, 1F, iconAnchorY);
+            maxTextWidth -= 16;
         }
 
-        if (!label.isEmpty())
+        if (!label.isEmpty() && maxTextWidth > 0)
         {
-            context.batcher.textShadow(label, left + 5, labelY);
+            label = font.limitToWidth(label, maxTextWidth);
+
+            if (!label.isEmpty())
+            {
+                context.batcher.textShadow(label, left + 5, labelY);
+            }
         }
     }
 
