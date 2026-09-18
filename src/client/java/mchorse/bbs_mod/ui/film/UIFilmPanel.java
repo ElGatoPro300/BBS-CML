@@ -119,6 +119,7 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.math.MatrixStack;
 
@@ -7131,7 +7132,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         /* Same hybrid as actor control: Mouse callbacks under DISABLED, not glfwGetCursorPos. */
-        net.minecraft.client.Mouse mouse = MinecraftClient.getInstance().mouse;
+        Mouse mouse = MinecraftClient.getInstance().mouse;
         int mouseX = (int) Math.round(mouse.getX());
         int mouseY = (int) Math.round(mouse.getY());
 

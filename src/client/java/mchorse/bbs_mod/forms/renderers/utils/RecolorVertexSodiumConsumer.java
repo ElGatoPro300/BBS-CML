@@ -47,6 +47,26 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
+    public void vertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        Color savedColor = newColor;
+        Color savedPaint = newPaintColor;
+
+        newColor = null;
+        newPaintColor = null;
+
+        try
+        {
+            super.vertex(x, y, z, color, u, v, overlay, light, normalX, normalY, normalZ);
+        }
+        finally
+        {
+            newColor = savedColor;
+            newPaintColor = savedPaint;
+        }
+    }
+
+    @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         Color savedColor = newColor;

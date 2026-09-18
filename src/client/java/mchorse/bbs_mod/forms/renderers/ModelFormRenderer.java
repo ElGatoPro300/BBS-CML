@@ -74,11 +74,11 @@ import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
 import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.SkinTextures;
+import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemDisplayContext;
@@ -3480,10 +3480,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
-        Item item = itemStack.getItem();
         EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
 
-        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD)
+        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD && equippable.assetId().isPresent())
         {
             return;
         }
@@ -3513,6 +3512,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Skulls bypass ItemRenderer (Iris MixinItemRenderer); bake the same block/item IDs. */
         try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginEquippedItem(target, itemStack))
         {
+            Item item = itemStack.getItem();
+
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
                 float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true);
