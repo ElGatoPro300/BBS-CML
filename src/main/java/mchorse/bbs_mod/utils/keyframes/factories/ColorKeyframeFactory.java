@@ -49,7 +49,8 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
                 color.r = Lerps.lerp(1F, color.r, intensity);
                 color.g = Lerps.lerp(1F, color.g, intensity);
                 color.b = Lerps.lerp(1F, color.b, intensity);
-                color.a = opacityA <= 0.001F ? 1F : opacityA;
+                /* Keep ARGB alpha as traditional opacity, including intentional 0. */
+                color.a = opacityA;
             }
 
             /* Pose paint / any Color.a that cannot fit in an ARGB byte. */
