@@ -35,6 +35,12 @@ public class PlayerUtils
             player.setYHeadRot(yaw);
             player.setYBodyRot(bodyYaw);
             player.setXRot(pitch);
+            /* Seed prev* to the same pose so procedural/limb lerp does not snap from
+             * the pre-teleport player look on the first changeLookDirection. */
+            player.yRotO = yaw;
+            player.yHeadRotO = yaw;
+            player.yBodyRotO = bodyYaw;
+            player.xRotO = pitch;
         }
     }
 

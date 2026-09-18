@@ -2,16 +2,12 @@ package mchorse.bbs_mod.ui.forms.categories;
 
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.sections.UserFormSection;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-
-import java.util.List;
-import java.util.function.Consumer;
 
 public class UIOrderCategoriesOverlayPanel extends UIOverlayPanel
 {

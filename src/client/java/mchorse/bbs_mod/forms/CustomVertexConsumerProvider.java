@@ -9,12 +9,10 @@ import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.lwjgl.opengl.GL11;
 
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 

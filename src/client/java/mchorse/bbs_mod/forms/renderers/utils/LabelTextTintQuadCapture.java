@@ -6,7 +6,6 @@ import mchorse.bbs_mod.utils.TextureFont;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
-import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;

@@ -5,12 +5,12 @@ import mchorse.bbs_mod.client.SunPathRotation;
 import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.world.level.MoonPhase;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 @Mixin(SkyRenderer.class)
 public class SkyRenderingMixin

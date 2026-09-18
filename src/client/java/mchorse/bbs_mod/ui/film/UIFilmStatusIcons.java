@@ -277,5 +277,3 @@ public class UIFilmStatusIcons extends UIElement
     }
 
 }
-
-

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.utils.gizmo;
 
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
-import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
 /**

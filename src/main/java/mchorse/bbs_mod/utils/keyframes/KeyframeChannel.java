@@ -9,7 +9,6 @@ import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
-import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.DoubleKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.FloatKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;

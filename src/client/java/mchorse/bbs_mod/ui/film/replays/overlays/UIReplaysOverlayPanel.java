@@ -7,7 +7,6 @@ import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -41,13 +40,11 @@ import net.minecraft.client.player.LocalPlayer;
 
 import com.mojang.logging.LogUtils;
 
-import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
 
 public class UIReplaysOverlayPanel extends UIOverlayPanel
 {

@@ -5,7 +5,6 @@ import org.joml.Vector4f;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**

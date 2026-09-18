@@ -58,7 +58,6 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 import org.joml.Matrix4f;
-import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.PrimitiveTopology;
@@ -71,7 +70,8 @@ import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
+
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,8 +80,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import org.slf4j.Logger;
 
 public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurface
 {

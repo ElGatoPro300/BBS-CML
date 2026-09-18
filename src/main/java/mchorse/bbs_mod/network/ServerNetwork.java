@@ -54,12 +54,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
+import io.netty.buffer.Unpooled;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import io.netty.buffer.Unpooled;
 
 public class ServerNetwork
 {

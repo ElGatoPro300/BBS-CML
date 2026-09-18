@@ -32,6 +32,14 @@ For **every other factory** (Boolean, ItemStack, Pose, Color, ShadowSettings, Mo
 
 This is intentional for the generic channel API — not a replay-recording limitation. Do **not** assume `interpolate(tick)` is non-null for non-numeric tracks.
 
+## Viewport recording undo
+
+Stopping a film-editor viewport take (`Only rotation` and other record-overlay groups) commits one explicit keyframe undo: pre-take `recordingOld` → post-simplify/seal state, flushed immediately and marked non-mergeable. `simplify`/`seal` notifies are suppressed during that finalize so they cannot poison the undo cache. Incoming `receiveActions` must edit `replay.actions` only (not the whole `Replay`), or `reduceUndoRedundancy` can drop the keyframes snapshot and Ctrl+Z will not restore the pre-take timeline.
+
+## Procedural limb swing (ModelForm stubs)
+
+`ProceduralAnimator` soft-fills walk swing when `horizontalSpeed > 0.08` but vanilla `LimbAnimator` is still idle. For **film-driven** targets (`StubEntity` and `ActorEntity`), that speed must come from **prev→pos XZ displacement only** — never from `vX`/`vZ` / entity velocity. Otherwise a stationary stub (position truncated, velocity leftover or apply-time velocity) gets ghost arm/leg motion timed to old walk data. Live players / non-film entities still use `max(velocity, displacement)`.
+
 ## Replay recording resume
 
 Viewport re-record at tick `T` uses `ReplayKeyframes.bridgeRecordingFrom(T, groups, liveEntity)`:
@@ -51,6 +59,8 @@ The record overlay has no dedicated pose/action buttons. Pose flags (`sneaking`,
 Position-only / rotation-only / stick takes **leave those tracks alone**.
 
 When all-groups recording captures pose/action channels and `riding`, initial keyframes (e.g. `0`) are recorded at the start tick via `insertIfChanged`. This ensures that states do not improperly extrapolate backwards prior to later state changes (e.g. a sneak at tick 50 having `0` at tick 0 so the player is not seen crouching before tick 50). Subsequent unchanged ticks skip redundant insertions, and transitions automatically insert hold keyframes.
+
+Bridge restore for those tracks uses a separate idle-zero policy: a snapshotted `0` is **not** re-inserted when there is no prior key to cut, or when the last key before `T` is already `0`. That stops legacy films (sole `0` at tick 0) from rewriting pose/action keys on every re-record. A `0` **is** still restored when a prior non-zero hold must end at `T`. The same idle-zero restore policy applies to **sticks / triggers / extras**. Live recording still seeds idle `0` so new takes stay correct.
 
 Outside / world re-record uses `ReplayKeyframes.copyOver`. If a source channel is **empty** (no keys written in the new take), destination keys from the take start onward are still cleared — previously `KeyframeChannel.copyOver` no-op'd on empty sources and left legacy pose/action keys in place.
 

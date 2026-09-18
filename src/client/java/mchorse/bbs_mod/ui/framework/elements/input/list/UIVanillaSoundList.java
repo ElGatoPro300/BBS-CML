@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.framework.elements.input.list;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.audio.AudioCacheManager;
 import mchorse.bbs_mod.audio.SoundLikeManager;
 import mchorse.bbs_mod.ui.framework.UIContext;
