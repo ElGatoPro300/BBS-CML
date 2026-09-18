@@ -9,8 +9,6 @@ import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

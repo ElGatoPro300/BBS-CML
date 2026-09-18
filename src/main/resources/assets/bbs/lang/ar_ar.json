@@ -1,32 +1,28 @@
 {
-    "item.bbs.model": "ﺑﻠﻮﻙ ﺍﻟﻨﻤﻮﺫﺝ",
-    "item.bbs.chroma_red": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺣﻤﺮ",
-    "item.bbs.chroma_green": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺧﻀﺮ",
+    "category.bbs.main": "ﻣﻮﺩ BBS",
+    "command.getskin.downloading": "جارٍ تنزيل السكين...",
+    "command.getskin.error": "خطأ: %s",
+    "command.getskin.success": "تم تطبيق السكين على جميع اللاعبين",
+    "item.bbs.chroma_black": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺳﻮﺩ",
     "item.bbs.chroma_blue": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺯﺭﻕ",
     "item.bbs.chroma_cyan": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺳﻤﺎﻭﻱ",
+    "item.bbs.chroma_green": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺧﻀﺮ",
     "item.bbs.chroma_magenta": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺭﺟﻮﺍﻧﻲ",
-    "item.bbs.chroma_yellow": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺻﻔﺮ",
-    "item.bbs.chroma_black": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺳﻮﺩ",
+    "item.bbs.chroma_red": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺣﻤﺮ",
     "item.bbs.chroma_white": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺑﻴﺾ",
-
+    "item.bbs.chroma_yellow": "ﺑﻠﻮﻙ ﻛﺮﻭﻡ ﺃﺻﻔﺮ",
     "item.bbs.gun": "ﺳﻼﺡ BBS",
+    "item.bbs.model": "ﺑﻠﻮﻙ ﺍﻟﻨﻤﻮﺫﺝ",
     "itemGroup.bbs.main": "ﻣﻮﺩ BBS",
-
-    "key.bbs.item_editor": "ﻣﺤﺮﺭ ﺍﻟﻌﻨﺎﺻﺮ",
     "key.bbs.dashboard": "ﻟﻮﺣﺔ ﺍﻟﺘﺤﻜﻢ",
     "key.bbs.demorph": "ﺇﻟﻐﺎﺀ ﺍﻟﺘﺤﻮﻝ",
-    "key.bbs.open_replays": "ﻓﺘﺢ ﺍﻹﻋﺎﺩﺍﺕ ﺍﻟﺤﺎﻟﻴﺔ",
+    "key.bbs.item_editor": "ﻣﺤﺮﺭ ﺍﻟﻌﻨﺎﺻﺮ",
     "key.bbs.open_morphing": "ﻓﺘﺢ ﻗﺎﺋﻤﺔ ﺍﻟﺘﺤﻮﻝ",
-    "key.bbs.play_film": "ﺗﺸﻐﻴﻞ ﺍﻟﻔﻴﻠﻢ",
+    "key.bbs.open_replays": "ﻓﺘﺢ ﺍﻹﻋﺎﺩﺍﺕ ﺍﻟﺤﺎﻟﻴﺔ",
     "key.bbs.pause_film": "ﺇﻳﻘﺎﻑ ﺍﻟﻔﻴﻠﻢ ﻣﺆﻗﺘﺎ",
+    "key.bbs.play_film": "ﺗﺸﻐﻴﻞ ﺍﻟﻔﻴﻠﻢ",
     "key.bbs.record_replay": "ﺗﺴﺠﻴﻞ ﺍﻹﻋﺎﺩﺓ ﺍﻟﺤﺎﻟﻴﺔ",
     "key.bbs.record_video": "ﺗﺴﺠﻴﻞ ﻓﻴﺪﻳﻮ",
     "key.bbs.teleport": "ﺍﻻﻧﺘﻘﺎﻝ ﺇﻟﻰ ﺍﻹﻋﺎﺩﺓ ﺍﻟﺤﺎﻟﻴﺔ",
-    "key.bbs.zoom": "ﺗﻜﺒﻴﺮ (ﺳﻼﺡ BBS)",
-
-    "category.bbs.main": "ﻣﻮﺩ BBS",
-
-    "command.getskin.success": "تم تطبيق السكين على جميع اللاعبين",
-    "command.getskin.error": "خطأ: %s",
-    "command.getskin.downloading": "جارٍ تنزيل السكين..."
+    "key.bbs.zoom": "ﺗﻜﺒﻴﺮ (ﺳﻼﺡ BBS)"
 }

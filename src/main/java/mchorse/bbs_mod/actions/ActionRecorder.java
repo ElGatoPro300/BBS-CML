@@ -2,7 +2,6 @@ package mchorse.bbs_mod.actions;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;

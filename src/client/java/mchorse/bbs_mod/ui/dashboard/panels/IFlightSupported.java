@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.dashboard.panels;
 
-import mchorse.bbs_mod.ui.dashboard.utils.UIOrbitCamera;
 import mchorse.bbs_mod.ui.utils.Area;
 
 public interface IFlightSupported

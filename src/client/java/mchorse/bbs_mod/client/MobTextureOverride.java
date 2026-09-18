@@ -9,8 +9,6 @@ import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.platform.NativeImage;
 
-import org.lwjgl.opengl.GL11;
-
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;

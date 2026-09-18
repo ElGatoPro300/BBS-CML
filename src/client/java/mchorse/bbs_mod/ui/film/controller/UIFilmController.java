@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.film.controller;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.ActionState;
-import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
@@ -40,9 +39,9 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIReplaysOverlayPanel;
+import mchorse.bbs_mod.ui.film.utils.UIFilmUndoHandler;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -94,7 +93,6 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector2d;
@@ -116,14 +114,14 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
+import io.netty.util.collection.IntObjectHashMap;
+import io.netty.util.collection.IntObjectMap;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
 
 public class UIFilmController extends UIElement
 {
@@ -142,6 +140,11 @@ public class UIFilmController extends UIElement
     /* Character control */
     private IEntity controlled;
     private final Vector2d lastMouse = new Vector2d();
+    /**
+     * After grab/center, skip one look/stick delta frame (same idea as free-look
+     * {@code freeFlightLookPrimed}) so stale UI cursor coords do not jump yaw/pitch.
+     */
+    private boolean controlLookPrimed;
     private int mouseMode;
     private final Vector2f mouseStick = new Vector2f();
 
@@ -294,12 +297,35 @@ public class UIFilmController extends UIElement
 
         if (disable)
         {
+            /* Match free-look: center before DISABLED so look deltas are not relative to UI. */
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+            this.syncLastMouseFromGrabbedCursor();
+            this.controlLookPrimed = false;
         }
         else
         {
+            this.controlLookPrimed = false;
+
+            /* Hand off to free-look without a NORMAL flash when flight free-look is active. */
+            if (this.panel.isFlying() && BBSSettings.editorFlightFreeLook.get())
+            {
+                this.panel.captureFreeFlightMouse();
+
+                return;
+            }
+
             GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
         }
+    }
+
+    private void syncLastMouseFromGrabbedCursor()
+    {
+        /* centerCursor() already force-synced Mouse x/y to the warp; re-read that
+         * baseline so lastMouse matches before the first primed look frame. */
+        MouseHandler mouse = Minecraft.getInstance().mouseHandler;
+
+        this.lastMouse.set(mouse.xpos(), mouse.ypos());
     }
 
     public ValueOnionSkin getOnionSkin()
@@ -634,9 +660,25 @@ public class UIFilmController extends UIElement
         this.setMouseMode(this.mouseMode);
         this.toggleMousePointer(this.controlled != null);
 
+        /* Match Only-rotation / Record overlay: a second grab on the next client tick
+         * re-centers and re-primes after the UI click that toggled control, so platforms
+         * that still emit a stale Mouse frame after the first DISABLED warp do not jump. */
+        if (this.controlled != null)
+        {
+            Minecraft.getInstance().execute(this::regrabControlMouse);
+        }
+
         if (this.controlled == null && this.recording)
         {
             this.stopRecording();
+        }
+    }
+
+    private void regrabControlMouse()
+    {
+        if (this.controlled != null)
+        {
+            this.toggleMousePointer(true);
         }
     }
 
@@ -656,6 +698,8 @@ public class UIFilmController extends UIElement
         player.setClimbing(false);
         player.setRiptide(false);
         player.setVelocity(0F, 0F, 0F);
+        /* Rotation/prev are applied by PlayerUtils.teleport after this — keep physics
+         * neutral here so keyframed velocity/flying do not ice-slide the puppet. */
     }
 
     /**
@@ -975,24 +1019,43 @@ public class UIFilmController extends UIElement
         }
 
         Replay replay = this.getReplay();
+        UIFilmUndoHandler undoHandler = this.panel.getUndoHandler();
 
         if (replay != null && recordedOld != null)
         {
-            for (KeyframeChannel<?> channel : replay.keyframes.getChannels())
+            /* simplify/seal call preNotify — suppress so they cannot cache post-take
+             * channel state (containsKey would then block the real pre-take snapshot). */
+            if (undoHandler != null)
             {
-                channel.simplify();
+                undoHandler.setSuppressValueCache(true);
             }
 
-            /* After simplify: plant position holds one tick before the first new-take key
-             * when it differs from the pre-record timeline (avoids long XYZ lerps). */
-            replay.keyframes.sealPositionRecordingCut(recordedFromTick, recordedOld, recordedGroups);
+            try
+            {
+                for (KeyframeChannel<?> channel : replay.keyframes.getChannels())
+                {
+                    channel.simplify();
+                }
 
-            BaseType newData = replay.keyframes.toData();
+                /* After simplify: plant position holds one tick before the first new-take key
+                 * when it differs from the pre-record timeline (avoids long XYZ lerps). */
+                replay.keyframes.sealPositionRecordingCut(recordedFromTick, recordedOld, recordedGroups);
+            }
+            finally
+            {
+                if (undoHandler != null)
+                {
+                    undoHandler.setSuppressValueCache(false);
+                }
+            }
 
-            replay.keyframes.fromData(recordedOld);
-            replay.keyframes.preNotify();
-            replay.keyframes.fromData(newData);
-            replay.keyframes.postNotify();
+            /* Force pre-take → post-take undo and flush before action packets return.
+             * receiveActions must not collapse this via reduceUndoRedundancy. */
+            if (undoHandler != null)
+            {
+                undoHandler.replaceCachedValue(replay.keyframes, recordedOld);
+                undoHandler.commitCachedUndoNoMerging();
+            }
 
             this.recordingOld = null;
         }
@@ -1006,7 +1069,8 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorMobCapture().clear();
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
-        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer. */
+        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer.
+         * Keyframe undo is already committed above so this async path cannot swallow it. */
         this.stopViewportActionRecording();
 
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
@@ -1463,6 +1527,7 @@ public class UIFilmController extends UIElement
 
         panel.onMobCaptureCancel(() -> this.openRecordOverlay(true));
         panel.setMobToMorph(mobToMorph);
+        panel.onClose((event) -> this.toggleMousePointer(this.controlled != null));
 
         UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> panel.submit(Arrays.asList("outside")));
 
@@ -2115,13 +2180,22 @@ public class UIFilmController extends UIElement
             }
         }
 
+        /* Look/sticks: center+prime absorbs the post-warp frame; per-frame deltas come
+         * from Minecraft Mouse (cursor callbacks). Raw glfwGetCursorPos under
+         * GLFW_CURSOR_DISABLED often stays at the centered warp and zeros rotation. */
         MouseHandler mouse = Minecraft.getInstance().mouseHandler;
         double x = mouse.xpos();
         double y = mouse.ypos();
 
         if (this.canControl())
         {
-            if (this.isMouseLookMode() && ClientNetwork.isIsBBSModOnServer())
+            if (!this.controlLookPrimed)
+            {
+                /* First frame after grab/center: arm baseline, apply no look/stick delta. */
+                this.lastMouse.set(x, y);
+                this.controlLookPrimed = true;
+            }
+            else if (this.isMouseLookMode() && ClientNetwork.isIsBBSModOnServer())
             {
                 float cursorDeltaX = (float) (x - this.lastMouse.x) / 2F;
                 float cursorDeltaY = (float) (y - this.lastMouse.y) / 2F;

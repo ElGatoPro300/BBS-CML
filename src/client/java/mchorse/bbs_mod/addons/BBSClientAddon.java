@@ -30,8 +30,6 @@ import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
 import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
-import mchorse.bbs_mod.events.register.RegisterShadersEvent;
-import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
 import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;

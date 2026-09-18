@@ -2,9 +2,7 @@ package mchorse.bbs_mod.ui;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.cubic.model.ModelRepository;
-import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmManager;
 import mchorse.bbs_mod.network.ClientNetwork;

@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBS;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.actions.ActionPlayer;
 import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
@@ -40,11 +39,8 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.network.ClientNetwork;
-import mchorse.bbs_mod.resources.Link;
-import mchorse.bbs_mod.resources.packs.URLSourcePack;
 import mchorse.bbs_mod.settings.Settings;
 import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -78,7 +74,6 @@ import mchorse.bbs_mod.ui.film.utils.undo.UIUndoHistoryOverlay;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
@@ -113,7 +108,6 @@ import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -125,6 +119,7 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.player.LocalPlayer;
 
 import org.joml.Matrix3x2fc;
@@ -135,9 +130,6 @@ import org.joml.Vector3d;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
@@ -146,13 +138,8 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -5780,12 +5767,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (film != null && film.getId().equals(filmId) && CollectionUtils.inRange(film.replays.getList(), replayId))
         {
-            BaseValue.edit(film.replays.getList().get(replayId), IValueListener.FLAG_UNMERGEABLE, (replay) ->
+            /* Edit actions only — never the whole Replay. Caching the replay parent would
+             * let reduceUndoRedundancy drop a pending/sibling keyframes undo and permanently
+             * lose the pre-viewport-recording snapshot (Only rotation / similar takes). */
+            Replay replay = film.replays.getList().get(replayId);
+
+            BaseValue.edit(replay.actions, IValueListener.FLAG_UNMERGEABLE, (actions) ->
             {
                 Clips newClips = new Clips("", BBSMod.getFactoryActionClips());
 
                 newClips.fromData(clips);
-                replay.actions.copyOver(newClips, tick);
+                actions.copyOver(newClips, tick);
             });
         }
 
@@ -7078,7 +7070,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (flight)
         {
-            this.centerCursor(window);
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
@@ -7093,6 +7085,25 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    /**
+     * Re-grab free-look capture after actor control ends so the cursor never
+     * flashes {@code NORMAL} between the two grab owners.
+     */
+    public void captureFreeFlightMouse()
+    {
+        if (!this.isFlying() || !BBSSettings.editorFlightFreeLook.get())
+        {
+            return;
+        }
+
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
+
+        Window.centerCursor();
+        GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        this.resetFreeFlightLookDrag = true;
+        this.freeFlightLookPrimed = false;
+    }
+
     private boolean enforceFreeFlightMouseCapture()
     {
         if (!this.isFlying() || !BBSSettings.editorFlightFreeLook.get())
@@ -7104,7 +7115,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (GLFW.glfwGetInputMode(window.handle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
         {
-            this.centerCursor(window);
+            Window.centerCursor();
             GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             return true;
         }
@@ -7112,26 +7123,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return false;
     }
 
-    private void centerCursor(com.mojang.blaze3d.platform.Window window)
-    {
-        mchorse.bbs_mod.graphics.window.Window.moveCursor(window.getScreenWidth() / 2, window.getScreenHeight() / 2);
-    }
-
     private void updateFreeFlightLookFromRawCursor(boolean orbitFlight)
     {
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
-
         if (this.enforceFreeFlightMouseCapture())
         {
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
         }
 
-        double[] rawX = new double[1];
-        double[] rawY = new double[1];
-        GLFW.glfwGetCursorPos(window.handle(), rawX, rawY);
-        int mouseX = (int) Math.round(rawX[0]);
-        int mouseY = (int) Math.round(rawY[0]);
+        /* Same hybrid as actor control: Mouse callbacks under DISABLED, not glfwGetCursorPos. */
+        MouseHandler mouse = Minecraft.getInstance().mouseHandler;
+        int mouseX = (int) Math.round(mouse.xpos());
+        int mouseY = (int) Math.round(mouse.ypos());
 
         if (this.resetFreeFlightLookDrag || !this.freeFlightLookPrimed)
         {

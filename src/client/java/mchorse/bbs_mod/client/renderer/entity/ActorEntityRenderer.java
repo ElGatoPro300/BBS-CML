@@ -172,6 +172,15 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
+
+        /* Same NeoForge/Connector lightmap isolation as BaseFilmController#render for stubs:
+         * ModelForm can leave diffuse/Sampler2 dirty; actors skip the film stub loop
+         * (physicalActor), so re-arm here before each ActorEntity form draw. Skip Iris
+         * shadow pass — different GL contract (see docs/architecture/rendering-iris.md §5). */
+        if (!BBSRendering.isIrisShadowPass())
+        {
+            BBSRendering.prepareVanillaEntityLighting();
+        }
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
             .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, state.lightCoords, overlay, animDelta)
             .camera(Minecraft.getInstance().gameRenderer.mainCamera()));

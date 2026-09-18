@@ -9,7 +9,6 @@ import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;

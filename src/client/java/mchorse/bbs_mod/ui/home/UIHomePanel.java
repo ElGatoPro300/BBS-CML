@@ -6,7 +6,6 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.texture.Texture;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.resources.packs.URLSourcePack;
@@ -30,7 +29,6 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UICreateAssetOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UISoundOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -43,11 +41,6 @@ import mchorse.bbs_mod.utils.repos.IRepository;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
 import net.minecraft.client.Minecraft;
-
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;

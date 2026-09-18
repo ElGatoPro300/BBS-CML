@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.particles;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.renderer.Tesselator;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.particles.ParticleScheme;
@@ -20,7 +19,6 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;

@@ -5,7 +5,6 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.film.clips.UIClip;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.utils.UI;
 
 public abstract class UIActionClip <T extends ActionClip> extends UIClip<T>
 {

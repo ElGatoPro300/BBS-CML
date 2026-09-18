@@ -3,7 +3,6 @@ package mchorse.bbs_mod.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.entity.ActorEntity;
-import mchorse.bbs_mod.utils.AABB;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;

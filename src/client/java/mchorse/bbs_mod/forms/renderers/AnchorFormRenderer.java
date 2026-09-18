@@ -8,7 +8,6 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.renderer.texture.OverlayTexture;
 

@@ -20,7 +20,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.PlayerUtils;
-import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.Transform;
 
@@ -53,12 +52,9 @@ import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.ValueInput;
 
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
 import com.mojang.authlib.GameProfile;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.brigadier.StringReader;
 import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;

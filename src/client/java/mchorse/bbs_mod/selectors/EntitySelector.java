@@ -16,7 +16,6 @@ import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.storage.TagValueOutput;
 
-import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import java.util.Objects;
