@@ -629,15 +629,8 @@ public abstract class Form extends ValueGroup
             color.a = opacityA;
             valueColor.set(color);
         }
-        else if (!colorHadBlendA && color.a <= 0.001F)
-        {
-            /* Legacy tint-off default would be invisible under traditional alpha. */
-            color.r = 1F;
-            color.g = 1F;
-            color.b = 1F;
-            color.a = 1F;
-            valueColor.set(color);
-        }
+        /* Do not rewrite color.a≈0 → opaque when there is no legacy "opacity" / blend_a
+         * marker: modern films use color.a as intentional opacity (including full fade). */
     }
 
     private static boolean colorDataHasBlendA(BaseType colorData)
