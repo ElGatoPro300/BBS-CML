@@ -4,6 +4,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.client.ModelEffectUniforms;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
+import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.utils.iris.IrisCustomPass;
@@ -433,7 +434,7 @@ public final class ModelEffectPass
                      RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride : target.getColorTextureView(), Optional.empty(),
                      RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView(), OptionalDouble.empty()))
             {
-                pass.setPipeline(pipeline);
+                pass.setPipeline(RenderPipelineUtils.withCurrentDepth(pipeline));
                 ScissorState scissor = RenderSystem.getScissorStateForRenderTypeDraws();
 
                 if (scissor.enabled())

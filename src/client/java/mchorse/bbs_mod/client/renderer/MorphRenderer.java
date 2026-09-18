@@ -78,6 +78,11 @@ public class MorphRenderer
 
             if (canRender(playerForm))
             {
+                if (WorldFormRenderer.defer(matrixStack, stack -> renderPlayer(player, playerState, g, stack, renderCommandQueue, i)))
+                {
+                    return true;
+                }
+
                 GlStateManager._enableDepthTest();
 
                 boolean worldPass = BBSRendering.isRenderingWorld();
@@ -200,6 +205,11 @@ public class MorphRenderer
 
         if (form != null)
         {
+            if (WorldFormRenderer.defer(matrixStack, stack -> renderLivingEntity(livingEntity, livingState, g, stack, vertexConsumerProvider, i, o)))
+            {
+                return true;
+            }
+
             GlStateManager._enableDepthTest();
 
             float bodyYaw = livingState.bodyRot;

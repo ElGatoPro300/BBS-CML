@@ -17,6 +17,7 @@ import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
@@ -30,6 +31,7 @@ import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -144,16 +146,32 @@ public class Draw
 
     public static void flush(BufferBuilder builder, RenderType layer)
     {
-        MeshData built = builder.build();
-
-        if (built != null)
+        try (MeshData built = builder.build())
         {
-            drawMeshData(built, layer);
-            built.close();
+            if (built != null)
+            {
+                drawMeshData(built, layer);
+            }
         }
     }
 
     public static void drawMeshData(MeshData meshData, RenderType layer)
+    {
+        if (layer.sortOnUpload() && meshData.drawState().primitiveTopology() == PrimitiveTopology.QUADS)
+        {
+            try (ByteBufferBuilder indices = new ByteBufferBuilder(256))
+            {
+                meshData.sortQuads(indices, RenderSystem.getProjectionType().vertexSorting());
+                drawMeshDataUnsorted(meshData, layer);
+            }
+        }
+        else
+        {
+            drawMeshDataUnsorted(meshData, layer);
+        }
+    }
+
+    private static void drawMeshDataUnsorted(MeshData meshData, RenderType layer)
     {
         MeshData.DrawState state = meshData.drawState();
 
@@ -169,6 +187,7 @@ public class Draw
         ByteBuffer ibData = meshData.indexBuffer();
         GpuBuffer ib = null;
         boolean customIb = false;
+        IndexType indexType = state.indexType();
 
         if (ibData != null)
         {
@@ -177,14 +196,24 @@ public class Draw
         }
         else
         {
-            ib = RenderSystem.getSequentialBuffer(state.primitiveTopology()).getBuffer(state.indexCount());
+            RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(state.primitiveTopology());
+            ib = sequential.getBuffer(state.indexCount());
+            indexType = sequential.type();
         }
 
         try
         {
             PreparedRenderType prepared = layer.prepare();
+            RenderPipeline pipeline = RenderPipelineUtils.withCurrentDepth(prepared.pipeline());
 
-            prepared.drawFromBuffer(vb, ib, state.indexType(), state.indexCount(), 0, 0);
+            if (pipeline != prepared.pipeline())
+            {
+                prepared = new PreparedRenderType(pipeline, prepared.outputTarget(), prepared.dynamicTransforms(),
+                    prepared.scissorState(), prepared.textures());
+            }
+
+            /* 26.2 expects baseVertex, firstIndex, indexCount. */
+            prepared.drawFromBuffer(vb, ib, indexType, 0, 0, state.indexCount());
         }
         finally
         {

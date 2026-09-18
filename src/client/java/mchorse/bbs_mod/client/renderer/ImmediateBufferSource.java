@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.client.renderer;
 
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.graphics.Draw;
 
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -28,6 +29,12 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
     @Override
     public VertexConsumer getBuffer(RenderType layer)
     {
+        /* Only one unfinished builder may write into the shared fallback buffer. */
+        if (!this.fixedBuffers.containsKey(layer) && this.lastLayer != layer)
+        {
+            this.endLastBatch();
+        }
+
         BufferBuilder builder = this.startedBuilders.get(layer);
 
         if (builder == null)
@@ -38,7 +45,10 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
             this.startedBuilders.put(layer, builder);
         }
 
-        this.lastLayer = layer;
+        if (!this.fixedBuffers.containsKey(layer))
+        {
+            this.lastLayer = layer;
+        }
 
         return builder;
     }
@@ -51,7 +61,7 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
             RenderType layer = entry.getKey();
             BufferBuilder builder = entry.getValue();
 
-            Draw.flush(builder, layer);
+            this.draw(builder, layer);
         }
 
         this.startedBuilders.clear();
@@ -65,7 +75,7 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
 
         if (builder != null)
         {
-            Draw.flush(builder, layer);
+            this.draw(builder, layer);
         }
 
         if (this.lastLayer == layer)
@@ -81,5 +91,11 @@ public class ImmediateBufferSource implements MultiBufferSource.BufferSource
         {
             this.endBatch(this.lastLayer);
         }
+    }
+
+    private void draw(BufferBuilder builder, RenderType layer)
+    {
+        CustomVertexConsumerProvider.drawLayer(layer);
+        Draw.flush(builder, layer);
     }
 }

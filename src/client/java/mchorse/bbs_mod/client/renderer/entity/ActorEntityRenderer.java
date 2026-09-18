@@ -4,6 +4,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.MultiBufferSource;
+import mchorse.bbs_mod.client.renderer.WorldFormRenderer;
 import mchorse.bbs_mod.cubic.render.vanilla.ArmorRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -132,6 +133,16 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     @Override
     public void submit(ActorEntityState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
+        if (!WorldFormRenderer.defer(matrices, stack -> this.renderForm(state, stack)))
+        {
+            this.renderForm(state, matrices);
+        }
+
+        super.submit(state, matrices, queue, cameraState);
+    }
+
+    private void renderForm(ActorEntityState state, PoseStack matrices)
+    {
         ActorEntity livingEntity = state.entity;
 
         if (livingEntity == null)
@@ -186,7 +197,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         matrices.popPose();
 
-        super.submit(state, matrices, queue, cameraState);
     }
 
     private boolean shouldDrawCustomGroundShadow(ActorEntity entity)

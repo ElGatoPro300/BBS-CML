@@ -306,6 +306,11 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     @Override
     public void submit(ModelBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
+        if (WorldFormRenderer.defer(matrices, stack -> this.submit(state, stack, queue, cameraState)))
+        {
+            return;
+        }
+
         ModelBlockEntity entity = state.entity;
 
         if (entity == null)

@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.utils;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Framebuffer;
+import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.Renderbuffer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
@@ -205,7 +206,7 @@ public class StencilFormFramebuffer
         this.previousScissorWidth = scissor.width();
         this.previousScissorHeight = scissor.height();
         RenderSystem.disableScissorForRenderTypeDraws();
-        RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, new Vector4f(0F, 0F, 0F, 0F), this.depthTexture, 1D);
+        RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(this.colorTexture, new Vector4f(0F, 0F, 0F, 0F), this.depthTexture, RenderPipelineUtils.depthClearValue());
         GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, this.drawFbo);
 
         if (!this.applied)

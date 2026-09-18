@@ -14,6 +14,7 @@ import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
+import mchorse.bbs_mod.client.renderer.WorldFormRenderer;
 import mchorse.bbs_mod.client.screen.ScreenEffectRenderer;
 import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
@@ -37,6 +38,7 @@ import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexSodiumConsumer;
+import mchorse.bbs_mod.graphics.RenderPipelineUtils;
 import mchorse.bbs_mod.graphics.WorldOverlayRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
@@ -355,7 +357,7 @@ public class BBSRendering
         if (clear && fb != null && fb.getColorTexture() != null && fb.getDepthTexture() != null)
         {
             RenderSystem.getDevice().createCommandEncoder()
-                .clearColorAndDepthTextures(fb.getColorTexture(), CLEAR_COLOR, fb.getDepthTexture(), 1.0D);
+                .clearColorAndDepthTextures(fb.getColorTexture(), CLEAR_COLOR, fb.getDepthTexture(), RenderPipelineUtils.depthClearValue());
         }
     }
 
@@ -373,7 +375,7 @@ public class BBSRendering
         if (clear && fb.getColorTexture() != null && fb.getDepthTexture() != null)
         {
             RenderSystem.getDevice().createCommandEncoder()
-                .clearColorAndDepthTextures(fb.getColorTexture(), CLEAR_COLOR, fb.getDepthTexture(), 1.0D);
+                .clearColorAndDepthTextures(fb.getColorTexture(), CLEAR_COLOR, fb.getDepthTexture(), RenderPipelineUtils.depthClearValue());
         }
     }
 
@@ -1242,6 +1244,8 @@ public class BBSRendering
 
     public static void renderCoolStuff(LevelRenderContext worldRenderContext)
     {
+        WorldFormRenderer.get().flush();
+
         if (Minecraft.getInstance().gui.screen() instanceof UIScreen screen)
         {
             screen.renderInWorld(worldRenderContext);
