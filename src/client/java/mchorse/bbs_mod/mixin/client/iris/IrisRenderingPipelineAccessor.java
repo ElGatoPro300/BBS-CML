@@ -3,11 +3,11 @@ package mchorse.bbs_mod.mixin.client.iris;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.targets.RenderTargets;
 
+import java.util.Set;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
-
-import java.util.Set;
 
 @Mixin(IrisRenderingPipeline.class)
 public interface IrisRenderingPipelineAccessor

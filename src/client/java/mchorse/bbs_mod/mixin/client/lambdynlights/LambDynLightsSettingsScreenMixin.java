@@ -1,12 +1,12 @@
 package mchorse.bbs_mod.mixin.client.lambdynlights;
 
+import dev.lambdaurora.spruceui.background.Background;
+import dev.lambdaurora.spruceui.background.SimpleColorBackground;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-
-import dev.lambdaurora.spruceui.background.Background;
-import dev.lambdaurora.spruceui.background.SimpleColorBackground;
 
 @Pseudo
 @Mixin(targets = "dev.lambdaurora.lambdynlights.gui.SettingsScreen")

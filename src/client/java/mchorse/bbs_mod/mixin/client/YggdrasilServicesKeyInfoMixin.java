@@ -1,17 +1,16 @@
 package mchorse.bbs_mod.mixin.client;
 
+import com.mojang.authlib.exceptions.MinecraftClientException;
+import com.mojang.authlib.minecraft.client.MinecraftClient;
+
+import java.net.SocketException;
+import java.net.URL;
+
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-
-import com.mojang.authlib.exceptions.MinecraftClientException;
-import com.mojang.authlib.minecraft.client.MinecraftClient;
-
-import org.slf4j.Logger;
-
-import java.net.SocketException;
-import java.net.URL;
 
 /**
  * Mojang's authlib fetches session signature keys from {@code api.minecraftservices.com} on startup.

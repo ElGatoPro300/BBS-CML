@@ -48,12 +48,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-import io.netty.buffer.Unpooled;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+
+import io.netty.buffer.Unpooled;
 
 public class ClientNetwork
 {

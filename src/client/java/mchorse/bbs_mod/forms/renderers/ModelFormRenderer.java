@@ -62,11 +62,8 @@ import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.geom.EntityModelSet;
-import net.minecraft.client.model.object.skull.SkullModelBase;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.blockentity.SkullBlockRenderer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.component.DataComponents;
@@ -111,7 +108,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 {
     private static Matrix4f uiMatrix = new Matrix4f();
     private static final ThreadLocal<Float> UI_ANGLE_OVERRIDE = new ThreadLocal<>();
-    private static Map<SkullBlock.Type, SkullModelBase> skullModels;
+
 
     private MatrixCache bones = new MatrixCache();
 
@@ -3480,10 +3477,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
-        Item item = itemStack.getItem();
         Equippable equippable = itemStack.get(DataComponents.EQUIPPABLE);
 
-        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD)
+        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD && equippable.assetId().isPresent())
         {
             return;
         }
@@ -3513,13 +3509,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Skulls bypass ItemRenderer (Iris MixinItemRenderer); bake the same block/item IDs. */
         try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginEquippedItem(target, itemStack))
         {
+            Item item = itemStack.getItem();
+
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
                 float tickDelta = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
                 float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
 
                 BbsHeadItemSpace.applySkull(stack);
-                this.renderSkullOnHead(itemStack, skullBlock, stack, consumers, color, light, animationProgress);
+                ItemRenderHelper.renderSkull(itemStack, skullBlock.getType(), animationProgress, stack, light, overlay, color);
             }
             else
             {
@@ -3562,56 +3560,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         return target.getLimbPos(tickDelta);
     }
 
-    private void renderSkullOnHead(ItemStack itemStack, AbstractSkullBlock skullBlock, PoseStack stack, CustomVertexConsumerProvider consumers, Color color, int light, float animationProgress)
-    {
-        SkullBlock.Type skullType = skullBlock.getType();
-        SkullModelBase skullModel = this.getSkullModels().get(skullType);
-
-        if (skullModel == null)
-        {
-            return;
-        }
-
-        ResolvableProfile profile = itemStack.get(DataComponents.PROFILE);
-        Identifier skinTexture = null;
-        if (profile != null && profile.partialProfile() != null)
-        {
-            PlayerSkin textures = Minecraft.getInstance().getSkinManager().createLookup(profile.partialProfile(), false).get();
-            if (textures != null && textures.body() != null)
-            {
-                skinTexture = textures.body().id();
-            }
-        }
-        RenderType renderLayer = SkullBlockRenderer.getSkullRenderType(skullType, skinTexture);
-
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BBSRendering.enableBlend());
-        consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-        skullModel.renderToBuffer(stack, consumers.getBuffer(renderLayer), light, OverlayTexture.NO_OVERLAY);
-        consumers.draw();
-        consumers.setSubstitute(null);
-        CustomVertexConsumerProvider.clearRunnables();
-    }
-
-    private Map<SkullBlock.Type, SkullModelBase> getSkullModels()
-    {
-        if (skullModels == null)
-        {
-            skullModels = new HashMap<>();
-            EntityModelSet loaded = Minecraft.getInstance().getEntityModels();
-
-            for (SkullBlock.Types type : SkullBlock.Types.values())
-            {
-                SkullModelBase model = SkullBlockRenderer.createModel(loaded, type);
-
-                if (model != null)
-                {
-                    skullModels.put(type, model);
-                }
-            }
-        }
-
-        return skullModels;
-    }
 
     /**
      * Active spyglass on player ModelForms via {@link BbsHeadItemSpace} (BBS adaptation of

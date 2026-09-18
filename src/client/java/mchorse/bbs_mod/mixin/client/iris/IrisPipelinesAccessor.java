@@ -4,12 +4,11 @@ import net.irisshaders.iris.pipeline.IrisPipelines;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.pipeline.programs.ShaderKey;
 
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Invoker;
-
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 
 import it.unimi.dsi.fastutil.Function;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(value = IrisPipelines.class, remap = false)
 public interface IrisPipelinesAccessor

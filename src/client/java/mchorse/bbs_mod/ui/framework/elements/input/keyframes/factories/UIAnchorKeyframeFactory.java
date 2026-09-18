@@ -26,11 +26,11 @@ import mchorse.bbs_mod.utils.pose.Transform;
 
 import org.joml.Vector3d;
 
-import io.netty.util.collection.IntObjectMap;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+
+import io.netty.util.collection.IntObjectMap;
 
 public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
 {

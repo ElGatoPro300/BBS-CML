@@ -1,14 +1,14 @@
 package mchorse.bbs_mod.mixin.client.audio;
 
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
 import com.mojang.blaze3d.audio.CallbackDeviceTracker;
 
 import org.lwjgl.openal.ALC;
 import org.lwjgl.openal.ALCCapabilities;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(CallbackDeviceTracker.class)
 public class CallbackDeviceTrackerMixin

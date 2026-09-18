@@ -7,12 +7,12 @@ import net.minecraft.client.gui.render.GuiRenderer;
 import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Mixin(GuiRenderer.class)
 public class GuiRendererMixin

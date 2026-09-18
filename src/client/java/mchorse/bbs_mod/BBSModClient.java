@@ -144,8 +144,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
 import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -165,6 +163,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 public class BBSModClient implements ClientModInitializer
 {

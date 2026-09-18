@@ -102,15 +102,15 @@ import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
 
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import io.netty.util.collection.IntObjectHashMap;
+import io.netty.util.collection.IntObjectMap;
 
 public abstract class BaseFilmController
 {

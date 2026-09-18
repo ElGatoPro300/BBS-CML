@@ -6,8 +6,6 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.StandardProtocolFamily;
@@ -20,6 +18,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
 
 /**
  * Minimal Discord IPC client using the legacy Rich Presence pipe protocol.

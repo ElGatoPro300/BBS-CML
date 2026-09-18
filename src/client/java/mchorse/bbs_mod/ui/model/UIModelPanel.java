@@ -57,8 +57,6 @@ import net.minecraft.client.Minecraft;
 
 import com.mojang.logging.LogUtils;
 
-import org.slf4j.Logger;
-
 import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -67,6 +65,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+
+import org.slf4j.Logger;
 
 public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements IUIModelPanelHost
 {

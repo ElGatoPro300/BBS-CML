@@ -18,8 +18,6 @@ import mchorse.bbs_mod.video.VideoLikeManager;
 
 import com.mojang.logging.LogUtils;
 
-import org.slf4j.Logger;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,6 +25,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+
+import org.slf4j.Logger;
 
 public class UIVideoOverlayPanel extends UIStringOverlayPanel
 {

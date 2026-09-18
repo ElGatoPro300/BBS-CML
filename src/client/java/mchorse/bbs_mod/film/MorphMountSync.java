@@ -22,9 +22,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.WalkAnimationState;
 import net.minecraft.world.entity.player.Player;
 
-import io.netty.util.collection.IntObjectMap;
-
 import java.util.List;
+
+import io.netty.util.collection.IntObjectMap;
 
 /**
  * Links rider and mount replay entities so mob morph renderers can call

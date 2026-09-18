@@ -37,8 +37,6 @@ import com.google.gson.reflect.TypeToken;
 
 import org.lwjgl.opengl.GL11;
 
-import org.slf4j.Logger;
-
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -50,6 +48,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
+import org.slf4j.Logger;
 
 public class UINewsPanel extends UISidebarDashboardPanel
 {

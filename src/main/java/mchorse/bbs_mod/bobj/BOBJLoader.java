@@ -6,14 +6,14 @@ import org.joml.Matrix4f;
 import org.joml.Vector2d;
 import org.joml.Vector3f;
 
-import org.apache.commons.lang3.ArrayUtils;
-
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 /**
  * OBJ file parser and loader

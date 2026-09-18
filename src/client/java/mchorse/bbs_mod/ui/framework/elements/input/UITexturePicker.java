@@ -53,8 +53,6 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
-import org.apache.commons.io.IOUtils;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -63,6 +61,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+
+import org.apache.commons.io.IOUtils;
 
 /**
  * Texture picker GUI

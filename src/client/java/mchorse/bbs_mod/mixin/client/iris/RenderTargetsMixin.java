@@ -4,13 +4,13 @@ import net.irisshaders.iris.gl.texture.DepthBufferFormat;
 import net.irisshaders.iris.shaderpack.properties.PackDirectives;
 import net.irisshaders.iris.targets.RenderTargets;
 
+import com.mojang.blaze3d.textures.GpuTexture;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import com.mojang.blaze3d.textures.GpuTexture;
 
 @Mixin(value = RenderTargets.class, remap = false)
 public class RenderTargetsMixin
