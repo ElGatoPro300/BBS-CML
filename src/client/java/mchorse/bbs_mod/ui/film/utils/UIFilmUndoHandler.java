@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film.utils;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.film.Film;
@@ -22,6 +23,7 @@ import mchorse.bbs_mod.utils.undo.IUndo;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class UIFilmUndoHandler extends UIFormUndoHandler
@@ -29,6 +31,12 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
     private Timer actionsTimer = new Timer(100);
     private Set<BaseValue> syncData = new HashSet<>();
     private boolean isUndoing;
+    /**
+     * When true, {@link #handlePreValues} ignores snapshots. Used while stop-recording
+     * runs {@code simplify}/{@code seal} so those notifies cannot poison the cache
+     * before the real pre-take snapshot is forced in.
+     */
+    private boolean suppressValueCache;
 
     /**
      * When an undo/redo would change both the embedded view and film data, the view
@@ -241,12 +249,70 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
     @Override
     public void handlePreValues(BaseValue baseValue, int flag)
     {
-        if (this.isUndoing || this.isFilmMetadata(baseValue) || this.isFilmRecording())
+        if (this.suppressValueCache || this.isUndoing || this.isFilmMetadata(baseValue) || this.isFilmRecording())
         {
             return;
         }
 
         super.handlePreValues(baseValue, flag);
+    }
+
+    public void setSuppressValueCache(boolean suppress)
+    {
+        this.suppressValueCache = suppress;
+    }
+
+    /**
+     * Pin an explicit pre-change snapshot, replacing any polluted entry for the same
+     * value (unlike {@link #handlePreValues}, which skips when the key already exists).
+     */
+    public void replaceCachedValue(BaseValue value, BaseType oldData)
+    {
+        if (value == null || oldData == null)
+        {
+            return;
+        }
+
+        if (this.uiData == null && this.uiElement.getRoot() != null)
+        {
+            this.uiData = this.uiElement.getRoot().collectAllUndoData();
+        }
+
+        this.cachedValues.put(value, oldData);
+    }
+
+    /**
+     * Flush pending value undos and prevent the next edit from merging into this step.
+     * No-ops when the cache is empty or every snapshot equals the current data.
+     */
+    public void commitCachedUndoNoMerging()
+    {
+        if (this.cachedValues.isEmpty())
+        {
+            return;
+        }
+
+        boolean willPush = false;
+
+        for (Map.Entry<BaseValue, BaseType> entry : this.cachedValues.entrySet())
+        {
+            BaseType oldValue = entry.getValue();
+            BaseType newValue = entry.getKey().toData();
+
+            if (oldValue != null && !oldValue.equals(newValue))
+            {
+                willPush = true;
+
+                break;
+            }
+        }
+
+        this.submitUndo();
+
+        if (willPush)
+        {
+            this.undoManager.markLastUndoNoMerging();
+        }
     }
 
     @Override
@@ -430,9 +496,10 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
     }
 
     /**
-     * While recording, do not snapshot undo states. Keyframe spam would bloat the
-     * undo stack, and undo/redo during an active capture is not meaningful — only
-     * after returning to the film UI. Stop-recording paths already batch a notify.
+     * While recording (including countdown), do not snapshot undo states. Keyframe
+     * spam would bloat the undo stack, and undo/redo during an active capture is not
+     * meaningful — only after returning to the film UI. Stop-recording commits one
+     * explicit pre-take undo via {@link #replaceCachedValue}.
      */
     public boolean isFilmRecording()
     {
@@ -441,7 +508,7 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
             return false;
         }
 
-        if (panel.getController() != null && panel.getController().isRecording() && panel.getController().getRecordingCountdown() <= 0)
+        if (panel.getController() != null && panel.getController().isRecording())
         {
             return true;
         }
