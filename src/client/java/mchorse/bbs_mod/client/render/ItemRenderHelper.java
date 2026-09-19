@@ -1,17 +1,29 @@
 package mchorse.bbs_mod.client.render;
 
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.utils.colors.Color;
 
+import net.minecraft.block.SkullBlock;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
+import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.command.OrderedRenderCommandQueueImpl;
 import net.minecraft.client.render.command.RenderDispatcher;
 import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 1.21.11 item draw path: ItemModelManager fills {@link ItemRenderState}, then submits
@@ -116,5 +128,77 @@ public final class ItemRenderHelper
         {
             STATE.render(matrices, queue, light, overlay, 0);
         }
+    }
+
+    private static final Map<SkullBlock.SkullType, SkullBlockEntityModel> SKULL_MODELS = new HashMap<>();
+
+    private static SkullBlockEntityModel getSkullModel(SkullBlock.SkullType type)
+    {
+        SkullBlockEntityModel model = SKULL_MODELS.get(type);
+
+        if (model == null)
+        {
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            model = SkullBlockEntityRenderer.getModels(client.getLoadedEntityModels(), type);
+
+            if (model != null)
+            {
+                SKULL_MODELS.put(type, model);
+            }
+        }
+
+        return model;
+    }
+
+    public static void renderSkull(ItemStack stack, SkullBlock.SkullType skullType, float animationProgress, MatrixStack matrices, int light, int overlay, Color color)
+    {
+        if (stack == null || stack.isEmpty() || skullType == null)
+        {
+            return;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        SkullBlockEntityModel skullModel = getSkullModel(skullType);
+
+        if (skullModel == null)
+        {
+            return;
+        }
+
+        RenderLayer renderLayer;
+
+        if (skullType == SkullBlock.Type.PLAYER)
+        {
+            ProfileComponent profile = stack.get(DataComponentTypes.PROFILE);
+
+            if (profile != null)
+            {
+                renderLayer = client.getPlayerSkinCache().get(profile).getRenderLayer();
+            }
+            else
+            {
+                renderLayer = SkullBlockEntityRenderer.getCutoutRenderLayer(skullType, null);
+            }
+        }
+        else
+        {
+            renderLayer = SkullBlockEntityRenderer.getCutoutRenderLayer(skullType, null);
+        }
+
+        ensureIsolatedDispatcher();
+
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BBSRendering.enableBlend());
+        consumers.setSubstitute(BBSRendering.getColorConsumer(color));
+
+        SkullBlockEntityRenderer.render(null, 180F, animationProgress, matrices, isolatedQueue, light, skullModel, renderLayer, 0, null);
+
+        isolatedDispatcher.render();
+        client.getBufferBuilders().getEntityVertexConsumers().draw();
+        consumers.draw();
+        consumers.setSubstitute(null);
+        CustomVertexConsumerProvider.clearRunnables();
     }
 }

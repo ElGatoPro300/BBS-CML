@@ -43,6 +43,14 @@ public class FixedColorVertexConsumer implements VertexConsumer
     }
 
     @Override
+    public void vertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        int recolored = (this.a << 24) | (this.r << 16) | (this.g << 8) | this.b;
+
+        this.delegate.vertex(x, y, z, recolored, u, v, overlay, light, normalX, normalY, normalZ);
+    }
+
+    @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         return this.delegate.color(red, green, blue, alpha);

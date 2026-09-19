@@ -9,6 +9,7 @@
         "CameraMixin",
         "GameRendererMixin",
         "MouseMixin",
+        "MouseAccessor",
         "EntityRenderStateMixin",
         "EntityAccessor",
         "PlayerEntityRendererMixin",

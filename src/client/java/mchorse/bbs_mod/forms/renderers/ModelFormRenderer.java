@@ -65,24 +65,17 @@ import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.block.AbstractSkullBlock;
-import net.minecraft.block.SkullBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
-import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
-import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.EquippableComponent;
-import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.SkinTextures;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemDisplayContext;
@@ -90,7 +83,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
@@ -115,7 +107,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 {
     private static Matrix4f uiMatrix = new Matrix4f();
     private static final ThreadLocal<Float> UI_ANGLE_OVERRIDE = new ThreadLocal<>();
-    private static Map<SkullBlock.SkullType, SkullBlockEntityModel> skullModels;
 
     private MatrixCache bones = new MatrixCache();
 
@@ -3505,10 +3496,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
-        Item item = itemStack.getItem();
         EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
 
-        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD)
+        if (equippable != null && equippable.slot() == EquipmentSlot.HEAD && equippable.assetId().isPresent())
         {
             return;
         }
@@ -3538,13 +3528,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Skulls bypass ItemRenderer (Iris MixinItemRenderer); bake the same block/item IDs. */
         try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginEquippedItem(target, itemStack))
         {
+            Item item = itemStack.getItem();
+
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
                 float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true);
                 float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
 
                 BbsHeadItemSpace.applySkull(stack);
-                this.renderSkullOnHead(itemStack, skullBlock, stack, consumers, color, light, animationProgress);
+                ItemRenderHelper.renderSkull(itemStack, skullBlock.getSkullType(), animationProgress, stack, light, overlay, color);
             }
             else
             {
@@ -3585,57 +3577,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         return target.getLimbPos(tickDelta);
-    }
-
-    private void renderSkullOnHead(ItemStack itemStack, AbstractSkullBlock skullBlock, MatrixStack stack, CustomVertexConsumerProvider consumers, Color color, int light, float animationProgress)
-    {
-        SkullBlock.SkullType skullType = skullBlock.getSkullType();
-        SkullBlockEntityModel skullModel = this.getSkullModels().get(skullType);
-
-        if (skullModel == null)
-        {
-            return;
-        }
-
-        ProfileComponent profile = itemStack.get(DataComponentTypes.PROFILE);
-        Identifier skinTexture = null;
-        if (profile != null && profile.getGameProfile() != null)
-        {
-            SkinTextures textures = MinecraftClient.getInstance().getSkinProvider().supplySkinTextures(profile.getGameProfile(), false).get();
-            if (textures != null && textures.body() != null)
-            {
-                skinTexture = textures.body().id();
-            }
-        }
-        RenderLayer renderLayer = SkullBlockEntityRenderer.getCutoutRenderLayer(skullType, skinTexture);
-
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BBSRendering.enableBlend());
-        consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-        skullModel.render(stack, consumers.getBuffer(renderLayer), light, OverlayTexture.DEFAULT_UV);
-        consumers.draw();
-        consumers.setSubstitute(null);
-        CustomVertexConsumerProvider.clearRunnables();
-    }
-
-    private Map<SkullBlock.SkullType, SkullBlockEntityModel> getSkullModels()
-    {
-        if (skullModels == null)
-        {
-            skullModels = new HashMap<>();
-            LoadedEntityModels loaded = MinecraftClient.getInstance().getLoadedEntityModels();
-
-            for (SkullBlock.Type type : SkullBlock.Type.values())
-            {
-                SkullBlockEntityModel model = SkullBlockEntityRenderer.getModels(loaded, type);
-
-                if (model != null)
-                {
-                    skullModels.put(type, model);
-                }
-            }
-        }
-
-        return skullModels;
     }
 
     /**

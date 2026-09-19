@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.entities;
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.mixin.EntityAccessor;
+import mchorse.bbs_mod.mixin.LivingEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.utils.AABB;
 
@@ -845,7 +846,7 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             /* Flag 4 is Riptide spin attack in LivingEntity */
-            ((EntityAccessor.LivingEntityAccessor) living).invokeSetLivingFlag(4, riptide);
+            ((LivingEntityAccessor) living).invokeSetLivingFlag(4, riptide);
         }
     }
 
@@ -896,7 +897,7 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             /* LivingFlag 1 is using item (e.g. blocking with shield) */
-            ((EntityAccessor.LivingEntityAccessor) living).invokeSetLivingFlag(1, blocking);
+            ((LivingEntityAccessor) living).invokeSetLivingFlag(1, blocking);
         }
     }
 
