@@ -40,3 +40,9 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 * `AGENTS.md`, `CONTRIBUTING.md`
 * User wiki: `bbs-mod-wiki.wiki/`
 * Greenfield rewrite (3.0): [BBS-CML-3.0](https://github.com/ElGatoPro300/BBS-CML-3.0) — bootstrap / code-organization live **there**, not in this folder (older UI-redesign migration drafts were removed from 2.2).
+
+## 2.2 implementation guides
+
+| Doc | Topic |
+|-----|--------|
+| [bone-remap-pose-keyframes.md](bone-remap-pose-keyframes.md) | Bone/limb rename remap for pose keyframes |

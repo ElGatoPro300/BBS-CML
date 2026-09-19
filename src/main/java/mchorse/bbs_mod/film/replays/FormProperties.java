@@ -2133,26 +2133,8 @@ public class FormProperties extends ValueGroup
                 this.properties.remove("opacity");
                 this.remove(opacityChannel);
             }
-            else if (colorAny != null && colorAny.getFactory() == KeyframeFactories.COLOR)
-            {
-                @SuppressWarnings("unchecked")
-                KeyframeChannel<Color> colorChannel = (KeyframeChannel<Color>) colorAny;
-
-                for (Object kfObj : colorChannel.getKeyframes())
-                {
-                    Keyframe<?> kf = (Keyframe<?>) kfObj;
-                    Object v = kf.getValue();
-
-                    if (v instanceof Color color && color.a <= 0.001F)
-                    {
-                        /* Legacy tint-off (a≈0) → fully opaque white under traditional alpha. */
-                        color.r = 1F;
-                        color.g = 1F;
-                        color.b = 1F;
-                        color.a = 1F;
-                    }
-                }
-            }
+            /* Do not rewrite color keyframes with a≈0 → opaque when there is no legacy
+             * "opacity" channel: modern Color tracks store intentional opacity there. */
         }
         catch (Throwable ignored) {}
 
