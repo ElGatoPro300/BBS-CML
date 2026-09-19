@@ -122,6 +122,7 @@ public class ScreenshotRecorder
 
         public int[] data;
         public File destination;
+        public boolean playSound = true;
 
         public ScreenshotRunner(int width, int height, int[] data, File destination)
         {
@@ -157,7 +158,10 @@ public class ScreenshotRecorder
                     pixels.delete();
                 }
 
-                UIUtils.playClick();
+                if (this.playSound)
+                {
+                    UIUtils.playClick();
+                }
             }
             catch (IOException e)
             {

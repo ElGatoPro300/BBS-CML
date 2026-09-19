@@ -12,6 +12,7 @@ import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.settings.Settings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.utils.skin.SkinCommands;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
@@ -70,6 +71,7 @@ public class BBSCommands
         registerCheatsCommand(bbs, environment);
         registerBoomCommand(bbs, environment, hasPermissions);
         registerStructureSaveCommand(bbs, environment, hasPermissions);
+        SkinCommands.attach(bbs, hasPermissions);
 
         dispatcher.register(bbs);
     }
@@ -147,7 +149,7 @@ public class BBSCommands
                         {
                             for (ServerPlayerEntity player : ctx.getSource().getWorld().getPlayers())
                             {
-                                if (player.getBlockPos().getSquaredDistance(pos) <= 64F)
+                                if (player.getBlockPos().getSquaredDistance(pos) <= (Math.pow(BBSSettings.modelBlockAnimationStateDistance.get(), 2)))
                                 {
                                     ServerNetwork.sendModelBlockState(player, pos, animationState);
                                 }
@@ -464,6 +466,8 @@ public class BBSCommands
     {
         Collection<ServerPlayerEntity> players = EntityArgumentType.getPlayers(source, "target");
         String filmId = StringArgumentType.getString(source, "film");
+
+        BBSMod.getActions().stop(filmId);
 
         for (ServerPlayerEntity player : players)
         {

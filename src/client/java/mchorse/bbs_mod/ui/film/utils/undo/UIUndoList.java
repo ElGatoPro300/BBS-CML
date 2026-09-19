@@ -30,6 +30,10 @@ public class UIUndoList <T> extends UIList<IUndo<T>>
         {
             return undo.name.toString();
         }
+        else if (element instanceof UIViewUndo)
+        {
+            return "UI view";
+        }
         else if (element instanceof CompoundUndo<T> compoundUndo)
         {
             List<String> keys = new ArrayList<>();

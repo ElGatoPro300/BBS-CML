@@ -3,6 +3,7 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
@@ -49,6 +50,11 @@ public class KeyboardInputMixin
                 input.movementSideways *= slowDownFactor;
                 input.movementForward *= slowDownFactor;
             }
+
+            UIFilmController controller = filmPanel.getController();
+            boolean moving = input.movementForward != 0F || input.movementSideways != 0F;
+
+            controller.dampenActorControlDrift(moving);
         }
     }
 }

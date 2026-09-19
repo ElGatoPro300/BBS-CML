@@ -26,11 +26,17 @@ public class ItemStackMixin
     {
         if (user instanceof ServerPlayerEntity player)
         {
+            ItemStack stack = user.getStackInHand(hand);
+
+            if (stack.getMaxUseTime() > 0)
+            {
+                return;
+            }
             BBSMod.getActions().addAction(player, () ->
             {
                 UseItemActionClip clip = new UseItemActionClip();
 
-                clip.itemStack.set(user.getStackInHand(hand).copy());
+                clip.itemStack.set(stack.copy());
                 clip.hand.set(hand == Hand.MAIN_HAND);
 
                 return clip;

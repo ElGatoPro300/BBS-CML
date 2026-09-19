@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.camera.clips.overwrite;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.clips.CameraClipContext;
@@ -13,6 +14,9 @@ import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.joml.Matrices;
+
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,6 +44,27 @@ public class PathClip extends CameraClip
         this.add(this.points);
         this.add(this.interpolationPoint);
         this.add(this.interpolationAngle);
+
+        this.interpolationPoint.setInterp(this.getDefaultPathInterpolation());
+        this.interpolationAngle.setInterp(this.getDefaultPathInterpolation());
+    }
+
+    private IInterp getDefaultPathInterpolation()
+    {
+        int idx = BBSSettings.defaultPathInterpolation == null ? -1 : BBSSettings.defaultPathInterpolation.get();
+        int i = 0;
+
+        for (IInterp interp : Interpolations.MAP.values())
+        {
+            if (i == idx)
+            {
+                return interp;
+            }
+
+            i++;
+        }
+
+        return Interpolations.HERMITE;
     }
 
     public Position getPoint(int index)
@@ -104,6 +129,18 @@ public class PathClip extends CameraClip
 
         this.applyAngle(position.angle, index, x);
         this.applyPoint(position.point, index, x);
+
+        if (position.angle.distance != 0F)
+        {
+            Vector3f rotation = Matrices.rotation(
+                MathUtils.toRad(position.angle.pitch),
+                MathUtils.toRad(-position.angle.yaw - 180)
+            );
+
+            position.point.x += rotation.x * position.angle.distance;
+            position.point.y += rotation.y * position.angle.distance;
+            position.point.z += rotation.z * position.angle.distance;
+        }
     }
 
     /**
@@ -138,8 +175,10 @@ public class PathClip extends CameraClip
         float pitch = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.pitch, p1.angle.pitch, p2.angle.pitch, p3.angle.pitch, progress));
         float roll  = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.roll, p1.angle.roll, p2.angle.roll, p3.angle.roll, progress));
         float fov   = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.fov, p1.angle.fov, p2.angle.fov, p3.angle.fov, progress));
+        float distance = (float) this.interpolationAngle.interpolate(IInterp.context.set(p0.angle.distance, p1.angle.distance, p2.angle.distance, p3.angle.distance, progress));
 
         angle.set(yaw, pitch, roll, fov);
+        angle.distance = distance;
     }
 
     @Override

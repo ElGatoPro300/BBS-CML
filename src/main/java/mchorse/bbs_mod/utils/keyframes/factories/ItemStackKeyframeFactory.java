@@ -6,8 +6,10 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.registry.RegistryWrapper;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DataResult;
@@ -19,15 +21,52 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
-        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(NbtOps.INSTANCE, DataStorageUtils.toNbt(data));
+        return this.fromData(data, null);
+    }
+
+    public ItemStack fromData(BaseType data, RegistryWrapper.WrapperLookup registries)
+    {
+        if (data == null)
+        {
+            return ItemStack.EMPTY;
+        }
+
+        NbtElement nbt = DataStorageUtils.toNbt(data);
+
+        if (nbt == null)
+        {
+            return ItemStack.EMPTY;
+        }
+
+        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(NbtOps.INSTANCE, nbt);
         Optional<Pair<ItemStack, NbtElement>> result = decode.result();
 
-        return result.map(Pair::getFirst).orElse(ItemStack.EMPTY);
+        if (result.isPresent())
+        {
+            return result.get().getFirst();
+        }
+
+        if (nbt instanceof NbtCompound compound)
+        {
+            return ItemStack.fromNbt(compound);
+        }
+
+        return ItemStack.EMPTY;
     }
 
     @Override
     public BaseType toData(ItemStack value)
     {
+        return this.toData(value, null);
+    }
+
+    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
+    {
+        if (value == null || value.isEmpty())
+        {
+            return new MapType();
+        }
+
         Optional<NbtElement> result = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
@@ -59,6 +98,33 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack interpolate(ItemStack preA, ItemStack a, ItemStack b, ItemStack postB, IInterp interpolation, float x)
     {
-        return a;
+        if (a == null || b == null)
+        {
+            return a == null ? ItemStack.EMPTY : a;
+        }
+
+        if (a.isEmpty() || b.isEmpty())
+        {
+            return x < 1F ? a : b;
+        }
+
+        if (!ItemStack.canCombine(a, b))
+        {
+            return x < 1F ? a : b;
+        }
+
+        int aCount = a.getCount();
+        int bCount = b.getCount();
+        int count = (int) Math.round(interpolation.interpolate(aCount, bCount, x));
+
+        if (count < 0)
+        {
+            count = 0;
+        }
+
+        ItemStack copy = a.copy();
+        copy.setCount(count);
+
+        return copy;
     }
 }

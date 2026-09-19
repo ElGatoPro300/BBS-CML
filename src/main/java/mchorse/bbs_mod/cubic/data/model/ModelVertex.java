@@ -20,4 +20,12 @@ public class ModelVertex
         this.uv.x /= model.textureWidth;
         this.uv.y /= model.textureHeight;
     }
+
+    public ModelVertex copy()
+    {
+        ModelVertex v = new ModelVertex();
+        v.vertex.set(this.vertex);
+        v.uv.set(this.uv);
+        return v;
+    }
 }

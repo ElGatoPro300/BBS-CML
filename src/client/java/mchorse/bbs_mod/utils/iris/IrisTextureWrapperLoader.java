@@ -32,8 +32,8 @@ public class IrisTextureWrapperLoader implements PBRTextureLoader
             Link normalKey = this.createPrefixedCopy(key, "_n.png");
             Link specularKey = this.createPrefixedCopy(key, "_s.png");
 
-            pbrTextureConsumer.acceptNormalTexture(new IrisTextureWrapper(normalKey, this.defaultNormalTexture, wrapper.index));
-            pbrTextureConsumer.acceptSpecularTexture(new IrisTextureWrapper(specularKey, this.defaultSpecularTexture, wrapper.index));
+            pbrTextureConsumer.acceptNormalTexture(new IrisTextureWrapper(normalKey, this.defaultNormalTexture, wrapper.index, wrapper.normalIntensity, wrapper.specularIntensity, IrisTextureWrapper.PBRMapType.NORMAL));
+            pbrTextureConsumer.acceptSpecularTexture(new IrisTextureWrapper(specularKey, this.defaultSpecularTexture, wrapper.index, wrapper.normalIntensity, wrapper.specularIntensity, IrisTextureWrapper.PBRMapType.SPECULAR));
         }
     }
 
@@ -56,6 +56,15 @@ public class IrisTextureWrapperLoader implements PBRTextureLoader
             return newMultiLink;
         }
 
-        return new Link(link.source, StringUtils.removeExtension(link.path) + suffix);
+        String basePath = StringUtils.removeExtension(link.path);
+
+        /* If users pick an already suffixed texture (e.g. *_s.png), normalize it to
+         * the albedo base name first so generated companions become *_n.png and *_s.png. */
+        if (basePath.endsWith("_n") || basePath.endsWith("_s"))
+        {
+            basePath = basePath.substring(0, basePath.length() - 2);
+        }
+
+        return new Link(link.source, basePath + suffix);
     }
 }

@@ -6,7 +6,6 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.keys.KeyAction;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -35,7 +34,7 @@ public class UIKeybind extends UIElement
         this.combo.keys.clear();
 
         this.callback = callback;
-        this.h(UIConstants.CONTROL_HEIGHT);
+        this.h(20);
     }
 
     public UIKeybind single()

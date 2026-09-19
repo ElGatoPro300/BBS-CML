@@ -73,6 +73,10 @@ public class UILikedSoundList extends UIList<SoundLikeManager.LikedSound>
 
         int maxWidth = this.area.w - 8 - 20;
         String display = element.getDisplayName();
+        if (display != null && display.startsWith("assets:audio/"))
+        {
+            display = display.substring("assets:audio/".length());
+        }
         int textWidth = context.batcher.getFont().getWidth(display);
         if (textWidth > maxWidth)
         {

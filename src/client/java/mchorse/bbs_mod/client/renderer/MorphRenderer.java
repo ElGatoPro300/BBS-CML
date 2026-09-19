@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.client.renderer;
 
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
@@ -17,6 +20,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
@@ -31,6 +35,25 @@ public class MorphRenderer
 
     public static boolean renderPlayer(AbstractClientPlayerEntity player, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
     {
+        Morph morph = Morph.getMorph(player);
+        Form playerForm = morph != null ? morph.getForm() : null;
+
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
+        if (menu instanceof UIDashboard dashboard)
+        {
+            UIDashboardPanel panel = dashboard.getPanels().panel;
+
+            if (panel instanceof UIMorphingPanel morphingPanel && morphingPanel.palette.editor.isEditing())
+            {
+                Form editingForm = morphingPanel.palette.editor.form;
+
+                if (!areFormsEquivalent(editingForm, playerForm))
+                {
+                    return true;
+                }
+            }
+        }
+
         if (hidePlayer)
         {
             if (FormUtilsClient.getCurrentForm() instanceof MobForm form && !form.isPlayer())
@@ -39,13 +62,34 @@ public class MorphRenderer
             }
         }
 
-        Morph morph = Morph.getMorph(player);
-
         if (morph != null && morph.getForm() != null)
         {
-            if (canRender())
+            /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
+             * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
+             * so other spectators / F5 see the normal semi-transparent head. */
+            if (player.isSpectator())
+            {
+                return false;
+            }
+
+            if (canRender(playerForm))
             {
                 RenderSystem.enableDepthTest();
+
+                boolean worldPass = BBSRendering.isRenderingWorld();
+
+                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
+                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
+                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
+                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
+                if (worldPass)
+                {
+                    BBSRendering.setupWorldLevelDiffuseLighting();
+                }
+                else
+                {
+                    DiffuseLighting.method_34742();
+                }
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
                 int overlay = LivingEntityRenderer.getOverlay(player, 0F);
@@ -53,13 +97,45 @@ public class MorphRenderer
                 matrixStack.push();
                 matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
+                FormRenderingContext morphContext = new FormRenderingContext()
                     .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                if (!worldPass)
+                {
+                    morphContext.inUI();
+                }
+
+                FormUtilsClient.render(morph.getForm(), morphContext);
+
+                if (morph.entity.getFireTicks() > 0)
+                {
+                    MorphFireRenderer.render(
+                        matrixStack,
+                        vertexConsumerProvider,
+                        morph.entity,
+                        morph.getForm(),
+                        g,
+                        MinecraftClient.getInstance().gameRenderer.getCamera(),
+                        false
+                    );
+                }
 
                 matrixStack.pop();
 
-                RenderSystem.disableDepthTest();
+                if (worldPass)
+                {
+                    BBSRendering.restoreWorldRenderState();
+                }
+                else
+                {
+                    /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
+                     * re-enables lightmap/overlay left disabled by form mesh draws without
+                     * touching diffuse lights (already set to GUI 3D above). */
+                    DiffuseLighting.enableGuiDepthLighting();
+                    BBSRendering.restoreWorldRenderState();
+                }
             }
 
             return true;
@@ -68,7 +144,7 @@ public class MorphRenderer
         return false;
     }
 
-    private static boolean canRender()
+    private static boolean canRender(Form playerForm)
     {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
         
@@ -76,13 +152,24 @@ public class MorphRenderer
         {
             UIDashboardPanel panel = dashboard.getPanels().panel;
 
-            if (panel instanceof UIMorphingPanel morphingPanel)
+            if (panel instanceof UIMorphingPanel morphingPanel && morphingPanel.palette.editor.isEditing())
             {
-                return !morphingPanel.palette.editor.isEditing();
+                return areFormsEquivalent(morphingPanel.palette.editor.form, playerForm);
             }
         }
 
         return true;
+    }
+
+    private static boolean areFormsEquivalent(Form a, Form b)
+    {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+
+        MapType dataA = FormUtils.toData(a);
+        MapType dataB = FormUtils.toData(b);
+
+        return dataA != null && dataA.equals(dataB);
     }
 
     public static boolean renderLivingEntity(LivingEntity livingEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
@@ -111,9 +198,22 @@ public class MorphRenderer
                 .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
                 .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
+            if (owner.entity.getFireTicks() > 0)
+            {
+                MorphFireRenderer.render(
+                    matrixStack,
+                    vertexConsumerProvider,
+                    owner.entity,
+                    form,
+                    g,
+                    MinecraftClient.getInstance().gameRenderer.getCamera(),
+                    false
+                );
+            }
+
             matrixStack.pop();
 
-            RenderSystem.disableDepthTest();
+            BBSRendering.restoreWorldRenderState();
 
             return true;
         }

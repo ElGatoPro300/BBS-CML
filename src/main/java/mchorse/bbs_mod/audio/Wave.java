@@ -194,6 +194,9 @@ public class Wave
         this.add(buffer, wave, offset, shift, duration, 1F);
     }
 
+    /**
+     * Mezcla una onda en otra con ganancia (0.0–1.0)
+     */
     public void add(ByteBuffer buffer, Wave wave, float offset, float shift, float duration, float gain)
     {
         int waveStart = this.truncate((int) (shift * wave.byteRate));
@@ -282,7 +285,9 @@ public class Wave
             
             /* Improved audio mixing algorithm with smart volume normalization
              * Convert to float for precise calculations */
-            float waveFloat = waveShort / (float) Short.MAX_VALUE * gain;
+            float waveFloat = waveShort / (float) Short.MAX_VALUE;
+            /* Apply per-clip gain */
+            waveFloat *= MathUtils.clamp(gain, 0F, 100F);
             float bytesFloat = bytesShort / (float) Short.MAX_VALUE;
             
             /* Calculate sum and check for clipping */
@@ -293,12 +298,8 @@ public class Wave
 
             if (sum > 1F || sum < -1F)
             {
-                /* Dynamic normalization to preserve as much volume as possible */
-                float absSum = Math.abs(sum);
-                float normalizationFactor = 1F / absSum;
-
-                /* Slight headroom */
-                mixedFloat = sum * normalizationFactor * 0.95F;
+                /* Hard clipping to allow volume boost beyond normal range */
+                mixedFloat = MathUtils.clamp(sum, -1F, 1F);
             }
             else
             {

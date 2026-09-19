@@ -1,110 +1,173 @@
 package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
-import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
-import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.utils.UIConstants;
+import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.utils.colors.Colors;
 
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.Item;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.Identifier;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class UIBlockStateEditor extends UIElement
 {
-    private final Consumer<BlockState> callback;
+    private static List<String> blockIDs = new ArrayList<>();
+
+    public UISearchList<String> blockList;
+    public UIButton inventory;
+    public UIElement properties;
+
+    private Consumer<BlockState> callback;
     private BlockState blockState;
-    private boolean opened;
+
+    static
+    {
+        for (RegistryKey<Block> key : Registries.BLOCK.getKeys())
+        {
+            blockIDs.add(key.getValue().toString());
+        }
+
+        blockIDs.sort(String::compareToIgnoreCase);
+    }
 
     public UIBlockStateEditor(Consumer<BlockState> callback)
     {
         this.callback = callback;
-        this.blockState = Blocks.AIR.getDefaultState();
 
-        this.context((menu) ->
-        {
-            Item item = this.blockState.getBlock().asItem();
+        this.blockList = new UISearchList<>(new UIStringList((l) -> this.setBlock(l.get(0))));
+        this.blockList.label(UIKeys.GENERAL_SEARCH).list.background();
+        this.blockList.h(20 + 96);
+        this.inventory = new UIButton(UIKeys.ITEM_STACK_CONTEXT_INVENTORY, (b) -> this.openInventoryPanel());
+        this.properties = UI.column();
 
-            if (item != Items.AIR)
-            {
-                menu.action(Icons.PLAYER, UIKeys.ITEM_STACK_CONTEXT_GIVE, () -> UIItemStack.giveToPlayer(new ItemStack(item)));
-            }
-        });
+        this.column().vertical().stretch();
 
-        this.h(UIConstants.CONTROL_HEIGHT);
-    }
+        this.add(this.blockList);
+        this.add(this.inventory);
+        this.add(this.properties);
 
-    @Override
-    protected boolean subMouseClicked(UIContext context)
-    {
-        if (this.area.isInside(context) && context.mouseButton == 0)
-        {
-            this.opened = true;
-
-            UIUnifiedPickOverlayPanel panel = UIUnifiedPickOverlayPanel.forBlock((state) ->
-            {
-                this.acceptBlockState(state);
-            }, this.blockState);
-
-            panel.onClose((a) -> this.opened = false);
-            UIOverlay.addOverlay(this.getContext(), panel, 0.5F, 0.75F);
-            UIUtils.playClick();
-
-            return true;
-        }
-
-        return super.subMouseClicked(context);
+        this.blockList.list.clear();
+        this.blockList.list.add(blockIDs);
     }
 
     public void setBlockState(BlockState blockState)
     {
-        this.blockState = blockState == null ? Blocks.AIR.getDefaultState() : blockState;
+        this.blockState = blockState;
+
+        this.fillPropertiesEditor(blockState);
+        this.blockList.list.setCurrentScroll(Registries.BLOCK.getId(blockState.getBlock()).toString());
+    }
+
+    private void setBlock(String blockID)
+    {
+        Identifier id = new Identifier(blockID);
+        BlockState blockState = Registries.BLOCK.get(id).getDefaultState();
+
+        this.acceptBlockState(blockState);
+        this.fillPropertiesEditor(blockState);
+    }
+
+    private void openInventoryPanel()
+    {
+        UIPlayerInventoryPanel panel = new UIPlayerInventoryPanel((stack) ->
+        {
+            BlockState state = this.toBlockState(stack);
+
+            if (state == null)
+            {
+                return;
+            }
+
+            this.acceptBlockState(state);
+            this.fillPropertiesEditor(state);
+            this.blockList.list.setCurrentScroll(Registries.BLOCK.getId(state.getBlock()).toString());
+        });
+
+        UIOverlay.addOverlay(this.getContext(), panel, UIPlayerInventoryPanel.PANEL_WIDTH, UIPlayerInventoryPanel.PANEL_HEIGHT);
+        UIUtils.playClick();
+    }
+
+    private BlockState toBlockState(ItemStack stack)
+    {
+        if (stack == null || stack.isEmpty())
+        {
+            return Blocks.AIR.getDefaultState();
+        }
+
+        if (stack.getItem() instanceof BlockItem blockItem)
+        {
+            return blockItem.getBlock().getDefaultState();
+        }
+
+        return null;
     }
 
     private void acceptBlockState(BlockState blockState)
     {
-        this.blockState = blockState == null ? Blocks.AIR.getDefaultState() : blockState;
+        this.blockState = blockState;
 
         if (this.callback != null)
         {
-            this.callback.accept(this.blockState);
+            this.callback.accept(blockState);
         }
     }
 
-    @Override
-    public void render(UIContext context)
+    private void fillPropertiesEditor(BlockState state)
     {
-        int border = this.opened ? Colors.A100 | BBSSettings.primaryColor.get() : Colors.WHITE;
+        this.properties.removeAll();
 
-        context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);
-        context.batcher.box(this.area.x + 1, this.area.y + 1, this.area.ex() - 1, this.area.ey() - 1, -3750202);
-
-        ItemStack stack = new ItemStack(this.blockState.getBlock().asItem());
-
-        if (!stack.isEmpty())
+        for (Property p : state.getProperties())
         {
-            MatrixStack matrices = context.batcher.getContext().getMatrices();
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+            UIButton button = new UIButton(IKey.constant(state.get(p).toString()), (b) ->
+            {
+                this.getContext().replaceContextMenu((menu) ->
+                {
+                    for (Object v : p.getValues())
+                    {
+                        IKey raw = IKey.constant(v.toString());
 
-            matrices.push();
-            consumers.setUI(true);
-            context.batcher.getContext().drawItem(stack, this.area.mx() - 8, this.area.my() - 8);
-            context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, this.area.mx() - 8, this.area.my() - 8);
-            consumers.setUI(false);
-            matrices.pop();
+                        menu.action(Icons.BLOCK, raw, () ->
+                        {
+                            this.acceptBlockState(this.blockState.with(p, (Comparable) v));
+
+                            b.label = raw;
+                        });
+                    }
+                });
+            });
+
+            button.tooltip(IKey.constant(p.getName()));
+
+            this.properties.add(button);
         }
 
-        super.render(context);
+        if (!this.properties.getChildren().isEmpty())
+        {
+            this.properties.prepend(UI.label(UIKeys.FORMS_EDITORS_BLOCK_PROPERTIES).marginTop(6));
+        }
+
+        UIBaseMenu.UIRootElement root = this.getRoot();
+
+        if (root != null)
+        {
+            root.resize();
+        }
     }
 }

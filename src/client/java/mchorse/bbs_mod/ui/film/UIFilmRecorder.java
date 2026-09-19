@@ -12,13 +12,16 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.utils.Area;
+import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.clips.Clips;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import org.joml.Vector2i;
 
@@ -31,25 +34,28 @@ public class UIFilmRecorder extends UIElement
 {
     public UIFilmPanel editor;
 
+    public Runnable onStop;
+
     private UIExit exit = new UIExit(this);
+    private UIButton cancel;
     private int end;
+    private int warmupTicks;
+    private int pendingId;
+    private int pendingW;
+    private int pendingH;
 
     public boolean resetReplays = true;
-
-    private boolean preparing;
-    private long startRecordingAtMs;
-    private File pendingAudioFile;
-    private int pendingTextureId;
-    private int pendingWidth;
-    private int pendingHeight;
-    private boolean restorePaused;
 
     public UIFilmRecorder(UIFilmPanel editor)
     {
         super();
 
         this.editor = editor;
+        this.cancel = new UIButton(UIKeys.FILM_CANCEL_RECORDING, (b) -> this.stop());
+        this.add(this.cancel);
 
+        this.markContainer();
+        this.eventPropagataion(EventPropagation.BLOCK);
         this.noCulling();
     }
 
@@ -58,9 +64,14 @@ public class UIFilmRecorder extends UIElement
         return getRecorder().isRecording();
     }
 
-    public boolean isExporting()
+    public boolean isWarmingUp()
     {
-        return this.preparing || this.isRecording();
+        return this.warmupTicks > 0;
+    }
+
+    public boolean isRecordingOrWarmingUp()
+    {
+        return this.isRecording() || this.isWarmingUp();
     }
 
     private UIContext getUIContext()
@@ -85,6 +96,15 @@ public class UIFilmRecorder extends UIElement
 
     public void startRecording(int duration, Texture texture)
     {
+        float delay = BBSSettings.videoSettings.warmupDelay.get();
+
+        if (delay > 0F)
+        {
+            this.startRecordingAfterLoad(duration, texture, (int) (delay * 20F));
+
+            return;
+        }
+
         this.startRecording(duration, texture.id, texture.width, texture.height);
     }
 
@@ -93,12 +113,24 @@ public class UIFilmRecorder extends UIElement
         VideoRecorder recorder = this.getRecorder();
         UIContext context = this.getUIContext();
 
-        if (this.isRunning() || this.preparing || recorder.isRecording() || duration <= 0)
+        if (this.isRunning() || recorder.isRecording() || duration <= 0)
         {
             return;
         }
 
-        this.restorePaused = this.editor.getController().isPaused();
+        float delay = BBSSettings.videoSettings.warmupDelay.get();
+
+        if (delay > 0F && this.warmupTicks <= 0)
+        {
+            Texture texture = BBSRendering.getTexture();
+            int texId = texture != null ? texture.id : id;
+            int texW = texture != null ? texture.width : w;
+            int texH = texture != null ? texture.height : h;
+
+            this.startRecordingAfterLoad(duration, texId, texW, texH, (int) (delay * 20F));
+
+            return;
+        }
 
         int min = this.editor.cameraEditor.clips.loopMin;
         int max = this.editor.cameraEditor.clips.loopMax;
@@ -114,14 +146,75 @@ public class UIFilmRecorder extends UIElement
             this.editor.getController().createEntities();
         }
 
+        if (!this.startFfmpegAndPlayback(id, w, h))
+        {
+            return;
+        }
+
         context.menu.main.setEnabled(false);
+        context.menu.main.setVisible(false);
         context.menu.overlay.add(this);
         context.menu.getRoot().add(this.exit);
+    }
 
-        File audioFile = null;
+    /**
+     * Spawns replay entities and waits the given number of ticks for assets
+     * to finish loading before actually starting the video recorder.
+     */
+    public void startRecordingAfterLoad(int duration, Texture texture, int warmup)
+    {
+        int id = texture != null ? texture.id : 0;
+        int w = texture != null ? texture.width : 0;
+        int h = texture != null ? texture.height : 0;
+
+        this.startRecordingAfterLoad(duration, id, w, h, warmup);
+    }
+
+    public void startRecordingAfterLoad(int duration, int id, int w, int h, int warmup)
+    {
+        if (this.isRunning() || this.getRecorder().isRecording() || duration <= 0 || this.warmupTicks > 0)
+        {
+            return;
+        }
+
+        UIContext context = this.getUIContext();
+        boolean looping = BBSSettings.editorLoop.get();
+        int min = this.editor.cameraEditor.clips.loopMin;
+        int max = this.editor.cameraEditor.clips.loopMax;
+
+        this.end = looping && min != max ? Math.max(min, max) : duration;
+        this.warmupTicks = warmup;
+        this.pendingId = id;
+        this.pendingW = w;
+        this.pendingH = h;
+
+        this.editor.setCursor(looping ? Math.min(min, max) : 0);
+        this.editor.notifyServer(ActionState.RESTART);
+
+        if (this.resetReplays)
+        {
+            this.editor.getController().createEntities();
+        }
+
+        /* Add to overlay so render() is called and can count down the warmup */
+        context.menu.main.setEnabled(false);
+        context.menu.main.setVisible(false);
+        context.menu.overlay.add(this);
+        context.menu.getRoot().add(this.exit);
+    }
+
+    private long startTimeMs;
+
+    private boolean startFfmpegAndPlayback(int id, int w, int h)
+    {
+        VideoRecorder recorder = this.getRecorder();
+        UIContext context = this.getUIContext();
 
         try
         {
+            File audioFile = null;
+            boolean ambientAudio = BBSSettings.videoSettings.audioEnvironment.get();
+
             if (BBSSettings.videoSettings.audio.get())
             {
                 Clips camera = this.editor.getData().camera;
@@ -136,70 +229,34 @@ public class UIFilmRecorder extends UIElement
                     audioFile = file;
                 }
             }
+
+            recorder.startRecording(audioFile, ambientAudio, id, w, h);
         }
         catch (Exception e)
         {
             UIOverlay.addOverlay(context, new UIMessageOverlayPanel(UIKeys.GENERAL_ERROR, IKey.constant(e.getMessage())));
-            this.stop();
-            return;
+
+            context.menu.main.setEnabled(true);
+            context.menu.main.setVisible(true);
+            context.render.postRunnable(this::removeFromParent);
+            context.render.postRunnable(this.exit::removeFromParent);
+
+            return false;
         }
 
-        this.pendingAudioFile = audioFile;
-        this.pendingTextureId = id;
-        this.pendingWidth = w;
-        this.pendingHeight = h;
+        this.startTimeMs = System.currentTimeMillis();
+        this.editor.togglePlayback();
 
-        float delaySeconds = Math.max(0F, BBSSettings.videoSettings.delay.get());
-        long delayMs = (long) (delaySeconds * 1000F);
-
-        if (delayMs > 0)
-        {
-            this.preparing = true;
-            this.startRecordingAtMs = System.currentTimeMillis() + delayMs;
-            this.editor.getController().setPaused(true);
-        }
-        else
-        {
-            this.preparing = false;
-            this.startRecordingAtMs = 0L;
-            this.beginRecording(context, recorder);
-        }
-    }
-
-    private void beginRecording(UIContext context, VideoRecorder recorder)
-    {
-        if (recorder.isRecording())
-        {
-            return;
-        }
-
-        try
-        {
-            recorder.startRecording(this.pendingAudioFile, this.pendingTextureId, this.pendingWidth, this.pendingHeight);
-        }
-        catch (Exception e)
-        {
-            UIOverlay.addOverlay(context, new UIMessageOverlayPanel(UIKeys.GENERAL_ERROR, IKey.constant(e.getMessage())));
-            this.stop();
-            return;
-        }
-
-        this.editor.getController().setPaused(false);
-
-        if (!this.isRunning())
-        {
-            this.editor.togglePlayback();
-        }
+        return true;
     }
 
     public void stop()
     {
         UIContext context = this.getUIContext();
 
-        context.render.postRunnable(this.exit::removeFromParent);
+        this.warmupTicks = 0;
 
-        this.preparing = false;
-        this.startRecordingAtMs = 0L;
+        context.render.postRunnable(this.exit::removeFromParent);
 
         if (this.getRecorder().isRecording())
         {
@@ -208,48 +265,111 @@ public class UIFilmRecorder extends UIElement
                 this.getRecorder().stopRecording();
             }
             catch (Exception e) {}
+
+            if (this.isRunning())
+            {
+                this.editor.togglePlayback();
+            }
+
+            context.menu.main.setEnabled(true);
+            context.menu.main.setVisible(true);
+            context.render.postRunnable(this::removeFromParent);
+
+            if (this.onStop != null)
+            {
+                Runnable cb = this.onStop;
+
+                this.onStop = null;
+                context.render.postRunnable(cb);
+            }
         }
-
-        this.pendingAudioFile = null;
-        this.pendingTextureId = 0;
-        this.pendingWidth = 0;
-        this.pendingHeight = 0;
-
-        this.editor.getController().setPaused(this.restorePaused);
-
-        this.editor.restorePreviewSize();
-
-        if (this.isRunning())
+        else
         {
-            this.editor.togglePlayback();
+            /* Stopped during warmup — just clean up the overlay */
+            context.menu.main.setEnabled(true);
+            context.menu.main.setVisible(true);
+            context.render.postRunnable(this::removeFromParent);
         }
-
-        context.menu.main.setEnabled(true);
-        context.render.postRunnable(this::removeFromParent);
     }
 
     @Override
     public void render(UIContext context)
     {
-        super.render(context);
+        int sw = context.menu.width;
+        int sh = context.menu.height;
+        Batcher2D batcher = context.batcher;
 
-        if (this.preparing)
+        this.area.set(0, 0, sw, sh);
+        context.resetTooltip();
+
+        if (this.warmupTicks > 0)
         {
-            if (BBSSettings.recordingOverlays.get())
-            {
-                long remainingMs = Math.max(0L, this.startRecordingAtMs - System.currentTimeMillis());
-                int countdown = Math.max(0, (int) Math.ceil(remainingMs / 50D));
-                Area previewArea = this.editor.preview.getViewport();
-                int x = previewArea.x + 5;
-                int y = previewArea.y + 5;
+            this.warmupTicks--;
 
-                BBSRendering.renderRecordingTimerOverlay(context.batcher, String.valueOf(TimeUtils.toSeconds(countdown)), x, y);
+            /* 1. Mine-imator style solid opaque dark background (no transparency) */
+            batcher.box(0, 0, sw, sh, Colors.A100 | 0x121214);
+
+            /* 2. Calculate centered preview box matching recorded video aspect ratio */
+            Texture texture = BBSRendering.getTexture();
+            int tw = texture != null && texture.width > 0 ? texture.width : (this.pendingW > 0 ? this.pendingW : 16);
+            int th = texture != null && texture.height > 0 ? texture.height : (this.pendingH > 0 ? this.pendingH : 9);
+            float aspect = (float) tw / (float) th;
+
+            int maxW = (int) (sw * 0.55F);
+            int maxH = (int) (sh * 0.48F);
+
+            int pw = maxW;
+            int ph = (int) (pw / aspect);
+
+            if (ph > maxH)
+            {
+                ph = maxH;
+                pw = (int) (ph * aspect);
             }
 
-            if (System.currentTimeMillis() >= this.startRecordingAtMs)
+            int px = (sw - pw) / 2;
+            int py = (sh - ph) / 2 - 10;
+
+            /* 3. Header title & subtitle above preview box */
+            String title = UIKeys.FILM_RENDERING_VIDEO.get();
+            int titleW = batcher.getFont().getWidth(title);
+            batcher.textShadow(title, (sw - titleW) / 2, py - 42, Colors.A100 | BBSSettings.primaryColor.get());
+
+            String subtitle = UIKeys.FILM_WARMUP_SUBTITLE.format(this.warmupTicks / 20F).get();
+            int subW = batcher.getFont().getWidth(subtitle);
+            batcher.textShadow(subtitle, (sw - subW) / 2, py - 24, Colors.LIGHTER_GRAY);
+
+            /* 4. Preview box border and vertically-flipped live framebuffer texture */
+            batcher.box(px - 3, py - 3, px + pw + 3, py + ph + 3, Colors.A100 | 0x26262a);
+
+            if (texture != null && texture.id > 0)
             {
-                this.preparing = false;
-                this.beginRecording(context, this.getRecorder());
+                batcher.texturedBox(texture, Colors.WHITE, px, py, pw, ph, 0, texture.height, texture.width, 0, texture.width, texture.height);
+            }
+            else
+            {
+                batcher.box(px, py, px + pw, py + ph, Colors.A100);
+            }
+
+            /* 5. Progress bar empty during warmup */
+            int barW = (int) (sw * 0.45F);
+            int barX = (sw - barW) / 2;
+            int barY = py + ph + 42;
+
+            batcher.box(barX, barY, barX + barW, barY + 6, Colors.A100 | 0x26262a);
+
+            /* 6. Centered Cancel Button */
+            int btnW = 160;
+            int btnH = 20;
+            int btnX = (sw - btnW) / 2;
+            int btnY = barY + 14;
+
+            this.cancel.area.set(btnX, btnY, btnW, btnH);
+
+            if (this.warmupTicks == 0)
+            {
+                /* Warmup done — start ffmpeg and begin playback */
+                this.startFfmpegAndPlayback(this.pendingId, this.pendingW, this.pendingH);
             }
 
             return;
@@ -265,7 +385,106 @@ public class UIFilmRecorder extends UIElement
         if (!this.isRunning() || ticks >= this.end)
         {
             this.stop();
+
+            return;
         }
+
+        /* 1. Mine-imator style solid opaque dark background (no transparency) */
+        batcher.box(0, 0, sw, sh, Colors.A100 | 0x121214);
+
+        /* 2. Calculate centered preview box matching recorded video aspect ratio */
+        Texture texture = BBSRendering.getTexture();
+        int tw = texture != null && texture.width > 0 ? texture.width : (this.pendingW > 0 ? this.pendingW : 16);
+        int th = texture != null && texture.height > 0 ? texture.height : (this.pendingH > 0 ? this.pendingH : 9);
+        float aspect = (float) tw / (float) th;
+
+        int maxW = (int) (sw * 0.55F);
+        int maxH = (int) (sh * 0.48F);
+
+        int pw = maxW;
+        int ph = (int) (pw / aspect);
+
+        if (ph > maxH)
+        {
+            ph = maxH;
+            pw = (int) (ph * aspect);
+        }
+
+        int px = (sw - pw) / 2;
+        int py = (sh - ph) / 2 - 10;
+
+        /* 3. Header title & subtitle above preview box */
+        String title = UIKeys.FILM_RENDERING_VIDEO.get();
+        int titleW = batcher.getFont().getWidth(title);
+        batcher.textShadow(title, (sw - titleW) / 2, py - 42, Colors.A100 | BBSSettings.primaryColor.get());
+
+        String subtitle = UIKeys.FILM_EXPORTING_SUBTITLE.get();
+        int subW = batcher.getFont().getWidth(subtitle);
+        batcher.textShadow(subtitle, (sw - subW) / 2, py - 24, Colors.LIGHTER_GRAY);
+
+        /* 4. Preview box border and vertically-flipped live framebuffer texture */
+        batcher.box(px - 3, py - 3, px + pw + 3, py + ph + 3, Colors.A100 | 0x26262a);
+
+        if (texture != null && texture.id > 0)
+        {
+            /* Swap v1 (texture.height) and v2 (0) to orient OpenGL texture right-side up */
+            batcher.texturedBox(texture, Colors.WHITE, px, py, pw, ph, 0, texture.height, texture.width, 0, texture.width, texture.height);
+        }
+        else
+        {
+            batcher.box(px, py, px + pw, py + ph, Colors.A100);
+        }
+
+        /* 5. Calculate progress and remaining time statistics */
+        float progress = Math.min(1F, Math.max(0F, (float) ticks / Math.max(1, this.end)));
+        int percent = Math.min(100, Math.max(0, (int) (progress * 100F)));
+        VideoRecorder videoRecorder = this.getRecorder();
+        int currentFrame = videoRecorder != null ? videoRecorder.getCounter() : ticks;
+        int totalFrames = (int) (this.end * (BBSRendering.getVideoFrameRate() / 20F));
+
+        long elapsedMs = System.currentTimeMillis() - this.startTimeMs;
+        long remainingMs = 0L;
+
+        if (progress > 0.01F && elapsedMs > 100L)
+        {
+            long estTotalMs = (long) (elapsedMs / progress);
+
+            remainingMs = Math.max(0L, estTotalMs - elapsedMs);
+        }
+
+        int remMin = (int) (remainingMs / 60000L);
+        int remSec = (int) ((remainingMs % 60000L) / 1000L);
+        String remStr = remMin > 0
+            ? UIKeys.FILM_REMAINING_MINUTES.format(remMin, remSec).get()
+            : UIKeys.FILM_REMAINING_SECONDS.format(remSec).get();
+
+        String frameStr = UIKeys.FILM_FRAME_PROGRESS.format(currentFrame, totalFrames, percent).get();
+
+        /* 6. Render remaining time, frame progress, and progress bar below preview */
+        int infoY = py + ph + 14;
+        int remW = batcher.getFont().getWidth(remStr);
+        batcher.textShadow(remStr, (sw - remW) / 2, infoY, Colors.WHITE);
+
+        int frameW = batcher.getFont().getWidth(frameStr);
+        batcher.textShadow(frameStr, (sw - frameW) / 2, infoY + 16, Colors.LIGHTER_GRAY);
+
+        int barY = infoY + 34;
+        int barH = 6;
+        batcher.box(px, barY, px + pw, barY + barH, Colors.A100 | 0x26262a);
+        if (progress > 0F)
+        {
+            batcher.box(px, barY, px + (int) (pw * progress), barY + barH, Colors.A100 | BBSSettings.primaryColor.get());
+        }
+
+        /* 7. Position and render Cancel button */
+        int btnW = 160;
+        int btnH = 28;
+        int btnX = (sw - btnW) / 2;
+        int btnY = barY + 18;
+
+        this.cancel.area.set(btnX, btnY, btnW, btnH);
+
+        super.render(context);
     }
 
     public static class UIExit extends UIElement

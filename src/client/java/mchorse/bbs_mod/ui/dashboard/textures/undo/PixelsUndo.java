@@ -28,6 +28,17 @@ public class PixelsUndo implements IUndo<Pixels>
         pixels.setColor(x, y, color);
     }
 
+    public void revertColor(Pixels pixels, int x, int y)
+    {
+        Vector2i key = new Vector2i(x, y);
+        Pair<Color, Color> pair = this.pixels.remove(key);
+
+        if (pair != null && pair.a != null)
+        {
+            pixels.setColor(x, y, pair.a);
+        }
+    }
+
     @Override
     public IUndo<Pixels> noMerging()
     {

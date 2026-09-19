@@ -1,8 +1,10 @@
 package mchorse.bbs_mod.ui.utils.presets;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
@@ -17,6 +19,7 @@ public class UICopyPasteController
 
     private Supplier<Boolean> canCopy;
     private Supplier<Boolean> canPaste;
+    private IPresetPreview preview;
 
     public UICopyPasteController(PresetManager manager, String copyPrefix)
     {
@@ -52,6 +55,13 @@ public class UICopyPasteController
         return this;
     }
 
+    public UICopyPasteController preview(IPresetPreview preview)
+    {
+        this.preview = preview;
+
+        return this;
+    }
+
     public IPaste getConsumer()
     {
         return this.consumer;
@@ -62,13 +72,18 @@ public class UICopyPasteController
         return this.supplier;
     }
 
+    public IPresetPreview getPreview()
+    {
+        return this.preview;
+    }
+
     public boolean copy()
     {
         MapType type = this.supplier.get();
 
         if (type != null)
         {
-            Window.setClipboard(type, this.copyPrefix);
+            Window.setInMemoryClipboard(type, this.copyPrefix);
         }
 
         return type != null;
@@ -88,7 +103,14 @@ public class UICopyPasteController
 
     public void openPresets(UIContext context, int mouseX, int mouseY)
     {
-        UIOverlay.addOverlay(context, new UIPresetsOverlayPanel(this, mouseX, mouseY), 240, 0.5F);
+        if (BBSSettings.presetsGridPanel != null && BBSSettings.presetsGridPanel.get() && this.preview != null)
+        {
+            UIOverlay.addOverlay(context, new UIPresetsGridOverlayPanel(this, mouseX, mouseY), 420, 0.7F);
+        }
+        else
+        {
+            UIOverlay.addOverlay(context, new UIPresetsOverlayPanel(this, mouseX, mouseY), 240, 0.5F);
+        }
     }
 
     public boolean canCopy()
@@ -119,5 +141,19 @@ public class UICopyPasteController
     public static interface IPaste
     {
         public void paste(MapType mapType, int mouseX, int mouseY);
+    }
+
+    public static interface IPresetPreview
+    {
+        public UIElement createElement();
+
+        public void preview(String presetId, MapType presetData);
+
+        public void reset();
+
+        public default IPresetPreview fork()
+        {
+            return null;
+        }
     }
 }

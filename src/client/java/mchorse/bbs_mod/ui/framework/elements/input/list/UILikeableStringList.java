@@ -16,6 +16,8 @@ import java.util.function.Consumer;
  */
 public class UILikeableStringList extends UIStringList
 {
+    private static final String PARENT_FOLDER_ENTRY = "<parent_folder>";
+
     private SoundLikeManager likeManager;
     private boolean showOnlyLiked = false;
     private UIIcon likeButton;
@@ -42,9 +44,33 @@ public class UILikeableStringList extends UIStringList
     
     private String getDisplayText(String element)
     {
+        if (element.equals(PARENT_FOLDER_ENTRY))
+        {
+            return "../";
+        }
+
+        if (this.isFolderEntry(element))
+        {
+            String path = element.substring(0, element.length() - 1);
+            int slash = path.lastIndexOf('/');
+            String name = slash >= 0 ? path.substring(slash + 1) : path;
+
+            return name;
+        }
+
         String display = this.likeManager.getDisplayName(element);
 
-        return display != null ? display : element;
+        if (display == null)
+        {
+            display = element;
+        }
+
+        if (display.startsWith("assets:audio/"))
+        {
+            display = display.substring("assets:audio/".length());
+        }
+
+        return display;
     }
     
     @Override
@@ -62,27 +88,38 @@ public class UILikeableStringList extends UIStringList
         }
 
         boolean isNoneOption = element.equals(UIKeys.GENERAL_NONE.get());
+        boolean isFolder = this.isFolderEntry(element);
         String displayText = this.getDisplayText(element);
+        int textY = y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2;
         int textWidth = context.batcher.getFont().getWidth(displayText);
         int buttonSpace = 0;
+        int textX = x + 4;
 
-        if (!isNoneOption)
+        boolean isActionable = !isNoneOption && !isFolder && !element.equals(PARENT_FOLDER_ENTRY);
+
+        if (isActionable)
         {
             buttonSpace = this.showEditRemoveButtons
                 ? 60 /* edit + remove + like = 60px */
                 : 20; /* like button only = 20px */
         }
 
-        int maxWidth = this.area.w - 8 - buttonSpace;
+        if (isFolder)
+        {
+            context.batcher.icon(Icons.FOLDER, textX - 2, y);
+            textX += 16;
+        }
+
+        int maxWidth = this.area.w - (textX - x) - 4 - buttonSpace;
 
         if (textWidth > maxWidth)
         {
             displayText = context.batcher.getFont().limitToWidth(displayText, maxWidth);
         }
 
-        context.batcher.textShadow(displayText, x + 4, y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2, hover ? Colors.HIGHLIGHT : Colors.WHITE);
+        context.batcher.textShadow(displayText, textX, textY, hover ? Colors.HIGHLIGHT : Colors.WHITE);
 
-        if (isNoneOption)
+        if (!isActionable)
         {
             return;
         }
@@ -154,8 +191,10 @@ public class UILikeableStringList extends UIStringList
         int y = this.area.y + scrollIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
         int iconY = y + (this.scroll.scrollItemSize - 16) / 2;
         int likeIconX = this.area.x + this.area.w - 20;
+        boolean isActionable = !element.equals(UIKeys.GENERAL_NONE.get()) && !this.isFolderEntry(element) && !element.equals(PARENT_FOLDER_ENTRY);
 
         if (
+            isActionable &&
             context.mouseX >= likeIconX &&
             context.mouseX < likeIconX + 16 &&
             context.mouseY >= iconY &&
@@ -171,7 +210,7 @@ public class UILikeableStringList extends UIStringList
             return true;
         }
 
-        if (this.showEditRemoveButtons)
+        if (this.showEditRemoveButtons && isActionable)
         {
             int removeIconX = likeIconX - 20;
             if (context.mouseX >= removeIconX && context.mouseX < removeIconX + 16 &&
@@ -345,6 +384,11 @@ public class UILikeableStringList extends UIStringList
     public void setShowEditRemoveButtons(boolean show)
     {
         this.showEditRemoveButtons = show;
+    }
+
+    private boolean isFolderEntry(String element)
+    {
+        return element.startsWith("assets:") && element.endsWith("/");
     }
     
     @Override

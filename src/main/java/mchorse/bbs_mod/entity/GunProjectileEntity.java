@@ -13,7 +13,6 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -33,7 +32,6 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 
 public class GunProjectileEntity extends ProjectileEntity implements IEntityFormProvider
@@ -215,7 +213,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
             pos = oldPos.add(v);
 
-            HitResult hitResult = this.getWorld().raycast(new RaycastContext(oldPos, pos, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, this));
+            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit);
 
             if (hitResult.getType() != HitResult.Type.MISS)
             {
@@ -326,8 +324,9 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         DamageSource source = this.getDamageSources().magic();
 
         int fireTicks = entity.getFireTicks();
+        boolean deflectsArrows = false;
 
-        if (this.isOnFire())
+        if (this.isOnFire() && !deflectsArrows)
         {
             entity.setOnFireFor(5);
         }
@@ -347,14 +346,12 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
                     }
                 }
 
-                if (owner instanceof LivingEntity)
-                {
-                    EnchantmentHelper.onUserDamaged(livingEntity, owner);
-                    EnchantmentHelper.onTargetDamaged((LivingEntity)owner, livingEntity);
-                }
-
                 this.onHit(livingEntity);
             }
+        }
+        else if (deflectsArrows)
+        {
+            this.deflect();
         }
         else
         {

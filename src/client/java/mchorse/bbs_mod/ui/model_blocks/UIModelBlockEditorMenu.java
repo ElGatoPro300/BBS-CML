@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.model_blocks;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.camera.OrbitDistanceCamera;
 import mchorse.bbs_mod.camera.controller.OrbitCameraController;
@@ -12,6 +11,7 @@ import mchorse.bbs_mod.items.GunProperties;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.dashboard.utils.UIOrbitCamera;
 import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.forms.UINestedEdit;
@@ -24,15 +24,13 @@ import mchorse.bbs_mod.ui.framework.elements.context.UIInterpolationContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
-import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
-import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.presets.UICopyPasteController;
 import mchorse.bbs_mod.ui.utils.presets.UIPresetContextMenu;
 import mchorse.bbs_mod.utils.CollectionUtils;
+import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -188,8 +186,8 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             this.sectionGun = UI.scrollView(5, 10,
                 launch, launchPower, launchAdditive,
-                UI.label(UIKeys.GUN_ITEM_SCATTER).background().marginTop(UIConstants.SECTION_GAP), UI.row(scatterY, scatterX),
-                UI.label(UIKeys.GUN_ITEM_PROJECTILES).background().marginTop(UIConstants.SECTION_GAP), projectiles
+                UI.label(UIKeys.GUN_ITEM_SCATTER).background().marginTop(6), UI.row(scatterY, scatterX),
+                UI.label(UIKeys.GUN_ITEM_PROJECTILES).background().marginTop(6), projectiles
             );
             this.sectionGun.relative(this.viewport).x(1F).w(200).h(1F).anchorX(1F);
             this.gun = new UIIcon(Icons.GEAR, (b) -> this.setSection(this.sectionGun));
@@ -230,14 +228,14 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             this.sectionProjectile = UI.scrollView(5, 10,
                 UI.label(UIKeys.GUN_PROJECTILE_FORM).background(), projectileForm,
-                UI.label(UIKeys.GUN_PROJECTILE_TRANSFORM).background().marginTop(UIConstants.SECTION_GAP), projectileTransform,
-                useTarget.marginTop(UIConstants.SECTION_GAP),
-                UI.label(UIKeys.GUN_PROJECTILE_LIFE_SPAN).background().marginTop(UIConstants.SECTION_GAP), lifeSpan,
-                UI.label(UIKeys.GUN_PROJECTILE_SPEED).background().marginTop(UIConstants.SECTION_GAP), speed,
+                UI.label(UIKeys.GUN_PROJECTILE_TRANSFORM).background().marginTop(6), projectileTransform,
+                useTarget.marginTop(6),
+                UI.label(UIKeys.GUN_PROJECTILE_LIFE_SPAN).background().marginTop(6), lifeSpan,
+                UI.label(UIKeys.GUN_PROJECTILE_SPEED).background().marginTop(6), speed,
                 UI.label(UIKeys.GUN_PROJECTILE_FRICTION).background(), friction,
                 UI.label(UIKeys.GUN_PROJECTILE_GRAVITY).background(), gravity,
-                UI.label(UIKeys.GUN_PROJECTILE_ROTATIONS).background().marginTop(UIConstants.SECTION_GAP), UI.row(yaw, pitch),
-                UI.label(UIKeys.GUN_PROJECTILE_FADING).background().marginTop(UIConstants.SECTION_GAP), UI.row(fadeIn, fadeOut)
+                UI.label(UIKeys.GUN_PROJECTILE_ROTATIONS).background().marginTop(6), UI.row(yaw, pitch),
+                UI.label(UIKeys.GUN_PROJECTILE_FADING).background().marginTop(6), UI.row(fadeIn, fadeOut)
             );
             this.sectionProjectile.relative(this.viewport).x(1F).w(200).h(1F).anchorX(1F);
             this.projectile = new UIIcon(Icons.BULLET, (b) -> this.setSection(this.sectionProjectile));
@@ -268,12 +266,12 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             this.sectionImpact = UI.scrollView(5, 10,
                 UI.label(UIKeys.GUN_IMPACT_FORM).background(), impactForm,
-                UI.label(UIKeys.GUN_IMPACT_BOUNCES).background().marginTop(UIConstants.SECTION_GAP), bounceHits,
+                UI.label(UIKeys.GUN_IMPACT_BOUNCES).background().marginTop(6), bounceHits,
                 UI.label(UIKeys.GUN_IMPACT_BOUNCE_DAMPING).background(), bounceDamping,
-                vanish.marginTop(UIConstants.SECTION_GAP),
-                UI.label(UIKeys.GUN_IMPACT_DAMAGE).background().marginTop(UIConstants.SECTION_GAP), damage,
-                UI.label(UIKeys.GUN_IMPACT_KNOCKBACK).background().marginTop(UIConstants.SECTION_GAP), knockback,
-                UI.label(UIKeys.GUN_IMPACT_COLLISION).background().marginTop(UIConstants.SECTION_GAP), UI.row(collideBlocks, collideEntities)
+                vanish.marginTop(6),
+                UI.label(UIKeys.GUN_IMPACT_DAMAGE).background().marginTop(6), damage,
+                UI.label(UIKeys.GUN_IMPACT_KNOCKBACK).background().marginTop(6), knockback,
+                UI.label(UIKeys.GUN_IMPACT_COLLISION).background().marginTop(6), UI.row(collideBlocks, collideEntities)
             );
             this.sectionImpact.relative(this.viewport).x(1F).w(200).h(1F).anchorX(1F);
             this.impact = new UIIcon(Icons.DOWNLOAD, (b) -> this.setSection(this.sectionImpact));
@@ -306,10 +304,10 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             this.sectionZoom = UI.scrollView(5, 10,
                 UI.label(UIKeys.GUN_ZOOM_FORM).background(), zoomForm, zoomTransform,
-                UI.label(UIKeys.GUN_ZOOM_ON).background().marginTop(UIConstants.SECTION_GAP), cmdZoomOn,
+                UI.label(UIKeys.GUN_ZOOM_ON).background().marginTop(6), cmdZoomOn,
                 UI.label(UIKeys.GUN_ZOOM_OFF).background(), cmdZoomOff,
-                UI.label(UIKeys.GUN_ZOOM_FOV_DURATION).background().marginTop(UIConstants.SECTION_GAP), UI.row(fovDuration, fovInterp),
-                UI.label(UIKeys.GUN_ZOOM_FOV_TARGET).background().marginTop(UIConstants.SECTION_GAP), fovTarget
+                UI.label(UIKeys.GUN_ZOOM_FOV_DURATION).background().marginTop(6), UI.row(fovDuration, fovInterp),
+                UI.label(UIKeys.GUN_ZOOM_FOV_TARGET).background().marginTop(6), fovTarget
             );
             this.sectionZoom.relative(this.viewport).x(1F).w(200).h(1F).anchorX(1F);
             this.zoom = new UIIcon(Icons.SEARCH, (b) -> this.setSection(this.sectionZoom));
@@ -384,7 +382,7 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             this.setSection(CollectionUtils.getKey(this.sections, children.get(newIndex)));
             UIUtils.playClick();
-        });
+        }).allowShift();
     }
 
     private UIElement createTransform(Transform transform, Supplier<Form> formSupplier, Consumer<Form> formConsumer)
@@ -466,15 +464,7 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
         if (icon != null)
         {
-            this.renderHighlight(context.batcher, icon.area);
+            UIDashboardPanels.renderHighlight(context.batcher, icon.area, Direction.TOP);
         }
-    }
-
-    private void renderHighlight(Batcher2D batcher, Area area)
-    {
-        int color = BBSSettings.primaryColor.get();
-
-        batcher.box(area.x, area.y, area.ex(), area.y + 2, Colors.A100 | color);
-        batcher.gradientVBox(area.x, area.y + 2, area.ex(), area.ey(), Colors.A50 | color, color);
     }
 }

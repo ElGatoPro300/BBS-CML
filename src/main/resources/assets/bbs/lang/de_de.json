@@ -1,5 +1,5 @@
 {
-    "block.bbs.chroma_black": "Schwarzes Chrona",
+    "block.bbs.chroma_black": "Schwarzes Chroma",
     "block.bbs.chroma_blue": "Blaues Chroma",
     "block.bbs.chroma_cyan": "Cyanes Chroma",
     "block.bbs.chroma_green": "Grünes Chroma",
@@ -9,6 +9,9 @@
     "block.bbs.chroma_yellow": "Gelbes Chroma",
     "block.bbs.model": "Modell-Block",
     "category.bbs.main": "BBS Mod",
+    "command.getskin.downloading": "🔄 Skin wird heruntergeladen...",
+    "command.getskin.error": "❌ Fehler: %s",
+    "command.getskin.success": "✅ Skin wurde auf alle Spieler angewendet",
     "gamerule.bbsEditing": "BBS Mod's Bearbeitungs Berechtigungen",
     "item.bbs.gun": "BBS Pistole",
     "itemGroup.bbs.main": "BBS Mod",

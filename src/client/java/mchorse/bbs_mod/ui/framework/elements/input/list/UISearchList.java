@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.list;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 
@@ -35,5 +36,13 @@ public class UISearchList <T> extends UIElement
         }
 
         this.list.filter(str);
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        context.batcher.clip(this.area, context);
+        super.render(context);
+        context.batcher.unclip(context);
     }
 }

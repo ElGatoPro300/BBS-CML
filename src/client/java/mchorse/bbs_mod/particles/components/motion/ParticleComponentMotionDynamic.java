@@ -21,11 +21,18 @@ public class ParticleComponentMotionDynamic extends ParticleComponentMotion impl
     @Override
     protected void toData(MapType data)
     {
-        data.put("linear_acceleration", ParticleUtils.vectorToList(this.motionAcceleration));
+        if (this.drivesPosition)
+        {
+            data.put("linear_acceleration", ParticleUtils.vectorToList(this.motionAcceleration));
 
-        if (!MolangExpression.isZero(this.motionDrag)) data.put("linear_drag_coefficient", this.motionDrag.toData());
-        if (!MolangExpression.isZero(this.rotationAcceleration)) data.put("rotation_acceleration", this.rotationAcceleration.toData());
-        if (!MolangExpression.isZero(this.rotationDrag)) data.put("rotation_drag_coefficient", this.rotationDrag.toData());
+            if (!MolangExpression.isZero(this.motionDrag)) data.put("linear_drag_coefficient", this.motionDrag.toData());
+        }
+
+        if (this.drivesRotation)
+        {
+            if (!MolangExpression.isZero(this.rotationAcceleration)) data.put("rotation_acceleration", this.rotationAcceleration.toData());
+            if (!MolangExpression.isZero(this.rotationDrag)) data.put("rotation_drag_coefficient", this.rotationDrag.toData());
+        }
     }
 
     @Override
@@ -37,6 +44,10 @@ public class ParticleComponentMotionDynamic extends ParticleComponentMotion impl
         }
 
         MapType map = data.asMap();
+
+        /* Which axes this dynamic component owns is inferred from the present fields. */
+        this.drivesPosition = map.has("linear_acceleration") || map.has("linear_drag_coefficient");
+        this.drivesRotation = map.has("rotation_acceleration") || map.has("rotation_drag_coefficient");
 
         if (map.has("linear_acceleration"))
         {

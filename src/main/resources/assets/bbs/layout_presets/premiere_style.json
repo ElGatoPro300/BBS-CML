@@ -1,0 +1,109 @@
+{
+    "replays_panel_docked_layout": {
+        "type": "splitter",
+        "dir": "v",
+        "first": {
+            "type": "splitter",
+            "dir": "h",
+            "first": {
+                "type": "splitter",
+                "dir": "v",
+                "first": {
+                    "active_tab": 0,
+                    "tabs": [
+                        {
+                            "id": "replayTimeline",
+                            "type": "panel"
+                        },
+                        {
+                            "id": "actionTimeline",
+                            "type": "panel"
+                        }
+                    ],
+                    "type": "tabbed"
+                },
+                "ratio": 0.54904306,
+                "second": {
+                    "id": "preview",
+                    "type": "panel"
+                }
+            },
+            "ratio": 0.5662921,
+            "second": {
+                "type": "splitter",
+                "dir": "v",
+                "first": {
+                    "id": "unifiedEditArea",
+                    "type": "panel"
+                },
+                "ratio": 0.3135068,
+                "second": {
+                    "id": "cameraTimeline",
+                    "type": "panel"
+                }
+            }
+        },
+        "ratio": 0.87083334,
+        "second": {
+            "type": "splitter",
+            "dir": "h",
+            "first": {
+                "id": "replaysPanel",
+                "type": "panel"
+            },
+            "ratio": 0.65,
+            "second": {
+                "id": "replaysPropertiesPanel",
+                "type": "panel"
+            }
+        }
+    },
+    "replays_panel_floating": false,
+    "video_frame_width": 1920,
+    "video_frame_rate": 60,
+    "video_motion_blur": 0,
+    "video_frame_height": 1080,
+    "replays_panel_enabled": true,
+    "film_layout": {
+        "type": "splitter",
+        "dir": "h",
+        "first": {
+            "type": "splitter",
+            "dir": "v",
+            "first": {
+                "active_tab": 0,
+                "tabs": [
+                    {
+                        "id": "replayTimeline",
+                        "type": "panel"
+                    },
+                    {
+                        "id": "actionTimeline",
+                        "type": "panel"
+                    }
+                ],
+                "type": "tabbed"
+            },
+            "ratio": 0.54904306,
+            "second": {
+                "id": "preview",
+                "type": "panel"
+            }
+        },
+        "ratio": 0.5662921,
+        "second": {
+            "type": "splitter",
+            "dir": "v",
+            "first": {
+                "id": "unifiedEditArea",
+                "type": "panel"
+            },
+            "ratio": 0.3135068,
+            "second": {
+                "id": "cameraTimeline",
+                "type": "panel"
+            }
+        }
+    },
+    "timeline_toolbar_docks": {}
+}

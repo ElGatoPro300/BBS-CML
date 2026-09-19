@@ -18,9 +18,9 @@ public class BOBJModelSimpleVAO extends BOBJModelVAO
     public Joint legRight;
     public Joint body;
 
-    public BOBJModelSimpleVAO(BOBJLoader.CompiledData data)
+    public BOBJModelSimpleVAO(BOBJLoader.CompiledData data, BOBJArmature armature)
     {
-        super(data);
+        super(data, armature);
 
         this.armLeft = new Joint(this.armature.bones.get("left_arm"), this.armature.bones.get("low_left_arm"));
         this.armRight = new Joint(this.armature.bones.get("right_arm"), this.armature.bones.get("low_right_arm"));

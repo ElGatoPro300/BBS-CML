@@ -23,6 +23,20 @@ public class UIDashboardPanel extends UIElement
         return true;
     }
 
+    /**
+     * When false, the vanilla world pass is skipped while this panel is open (opaque UI covers
+     * the screen). Defaults to the inverse of {@link #needsBackground()}.
+     */
+    public boolean needsWorldRender()
+    {
+        return !this.needsBackground();
+    }
+
+    public boolean canHideHUD()
+    {
+        return true;
+    }
+
     public boolean canToggleVisibility()
     {
         return true;
@@ -60,5 +74,13 @@ public class UIDashboardPanel extends UIElement
     {}
 
     public void renderPanelBackground(UIContext context)
+    {}
+
+    public UIDashboardPanel getMainPanel()
+    {
+        return this;
+    }
+
+    public void showHomeView()
     {}
 }

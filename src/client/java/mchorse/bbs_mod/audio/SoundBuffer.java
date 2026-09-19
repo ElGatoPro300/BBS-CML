@@ -52,15 +52,24 @@ public class SoundBuffer
         return this.waveform;
     }
 
+    public boolean isValid()
+    {
+        return this.buffer > 0;
+    }
+
     public void delete()
     {
-        AL10.alDeleteBuffers(this.buffer);
+        if (this.buffer > 0)
+        {
+            AL10.alDeleteBuffers(this.buffer);
+        }
 
         this.buffer = -1;
 
         if (this.waveform != null)
         {
             this.waveform.delete();
+            this.waveform = null;
         }
     }
 }

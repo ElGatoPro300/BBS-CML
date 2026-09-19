@@ -11,19 +11,32 @@ import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class BBSShaders
 {
+    public static final List<Runnable> LOADERS = new ArrayList<>();
+
     private static ShaderProgram model;
     private static ShaderProgram multiLink;
     private static ShaderProgram subtitles;
+    private static ShaderProgram imageOverlay;
 
     private static ShaderProgram pickerPreview;
     private static ShaderProgram pickerBillboard;
     private static ShaderProgram pickerBillboardNoShading;
     private static ShaderProgram pickerParticles;
     private static ShaderProgram pickerModels;
+    private static ShaderProgram blockPaintOverlay;
+    private static ShaderProgram flatPaintOverlay;
+    private static ShaderProgram blockGlowOverlay;
+    private static ShaderProgram blockColorTintOverlay;
+    private static ShaderProgram flatColorTintOverlay;
+
+    /* Avoid reloading every BBS shader on each draw when model compile fails. */
+    private static boolean modelLoadRetried;
 
     static
     {
@@ -32,15 +45,91 @@ public class BBSShaders
 
     public static void setup()
     {
-        if (model != null) model.close();
-        if (subtitles != null) subtitles.close();
-        if (subtitles != null) subtitles.close();
+        modelLoadRetried = false;
 
-        if (pickerPreview != null) pickerPreview.close();
-        if (pickerBillboard != null) pickerBillboard.close();
-        if (pickerBillboardNoShading != null) pickerBillboardNoShading.close();
-        if (pickerParticles != null) pickerParticles.close();
-        if (pickerModels != null) pickerModels.close();
+        if (model != null)
+        {
+            model.close();
+            model = null;
+        }
+
+        if (multiLink != null)
+        {
+            multiLink.close();
+            multiLink = null;
+        }
+
+        if (subtitles != null)
+        {
+            subtitles.close();
+            subtitles = null;
+        }
+
+        if (imageOverlay != null)
+        {
+            imageOverlay.close();
+            imageOverlay = null;
+        }
+
+        if (pickerPreview != null)
+        {
+            pickerPreview.close();
+            pickerPreview = null;
+        }
+
+        if (pickerBillboard != null)
+        {
+            pickerBillboard.close();
+            pickerBillboard = null;
+        }
+
+        if (pickerBillboardNoShading != null)
+        {
+            pickerBillboardNoShading.close();
+            pickerBillboardNoShading = null;
+        }
+
+        if (pickerParticles != null)
+        {
+            pickerParticles.close();
+            pickerParticles = null;
+        }
+
+        if (pickerModels != null)
+        {
+            pickerModels.close();
+            pickerModels = null;
+        }
+
+        if (blockPaintOverlay != null)
+        {
+            blockPaintOverlay.close();
+            blockPaintOverlay = null;
+        }
+
+        if (flatPaintOverlay != null)
+        {
+            flatPaintOverlay.close();
+            flatPaintOverlay = null;
+        }
+
+        if (blockGlowOverlay != null)
+        {
+            blockGlowOverlay.close();
+            blockGlowOverlay = null;
+        }
+
+        if (blockColorTintOverlay != null)
+        {
+            blockColorTintOverlay.close();
+            blockColorTintOverlay = null;
+        }
+
+        if (flatColorTintOverlay != null)
+        {
+            flatColorTintOverlay.close();
+            flatColorTintOverlay = null;
+        }
 
         try
         {
@@ -49,12 +138,23 @@ public class BBSShaders
             model = new ShaderProgram(factory, "model", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             multiLink = new ShaderProgram(factory, "multilink", VertexFormats.POSITION_TEXTURE_COLOR);
             subtitles = new ShaderProgram(factory, "subtitles", VertexFormats.POSITION_TEXTURE_COLOR);
+            imageOverlay = new ShaderProgram(factory, "image_overlay", VertexFormats.POSITION_TEXTURE_COLOR);
 
             pickerPreview = new ShaderProgram(factory, "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR);
             pickerBillboard = new ShaderProgram(factory, "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             pickerBillboardNoShading = new ShaderProgram(factory, "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR);
             pickerParticles = new ShaderProgram(factory, "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
             pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockGlowOverlay = new ShaderProgram(factory, "block_glow_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        
+            for (Runnable runnable : LOADERS)
+            {
+                runnable.run();
+            }
         }
         catch (IOException e)
         {
@@ -64,6 +164,12 @@ public class BBSShaders
 
     public static ShaderProgram getModel()
     {
+        if (model == null && !modelLoadRetried)
+        {
+            modelLoadRetried = true;
+            setup();
+        }
+
         return model;
     }
 
@@ -75,6 +181,16 @@ public class BBSShaders
     public static ShaderProgram getSubtitlesProgram()
     {
         return subtitles;
+    }
+
+    public static ShaderProgram getImageOverlayProgram()
+    {
+        if (imageOverlay == null)
+        {
+            setup();
+        }
+
+        return imageOverlay;
     }
 
     public static ShaderProgram getPickerPreviewProgram()
@@ -102,6 +218,31 @@ public class BBSShaders
         return pickerModels;
     }
 
+    public static ShaderProgram getBlockPaintOverlayProgram()
+    {
+        return blockPaintOverlay;
+    }
+
+    public static ShaderProgram getFlatPaintOverlayProgram()
+    {
+        return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getBlockGlowOverlayProgram()
+    {
+        return blockGlowOverlay;
+    }
+
+    public static ShaderProgram getBlockColorTintOverlayProgram()
+    {
+        return blockColorTintOverlay;
+    }
+
+    public static ShaderProgram getFlatColorTintOverlayProgram()
+    {
+        return flatColorTintOverlay;
+    }
+
     private static class ProxyResourceFactory implements ResourceFactory
     {
         private ResourceManager manager;
@@ -116,7 +257,7 @@ public class BBSShaders
         {
             if (id.getPath().contains("/core/"))
             {
-                return this.manager.getResource(new Identifier(BBSMod.MOD_ID, id.getPath()));
+                return this.manager.getResource(Identifier.of(BBSMod.MOD_ID, id.getPath()));
             }
 
             return this.manager.getResource(id);

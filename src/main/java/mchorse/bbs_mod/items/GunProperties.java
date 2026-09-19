@@ -72,13 +72,12 @@ public class GunProperties extends ModelProperties
 
     public static GunProperties get(ItemStack stack)
     {
-        NbtCompound nbt = stack.getNbt();
         GunProperties properties = new GunProperties();
+        NbtCompound nbt = stack.getNbt();
 
         if (nbt == null)
         {
             setupDefault(properties);
-
             return properties;
         }
 
@@ -105,7 +104,7 @@ public class GunProperties extends ModelProperties
         Transform tp = properties.getTransformThirdPerson();
         Transform fp = properties.getTransformFirstPerson();
 
-        value.particle = new Identifier("minecraft:falling_water");
+        value.particle = Identifier.of("minecraft", "falling_water");
         projectileForm.settings.set(value);
         projectileForm.frequency.set(1);
         projectileForm.offsetX.set(0.1F);

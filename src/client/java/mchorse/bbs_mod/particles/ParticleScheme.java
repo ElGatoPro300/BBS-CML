@@ -40,11 +40,11 @@ public class ParticleScheme extends ValueGroup {
 
     /* Particle's components */
     public List<ParticleComponentBase> components = new ArrayList<>();
-    public List<IComponentEmitterInitialize> emitterInitializes = Collections.emptyList();
-    public List<IComponentEmitterUpdate> emitterUpdates = Collections.emptyList();
-    public List<IComponentParticleInitialize> particleInitializes = Collections.emptyList();
-    public List<IComponentParticleUpdate> particleUpdates = Collections.emptyList();
-    public List<IComponentParticleRender> particleRender = Collections.emptyList();
+    public List<IComponentEmitterInitialize> emitterInitializes;
+    public List<IComponentEmitterUpdate> emitterUpdates;
+    public List<IComponentParticleInitialize> particleInitializes;
+    public List<IComponentParticleUpdate> particleUpdates;
+    public List<IComponentParticleRender> particleRender;
 
     /* MoLang integration */
     public final ParticleMolangParser parser;
@@ -239,8 +239,6 @@ public class ParticleScheme extends ValueGroup {
         {
             e.printStackTrace();
         }
-
-        this.setup();
     }
 
     @Override

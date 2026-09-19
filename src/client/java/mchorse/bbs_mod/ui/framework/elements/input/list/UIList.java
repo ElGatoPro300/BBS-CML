@@ -59,7 +59,7 @@ public abstract class UIList <T> extends UIElement
     public int background;
 
     private String filter = "";
-    private List<Pair<T, Integer>> filtered = new ArrayList<>();
+    protected List<Pair<T, Integer>> filtered = new ArrayList<>();
 
     protected int dragging = -1;
     protected long dragTime;
@@ -169,6 +169,11 @@ public abstract class UIList <T> extends UIElement
         return this.exists(this.filtered, visibleIndex) ? this.filtered.get(visibleIndex).a : null;
     }
 
+    public T getVisibleElement(int visibleIndex)
+    {
+        return this.getElementAt(visibleIndex);
+    }
+
     /* Index and current value(s) methods */
 
     public boolean isSelected()
@@ -249,31 +254,6 @@ public abstract class UIList <T> extends UIElement
         }
 
         return (context.mouseY - this.area.y + (int) this.scroll.getScroll()) / this.scroll.scrollItemSize;
-    }
-
-    /**
-     * Backing list index under the cursor (for context menus). When filtering, maps the visible row to {@link #list}.
-     */
-    protected int getIndexAtCursor(UIContext context)
-    {
-        int row = this.getHoveredIndex(context);
-
-        if (row < 0)
-        {
-            return -1;
-        }
-
-        if (this.isFiltering())
-        {
-            if (row >= this.filtered.size())
-            {
-                return -1;
-            }
-
-            return this.filtered.get(row).b;
-        }
-
-        return this.exists(row) ? row : -1;
     }
 
     public void deselect()
@@ -542,7 +522,24 @@ public abstract class UIList <T> extends UIElement
 
             if (this.exists(index))
             {
-                this.applySelectionOnClick(index);
+                if (this.multi && Window.isShiftPressed() && this.isSelected())
+                {
+                    int first = this.current.get(0);
+                    int increment = first > index ? -1 : 1;
+
+                    for (int i = first + increment; i != index + increment; i += increment)
+                    {
+                        this.addIndex(i);
+                    }
+                }
+                else if (this.multi && Window.isCtrlPressed())
+                {
+                    this.toggleIndex(index);
+                }
+                else
+                {
+                    this.setIndex(index);
+                }
 
                 if (!filtering && this.sorting && this.current.size() == 1)
                 {
@@ -562,32 +559,6 @@ public abstract class UIList <T> extends UIElement
         }
 
         return super.subMouseClicked(context);
-    }
-
-    /**
-     * Updates {@link #current} for a left-click on the given list index. Override in subclasses to change
-     * multi-select behaviour (e.g. pose bone list: Shift toggles like Ctrl instead of range-select).
-     */
-    protected void applySelectionOnClick(int index)
-    {
-        if (this.multi && Window.isShiftPressed() && this.isSelected())
-        {
-            int first = this.current.get(0);
-            int increment = first > index ? -1 : 1;
-
-            for (int i = first + increment; i != index + increment; i += increment)
-            {
-                this.addIndex(i);
-            }
-        }
-        else if (this.multi && Window.isCtrlPressed())
-        {
-            this.toggleIndex(index);
-        }
-        else
-        {
-            this.setIndex(index);
-        }
     }
 
     @Override
@@ -615,9 +586,10 @@ public abstract class UIList <T> extends UIElement
                     this.handleSwap(this.dragging, index);
                 }
             }
-
-            this.dragging = -1;
         }
+
+        /* Always clear any in-progress drag on release so a picked-up row can never stay floating */
+        this.dragging = -1;
 
         this.scroll.mouseReleased(context);
 

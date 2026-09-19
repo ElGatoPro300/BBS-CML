@@ -95,18 +95,21 @@ public class MultiLinkThread implements Runnable
 
                 Pixels pixels = TextureProcessor.process(location);
 
-                MinecraftClient.getInstance().execute(() ->
+                if (pixels != null)
                 {
-                    Texture newTexture = BBSModClient.getTextures().createTexture(location);
-
-                    newTexture.bind();
-                    newTexture.uploadTexture(pixels);
-
-                    if (newTexture.isMipmap())
+                    MinecraftClient.getInstance().execute(() ->
                     {
-                        newTexture.generateMipmap();
-                    }
-                });
+                        Texture newTexture = BBSModClient.getTextures().createTexture(location);
+
+                        newTexture.bind();
+                        newTexture.uploadTexture(pixels);
+
+                        if (newTexture.isMipmap())
+                        {
+                            newTexture.generateMipmap();
+                        }
+                    });
+                }
 
                 Thread.sleep(100);
             }

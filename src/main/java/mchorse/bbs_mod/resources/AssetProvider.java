@@ -41,6 +41,11 @@ public class AssetProvider
 
     public InputStream getAsset(Link link) throws IOException
     {
+        if (link == null)
+        {
+            throw new FileNotFoundException("Asset link is null!");
+        }
+
         List<ISourcePack> packs = this.getPacks(link.source);
 
         for (ISourcePack pack : packs)

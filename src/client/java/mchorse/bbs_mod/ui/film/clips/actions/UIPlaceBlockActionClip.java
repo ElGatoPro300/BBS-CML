@@ -7,7 +7,6 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIBlockStateEditor;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 
 public class UIPlaceBlockActionClip extends UIActionClip<PlaceBlockActionClip>
 {
@@ -35,14 +34,6 @@ public class UIPlaceBlockActionClip extends UIActionClip<PlaceBlockActionClip>
         this.z.integer();
         this.drop = new UIToggle(UIKeys.ACTIONS_BLOCK_DROP, (b) -> this.editor.editMultiple(this.clip.drop, (drop) -> drop.set(b.getValue())));
         this.blockState = new UIBlockStateEditor((state) -> this.editor.editMultiple(this.clip.state, (x) -> x.set(state)));
-
-        this.addBlockPositionContext(
-            this.x, this.y, this.z,
-            () -> this.clip.x.get(), () -> this.clip.y.get(), () -> this.clip.z.get(),
-            (value) -> this.editor.editMultiple(this.clip.x, (x) -> x.set(value)),
-            (value) -> this.editor.editMultiple(this.clip.y, (y) -> y.set(value)),
-            (value) -> this.editor.editMultiple(this.clip.z, (z) -> z.set(value))
-        );
     }
 
     @Override
@@ -50,9 +41,8 @@ public class UIPlaceBlockActionClip extends UIActionClip<PlaceBlockActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_POSITION).marginTop(UIConstants.SECTION_GAP));
-        this.panels.add(UI.row(this.x, this.y, this.z), this.drop);
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_STATE).marginTop(UIConstants.SECTION_GAP), this.blockState);
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_POSITION, UI.row(this.x, this.y, this.z), this.drop));
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_STATE, this.blockState));
     }
 
     @Override

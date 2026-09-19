@@ -60,7 +60,16 @@ public class DamageControl
 
     public void restore()
     {
-        for (BlockCapture block : this.blocks)
+        boolean prev = this.enable;
+        this.enable = false;
+
+        List<BlockCapture> blocksCopy = new ArrayList<>(this.blocks);
+        List<Entity> entitiesCopy = new ArrayList<>(this.entities);
+
+        this.blocks.clear();
+        this.entities.clear();
+
+        for (BlockCapture block : blocksCopy)
         {
             this.world.setBlockState(block.pos, block.lastState, 2);
 
@@ -72,7 +81,7 @@ public class DamageControl
             }
         }
 
-        for (Entity entity : this.entities)
+        for (Entity entity : entitiesCopy)
         {
             if (!entity.isRemoved())
             {
@@ -80,8 +89,7 @@ public class DamageControl
             }
         }
 
-        this.blocks.clear();
-        this.entities.clear();
+        this.enable = prev;
     }
 
     private static class BlockCapture

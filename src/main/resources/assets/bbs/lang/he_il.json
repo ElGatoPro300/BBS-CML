@@ -1,6 +1,10 @@
 {
     "block.bbs.model": "בלוק דגם",
     "category.bbs.main": "BBS מוד",
+    "command.getskin.downloading": "הורדת סכימה...",
+    "command.getskin.error": "שגיאה: %s",
+    "command.getskin.success": "סכימה מועברת לכל השחקנים",
+    "gamerule.bbsEditing": "תנאים לעריכת מוד BBS",
     "item.bbs.gun": "BBS אקדח",
     "itemGroup.bbs.main": "BBS מוד",
     "key.bbs.dashboard": "לוח בקרה",

@@ -20,6 +20,7 @@ public class SoundPlayer
 
         AL10.alSourcei(this.source, AL10.AL_BUFFER, buffer.getBuffer());
         AL10.alSourcef(this.source, AL10.AL_MAX_DISTANCE, 60);
+        AL10.alSourcef(this.source, AL10.AL_MAX_GAIN, 10F);
 
         this.setRelative(false);
     }
@@ -144,6 +145,11 @@ public class SoundPlayer
 
     public void setPlaybackPosition(float seconds)
     {
+        if (this.buffer == null)
+        {
+            return;
+        }
+
         seconds = MathUtils.clamp(seconds, 0, this.buffer.getDuration());
 
         AL10.alSourcef(this.source, AL11.AL_SEC_OFFSET, seconds);

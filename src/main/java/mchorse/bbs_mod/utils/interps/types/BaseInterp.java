@@ -24,4 +24,15 @@ public abstract class BaseInterp implements IInterp
     {
         return this.keybind;
     }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj instanceof BaseInterp)
+        {
+            return this.key.equals(((BaseInterp) obj).key);
+        }
+
+        return super.equals(obj);
+    }
 }

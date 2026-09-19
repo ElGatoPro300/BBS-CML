@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.SimpleOption;
@@ -21,6 +22,12 @@ public class SimpleOptionMixin
         if (MinecraftClient.getInstance().options != null && option == MinecraftClient.getInstance().options.getGamma())
         {
             Double value = BBSRendering.getBrightness();
+
+            if (value == null)
+            {
+                /* World Properties' gamma tool; the film brightness curve takes priority. */
+                value = WorldPropertiesHelper.getGammaOverride();
+            }
 
             if (value != null)
             {

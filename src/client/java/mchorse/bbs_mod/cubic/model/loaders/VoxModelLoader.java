@@ -26,7 +26,22 @@ public class VoxModelLoader implements IModelLoader
     @Override
     public ModelInstance load(String id, ModelManager models, Link model, Collection<Link> links, MapType config)
     {
-        Link modelVox = IModelLoader.getLink(model.combine("model.vox"), links, ".vox");
+        Link modelVox = null;
+
+        for (Link l : links)
+        {
+            if (l.path.endsWith(".vox"))
+            {
+                modelVox = l;
+                break;
+            }
+        }
+
+        if (modelVox == null)
+        {
+            return null;
+        }
+
         Link palette = IModelLoader.getLink(model.combine("palette.png"), links, ".png");
         Model newModel = new Model(models.parser);
 

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
+import net.irisshaders.iris.targets.RenderTargets;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -12,4 +13,7 @@ public interface IrisRenderingPipelineAccessor
 {
     @Accessor(value = "loadedShaders", remap = false)
     public Set bbs$loadedShaders();
+
+    @Accessor(value = "renderTargets", remap = false)
+    public RenderTargets bbs$renderTargets();
 }

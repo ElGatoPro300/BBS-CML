@@ -248,4 +248,13 @@ public abstract class BaseValue implements IDataSerializable<BaseType>, IValueNo
 
         this.postNotify(flag);
     }
+
+    public boolean isResettable()
+    {
+        return false;
+    }
+
+    public void resetToDefault()
+    {
+    }
 }

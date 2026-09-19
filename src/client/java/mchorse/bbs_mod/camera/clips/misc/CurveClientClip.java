@@ -4,7 +4,9 @@ import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
+import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 
 public class CurveClientClip extends CurveClip
 {
@@ -16,48 +18,39 @@ public class CurveClientClip extends CurveClip
     {
         super.breakDownClip(original, offset);
 
-        for (KeyframeChannel<?> channel : this.channels.getAllKeyframeChannels())
-        {
-            breakDownTrimAfterSplit(channel, offset);
-        }
+        /* Clean up keyframes prior to broken apart */
+        for (KeyframeChannel<Double> channel : this.channels.getChannels()) this.trimCurrentChannel(channel, offset);
+        this.trimCurrentChannel(this.chromaSky, offset);
 
         CurveClip curveClip = (CurveClip) original;
 
-        for (KeyframeChannel<?> channel : curveClip.channels.getAllKeyframeChannels())
-        {
-            breakDownTrimOriginalTail(channel, offset);
-        }
+        /* Clean up keyframes prior to broken apart */
+        for (KeyframeChannel<Double> channel : curveClip.channels.getChannels()) this.trimOriginalChannel(channel, offset);
+        this.trimOriginalChannel(curveClip.chromaSky, offset);
     }
 
-    /** Shift keyframes after splitting: drop everything before tick 0 on the new clip. */
-    private static void breakDownTrimAfterSplit(KeyframeChannel<?> channel, int offset)
+    private <T> void trimCurrentChannel(KeyframeChannel<T> channel, int offset)
     {
         channel.moveX(-offset);
 
-        var segment = channel.find(0);
+        KeyframeSegment<T> segment = channel.find(0);
 
         if (segment != null)
         {
-            while (segment.a != channel.get(0))
-            {
-                channel.remove(0);
-            }
+            while (segment.a != channel.get(0)) channel.remove(0);
         }
     }
 
-    /** On the source clip, drop keyframes after the split point. */
-    private static void breakDownTrimOriginalTail(KeyframeChannel<?> channel, int offset)
+    private <T> void trimOriginalChannel(KeyframeChannel<T> channel, int offset)
     {
-        var segment = channel.find(offset);
+        KeyframeSegment<T> segment = channel.find(offset);
 
-        if (segment == null)
+        if (segment != null)
         {
-            return;
-        }
-
-        while (segment.b != channel.get(channel.getKeyframes().size() - 1))
-        {
-            channel.remove(channel.getKeyframes().size() - 1);
+            while (segment.b != channel.get(channel.getKeyframes().size() - 1))
+            {
+                channel.remove(channel.getKeyframes().size() - 1);
+            }
         }
     }
 
@@ -74,6 +67,32 @@ public class CurveClientClip extends CurveClip
             }
 
             String id = channel.getId();
+
+            if (ShaderCurves.SHADER_SHADOW_OPACITY.equals(id)
+                || id.equals(SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+            {
+                ShaderOpacityPatch.ensureShadowOpacityVariable();
+
+                ShaderCurves.ShaderVariable shadowOpacity = ShaderCurves.variableMap.get(ShaderCurves.SHADER_SHADOW_OPACITY);
+
+                if (shadowOpacity != null)
+                {
+                    float value = channel.interpolate(context.relativeTick + context.transition).floatValue();
+
+                    shadowOpacity.value = Math.max(0F, Math.min(1F, value));
+                }
+
+                continue;
+            }
+
+            if (ShaderCurves.SUN_PATH_ROTATION.equals(id)
+                || id.equals(SHADER_CURVES_PREFIX + ShaderCurves.SUN_PATH_ROTATION))
+            {
+                /* Uniform is read live from clip data; keep variable registered for Iris. */
+                ShaderCurves.ensureSunPathRotationVariable();
+
+                continue;
+            }
 
             if (id.startsWith(SHADER_CURVES_PREFIX))
             {

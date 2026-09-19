@@ -1,6 +1,9 @@
 {
     "block.bbs.model": "Model Blok",
     "category.bbs.main": "Mod BBS",
+    "command.getskin.downloading": "Mengunduh skin...",
+    "command.getskin.error": "Kesalahan: %s",
+    "command.getskin.success": "Skin diterapkan ke semua pemain",
     "itemGroup.bbs.main": "Mod BBS",
     "key.bbs.dashboard": "Dasbor",
     "key.bbs.demorph": "Demorph",

@@ -121,7 +121,7 @@ public class DataParser
 
     private static BaseType parseMap(String string)
     {
-        MapType map = new MapType(false);
+        MapType map = new MapType();
 
         if (string.trim().isEmpty())
         {

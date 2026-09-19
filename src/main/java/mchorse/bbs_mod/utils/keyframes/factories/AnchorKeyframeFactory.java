@@ -6,12 +6,17 @@ import mchorse.bbs_mod.utils.interps.IInterp;
 
 public class AnchorKeyframeFactory implements IKeyframeFactory<Anchor>
 {
+    private final TransformKeyframeFactory transform = new TransformKeyframeFactory();
+
     @Override
     public Anchor fromData(BaseType data)
     {
         Anchor anchor = new Anchor();
 
-        anchor.fromData(data.asMap());
+        if (data.isMap())
+        {
+            anchor.fromData(data.asMap());
+        }
 
         return anchor;
     }
@@ -42,6 +47,15 @@ public class AnchorKeyframeFactory implements IKeyframeFactory<Anchor>
     @Override
     public Anchor interpolate(Anchor preA, Anchor a, Anchor b, Anchor postB, IInterp interpolation, float x)
     {
+        if (a.hasSameTarget(b))
+        {
+            Anchor anchor = b.copy();
+
+            anchor.transform.copy(this.transform.interpolate(preA.transform, a.transform, b.transform, postB.transform, interpolation, x));
+
+            return anchor;
+        }
+
         Anchor anchor = b.copy();
 
         anchor.previous = a.copy();

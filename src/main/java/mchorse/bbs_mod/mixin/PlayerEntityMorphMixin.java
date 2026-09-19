@@ -29,8 +29,9 @@ public abstract class PlayerEntityMorphMixin extends LivingEntity implements IMo
     @Override
     public void baseTick()
     {
-        this.morph.update();
-
+        /* Tick living entity first so age/limbs are current, then advance the morph form
+         * animator (previously morph ticked before super and could miss limb motion). */
         super.baseTick();
+        this.morph.update();
     }
 }

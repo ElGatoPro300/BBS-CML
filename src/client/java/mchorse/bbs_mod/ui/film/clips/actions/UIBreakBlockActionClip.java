@@ -5,7 +5,6 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 
 public class UIBreakBlockActionClip extends UIActionClip<BreakBlockActionClip>
 {
@@ -32,14 +31,6 @@ public class UIBreakBlockActionClip extends UIActionClip<BreakBlockActionClip>
         this.z.integer();
         this.progress = new UITrackpad((v) -> this.editor.editMultiple(this.clip.progress, (progress) -> progress.set(v.intValue())));
         this.progress.integer();
-
-        this.addBlockPositionContext(
-            this.x, this.y, this.z,
-            () -> this.clip.x.get(), () -> this.clip.y.get(), () -> this.clip.z.get(),
-            (value) -> this.editor.editMultiple(this.clip.x, (x) -> x.set(value)),
-            (value) -> this.editor.editMultiple(this.clip.y, (y) -> y.set(value)),
-            (value) -> this.editor.editMultiple(this.clip.z, (z) -> z.set(value))
-        );
     }
 
     @Override
@@ -47,9 +38,8 @@ public class UIBreakBlockActionClip extends UIActionClip<BreakBlockActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_POSITION).marginTop(UIConstants.SECTION_GAP));
-        this.panels.add(UI.row(this.x, this.y, this.z));
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_PROGRESS).marginTop(UIConstants.SECTION_GAP), this.progress);
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_POSITION, UI.row(this.x, this.y, this.z)));
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_PROGRESS, this.progress));
     }
 
     @Override

@@ -7,169 +7,331 @@ import mchorse.bbs_mod.data.types.MapType;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
-public class PresetManager {
-
+public class PresetManager
+{
     public static final PresetManager CLIPS = new PresetManager(BBSMod.getSettingsPath("presets/clips"));
-    public static final PresetManager LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/layouts"));
+    public static final PresetManager CLIP_LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/clip_layouts"));
+    public static final PresetManager PARTICLE_LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/particle_layouts"));
     public static final PresetManager BODY_PARTS = new PresetManager(BBSMod.getSettingsPath("presets/body_parts"));
     public static final PresetManager TEXTURES = new PresetManager(BBSMod.getSettingsPath("presets/textures"));
     public static final PresetManager KEYFRAMES = new PresetManager(BBSMod.getSettingsPath("presets/keyframes"));
     public static final PresetManager GUNS = new PresetManager(BBSMod.getSettingsPath("presets/guns"));
     public static final PresetManager ANIMATION_STATES = new PresetManager(BBSMod.getSettingsPath("presets/animation_states"));
+    public static final PresetManager SHAPE_GRAPHS = new PresetManager(BBSMod.getSettingsPath("presets/shape_graphs"));
+    public static final PresetManager LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/layouts"));
 
-    private final File folder;
-    private final Path rootPath;
+    private File folder;
 
-    public PresetManager(File folder) {
+    public PresetManager(File folder)
+    {
         this.folder = folder;
+
         this.folder.mkdirs();
-
-        Path p;
-
-        try {
-            p = this.folder.getCanonicalFile().toPath();
-        }
-        catch (IOException e) {
-            p = this.folder.toPath().toAbsolutePath().normalize();
-        }
-
-        this.rootPath = p;
     }
 
-    public File getFolder() {
+    public File getFolder()
+    {
         return this.folder;
     }
 
-    public MapType load(String id) {
-        File file = this.fileForPresetId(id);
+    private static String normalizePath(String path)
+    {
+        if (path == null)
+        {
+            return "";
+        }
 
-        if (file == null || !file.isFile()) {
+        String normalized = path.trim().replace('\\', '/');
+
+        while (normalized.startsWith("/"))
+        {
+            normalized = normalized.substring(1);
+        }
+
+        while (normalized.endsWith("/"))
+        {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        return normalized;
+    }
+
+    private File getPresetFile(String id)
+    {
+        String normalized = normalizePath(id);
+
+        return new File(this.folder, normalized + ".json");
+    }
+
+    private File getDirectory(String directory)
+    {
+        String normalized = normalizePath(directory);
+
+        return normalized.isEmpty() ? this.folder : new File(this.folder, normalized);
+    }
+
+    public boolean exists(String id)
+    {
+        if (id == null || id.trim().isEmpty())
+        {
+            return false;
+        }
+
+        return this.getPresetFile(id).exists();
+    }
+
+    public MapType load(String id)
+    {
+        File file = this.getPresetFile(id);
+
+        if (!file.exists())
+        {
             return null;
         }
 
-        try {
+        try
+        {
             BaseType read = DataToString.read(file);
 
-            if (read.isMap()) {
+            if (read.isMap())
+            {
                 return read.asMap();
             }
         }
-        catch (Exception e) {
+        catch (Exception e)
+        {
             e.printStackTrace();
         }
 
         return null;
     }
 
-    public void save(String id, MapType mapType) {
-        File file = this.fileForPresetId(id);
-
-        if (file == null) {
-            return;
+    public boolean save(String id, MapType mapType)
+    {
+        if (id == null || id.trim().isEmpty() || mapType == null)
+        {
+            return false;
         }
 
+        this.folder.mkdirs();
+
+        File file = this.getPresetFile(id);
         File parent = file.getParentFile();
 
-        if (parent != null) {
+        if (parent != null)
+        {
             parent.mkdirs();
         }
 
-        DataToString.writeSilently(file, mapType, true);
-    }
+        File tempFile = new File(parent == null ? this.folder : parent, file.getName() + ".tmp");
 
-    public List<String> listDirectory(String relativePath) {
-        ArrayList<String> strings = new ArrayList<>();
-        File dir = this.directoryForRelative(relativePath);
-
-        if (dir == null || !dir.isDirectory()) {
-            return strings;
-        }
-
-        if (relativePath != null && !relativePath.isEmpty()) {
-            strings.add("..");
-        }
-
-        File[] files = dir.listFiles();
-
-        if (files == null) {
-            return strings;
-        }
-
-        Arrays.sort(files, (a, b) ->
+        if (!DataToString.writeSilently(tempFile, mapType, true))
         {
-            if (a.isDirectory() != b.isDirectory()) {
-                return a.isDirectory() ? -1 : 1;
+            return false;
+        }
+
+        try
+        {
+            Files.move(tempFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+            return true;
+        }
+        catch (IOException atomicMoveException)
+        {
+            try
+            {
+                Files.move(tempFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+                return true;
             }
-
-            return a.getName().compareToIgnoreCase(b.getName());
-        });
-
-        for (File file : files) {
-            String name = file.getName();
-
-            if (file.isDirectory()) {
-                strings.add(name + "/");
-            }
-            else if (name.endsWith(".json")) {
-                strings.add(name.substring(0, name.length() - 5));
+            catch (IOException moveException)
+            {
+                moveException.printStackTrace();
             }
         }
 
-        return strings;
+        tempFile.delete();
+
+        return false;
     }
 
-    /**
-     * Preset ids at repository root only (no subfolders), for legacy call sites.
-     */
-    public List<String> getKeys() {
-        List<String> keys = new ArrayList<>();
+    public boolean delete(String id)
+    {
+        if (id == null || id.trim().isEmpty())
+        {
+            return false;
+        }
 
-        for (String s : this.listDirectory("")) {
-            if (!s.endsWith("/")) {
-                keys.add(s);
+        File file = this.getPresetFile(id);
+
+        return !file.exists() || file.delete();
+    }
+
+    public boolean rename(String from, String to, boolean overwrite)
+    {
+        if (from == null || to == null)
+        {
+            return false;
+        }
+
+        from = from.trim();
+        to = to.trim();
+
+        if (from.isEmpty() || to.isEmpty())
+        {
+            return false;
+        }
+
+        File source = this.getPresetFile(from);
+        File target = this.getPresetFile(to);
+
+        if (!source.exists())
+        {
+            return false;
+        }
+
+        if (source.equals(target))
+        {
+            return true;
+        }
+
+        if (target.exists() && !overwrite)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (overwrite)
+            {
+                Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            }
+            else
+            {
+                Files.move(source.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            }
+
+            return true;
+        }
+        catch (IOException atomicMoveException)
+        {
+            try
+            {
+                if (overwrite)
+                {
+                    Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+                else
+                {
+                    Files.move(source.toPath(), target.toPath());
+                }
+
+                return true;
+            }
+            catch (IOException moveException)
+            {
+                moveException.printStackTrace();
             }
         }
+
+        return false;
+    }
+
+    public List<String> getKeys()
+    {
+        ArrayList<String> keys = new ArrayList<>();
+
+        this.collectKeysRecursive(this.folder, "", keys);
+        keys.sort(Comparator.comparing((s) -> s.toLowerCase(Locale.ROOT)));
 
         return keys;
     }
 
-    /** Joins cwd and a segment with {@code /} (preset id path). */
-    public static String joinRelative(String cwd, String name) {
-        return cwd.isEmpty() ? name : cwd + "/" + name;
+    public List<String> getKeys(String directory)
+    {
+        ArrayList<String> strings = new ArrayList<>();
+        File dir = this.getDirectory(directory);
+        File[] files = dir.listFiles();
+
+        if (files == null)
+        {
+            return strings;
+        }
+
+        String prefix = normalizePath(directory);
+
+        if (!prefix.isEmpty())
+        {
+            prefix += "/";
+        }
+
+        for (File file : files)
+        {
+            String name = file.getName();
+
+            if (file.isFile() && name.endsWith(".json"))
+            {
+                strings.add(prefix + name.substring(0, name.length() - 5));
+            }
+        }
+
+        strings.sort(Comparator.comparing((s) -> s.toLowerCase(Locale.ROOT)));
+
+        return strings;
     }
 
-    private File directoryForRelative(String relativePath) {
-        if (relativePath == null || relativePath.isEmpty()) {
-            return this.folder;
+    public List<String> getFolders(String directory)
+    {
+        ArrayList<String> strings = new ArrayList<>();
+        File dir = this.getDirectory(directory);
+        File[] files = dir.listFiles();
+
+        if (files == null)
+        {
+            return strings;
         }
 
-        Path sub = Paths.get(relativePath.replace('/', File.separatorChar));
-        Path resolved = this.rootPath.resolve(sub).normalize();
-
-        if (!resolved.startsWith(this.rootPath)) {
-            return null;
+        for (File file : files)
+        {
+            if (file.isDirectory())
+            {
+                strings.add(file.getName());
+            }
         }
 
-        return resolved.toFile();
+        strings.sort(Comparator.comparing((s) -> s.toLowerCase(Locale.ROOT)));
+
+        return strings;
     }
 
-    private File fileForPresetId(String id) {
-        if (id == null || id.isEmpty()) {
-            return null;
+    private void collectKeysRecursive(File directory, String prefix, List<String> output)
+    {
+        File[] files = directory.listFiles();
+
+        if (files == null)
+        {
+            return;
         }
 
-        Path resolved = this.rootPath.resolve(id + ".json").normalize();
+        for (File file : files)
+        {
+            String name = file.getName();
 
-        if (!resolved.startsWith(this.rootPath)) {
-            return null;
+            if (file.isDirectory())
+            {
+                this.collectKeysRecursive(file, prefix + name + "/", output);
+            }
+            else if (name.endsWith(".json"))
+            {
+                output.add(prefix + name.substring(0, name.length() - 5));
+            }
         }
-
-        return resolved.toFile();
     }
 }

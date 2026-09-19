@@ -36,23 +36,6 @@ public class Inventory extends BaseValue
         }
     }
 
-    public static void applyToPlayer(PlayerEntity player, ListType list)
-    {
-        if (list == null)
-        {
-            return;
-        }
-
-        int size = Math.min(list.size(), player.getInventory().size());
-
-        for (int i = 0; i < size; i++)
-        {
-            ItemStack stack = KeyframeFactories.ITEM_STACK.fromData(list.get(i));
-
-            player.getInventory().setStack(i, stack == null ? ItemStack.EMPTY : stack);
-        }
-    }
-
     @Override
     public BaseType toData()
     {

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
@@ -7,14 +8,22 @@ import net.minecraft.client.render.VertexConsumer;
 public class RecolorVertexConsumer implements VertexConsumer
 {
     public static Color newColor;
+    public static Color newPaintColor;
 
     protected VertexConsumer consumer;
     protected Color color;
+    protected Color paintColor;
 
     public RecolorVertexConsumer(VertexConsumer consumer, Color color)
     {
+        this(consumer, color, null);
+    }
+
+    public RecolorVertexConsumer(VertexConsumer consumer, Color color, Color paintColor)
+    {
         this.consumer = consumer;
         this.color = color;
+        this.paintColor = paintColor;
     }
 
     @Override
@@ -24,12 +33,37 @@ public class RecolorVertexConsumer implements VertexConsumer
     }
 
     @Override
+    public void next()
+    {
+        this.consumer.next();
+    }
+
+    @Override
+    public void fixedColor(int red, int green, int blue, int alpha)
+    {
+        this.consumer.fixedColor(red, green, blue, alpha);
+    }
+
+    @Override
+    public void unfixColor()
+    {
+        this.consumer.unfixColor();
+    }
+
+    @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        red = (int) (this.color.r * red);
-        green = (int) (this.color.g * green);
-        blue = (int) (this.color.b * blue);
-        alpha = (int) (this.color.a * alpha);
+        red = MathUtils.clamp((int) (this.color.r * red), 0, 255);
+        green = MathUtils.clamp((int) (this.color.g * green), 0, 255);
+        blue = MathUtils.clamp((int) (this.color.b * blue), 0, 255);
+        alpha = MathUtils.clamp((int) (this.color.a * alpha), 0, 255);
+
+        int[] rgb = { red, green, blue };
+
+        FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
+        red = MathUtils.clamp(rgb[0], 0, 255);
+        green = MathUtils.clamp(rgb[1], 0, 255);
+        blue = MathUtils.clamp(rgb[2], 0, 255);
 
         return this.consumer.color(red, green, blue, alpha);
     }
@@ -59,20 +93,25 @@ public class RecolorVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public void next()
+    public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
     {
-        this.consumer.next();
-    }
+        red = MathUtils.clamp(this.color.r * red, 0F, 1F);
+        green = MathUtils.clamp(this.color.g * green, 0F, 1F);
+        blue = MathUtils.clamp(this.color.b * blue, 0F, 1F);
+        alpha = MathUtils.clamp(this.color.a * alpha, 0F, 1F);
 
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        this.consumer.fixedColor(red, green, blue, alpha);
-    }
+        int r = (int) (red * 255F);
+        int g = (int) (green * 255F);
+        int b = (int) (blue * 255F);
+        int a = (int) (alpha * 255F);
 
-    @Override
-    public void unfixColor()
-    {
-        this.consumer.unfixColor();
+        int[] rgb = { r, g, b };
+
+        FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
+        r = MathUtils.clamp(rgb[0], 0, 255);
+        g = MathUtils.clamp(rgb[1], 0, 255);
+        b = MathUtils.clamp(rgb[2], 0, 255);
+
+        this.consumer.vertex(x, y, z, r / 255F, g / 255F, b / 255F, a / 255F, u, v, overlay, light, normalX, normalY, normalZ);
     }
 }

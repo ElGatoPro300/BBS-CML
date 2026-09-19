@@ -17,11 +17,6 @@ public interface IUIClipsDelegate extends ICursor
 
     public Clip getClip();
 
-    public default String getClipDisplayName(Clip clip)
-    {
-        return clip != null ? clip.title.get() : "";
-    }
-
     public void pickClip(Clip clip);
 
     public void setFlight(boolean flight);

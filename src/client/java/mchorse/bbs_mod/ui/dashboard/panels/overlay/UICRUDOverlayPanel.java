@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.DataPath;
+import mchorse.bbs_mod.utils.Direction;
 
 import java.util.function.Consumer;
 
@@ -49,6 +50,11 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
         this.rename = new UIIcon(Icons.EDIT, this::renameData);
         this.remove = new UIIcon(Icons.REMOVE, this::removeData);
 
+        this.add.tooltip(UIKeys.FILM_CRUD_ADD, Direction.LEFT);
+        this.dupe.tooltip(UIKeys.FILM_CRUD_DUPE, Direction.LEFT);
+        this.rename.tooltip(UIKeys.FILM_CRUD_RENAME, Direction.LEFT);
+        this.remove.tooltip(UIKeys.FILM_CRUD_REMOVE, Direction.LEFT);
+
         this.names = new UISearchList<>(new UIDataPathList((list) ->
         {
             if (this.callback != null)
@@ -62,6 +68,14 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
         this.content.add(this.names);
 
         this.icons.add(this.add, this.dupe, this.rename, this.remove);
+    }
+
+    public void setTooltips(IKey add, IKey dupe, IKey rename, IKey remove)
+    {
+        this.add.tooltip(add, Direction.LEFT);
+        this.dupe.tooltip(dupe, Direction.LEFT);
+        this.rename.tooltip(rename, Direction.LEFT);
+        this.remove.tooltip(remove, Direction.LEFT);
     }
 
     private String getNextAutoId()
@@ -124,42 +138,15 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
 
     protected abstract void addNewFolder(String path);
 
-    private DataPath getCurrentSelectedPath()
-    {
-        return this.namesList == null ? null : this.namesList.getCurrentFirst();
-    }
-
-    private boolean ensureCurrentSelection()
-    {
-        if (this.getCurrentSelectedPath() != null)
-        {
-            return true;
-        }
-
-        if (this.getContext() != null)
-        {
-            this.getContext().notifyError(UIKeys.PANELS_MODALS_EMPTY);
-        }
-
-        return false;
-    }
-
     protected void dupeData(UIIcon element)
     {
-        if (!this.ensureCurrentSelection())
-        {
-            return;
-        }
-
-        DataPath current = this.getCurrentSelectedPath();
-
         UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
             UIKeys.GENERAL_DUPE,
             UIKeys.PANELS_MODALS_DUPE,
             (str) -> this.dupeData(this.namesList.getPath(str).toString())
         );
 
-        panel.text.setText(current.getLast());
+        panel.text.setText(this.namesList.getCurrentFirst().getLast());
         panel.text.filename();
 
         UIOverlay.addOverlay(this.getContext(), panel);
@@ -169,22 +156,15 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
 
     protected void renameData(UIIcon element)
     {
-        if (!this.ensureCurrentSelection())
-        {
-            return;
-        }
-
-        DataPath current = this.getCurrentSelectedPath();
-
         UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
             UIKeys.GENERAL_RENAME,
             UIKeys.PANELS_MODALS_RENAME,
             (str) -> this.renameData(this.namesList.getPath(str).toString())
         );
 
-        if (current.folder)
+        if (this.namesList.isFolderSelected())
         {
-            if ("..".equals(current.getLast()))
+            if (this.namesList.getCurrentFirst().equals("../"))
             {
                 return;
             }
@@ -196,7 +176,7 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
             );
         }
 
-        panel.text.setText(current.getLast());
+        panel.text.setText(this.namesList.getCurrentFirst().getLast());
         panel.text.filename();
 
         UIOverlay.addOverlay(this.getContext(), panel);
@@ -208,13 +188,6 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
 
     protected void removeData(UIIcon element)
     {
-        if (!this.ensureCurrentSelection())
-        {
-            return;
-        }
-
-        DataPath current = this.getCurrentSelectedPath();
-
         UIConfirmOverlayPanel panel = new UIConfirmOverlayPanel(
             UIKeys.GENERAL_REMOVE,
             UIKeys.PANELS_MODALS_REMOVE,
@@ -224,9 +197,9 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
             }
         );
 
-        if (current.folder)
+        if (this.namesList.isFolderSelected())
         {
-            if ("..".equals(current.getLast()))
+            if (this.namesList.getCurrentFirst().equals("../"))
             {
                 return;
             }

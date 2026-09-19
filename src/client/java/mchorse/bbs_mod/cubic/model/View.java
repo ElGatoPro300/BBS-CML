@@ -20,7 +20,7 @@ public class View implements IMapSerializable
     @Override
     public void fromData(MapType data)
     {
-        this.headBone = data.getString("head", this.headBone);
+        this.headBone = data.getString("head_bone", data.getString("head", this.headBone));
         this.pitch = data.getBool("pitch", this.pitch);
         this.constraint = data.getFloat("head_limit", this.constraint);
     }

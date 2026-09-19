@@ -3,21 +3,21 @@ package mchorse.bbs_mod.ui.particles.sections;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.components.ParticleComponentBase;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.ui.utils.UI;
 
 public abstract class UIParticleSchemeModeSection <T extends ParticleComponentBase> extends UIParticleSchemeComponentSection<T>
 {
-    public UICirculate mode;
+    public UIIcons mode;
     public UILabel modeLabel;
 
     public UIParticleSchemeModeSection(UIParticleSchemePanel parent)
     {
         super(parent);
 
-        this.mode = new UICirculate((b) -> this.updateMode(this.mode.getValue()));
+        this.mode = new UIIcons((b) -> this.updateMode(this.mode.getValue()));
         this.fillModes(this.mode);
         this.modeLabel = UI.label(UIKeys.SNOWSTORM_MODE, 20).labelAnchor(0, 0.5F);
 
@@ -35,7 +35,7 @@ public abstract class UIParticleSchemeModeSection <T extends ParticleComponentBa
     {
         super.fillData();
 
-        for (int i = 0, c = this.mode.getLabels().size(); i < c; i ++)
+        for (int i = 0, c = this.mode.getCount(); i < c; i ++)
         {
             if (this.getModeClass(i) == this.component.getClass())
             {
@@ -46,7 +46,7 @@ public abstract class UIParticleSchemeModeSection <T extends ParticleComponentBa
         }
     }
 
-    protected abstract void fillModes(UICirculate button);
+    protected abstract void fillModes(UIIcons button);
 
     protected void updateMode(int value)
     {

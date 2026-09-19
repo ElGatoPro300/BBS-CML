@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.film.clips.renderer;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIClips;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -66,25 +65,36 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
 
         if (right - left > 10 && clip.envelope.enabled.get())
         {
-            this.renderEnvelope(context, clip.envelope, clip.duration.get(), left + 1, y + 1, right - 1, y + h - 1);
+            this.renderEnvelope(context, clip.envelope, clip.duration.get(), left + 1, y + 1, right - 1, y + 17);
         }
 
         FontRenderer font = context.batcher.getFont();
-        String label = font.limitToWidth(clips.getClipDisplayName(clip), right - 6 - left);
+        String baseTitle = clip.title.get();
+        String typeLabel = UIKeys.C_CLIP.get(clips.getFactory().getType(clip)).get();
+        String label = baseTitle;
 
-        boolean alignTop = h >= 28;
-        int labelY = alignTop ? y + 3 : y + (h - font.getHeight()) / 2;
-        float iconAnchorY = alignTop ? 0F : 0.5F;
-        int iconY = alignTop ? y + 3 : y + h / 2;
+        if (baseTitle.isEmpty() || BBSSettings.editorClipTypeLabels.get())
+        {
+            if (baseTitle.isEmpty())
+            {
+                label = typeLabel;
+            }
+            else
+            {
+                label = typeLabel + " - " + baseTitle;
+            }
+        }
+
+        label = font.limitToWidth(label, right - 6 - left);
 
         if (right - left >= 20)
         {
-            context.batcher.icon(data.icon, Colors.mulA(Colors.mulRGB(Colors.WHITE, 0.75F), 0.5F), right - 2, iconY, 1F, iconAnchorY);
+            context.batcher.icon(data.icon, Colors.mulA(Colors.mulRGB(Colors.WHITE, 0.75F), 0.5F), right - 2, y + h / 2, 1F, 0.5F);
         }
 
         if (!label.isEmpty())
         {
-            context.batcher.textShadow(label, left + 5, labelY);
+            context.batcher.textShadow(label, left + 5, y + (h - font.getHeight()) / 2);
         }
     }
 
@@ -99,9 +109,8 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
     private void renderEnvelope(UIContext context, Envelope envelope, int duration, int x1, int y1, int x2, int y2)
     {
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
-
         builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         if (envelope.keyframes.get())
         {
@@ -205,12 +214,5 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
         vector.y = (1 - MathUtils.clamp(value, 0, 1)) * height + y1;
 
         return vector;
-    }
-
-    @Override
-    public String getDefaultLabel(UIClips clips, T clip)
-    {
-        Link type = clips.getFactory().getType(clip);
-        return UIKeys.C_CLIP.get(type).get();
     }
 }

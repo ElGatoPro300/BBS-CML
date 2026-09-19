@@ -5,7 +5,6 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.ArrayList;
@@ -25,7 +24,7 @@ public class UIBitToggle extends UIElement
 
         this.callback = callback;
 
-        this.h(UIConstants.CONTROL_HEIGHT);
+        this.h(20);
     }
 
     public UIBitToggle all()
@@ -47,7 +46,8 @@ public class UIBitToggle extends UIElement
         this.bits.add(new Bit(UIKeys.CAMERA_PANELS_YAW, Colors.YELLOW));
         this.bits.add(new Bit(UIKeys.CAMERA_PANELS_PITCH, Colors.CYAN));
         this.bits.add(new Bit(UIKeys.CAMERA_PANELS_ROLL, Colors.MAGENTA));
-        this.bits.add(new Bit(UIKeys.CAMERA_PANELS_FOV, Colors.A50));
+        /* Match keyframe clip FOV track color (COLORS[6] = LIGHTEST_GRAY). */
+        this.bits.add(new Bit(UIKeys.CAMERA_PANELS_FOV, Colors.LIGHTEST_GRAY));
 
         return this;
     }
@@ -147,7 +147,7 @@ public class UIBitToggle extends UIElement
                 context.batcher.box(x, this.area.y, right, this.area.y + this.area.h, Colors.mulRGB(bit.color, 0.2F));
             }
 
-            if (!isSelected && i != 6)
+            if (!isSelected && i < size - 1)
             {
                 context.batcher.box(right - 1, this.area.y, right, this.area.y + this.area.h, Colors.A50);
             }

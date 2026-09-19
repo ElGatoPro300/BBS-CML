@@ -5,6 +5,7 @@ import mchorse.bbs_mod.math.Constant;
 import mchorse.bbs_mod.math.IExpression;
 import mchorse.bbs_mod.math.MathBuilder;
 import mchorse.bbs_mod.math.Variable;
+import mchorse.bbs_mod.math.functions.Function;
 import mchorse.bbs_mod.math.molang.expressions.MolangAssignment;
 import mchorse.bbs_mod.math.molang.expressions.MolangExpression;
 import mchorse.bbs_mod.math.molang.expressions.MolangMultiStatement;
@@ -17,7 +18,9 @@ import mchorse.bbs_mod.math.molang.functions.CosDegrees;
 import mchorse.bbs_mod.math.molang.functions.SinDegrees;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * MoLang parser
@@ -31,6 +34,8 @@ public class MolangParser extends MathBuilder
     public static final MolangExpression ZERO = new MolangValue(null, new Constant(0));
     public static final MolangExpression ONE = new MolangValue(null, new Constant(1));
     public static final String RETURN = "return ";
+    
+    public static final Map<String, Class<? extends Function>> CUSTOM_FUNCTIONS = new HashMap<>();
 
     private MolangMultiStatement currentStatement;
     private boolean registerAsGlobals;
@@ -79,6 +84,8 @@ public class MolangParser extends MathBuilder
 
         /* Remap variables as well */
         this.remapVar("PI", "math.pi");
+        
+        this.functions.putAll(CUSTOM_FUNCTIONS);
     }
 
     /**
@@ -170,8 +177,7 @@ public class MolangParser extends MathBuilder
         }
         catch (Exception e)
         {
-            System.err.println("Failed to parse MoLang: " + data);
-            e.printStackTrace();
+            System.err.println("Failed to parse MoLang: " + data + " (" + e.getMessage() + ")");
         }
 
         return defaultExpression;
@@ -329,9 +335,7 @@ public class MolangParser extends MathBuilder
         }
         catch (Exception e)
         {
-            e.printStackTrace();
-
-            throw new MolangException("Couldn't parse an expression!");
+            throw new MolangException("Couldn't parse an expression!", e);
         }
     }
 

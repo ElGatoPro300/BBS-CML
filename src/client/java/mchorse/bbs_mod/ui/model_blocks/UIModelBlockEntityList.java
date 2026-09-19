@@ -22,4 +22,20 @@ public class UIModelBlockEntityList extends UIList<ModelBlockEntity>
     {
         return element.getName();
     }
+
+    @Override
+    public boolean subMouseClicked(UIContext context)
+    {
+        if (this.area.isInside(context) && context.mouseButton == 1)
+        {
+            int index = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+            if (this.exists(index))
+            {
+                this.pick(index);
+            }
+        }
+
+        return super.subMouseClicked(context);
+    }
 }

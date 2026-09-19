@@ -3,6 +3,8 @@ package mchorse.bbs_mod.actions.types.item;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
+import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
@@ -10,6 +12,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.World;
 
 public class ItemDropActionClip extends ItemActionClip
 {
@@ -20,6 +23,7 @@ public class ItemDropActionClip extends ItemActionClip
     public final ValueFloat velocityY = new ValueFloat("vy", 0F);
     public final ValueFloat velocityZ = new ValueFloat("vz", 0F);
     public final ValueBoolean relative = new ValueBoolean("relative", false);
+    public final ValueBoolean trajectoryPreview = new ValueBoolean("trajectory_preview", false);
 
     public ItemDropActionClip()
     {
@@ -32,6 +36,7 @@ public class ItemDropActionClip extends ItemActionClip
         this.add(this.velocityY);
         this.add(this.velocityZ);
         this.add(this.relative);
+        this.add(this.trajectoryPreview);
     }
 
     public void shift(double dx, double dy, double dz)
@@ -39,6 +44,12 @@ public class ItemDropActionClip extends ItemActionClip
         this.posX.set(this.posX.get() + dx);
         this.posY.set(this.posY.get() + dy);
         this.posZ.set(this.posZ.get() + dz);
+    }
+
+    @Override
+    public boolean isClient()
+    {
+        return true;
     }
 
     @Override
@@ -57,6 +68,33 @@ public class ItemDropActionClip extends ItemActionClip
 
         entity.setToDefaultPickupDelay();
         player.getWorld().spawnEntity(entity);
+    }
+
+    @Override
+    protected void applyClientAction(IEntity entity, Film film, Replay replay, int tick)
+    {
+        World world = entity.getWorld();
+
+        if (world == null || !world.isClient() || this.itemStack.get().isEmpty())
+        {
+            return;
+        }
+
+        ReplayKeyframes keyframes = replay.keyframes;
+        double replayX = keyframes.x.interpolate(tick);
+        double replayY = keyframes.y.interpolate(tick);
+        double replayZ = keyframes.z.interpolate(tick);
+        double x = this.relative.get() ? replayX + this.posX.get() : this.posX.get();
+        double y = this.relative.get() ? replayY + this.posY.get() : this.posY.get();
+        double z = this.relative.get() ? replayZ + this.posZ.get() : this.posZ.get();
+        ItemEntity itemEntity = new ItemEntity(
+            world,
+            x, y, z, this.itemStack.get().copy(),
+            this.velocityX.get(), this.velocityY.get(), this.velocityZ.get()
+        );
+
+        itemEntity.setToDefaultPickupDelay();
+        world.spawnEntity(itemEntity);
     }
 
     @Override

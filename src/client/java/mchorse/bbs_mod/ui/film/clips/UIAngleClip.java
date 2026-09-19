@@ -4,7 +4,6 @@ import mchorse.bbs_mod.camera.clips.modifiers.AngleClip;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.film.clips.modules.UIAngleModule;
 import mchorse.bbs_mod.ui.film.clips.widgets.UIBitToggle;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 
 public class UIAngleClip extends UIClip<AngleClip>
 {
@@ -30,7 +29,7 @@ public class UIAngleClip extends UIClip<AngleClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.angle.marginTop(UIConstants.SECTION_GAP), this.active);
+        this.panels.add(this.angle, this.active);
     }
 
     @Override

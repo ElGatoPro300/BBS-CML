@@ -1,11 +1,14 @@
 package mchorse.bbs_mod.graphics.window;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.mixin.client.MouseAccessor;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.util.InputUtil;
 
@@ -14,11 +17,17 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Window
 {
     private static int verticalScroll;
     private static long lastScroll;
+    private static final Map<Integer, Long> standardCursors = new HashMap<>();
+    private static int currentCursorShape = -1;
+
+    private static MapType inMemoryClipboard;
 
     public static long getWindow()
     {
@@ -86,13 +95,20 @@ public class Window
     }
 
     /**
-     * Get a data map from clipboard with verification key.
+     * Get a data map from in-memory clipboard with verification key.
      */
     public static MapType getClipboardMap(String verificationKey)
     {
-        MapType data = DataToString.mapFromString(getClipboard());
+        if (BBSSettings.usingInMemoryClipboard.get())
+        {
+            return inMemoryClipboard != null && inMemoryClipboard.getBool(verificationKey) ? inMemoryClipboard : null;
+        }
+        else
+        {
+            MapType data = DataToString.mapFromString(getClipboard());
 
-        return data != null && data.getBool(verificationKey) ? data : null;
+            return data != null && data.getBool(verificationKey) ? data : null;
+        }
     }
 
     public static ListType getClipboardList()
@@ -130,21 +146,108 @@ public class Window
     }
 
     /**
-     * Save given data to clipboard with a verification key that could be
+     * Save given data to in-memory clipboard with a verification key that could be
      * used in {@link #getClipboardMap(String)} to decode data.
      */
-    public static void setClipboard(MapType data, String verificationKey)
+    public static void setInMemoryClipboard(MapType data, String verificationKey)
     {
         if (data != null)
         {
             data.putBool(verificationKey, true);
+            if (BBSSettings.usingInMemoryClipboard.get())
+            {
+                inMemoryClipboard = data;
+            }
+            else
+            {
+                setClipboard(DataToString.toString(data, true));
+            }
         }
-
-        setClipboard(data);
     }
 
     public static void moveCursor(int x, int y)
     {
         GLFW.glfwSetCursorPos(getWindow(), x, y);
+    }
+
+    /**
+     * Center the OS/GLFW cursor and force-sync Minecraft {@link Mouse} to the same
+     * point (clearing accumulated cursor deltas). Actor-control / free-look read
+     * {@code Mouse.getX/Y()} for deltas; without this sync those values can still
+     * sit on a UI click for one or more frames after {@code glfwSetCursorPos}, which
+     * causes a yaw/pitch jump on the first real look movement.
+     */
+    public static void centerCursor()
+    {
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+
+        if (window == null)
+        {
+            return;
+        }
+
+        double x = window.getWidth() / 2D;
+        double y = window.getHeight() / 2D;
+
+        moveCursor((int) x, (int) y);
+        syncClientMouseTo(x, y);
+    }
+
+    /**
+     * Align Minecraft's mouse absolute position with a GLFW warp and drop any
+     * pending look deltas from the UI→center transition.
+     */
+    public static void syncClientMouseTo(double x, double y)
+    {
+        Mouse mouse = MinecraftClient.getInstance().mouse;
+
+        if (!(mouse instanceof MouseAccessor accessor))
+        {
+            return;
+        }
+
+        accessor.bbs$setX(x);
+        accessor.bbs$setY(y);
+        accessor.bbs$setCursorDeltaX(0D);
+        accessor.bbs$setCursorDeltaY(0D);
+    }
+
+    /**
+     * Raw GLFW cursor position in window coordinates (same space as {@link #moveCursor}).
+     * Useful for one-shot warps / diagnostics. Do <b>not</b> use frame-to-frame differences
+     * for actor-control or free-look while {@code GLFW_CURSOR_DISABLED}: many platforms
+     * keep this value at the centered warp, so look deltas become zero. Prefer Minecraft
+     * {@code Mouse.getX/Y()} for continuous look deltas after {@link #centerCursor()}.
+     */
+    public static void getCursorPos(double[] x, double[] y)
+    {
+        GLFW.glfwGetCursorPos(getWindow(), x, y);
+    }
+
+    public static void setStandardCursor(int shape)
+    {
+        long window = getWindow();
+
+        if (GLFW.glfwGetInputMode(window, GLFW.GLFW_CURSOR) == GLFW.GLFW_CURSOR_DISABLED)
+        {
+            currentCursorShape = -1;
+
+            return;
+        }
+
+        if (currentCursorShape == shape)
+        {
+            return;
+        }
+
+        long cursor = standardCursors.computeIfAbsent(shape, GLFW::glfwCreateStandardCursor);
+
+        GLFW.glfwSetCursor(window, cursor);
+        currentCursorShape = shape;
+    }
+
+    public static void resetCursor()
+    {
+        setStandardCursor(GLFW.GLFW_ARROW_CURSOR);
     }
 }

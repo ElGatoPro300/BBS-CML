@@ -74,6 +74,7 @@ public class GeoModelParser
             if (boneElement.has("pivot"))
             {
                 parseVector(boneElement.get("pivot"), bone.initial.translate);
+                bone.initial.pivot.set(bone.initial.translate);
             }
 
             if (boneElement.has("scale"))
@@ -90,6 +91,7 @@ public class GeoModelParser
             }
 
             bone.initial.translate.x *= -1;
+            bone.initial.pivot.x *= -1;
 
             /* Setup cubes */
             if (boneElement.has("cubes"))

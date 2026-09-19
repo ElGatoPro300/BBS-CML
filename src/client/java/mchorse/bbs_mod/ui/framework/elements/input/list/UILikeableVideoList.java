@@ -1,0 +1,393 @@
+package mchorse.bbs_mod.ui.framework.elements.input.list;
+
+import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.video.VideoLikeManager;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+public class UILikeableVideoList extends UIStringList
+{
+    private static final String ADD_EXTERNAL_ENTRY = "<add_external_video>";
+    private static final String PARENT_FOLDER_ENTRY = "<parent_folder>";
+
+    private VideoLikeManager likeManager;
+    private boolean showOnlyLiked = false;
+    private UIIcon likeButton;
+    private UIIcon editButton;
+    private UIIcon removeButton;
+    private Runnable refreshCallback;
+    private Consumer<String> editCallback;
+    private Consumer<String> removeCallback;
+    private boolean showEditRemoveButtons = false;
+
+    public UILikeableVideoList(Consumer<List<String>> callback, VideoLikeManager likeManager)
+    {
+        super(callback);
+        this.likeManager = likeManager;
+        this.likeButton = new UIIcon(Icons.LIKE, null);
+        this.editButton = new UIIcon(Icons.EDIT, null);
+        this.removeButton = new UIIcon(Icons.REMOVE, null);
+    }
+
+    public void setShowOnlyLiked(boolean showOnlyLiked)
+    {
+        this.showOnlyLiked = showOnlyLiked;
+    }
+
+    private String getDisplayText(String element)
+    {
+        if (element.equals(PARENT_FOLDER_ENTRY))
+        {
+            return "../";
+        }
+
+        if (this.isFolderEntry(element))
+        {
+            String path = element.substring(0, element.length() - 1);
+            int slash = path.lastIndexOf('/');
+            String name = slash >= 0 ? path.substring(slash + 1) : path;
+
+            return name;
+        }
+
+        String display = this.likeManager.getDisplayName(element);
+
+        return display != null ? display : element;
+    }
+
+    @Override
+    protected void renderElementPart(UIContext context, String element, int i, int x, int y, boolean hover, boolean selected)
+    {
+        if (this.showOnlyLiked)
+        {
+            element = this.getVisibleElement(i);
+
+            if (element == null)
+            {
+                return;
+            }
+        }
+
+        boolean isNoneOption = element.equals(UIKeys.GENERAL_NONE.get());
+        boolean isAddExternal = element.equals(ADD_EXTERNAL_ENTRY);
+        boolean isFolder = this.isFolderEntry(element);
+        String displayText = isAddExternal ? UIKeys.OVERLAYS_VIDEOS_ADD_EXTERNAL.get() : this.getDisplayText(element);
+        int textY = y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2;
+        int textWidth = context.batcher.getFont().getWidth(displayText);
+        int buttonSpace = 0;
+        int textX = x + 4;
+        boolean isActionable = !isNoneOption && !isAddExternal && !element.equals(PARENT_FOLDER_ENTRY) && !isFolder;
+
+        if (isActionable)
+        {
+            buttonSpace = this.showEditRemoveButtons ? 60 : 20;
+        }
+
+        if (isFolder)
+        {
+            context.batcher.icon(Icons.FOLDER, textX - 2, y);
+            textX += 16;
+        }
+
+        int maxWidth = this.area.w - (textX - x) - 4 - buttonSpace;
+
+        if (textWidth > maxWidth)
+        {
+            displayText = context.batcher.getFont().limitToWidth(displayText, maxWidth);
+        }
+
+        context.batcher.textShadow(displayText, textX, textY, hover ? Colors.HIGHLIGHT : Colors.WHITE);
+
+        if (!isActionable)
+        {
+            return;
+        }
+
+        int currentIconX = this.area.x + this.area.w - 20;
+        int iconY = y + (this.scroll.scrollItemSize - 16) / 2;
+
+        boolean isLiked = this.likeManager.isVideoLiked(element);
+        boolean isHoverOnLike = this.area.isInside(context)
+            && context.mouseX >= currentIconX
+            && context.mouseX < currentIconX + 16
+            && context.mouseY >= iconY
+            && context.mouseY < iconY + 16;
+
+        this.likeButton.both(isLiked ? Icons.DISLIKE : Icons.LIKE);
+        this.likeButton.iconColor(isHoverOnLike || isLiked ? Colors.WHITE : Colors.GRAY);
+        this.likeButton.area.set(currentIconX, iconY, 16, 16);
+        this.likeButton.render(context);
+
+        if (this.showEditRemoveButtons)
+        {
+            currentIconX -= 20;
+
+            boolean isHoverOnRemove = this.area.isInside(context)
+                && context.mouseX >= currentIconX
+                && context.mouseX < currentIconX + 16
+                && context.mouseY >= iconY
+                && context.mouseY < iconY + 16;
+
+            this.removeButton.iconColor(isHoverOnRemove ? Colors.WHITE : Colors.GRAY);
+            this.removeButton.area.set(currentIconX, iconY, 16, 16);
+            this.removeButton.render(context);
+
+            currentIconX -= 20;
+            boolean isHoverOnEdit = this.area.isInside(context)
+                && context.mouseX >= currentIconX
+                && context.mouseX < currentIconX + 16
+                && context.mouseY >= iconY
+                && context.mouseY < iconY + 16;
+
+            this.editButton.iconColor(isHoverOnEdit ? Colors.WHITE : Colors.GRAY);
+            this.editButton.area.set(currentIconX, iconY, 16, 16);
+            this.editButton.render(context);
+        }
+    }
+
+    @Override
+    public boolean subMouseClicked(UIContext context)
+    {
+        if (!this.area.isInside(context) || context.mouseButton != 0)
+        {
+            return super.subMouseClicked(context);
+        }
+
+        int scrollIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+        if (!this.exists(scrollIndex))
+        {
+            return super.subMouseClicked(context);
+        }
+
+        String element = this.showOnlyLiked ? this.getVisibleElement(scrollIndex) : this.list.get(scrollIndex);
+
+        if (element == null)
+        {
+            return super.subMouseClicked(context);
+        }
+
+        if (element.equals(ADD_EXTERNAL_ENTRY))
+        {
+            return super.subMouseClicked(context);
+        }
+
+        int y = this.area.y + scrollIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
+        int iconY = y + (this.scroll.scrollItemSize - 16) / 2;
+        int likeIconX = this.area.x + this.area.w - 20;
+        boolean isActionable = !element.equals(UIKeys.GENERAL_NONE.get()) && !element.equals(PARENT_FOLDER_ENTRY) && !this.isFolderEntry(element);
+
+        if (isActionable &&
+            context.mouseX >= likeIconX &&
+            context.mouseX < likeIconX + 16 &&
+            context.mouseY >= iconY &&
+            context.mouseY < iconY + 16)
+        {
+            this.likeManager.toggleVideoLiked(element);
+
+            if (this.refreshCallback != null)
+            {
+                this.refreshCallback.run();
+            }
+
+            return true;
+        }
+
+        if (this.showEditRemoveButtons && isActionable)
+        {
+            int removeIconX = likeIconX - 20;
+
+            if (context.mouseX >= removeIconX && context.mouseX < removeIconX + 16 &&
+                context.mouseY >= iconY && context.mouseY < iconY + 16)
+            {
+                if (this.removeCallback != null)
+                {
+                    this.removeCallback.accept(element);
+                }
+
+                return true;
+            }
+
+            int editIconX = removeIconX - 20;
+
+            if (context.mouseX >= editIconX && context.mouseX < editIconX + 16 &&
+                context.mouseY >= iconY && context.mouseY < iconY + 16)
+            {
+                if (this.editCallback != null)
+                {
+                    this.editCallback.accept(element);
+                }
+
+                return true;
+            }
+        }
+
+        if (!this.showOnlyLiked)
+        {
+            return super.subMouseClicked(context);
+        }
+
+        int actualIndex = this.list.indexOf(element);
+
+        if (actualIndex < 0)
+        {
+            return false;
+        }
+
+        int buttonAreaStartX = this.area.x + this.area.w - 20;
+
+        if (context.mouseX >= buttonAreaStartX && context.mouseX < this.area.x + this.area.w && context.mouseY >= iconY && context.mouseY < iconY + 16)
+        {
+            return false;
+        }
+
+        this.current.clear();
+        this.current.add(actualIndex);
+
+        if (this.callback != null)
+        {
+            List<String> selected = new ArrayList<>();
+
+            selected.add(element);
+
+            this.callback.accept(selected);
+        }
+
+        return true;
+    }
+
+    @Override
+    public int renderElement(UIContext context, String element, int i, int index, boolean postDraw)
+    {
+        boolean isNoneOption = element.equals(UIKeys.GENERAL_NONE.get());
+
+        if (this.showOnlyLiked && !this.likeManager.isVideoLiked(element) && !isNoneOption)
+        {
+            return i;
+        }
+
+        return super.renderElement(context, element, i, index, postDraw);
+    }
+
+    @Override
+    public void renderList(UIContext context)
+    {
+        if (!this.showOnlyLiked)
+        {
+            super.renderList(context);
+
+            return;
+        }
+
+        int visibleIndex = 0;
+
+        for (int actualIndex = 0; actualIndex < this.list.size(); actualIndex++)
+        {
+            String element = this.list.get(actualIndex);
+            boolean isNoneOption = element.equals(UIKeys.GENERAL_NONE.get());
+
+            if (this.likeManager.isVideoLiked(element) || isNoneOption)
+            {
+                int nextVisibleIndex = this.renderElement(context, element, visibleIndex, actualIndex, false);
+
+                if (nextVisibleIndex == -1)
+                {
+                    break;
+                }
+
+                visibleIndex = nextVisibleIndex;
+            }
+        }
+    }
+
+    public int getVisibleElementCount()
+    {
+        if (!this.showOnlyLiked)
+        {
+            return this.list.size();
+        }
+
+        int count = 0;
+
+        for (String element : this.list)
+        {
+            boolean isNoneOption = element.equals(UIKeys.GENERAL_NONE.get());
+
+            if (this.likeManager.isVideoLiked(element) || isNoneOption)
+            {
+                count += 1;
+            }
+        }
+
+        return count;
+    }
+
+    public String getVisibleElement(int visibleIndex)
+    {
+        if (!this.showOnlyLiked)
+        {
+            return this.list.get(visibleIndex);
+        }
+
+        int currentIndex = 0;
+
+        for (String element : this.list)
+        {
+            boolean isNoneOption = element.equals(UIKeys.GENERAL_NONE.get());
+
+            if (this.showOnlyLiked && !this.likeManager.isVideoLiked(element) && !isNoneOption)
+            {
+                continue;
+            }
+
+            if (currentIndex == visibleIndex)
+            {
+                return element;
+            }
+
+            currentIndex += 1;
+        }
+
+        return null;
+    }
+
+    public void setRefreshCallback(Runnable callback)
+    {
+        this.refreshCallback = callback;
+    }
+
+    public void setEditCallback(Consumer<String> callback)
+    {
+        this.editCallback = callback;
+    }
+
+    public void setRemoveCallback(Consumer<String> callback)
+    {
+        this.removeCallback = callback;
+    }
+
+    public void setShowEditRemoveButtons(boolean show)
+    {
+        this.showEditRemoveButtons = show;
+    }
+
+    private boolean isFolderEntry(String element)
+    {
+        return element.startsWith("assets:") && element.endsWith("/");
+    }
+
+    @Override
+    public void update()
+    {
+        int size = this.showOnlyLiked ? this.getVisibleElementCount() : this.list.size();
+
+        this.scroll.setSize(size);
+        this.scroll.clamp();
+    }
+}

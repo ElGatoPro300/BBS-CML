@@ -18,13 +18,25 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 public class Morph
 {
+    public static final List<IEntityCaptureHandler> HANDLERS = new ArrayList<>();
+
     private Form form;
     public final MCEntity entity;
+
+    /* Cached hitbox snapshot so live form edits refresh the player AABB (ActorEntity does this each tick). */
+    private boolean lastHitboxEnabled;
+    private float lastHitboxWidth = Float.NaN;
+    private float lastHitboxHeight = Float.NaN;
+    private float lastHitboxSneakMultiplier = Float.NaN;
+    private float lastHitboxEyeHeight = Float.NaN;
+    private boolean lastSneaking;
 
     public static Form getMobForm(PlayerEntity player)
     {
@@ -33,23 +45,52 @@ public class Morph
         if (hitResult.getType() == HitResult.Type.ENTITY)
         {
             Entity target = ((EntityHitResult) hitResult).getEntity();
-            Optional<RegistryKey<EntityType<?>>> key = Registries.ENTITY_TYPE.getKey(target.getType());
 
-            if (key.isPresent())
+            return captureFormFromEntity(player, target);
+        }
+
+        return null;
+    }
+
+    public static Form captureFormFromEntity(PlayerEntity player, Entity target)
+    {
+        if (target == null || target == player)
+        {
+            return null;
+        }
+
+        for (IEntityCaptureHandler handler : HANDLERS)
+        {
+            Form form = handler.capture(player, target);
+
+            if (form != null)
             {
-                MobForm form = new MobForm();
-                NbtCompound compound = target.writeNbt(new NbtCompound());
-
-                for (String s : Arrays.asList("Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround", "Invulnerable", "PortalCooldown", "UUID"))
-                {
-                    compound.remove(s);
-                }
-
-                form.mobID.set(key.get().getValue().toString());
-                form.mobNBT.set(compound.toString());
-
                 return form;
             }
+        }
+
+        Optional<RegistryKey<EntityType<?>>> key = Registries.ENTITY_TYPE.getKey(target.getType());
+
+        if (key.isPresent())
+        {
+            MobForm form = new MobForm();
+            NbtCompound compound = target.writeNbt(new NbtCompound());
+
+            for (String s : Arrays.asList(
+                "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
+                "Invulnerable", "PortalCooldown", "UUID",
+                "HurtTime", "HurtByTimestamp", "DeathTime", "AbsorptionAmount",
+                "FallFlying", "Brain", "Attributes", "ActiveEffects", "Passengers",
+                "SleepingX", "SleepingY", "SleepingZ"
+            ))
+            {
+                compound.remove(s);
+            }
+
+            form.mobID.set(key.get().getValue().toString());
+            form.mobNBT.set(compound.toString());
+
+            return form;
         }
 
         return null;
@@ -90,7 +131,9 @@ public class Morph
             this.form.playMain();
         }
 
+        this.resetHitboxCache();
         this.entity.getMcEntity().calculateDimensions();
+        this.syncHitboxCache();
     }
 
     public void update()
@@ -100,7 +143,74 @@ public class Morph
         if (this.form != null)
         {
             this.form.update(this.entity);
+            this.updateHitboxDimensions();
         }
+        else
+        {
+            this.resetHitboxCache();
+        }
+    }
+
+    private void updateHitboxDimensions()
+    {
+        if (this.form == null)
+        {
+            return;
+        }
+
+        Entity entity = this.entity.getMcEntity();
+        boolean enabled = this.form.hitbox.get();
+        boolean sneaking = entity.isSneaking();
+        float width = this.form.hitboxWidth.get();
+        float height = this.form.hitboxHeight.get();
+        float sneakMultiplier = this.form.hitboxSneakMultiplier.get();
+        float eyeHeight = this.form.hitboxEyeHeight.get();
+
+        if (enabled != this.lastHitboxEnabled
+            || sneaking != this.lastSneaking
+            || width != this.lastHitboxWidth
+            || height != this.lastHitboxHeight
+            || sneakMultiplier != this.lastHitboxSneakMultiplier
+            || eyeHeight != this.lastHitboxEyeHeight)
+        {
+            this.lastHitboxEnabled = enabled;
+            this.lastSneaking = sneaking;
+            this.lastHitboxWidth = width;
+            this.lastHitboxHeight = height;
+            this.lastHitboxSneakMultiplier = sneakMultiplier;
+            this.lastHitboxEyeHeight = eyeHeight;
+
+            entity.calculateDimensions();
+        }
+    }
+
+    private void syncHitboxCache()
+    {
+        if (this.form == null)
+        {
+            this.resetHitboxCache();
+
+            return;
+        }
+
+        Entity entity = this.entity.getMcEntity();
+
+        this.lastHitboxEnabled = this.form.hitbox.get();
+        this.lastSneaking = entity.isSneaking();
+        this.lastHitboxWidth = this.form.hitboxWidth.get();
+        this.lastHitboxHeight = this.form.hitboxHeight.get();
+        this.lastHitboxSneakMultiplier = this.form.hitboxSneakMultiplier.get();
+        this.lastHitboxEyeHeight = this.form.hitboxEyeHeight.get();
+    }
+
+    private void resetHitboxCache()
+    {
+        this.lastHitboxEnabled = false;
+        this.lastHitboxWidth = Float.NaN;
+        this.lastHitboxHeight = Float.NaN;
+        this.lastHitboxSneakMultiplier = Float.NaN;
+        this.lastHitboxEyeHeight = Float.NaN;
+        this.lastSneaking = false;
     }
 
     public NbtElement toNbt()

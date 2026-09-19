@@ -11,8 +11,6 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
-import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.RayTracing;
 
@@ -78,12 +76,9 @@ public class UILookClip extends UIClip<LookClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_TARGET), this.selector).marginTop(UIConstants.SECTION_GAP));
-        this.panels.add(this.relative);
-        this.panels.add(this.offset.marginTop(UIConstants.SECTION_GAP));
-        this.panels.add(this.atBlock.marginTop(UIConstants.SECTION_GAP));
-        this.panels.add(this.block.marginTop(UIConstants.SECTION_GAP));
-        this.panels.add(this.forward);
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_TARGET, this.selector, this.relative));
+        this.panels.add(this.offset);
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_AT_BLOCK, this.atBlock, this.block, this.forward));
     }
 
     @Override

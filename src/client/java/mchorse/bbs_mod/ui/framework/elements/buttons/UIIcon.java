@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.framework.elements.buttons;
 
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.function.Consumer;
@@ -17,7 +18,11 @@ public class UIIcon extends UIClickable<UIIcon>
     public int activeColor = Colors.LIGHTEST_GRAY;
 
     public int disabledColor = 0x80404040;
-    
+
+    /** Background fill drawn behind the icon while active, leaving the icon's own color
+     *  untouched (unlike {@link #activeColor}, which recolors the icon itself). 0 disables it. */
+    private int activeBackground;
+
     private boolean active;
 
     public UIIcon(Icon icon, Consumer<UIIcon> callback)
@@ -93,6 +98,13 @@ public class UIIcon extends UIClickable<UIIcon>
         return this;
     }
 
+    public UIIcon activeBackground(int color)
+    {
+        this.activeBackground = color;
+
+        return this;
+    }
+
     public UIIcon active(boolean active)
     {
         this.active = active;
@@ -116,12 +128,23 @@ public class UIIcon extends UIClickable<UIIcon>
     {
         Icon icon = this.getIcon();
         int color;
-        
+
+        if (this.isEnabled() && (icon == Icons.REMOVE || icon == Icons.TRASH))
+        {
+            context.batcher.box(this.area.x, this.area.y, this.area.x + 2, this.area.ey(), Colors.A100 | Colors.RED);
+            context.batcher.gradientHBox(this.area.x + 2, this.area.y, this.area.ex(), this.area.ey(), Colors.A25 | Colors.RED, Colors.RED);
+        }
+
+        if (this.active && this.activeBackground != 0)
+        {
+            context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), this.activeBackground);
+        }
+
         if (this.isEnabled())
         {
             if (this.active)
             {
-                color = this.activeColor;
+                color = this.activeBackground != 0 ? this.iconColor : this.activeColor;
             }
             else
             {

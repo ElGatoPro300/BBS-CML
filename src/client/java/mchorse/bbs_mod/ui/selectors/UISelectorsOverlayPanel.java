@@ -15,7 +15,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.utils.TextLine;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -131,14 +130,14 @@ public class UISelectorsOverlayPanel extends UIOverlayPanel
             }
         });
 
-        this.column = UI.column(UIConstants.MARGIN, UIConstants.SCROLL_PADDING,
+        this.column = UI.column(5, 10,
             this.enabled,
             this.form,
-            UI.label(UIKeys.SELECTORS_ENTITY_ID).marginTop(UIConstants.SECTION_GAP),
+            UI.label(UIKeys.SELECTORS_ENTITY_ID).marginTop(6),
             this.entity,
-            UI.label(UIKeys.SELECTORS_NAME_TAG).marginTop(UIConstants.SECTION_GAP),
+            UI.label(UIKeys.SELECTORS_NAME_TAG).marginTop(6),
             this.name,
-            UI.label(UIKeys.SELECTORS_NBT).marginTop(UIConstants.SECTION_GAP),
+            UI.label(UIKeys.SELECTORS_NBT).marginTop(6),
             this.nbt
         );
 
