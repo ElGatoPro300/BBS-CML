@@ -730,6 +730,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Y_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_y-tooltip");
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_z-tooltip");
     public static final IKey FORMS_EDITORS_EXTRUDED_TITLE = L10n.lang("bbs.ui.forms.editors.extruded.title");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_TITLE = L10n.lang("bbs.ui.forms.editors.framebuffer.title");
     public static final IKey FORMS_EDITORS_VIDEO_TITLE = L10n.lang("bbs.ui.forms.editors.video.title");
     public static final IKey FORMS_EDITORS_VIDEO_PICK_VIDEO = L10n.lang("bbs.ui.forms.editors.video.pick_video");
     public static final IKey FORMS_EDITORS_VIDEO_BILLBOARD = L10n.lang("bbs.ui.forms.editors.video.billboard");
@@ -1018,6 +1019,11 @@ public class UIKeys
     public static final IKey FORMS_EDITOR_CONTEXT_PASTE = L10n.lang("bbs.ui.forms.editor.context.paste");
     public static final IKey FORMS_EDITOR_CONTEXT_REMOVE = L10n.lang("bbs.ui.forms.editor.context.remove");
     public static final IKey FORMS_EDITOR_CONTEXT_REMOVE_ALL = L10n.lang("bbs.ui.forms.editor.context.remove_all");
+    public static final IKey FORMS_EDITOR_CONTEXT_SETUP_FACE = L10n.lang("bbs.ui.forms.editor.context.setup_face");
+    public static final IKey FORMS_EDITOR_SETUP_FACE_TITLE = L10n.lang("bbs.ui.forms.editor.setup_face.title");
+    public static final IKey FORMS_EDITOR_SETUP_FACE_EYES_RIG = L10n.lang("bbs.ui.forms.editor.setup_face.eyes_rig");
+    public static final IKey FORMS_EDITOR_SETUP_FACE_VERTICAL_OFFSET = L10n.lang("bbs.ui.forms.editor.setup_face.vertical_offset");
+    public static final IKey FORMS_EDITOR_SETUP_FACE_VERTICAL_OFFSET_HINT = L10n.lang("bbs.ui.forms.editor.setup_face.vertical_offset_hint");
     public static final IKey FORMS_EDITOR_FINISH = L10n.lang("bbs.ui.forms.editor.finish");
     public static final IKey FORMS_EDITOR_MODEL_MODELS = L10n.lang("bbs.ui.forms.editor.model.models");
     public static final IKey FORMS_EDITOR_MODEL_PICK_MODEL = L10n.lang("bbs.ui.forms.editor.model.pick_model");
