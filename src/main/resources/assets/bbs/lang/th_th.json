@@ -1,10 +1,10 @@
 {
-    "block.bbs.model": "โมเดลบล็อก",
     "category.bbs.main": "BBS|บีบีเอส ม็อด",
     "command.getskin.downloading": "กำลังดาวน์โหลดสกิน...",
     "command.getskin.error": "ข้อผิดพลาด: %s",
     "command.getskin.success": "สกินถูกนำไปใช้กับผู้เล่นทุกคนเรียบร้อยแล้ว",
     "item.bbs.gun": "ปืน BBS",
+    "item.bbs.model": "โมเดลบล็อก",
     "itemGroup.bbs.main": "BBS|บีบีเอส ม็อด",
     "key.bbs.dashboard": "แดชบอร์ด",
     "key.bbs.demorph": "การเปลี่ยนรูป",

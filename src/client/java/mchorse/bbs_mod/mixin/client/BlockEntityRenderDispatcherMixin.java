@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BlockEntityRenderDispatcher.class)
 public class BlockEntityRenderDispatcherMixin
@@ -35,12 +34,12 @@ public class BlockEntityRenderDispatcherMixin
         }
     }
 
-    @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true)
-    public void onRenderEntity(BlockEntity blockEntity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, CallbackInfoReturnable<Boolean> info)
+/*     @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true)
+    public void onRenderEntity(CallbackInfoReturnable<Boolean> info)
     {
         if (BBSRendering.shouldHideChromaBlockEntity(blockEntity))
         {
             info.setReturnValue(false);
         }
-    }
+    } */
 }

@@ -404,7 +404,7 @@ public class UIFormCategory extends UIElement
                 int cy = this.area.y + h;
                 boolean isSelected = this.selected == form;
 
-                context.batcher.clip(cx, cy, CELL_WIDTH, CELL_HEIGHT, context);
+                /* context.batcher.clip(cx, cy, CELL_WIDTH, CELL_HEIGHT, context); */
 
                 if (isSelected)
                 {

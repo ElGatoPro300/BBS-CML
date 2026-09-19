@@ -9,6 +9,7 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 
@@ -476,7 +477,7 @@ public class VideoRenderer
                 return;
             }
 
-            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX);
             RenderSystem.setShaderTexture(0, texture);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
             RenderSystem.enableBlend();

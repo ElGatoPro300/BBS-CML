@@ -824,7 +824,7 @@ public class ModelInstance implements IModelInstance
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
 
-                RenderSystem.setShader(program);
+                RenderSystem.setShader(shader);
 
                 if (texture != null)
                 {
@@ -910,7 +910,7 @@ public class ModelInstance implements IModelInstance
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 
-        RenderSystem.setShader(() -> shader);
+        RenderSystem.setShader(shader);
 
         if (texture != null)
         {

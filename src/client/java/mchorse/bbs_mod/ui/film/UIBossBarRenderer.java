@@ -4,6 +4,7 @@ import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
@@ -80,22 +81,16 @@ public class UIBossBarRenderer
 
         DrawContext context = batcher.getContext();
 
-        setShaderColor(context, 1F, 1F, 1F, alpha);
-        context.drawGuiTexture(BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        context.drawGuiTexture(RenderLayer::getGuiTextured, BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight, applyAlpha(0xFFFFFF, alpha));
 
         if (progressWidth > 0)
         {
-            int color = bossBar.color;
-
-            setShaderColor(
-                context,
-                ((color >> 16) & 0xFF) / 255F,
-                ((color >> 8) & 0xFF) / 255F,
-                (color & 0xFF) / 255F,
-                alpha
-            );
-            context.drawGuiTexture(BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight);
+            /* Store tint in the vertices: GUI textures are submitted later as a batch. */
+            context.drawGuiTexture(RenderLayer::getGuiTextured, BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight, applyAlpha(bossBar.color, alpha));
         }
+
+        batcher.flush();
 
         if (hasText)
         {
@@ -104,8 +99,6 @@ public class UIBossBarRenderer
             int textColor = applyAlpha(bossBar.textColor, alpha);
             float textCenterX = textX + textWidth / 2F;
             float textCenterY = textY + fontHeight / 2F;
-
-            setShaderColor(context, 1F, 1F, 1F, 1F);
 
             if (textScale != 1F)
             {
@@ -123,18 +116,11 @@ public class UIBossBarRenderer
             }
         }
 
-        setShaderColor(context, 1F, 1F, 1F, 1F);
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         RenderSystem.disableBlend();
 
         stack.pop();
         batcher.flush();
-    }
-
-    private static void setShaderColor(DrawContext context, float red, float green, float blue, float alpha)
-    {
-        context.setShaderColor(red, green, blue, alpha);
-        RenderSystem.setShaderColor(red, green, blue, alpha);
     }
 
     private static float getResolutionScale(int width, int height)

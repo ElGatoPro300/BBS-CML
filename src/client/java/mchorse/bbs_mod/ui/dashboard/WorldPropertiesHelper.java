@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
@@ -312,21 +311,7 @@ public class WorldPropertiesHelper
             }
         }
 
-        ClientWorld world = mc.world;
-
-        if (world == null)
-        {
-            return fallback;
-        }
-
-        try
-        {
-            return world.getGameRules().getBoolean(key);
-        }
-        catch (Exception e)
-        {
-            return fallback;
-        }
+        return fallback;
     }
 
     private static void sendSilentCommandOnServer(MinecraftServer server, String command)

@@ -1,11 +1,11 @@
 {
-    "block.bbs.model": "Bloque de modelos",
     "category.bbs.main": "BBS mod",
     "command.getskin.downloading": "Descargando skin...",
     "command.getskin.error": "Error: %s",
     "command.getskin.success": "Skin aplicada a todos los jugadores",
     "gamerule.bbsEditing": "Permisos de edición de BBS mod",
     "item.bbs.gun": "Pistola BBS",
+    "item.bbs.model": "Bloque de modelos",
     "itemGroup.bbs.main": "BBS mod",
     "key.bbs.dashboard": "Tablero principal",
     "key.bbs.demorph": "Deshacer transformación",

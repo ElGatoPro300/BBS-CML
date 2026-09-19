@@ -47,19 +47,19 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Pose;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
@@ -70,6 +70,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 
 import org.slf4j.Logger;
 
@@ -612,7 +613,11 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
+            /* beginWrite(true) wiped the preview mesh; clear TU0 like form/film pick teardown. */
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
+            RenderSystem.setShaderTexture(0, 0);
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
 
             GlStateManager._enableScissorTest();
         }
@@ -783,7 +788,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Tessellator tessellator = Tessellator.getInstance();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         RenderSystem.enableBlend();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
@@ -822,7 +827,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         Tessellator tessellator = Tessellator.getInstance();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         RenderSystem.enableBlend();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
