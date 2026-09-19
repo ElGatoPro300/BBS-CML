@@ -19,7 +19,7 @@
         "StructureTemplateAccessor",
         "StructureTemplatePalettedListAccessor",
         "EntityAccessor",
-        "EntityMixin"
+        "LivingEntityAccessor"
     ],
     "injectors": {
         "defaultRequire": 1
