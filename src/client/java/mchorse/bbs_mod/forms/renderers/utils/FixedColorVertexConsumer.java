@@ -4,6 +4,8 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
 
+import org.joml.Matrix4f;
+
 /**
  * VertexConsumer que fija un color constante (incluido alpha) en el
  * Buffer subyacente mediante {@link VertexConsumer#fixedColor}.
@@ -29,27 +31,15 @@ public class FixedColorVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
         return this.delegate.vertex(x, y, z).color(r, g, b, a);
     }
 
     @Override
-    public void next()
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
-        this.delegate.next();
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        this.delegate.fixedColor(red, green, blue, alpha);
-    }
-
-    @Override
-    public void unfixColor()
-    {
-        this.delegate.unfixColor();
+        return this.delegate.vertex(matrix, x, y, z).color(r, g, b, a);
     }
 
     @Override

@@ -20,22 +20,23 @@ import net.minecraft.client.render.model.BakedModelManager;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ArmorMaterial;
-import net.minecraft.item.DyeableItem;
 import net.minecraft.item.ElytraItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.trim.ArmorTrim;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
 import com.google.common.collect.Maps;
 
 import java.util.Map;
-import java.util.Optional;
 
 public class ArmorRenderer
 {
@@ -89,7 +90,7 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.pivotY = 0.0F;
                 this.elytraModel.rightWing.pivotZ = 0.0F;
 
-                float transition = MinecraftClient.getInstance().getTickDelta();
+                float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
                 float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
 
                 this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
@@ -100,11 +101,11 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
 
                 VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
+                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV);
 
                 if (itemStack.hasGlint())
                 {
-                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
+                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
                 }
 
                 matrices.pop();
@@ -126,9 +127,10 @@ public class ArmorRenderer
                 part.pitch = part.yaw = part.roll = 0F;
                 part.xScale = part.yScale = part.zScale = 1F;
 
-                if (item instanceof DyeableItem dyeable && dyeable.hasColor(itemStack))
+                DyedColorComponent dyed = itemStack.get(DataComponentTypes.DYED_COLOR);
+                if (dyed != null)
                 {
-                    int color = dyeable.getColor(itemStack);
+                    int color = dyed.rgb();
                     float r = (float)(color >> 16 & 255) / 255.0F;
                     float g = (float)(color >> 8 & 255) / 255.0F;
                     float b = (float)(color & 255) / 255.0F;
@@ -141,10 +143,8 @@ public class ArmorRenderer
                     this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                Optional<ArmorTrim> trimOpt = MinecraftClient.getInstance().world != null
-                    ? ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack, true)
-                    : Optional.empty();
-                boolean hasTrim = trimOpt.isPresent();
+                ArmorTrim trim = itemStack.get(DataComponentTypes.TRIM);
+                boolean hasTrim = trim != null;
                 boolean hasGlint = itemStack.hasGlint();
 
                 if (hasTrim)
@@ -152,7 +152,7 @@ public class ArmorRenderer
                     /* Trim glint is a separate EQUAL pass fed the same verts as the trim
                      * shells (union), not a second scaled ModelPart.render — that desync
                      * was the trim↔glint z-fight. Base armor still gets its own 1.0 glint. */
-                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trimOpt.get(), innerModel, hasGlint);
+                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel, hasGlint);
                 }
 
                 if (hasGlint)
@@ -198,7 +198,7 @@ public class ArmorRenderer
         part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
     }
 
-    private void renderTrim(ModelPart part, ArmorMaterial material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
+    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
         VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
@@ -249,7 +249,7 @@ public class ArmorRenderer
 
     private Identifier getArmorTexture(ArmorItem item, boolean secondLayer, String overlay)
     {
-        String materialName = item.getMaterial().getName();
+        String materialName = item.getMaterial().getKey().map(k -> k.getValue().getPath()).orElse("unknown");
         String id = "textures/models/armor/" + materialName + "_layer_" + (secondLayer ? 2 : 1) + (overlay == null ? "" : "_" + overlay) + ".png";
 
         Identifier found = ARMOR_TEXTURE_CACHE.get(id);

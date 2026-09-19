@@ -596,12 +596,11 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
@@ -711,8 +710,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
 
         /* Render track bars (horizontal lines) */
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         /* Draw keyframe handles (outer) */
         int forcedIndex = 0;

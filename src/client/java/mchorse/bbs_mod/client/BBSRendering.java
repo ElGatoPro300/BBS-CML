@@ -45,7 +45,6 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -55,6 +54,7 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.sodium.SodiumUtils;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.impl.client.rendering.WorldRenderContextImpl;
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.block.entity.BlockEntity;
@@ -157,7 +157,6 @@ public class BBSRendering
     private static Texture texture;
     private static CloudRenderMode cachedCloudRenderMode;
     private static boolean cloudsForced;
-    public static Matrix4f positionMatrix;
 
     public static int getMotionBlur()
     {
@@ -407,10 +406,8 @@ public class BBSRendering
     /**
      * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
      * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
-     * On 1.21+ {@link net.minecraft.client.render.GameRenderer#renderBlur()} samples that state
-     * (NeoForge pause blur → dark hotbar / sky). This build has no menu blur — use
-     * {@link #preparePauseScreenState()} before {@link net.minecraft.client.gui.screen.Screen}
-     * backgrounds instead; keep this helper for shared TU0/FB cleanup when blend must stay off.
+     * {@link net.minecraft.client.render.GameRenderer#renderBlur()} then samples that state —
+     * NeoForge pause blur makes hotbar / sky / leaves go dark while menu buttons still draw fine.
      */
     public static void prepareMenuBackgroundState()
     {
@@ -426,32 +423,11 @@ public class BBSRendering
             mc.getFramebuffer().beginWrite(false);
         }
 
-        /* Blur post-chain (1.21+) expects blend off (see Forge pause-screen blend fixes). */
+        /* Blur post-chain expects blend off (see Forge pause-screen blend fixes). */
         RenderSystem.disableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.depthMask(true);
         RenderSystem.colorMask(true, true, true, true);
-    }
-
-    /**
-     * 1.20.1 / 1.20.4 pause and other in-game screens darken with a translucent gradient
-     * ({@code Screen.renderBackground} / {@code renderInGameBackground}), not {@code renderBlur}.
-     * Re-arm lightmap / ColorModulator / TU0 but leave blend enabled for that overlay.
-     */
-    public static void preparePauseScreenState()
-    {
-        ensureMainFramebuffer();
-        restoreWorldRenderState();
-        DiffuseLighting.enableGuiDepthLighting();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        clearTextureUnit0();
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        if (mc != null && mc.getFramebuffer() != null)
-        {
-            mc.getFramebuffer().beginWrite(false);
-        }
     }
 
     public static void clearTextureUnit0()
@@ -530,14 +506,12 @@ public class BBSRendering
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        Matrix4f matrix = isRenderingWorld() ? camera : RenderSystem.getModelViewMatrix();
-
-        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, matrix);
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
     }
 
     /**
      * Same diffuse choice {@link WorldRenderer} uses before entities:
-     * {@link DiffuseLighting#enableForLevel(Matrix4f)} in darkened dimensions, otherwise the shared
+     * {@link DiffuseLighting#enableForLevel()} in darkened dimensions, otherwise the shared
      * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
      * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
      */
@@ -547,9 +521,7 @@ public class BBSRendering
 
         if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
         {
-            Matrix4f matrix = isRenderingWorld() ? camera : new Matrix4f();
-
-            DiffuseLighting.enableForLevel(matrix);
+            DiffuseLighting.enableForLevel();
 
             return;
         }
@@ -767,13 +739,13 @@ public class BBSRendering
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        BBSModClient.getFilms().startRenderFrame(mc.getTickDelta());
+        BBSModClient.getFilms().startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
 
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null)
         {
-            menu.startRenderFrame(mc.getTickDelta());
+            menu.startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
         }
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -807,6 +779,8 @@ public class BBSRendering
          * sort). Iris soft forms (noshading off) already flushed at beginTranslucents. */
         ModelVAORenderer.flushPaintOverlayQueue();
         ShaderOpacityPatch.onWorldRenderEnd();
+
+        renderingWorld = false;
 
         MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
@@ -849,7 +823,6 @@ public class BBSRendering
 
         if (!customSize)
         {
-            renderingWorld = false;
             /* Forms / overlays can leave shaderColor, lightmap, or color-mask uniforms dirty;
              * HUD (hotbar) and the pause menu draw next and would go dark without this. */
             prepareHudRenderState();
@@ -877,8 +850,6 @@ public class BBSRendering
                 RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
         }
-
-        renderingWorld = false;
     }
 
     private static void updateCloudRenderMode(MinecraftClient mc)
@@ -938,6 +909,19 @@ public class BBSRendering
 
     public static void onRenderChunkLayer(MatrixStack stack)
     {
+        WorldRenderContextImpl worldRenderContext = new WorldRenderContextImpl();
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        worldRenderContext.prepare(
+            mc.worldRenderer, mc.getRenderTickCounter(), false,
+            mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
+            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
+        );
+
+        if (!isIrisShadersEnabled())
+        {
+            renderCoolStuff(worldRenderContext);
+        }
     }
 
     public static void onRenderChunkLayer(Matrix4f positionMatrix, Matrix4f projectionMatrix)
@@ -1107,30 +1091,13 @@ public class BBSRendering
 
     public static void renderCoolStuff(WorldRenderContext worldRenderContext)
     {
-        boolean needsIdentityModelView = !isIrisShadersEnabled();
-
-        if (needsIdentityModelView)
+        if (MinecraftClient.getInstance().currentScreen instanceof UIScreen screen)
         {
-            MatrixStackUtils.pushIdentityModelView();
+            screen.renderInWorld(worldRenderContext);
         }
 
-        try
-        {
-            if (MinecraftClient.getInstance().currentScreen instanceof UIScreen screen)
-            {
-                screen.renderInWorld(worldRenderContext);
-            }
-
-            BBSModClient.getFilms().render(worldRenderContext);
-            StructurePickerRenderer.render(worldRenderContext);
-        }
-        finally
-        {
-            if (needsIdentityModelView)
-            {
-                MatrixStackUtils.popModelView();
-            }
-        }
+        BBSModClient.getFilms().render(worldRenderContext);
+        StructurePickerRenderer.render(worldRenderContext);
     }
 
     public static boolean isOptifinePresent()

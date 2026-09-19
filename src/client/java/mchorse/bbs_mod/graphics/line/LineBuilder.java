@@ -87,8 +87,7 @@ public class LineBuilder <T>
 
         for (List<LinePoint<T>> points : build)
         {
-            BufferBuilder builder = Tessellator.getInstance().getBuffer();
-            builder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
 
             RenderSystem.setShader(GameRenderer::getPositionColorProgram);
             RenderSystem.enableBlend();

@@ -123,7 +123,7 @@ public final class ItemUseRenderState
             return 0;
         }
 
-        int maxUseTime = stack.getMaxUseTime();
+        int maxUseTime = stack.getMaxUseTime(living);
         int remaining = source.getItemUseTimeLeft();
 
         if (maxUseTime <= 0)
@@ -153,7 +153,7 @@ public final class ItemUseRenderState
         }
 
         int itemUseElapsed = ItemUseRenderState.getItemUseElapsed(source, living, stack);
-        int maxUseTime = stack.getMaxUseTime();
+        int maxUseTime = stack.getMaxUseTime(living);
         int itemUseTimeLeft = Math.max(0, maxUseTime - itemUseElapsed);
         boolean localPlayer = living instanceof ClientPlayerEntity;
         ItemStack active = stack;
@@ -166,7 +166,7 @@ public final class ItemUseRenderState
             drivingLocalPlayerUse = true;
             active = living.getStackInHand(hand);
 
-            if (active.isEmpty() || !ItemStack.canCombine(active, stack))
+            if (active.isEmpty() || !ItemStack.areItemsAndComponentsEqual(active, stack))
             {
                 active = stack.copy();
             }

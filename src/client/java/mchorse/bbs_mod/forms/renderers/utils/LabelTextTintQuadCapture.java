@@ -98,10 +98,10 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
-        this.pendingX = (float) x;
-        this.pendingY = (float) y;
+        this.pendingX = x;
+        this.pendingY = y;
 
         return this;
     }
@@ -126,6 +126,12 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
+    public VertexConsumer color(float red, float green, float blue, float alpha)
+    {
+        return this;
+    }
+
+    @Override
     public VertexConsumer texture(float u, float v)
     {
         this.pendingU = u;
@@ -143,6 +149,16 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     @Override
     public VertexConsumer light(int u, int v)
     {
+        this.finishVertex();
+
+        return this;
+    }
+
+    @Override
+    public VertexConsumer light(int light)
+    {
+        this.finishVertex();
+
         return this;
     }
 
@@ -151,20 +167,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     {
         return this;
     }
-
-    @Override
-    public void next()
-    {
-        this.finishVertex();
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {}
-
-    @Override
-    public void unfixColor()
-    {}
 
     private void finishVertex()
     {

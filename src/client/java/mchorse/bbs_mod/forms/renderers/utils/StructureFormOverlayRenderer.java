@@ -49,7 +49,14 @@ public class StructureFormOverlayRenderer
 
     public void prepareVaoPaintForMainPass(Color resolvedPaint)
     {
-        this.clearVaoPaint();
+        if (resolvedPaint != null && resolvedPaint.a < 0F)
+        {
+            ModelVAORenderer.setPaint(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
+        }
+        else
+        {
+            this.clearVaoPaint();
+        }
     }
 
     public void clearVaoPaint()
@@ -149,8 +156,8 @@ public class StructureFormOverlayRenderer
             overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            RenderSystem.getModelViewStack().push();
-            RenderSystem.getModelViewStack().peek().getPositionMatrix().set(exactMvm);
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
             RenderSystem.applyModelViewMatrix();
 
             try
@@ -159,7 +166,7 @@ public class StructureFormOverlayRenderer
             }
             finally
             {
-                RenderSystem.getModelViewStack().pop();
+                RenderSystem.getModelViewStack().popMatrix();
                 RenderSystem.applyModelViewMatrix();
             }
         });

@@ -2,6 +2,9 @@ package mchorse.bbs_mod.cubic.render.vao;
 
 import net.minecraft.client.render.VertexConsumer;
 
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
+
 import java.util.List;
 
 /**
@@ -39,18 +42,23 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
-        this.vx = (float) x;
-        this.vy = (float) y;
-        this.vz = (float) z;
+        this.vx = x;
+        this.vy = y;
+        this.vz = z;
         return this;
     }
 
     @Override
-    public void next()
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
-        /* no-op */
+        Vector4f v = new Vector4f(x, y, z, 1F);
+        v.mul(matrix);
+        this.vx = v.x;
+        this.vy = v.y;
+        this.vz = v.z;
+        return this;
     }
 
     @Override

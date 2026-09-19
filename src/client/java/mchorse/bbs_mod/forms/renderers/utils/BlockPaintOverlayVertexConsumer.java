@@ -6,6 +6,8 @@ import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 
+import org.joml.Matrix4f;
+
 public class BlockPaintOverlayVertexConsumer implements VertexConsumer
 {
     public static Color paintOverlayColor;
@@ -22,27 +24,15 @@ public class BlockPaintOverlayVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
         return this.consumer.vertex(x, y, z);
     }
 
     @Override
-    public void next()
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
-        this.consumer.next();
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        this.consumer.fixedColor(red, green, blue, alpha);
-    }
-
-    @Override
-    public void unfixColor()
-    {
-        this.consumer.unfixColor();
+        return this.consumer.vertex(matrix, x, y, z);
     }
 
     @Override

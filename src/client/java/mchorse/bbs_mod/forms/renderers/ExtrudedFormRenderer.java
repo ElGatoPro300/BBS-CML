@@ -24,6 +24,7 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -92,6 +93,10 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         /* Shading fix */
         MatrixStackUtils.invertUiNormalY(stack);
 
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
         ShaderProgram modelShader = BBSShaders.getModel();
@@ -111,6 +116,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         }
 
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
+
+        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -157,9 +164,19 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 modelMatrix.getScale(scale);
 
+                if (invertY)
+                {
+                    scale.y = -scale.y;
+                }
+
                 modelMatrix.m00(1).m01(0).m02(0);
                 modelMatrix.m10(0).m11(1).m12(0);
                 modelMatrix.m20(0).m21(0).m22(1);
+
+                if (camera != null && !modelRenderer)
+                {
+                    modelMatrix.mul(camera.view);
+                }
 
                 modelMatrix.scale(scale);
 

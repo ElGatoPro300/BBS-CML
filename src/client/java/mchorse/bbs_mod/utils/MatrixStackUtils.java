@@ -12,6 +12,7 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -134,8 +135,8 @@ public class MatrixStackUtils
         oldMV.set(RenderSystem.getModelViewMatrix());
         oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.loadIdentity();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.identity();
         RenderSystem.applyModelViewMatrix();
     }
 
@@ -144,26 +145,25 @@ public class MatrixStackUtils
         /* Return back to orthographic projection */
         RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.loadIdentity();
-        mvStack.peek().getPositionMatrix().set(oldMV);
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.set(oldMV);
         RenderSystem.applyModelViewMatrix();
     }
 
     public static void pushIdentityModelView()
     {
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.push();
-        mvStack.loadIdentity();
+        mvStack.pushMatrix();
+        mvStack.identity();
         RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
     {
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.pop();
+        mvStack.popMatrix();
         RenderSystem.applyModelViewMatrix();
     }
 

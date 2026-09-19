@@ -19,6 +19,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -252,9 +253,9 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public void readNbt(NbtCompound nbt)
+    public void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup)
     {
-        super.readNbt(nbt);
+        super.readNbt(nbt, registryLookup);
         
         if (nbt.contains("Left")) this.left.fromData(DataStorageUtils.fromNbt(nbt.get("Left")));
         if (nbt.contains("Right")) this.right.fromData(DataStorageUtils.fromNbt(nbt.get("Right")));
@@ -271,9 +272,9 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public void writeNbt(NbtCompound nbt)
+    public void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup)
     {
-        super.writeNbt(nbt);
+        super.writeNbt(nbt, registryLookup);
 
         /* Route every value through the null-safe helper: ValueList.toData() returns
          * null when the list is empty (the default state of a freshly placed block),
@@ -300,8 +301,8 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt()
+    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup)
     {
-        return this.createNbtWithId();
+        return this.createNbtWithId(registryLookup);
     }
 }

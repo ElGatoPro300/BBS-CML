@@ -40,8 +40,7 @@ public class StructurePickerShapeOutline
 
     private static void renderFaces(MatrixStack stack, Set<BlockPos> blocks, float r, float g, float b)
     {
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         for (BlockPos pos : blocks)
         {

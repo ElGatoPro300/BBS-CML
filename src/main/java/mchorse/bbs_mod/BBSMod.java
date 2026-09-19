@@ -140,6 +140,9 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.BlockStateComponent;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
@@ -163,6 +166,7 @@ import net.minecraft.world.GameRules;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class BBSMod implements ModInitializer
@@ -331,7 +335,7 @@ public class BBSMod implements ModInitializer
 
     private static SoundEvent registerSound(String path)
     {
-        Identifier id = new Identifier(MOD_ID, path);
+        Identifier id = Identifier.of(MOD_ID, path);
 
         return Registry.register(Registries.SOUND_EVENT, id, SoundEvent.of(id));
     }
@@ -363,8 +367,8 @@ public class BBSMod implements ModInitializer
         compound.putString("id", BlockEntityType.getId(MODEL_BLOCK_ENTITY).toString());
         DataStorageUtils.writeToNbtCompound(compound, "Properties", properties.toData());
 
-        NbtCompound nbt = stack.getOrCreateNbt();
-        nbt.put("BlockEntityTag", compound);
+        stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(compound));
+        stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("light_level", String.valueOf(properties.getLightLevel()))));
 
         return stack;
     }
