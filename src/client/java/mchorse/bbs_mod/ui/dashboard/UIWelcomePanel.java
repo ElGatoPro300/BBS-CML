@@ -707,7 +707,7 @@ public class UIWelcomePanel extends UIElement
         {
             try
             {
-                skinTexture = mc.player.getSkinTexture();
+                skinTexture = mc.getSkinProvider().getSkinTextures(mc.player.getGameProfile()).texture();
             }
             catch (Exception e)
             {}

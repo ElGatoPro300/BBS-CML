@@ -63,7 +63,7 @@
     "accessWidener": "bbs.accesswidener",
     "depends": {
         "fabricloader": ">=0.19.3",
-        "minecraft": "~1.20.1",
+        "minecraft": "~1.20.4",
         "java": ">=17",
         "fabric-api": "*"
     }

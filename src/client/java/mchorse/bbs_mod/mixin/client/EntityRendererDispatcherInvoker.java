@@ -9,10 +9,15 @@ import net.minecraft.world.WorldView;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
+import org.joml.Quaternionf;
+
 @Mixin(EntityRenderDispatcher.class)
 public interface EntityRendererDispatcherInvoker
 {
     @Invoker("renderShadow")
     public static void bbs$renderShadow(MatrixStack matrices, VertexConsumerProvider vertexConsumers, Entity entity, float opacity, float tickDelta, WorldView world, float radius)
     {}
+
+    @Invoker("renderFire")
+    void bbs$renderFire(MatrixStack matrices, VertexConsumerProvider vertexConsumers, Entity entity, Quaternionf rotation);
 }

@@ -23,6 +23,7 @@ import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.tag.EntityTypeTags;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
@@ -32,6 +33,7 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 
 public class GunProjectileEntity extends ProjectileEntity implements IEntityFormProvider
@@ -213,7 +215,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
             pos = oldPos.add(v);
 
-            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit);
+            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit, RaycastContext.ShapeType.COLLIDER);
 
             if (hitResult.getType() != HitResult.Type.MISS)
             {
@@ -324,7 +326,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         DamageSource source = this.getDamageSources().magic();
 
         int fireTicks = entity.getFireTicks();
-        boolean deflectsArrows = false;
+        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_ARROWS);
 
         if (this.isOnFire() && !deflectsArrows)
         {
