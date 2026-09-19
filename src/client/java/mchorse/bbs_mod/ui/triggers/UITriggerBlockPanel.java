@@ -6,7 +6,6 @@ import mchorse.bbs_mod.camera.CameraUtils;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
 import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -176,7 +175,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         this.leftCardResizer.dragEnd(this::saveLayout);
 
         this.middleDragHandle = new UIModelBlockPanel.UIPanelDragHandle(
-            IKey.constant("Actions"),
+            TriggerKeys.ACTIONS,
             Icons.PROPERTIES,
             () -> this.middleCollapsed,
             () -> { this.middleCollapsed = !this.middleCollapsed; this.resize(); this.saveLayout(); },
@@ -221,7 +220,7 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         this.middleCardResizer.dragEnd(this::saveLayout);
 
         this.rightDragHandle = new UIModelBlockPanel.UIPanelDragHandle(
-            IKey.constant("Geometry"),
+            TriggerKeys.GEOMETRY,
             Icons.GEAR,
             () -> this.rightCollapsed,
             () -> { this.rightCollapsed = !this.rightCollapsed; this.resize(); this.saveLayout(); },

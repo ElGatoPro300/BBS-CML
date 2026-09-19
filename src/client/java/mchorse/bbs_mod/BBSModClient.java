@@ -2,6 +2,7 @@ package mchorse.bbs_mod;
 
 import mchorse.bbs_mod.addons.AddonInfo;
 import mchorse.bbs_mod.audio.SoundManager;
+import mchorse.bbs_mod.blocks.ModelBlock;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
@@ -12,6 +13,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
 import mchorse.bbs_mod.client.StructurePickerClient;
+import mchorse.bbs_mod.client.StructurePickerRenderer;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
@@ -19,6 +21,8 @@ import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
 import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
+import mchorse.bbs_mod.client.video.VideoFormEngine;
+import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
@@ -60,6 +64,7 @@ import mchorse.bbs_mod.forms.FormCategories;
 import mchorse.bbs_mod.forms.FormUIPreviewCache;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelCollisionLiveBake;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.FramebufferManager;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
@@ -111,6 +116,7 @@ import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.interps.CustomInterpolationManager;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
@@ -344,6 +350,40 @@ public class BBSModClient implements ClientModInitializer
         return Math.max(originalFramebufferScale, 1);
     }
 
+    public static void reloadAllAssets()
+    {
+        BBSMod.updateAssetsSourcePack();
+        BBSResources.restartWatchdog();
+
+        if (BBSMod.getSettings() != null)
+        {
+            BBSMod.getSettings().reload();
+        }
+
+        if (models != null)
+        {
+            models.reload();
+        }
+
+        if (textures != null)
+        {
+            textures.textures.clear();
+            textures.animatedTextures.clear();
+        }
+
+        if (sounds != null)
+        {
+            sounds.deleteSounds();
+        }
+
+        if (formCategories != null)
+        {
+            formCategories.setup();
+        }
+
+        CustomInterpolationManager.INSTANCE.load();
+    }
+
     public static ModelProperties getItemStackProperties(ItemStack stack)
     {
         ModelBlockItemRenderer.Item item = modelBlockItemRenderer.get(stack);
@@ -433,6 +473,8 @@ public class BBSModClient implements ClientModInitializer
     @Override
     public void onInitializeClient()
     {
+        ModelCollisionLiveBake.register();
+
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) ->
         {
             if (world.getBlockEntity(pos) instanceof TriggerBlockEntity)
@@ -466,6 +508,12 @@ public class BBSModClient implements ClientModInitializer
             {
                 if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
                 {
+                    /* Allow opening Model Block UI while holding Structure Picker. */
+                    if (hitResult != null && world.getBlockState(hitResult.getBlockPos()).getBlock() instanceof ModelBlock)
+                    {
+                        return ActionResult.PASS;
+                    }
+
                     return ActionResult.SUCCESS;
                 }
 
@@ -564,6 +612,23 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.discordPresence.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
         BBSSettings.discordApplicationId.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
+
+        if (BBSSettings.globalAssetsEnabled != null)
+        {
+            BBSSettings.globalAssetsEnabled.postCallback((v, f) -> reloadAllAssets());
+        }
+
+        if (BBSSettings.globalAssetsPath != null)
+        {
+            BBSSettings.globalAssetsPath.postCallback((v, f) ->
+            {
+                if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+                {
+                    reloadAllAssets();
+                }
+            });
+        }
+
         BBSSettings.optimizedMorphMenu.postCallback((v, f) ->
         {
             FormUIPreviewCache.clear();
@@ -577,6 +642,28 @@ public class BBSModClient implements ClientModInitializer
         if (BBSSettings.irisOpacityFix != null)
         {
             BBSSettings.irisOpacityFix.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
+        }
+
+        if (BBSSettings.irisFormFluidPatch != null)
+        {
+            BBSSettings.irisFormFluidPatch.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
+        }
+
+        if (BBSSettings.irisFormGlowBloomPatch != null)
+        {
+            BBSSettings.irisFormGlowBloomPatch.postCallback((v, f) ->
             {
                 if (BBSRendering.isIrisLoaded())
                 {
@@ -771,6 +858,10 @@ public class BBSModClient implements ClientModInitializer
 
             Draw.flushIrisBoxes();
 
+            /* After clouds / translucents / model blocks so selection+gizmos stay on top. */
+            StructurePickerRenderer.render(context);
+            Draw.flushIrisBoxes();
+
             if (Gizmo.INSTANCE.hasDeferred())
             {
                 RenderSystem.enableDepthTest();
@@ -862,6 +953,8 @@ public class BBSModClient implements ClientModInitializer
                 modelBlockItemRenderer.update();
                 gunItemRenderer.update();
                 textures.update();
+                VideoFormEngine.tickCleanup();
+                VideoRenderer.update();
             }
 
             StructurePickerClient.tick(mc);

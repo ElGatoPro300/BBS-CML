@@ -145,6 +145,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         DiffuseLighting.disableGuiDepthLighting();
 
         matrices.pop();
+        BBSRendering.restoreGuiRenderState();
     }
 
     @Override

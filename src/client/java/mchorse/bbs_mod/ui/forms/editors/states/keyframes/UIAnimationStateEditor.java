@@ -37,6 +37,7 @@ import mchorse.bbs_mod.ui.utils.gizmo.GizmoRayFrame;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoSurface;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -49,7 +50,6 @@ import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import org.joml.Matrix4f;
-import org.joml.Vector2i;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -67,7 +67,7 @@ public class UIAnimationStateEditor extends UIElement implements GizmoSurface
     private StencilFormFramebuffer gizmoStencil;
 
     public UIFormEditor editor;
-    public UIElement editArea;
+    public UIDraggable draggable;
 
     private AnimationState state;
     private Set<String> keys = new LinkedHashSet<>();
@@ -77,45 +77,31 @@ public class UIAnimationStateEditor extends UIElement implements GizmoSurface
     {
         this.editor = editor;
 
-        this.editArea = new UIElement();
-        this.editArea.relative(this)
-            .x(BBSSettings.editorLayoutSettings.getStateEditorSizeH())
-            .wTo(this.area, 1F)
-            .h(1F);
-
-        UIDraggable draggable = new UIDraggable((context) ->
+        this.draggable = new UIDraggable((context) ->
         {
-            float fx = (context.mouseX - this.area.x) / (float) this.area.w;
-            float fy = -(context.mouseY - this.getParent().area.ey()) / (float) this.getParent().area.h;
+            float fy = -(context.mouseY - this.editor.area.ey()) / (float) this.editor.area.h;
 
-            BBSSettings.editorLayoutSettings.setStateEditorSizeV(fy);
-            BBSSettings.editorLayoutSettings.setStateEditorSizeH(fx);
+            int minViewportH = 120;
+            float maxFy = this.editor.area.h > 0 ? (this.editor.area.h - minViewportH) / (float) this.editor.area.h : 0.75F;
+            float clamped = MathUtils.clamp(fy, 0.15F, Math.min(0.75F, maxFy));
 
-            this.h(BBSSettings.editorLayoutSettings.getStateEditorSizeV());
-            this.editArea.x(BBSSettings.editorLayoutSettings.getStateEditorSizeH());
-            this.getParent().resize();
+            BBSSettings.editorLayoutSettings.setStateEditorSizeV(clamped);
+
+            this.editor.updateStatesEditorLayout();
+            this.editor.resize();
         });
 
-        draggable.reference(() -> new Vector2i(this.editArea.area.x, this.area.y));
-        draggable.rendering((context) ->
+        this.draggable.rendering((context) ->
         {
-            int size = 5;
-            int x = this.editArea.area.x + 3;
-            int y = this.editArea.area.y + 3;
+            int mx = this.area.mx();
+            int y = this.area.y;
 
-            context.batcher.box(x, y, x + 1, y + size, Colors.WHITE);
-            context.batcher.box(x, y - 1, x + size, y, Colors.WHITE);
-
-            x = this.editArea.area.x - 3;
-            y = this.editArea.area.y + 3;
-
-            context.batcher.box(x - 1, y, x, y + size, Colors.WHITE);
-            context.batcher.box(x - size, y - 1, x, y, Colors.WHITE);
+            context.batcher.box(mx - 20, y, mx + 20, y + 2, Colors.WHITE);
         });
 
-        draggable.hoverOnly().relative(this.editArea).w(40).h(6).anchorX(0.5F);
+        this.draggable.hoverOnly().relative(this).x(0.5F).y(0).w(80).h(6).anchor(0.5F, 0.5F);
 
-        this.add(this.editArea, draggable);
+        this.add(this.draggable);
     }
 
     public AnimationState getState()
@@ -162,8 +148,10 @@ public class UIAnimationStateEditor extends UIElement implements GizmoSurface
 
         if (!sheets.isEmpty())
         {
-            this.keyframeEditor = new UIKeyframeEditor((consumer) -> new UIAnimationStateKeyframes(this.editor, consumer)).target(this.editArea);
-            this.keyframeEditor.relative(this).h(1F).wTo(this.editArea.area);
+            this.keyframeEditor = new UIKeyframeEditor((consumer) -> new UIAnimationStateKeyframes(this.editor, consumer))
+                .target(this.editor.keyframeEditorContainer)
+                .pickListener(() -> this.editor.setInspectorMode(UIFormEditor.InspectorMode.KEYFRAME));
+            this.keyframeEditor.relative(this).full(this);
             this.keyframeEditor.setUndoId("form_animation_state_keyframe_editor");
 
             /* Reset */
@@ -238,7 +226,7 @@ public class UIAnimationStateEditor extends UIElement implements GizmoSurface
                 this.keyframeEditor.view.addSheet(sheet);
             }
 
-            this.addAfter(this.editArea, this.keyframeEditor);
+            this.prepend(this.keyframeEditor);
         }
 
         this.resize();
@@ -489,11 +477,6 @@ public class UIAnimationStateEditor extends UIElement implements GizmoSurface
     @Override
     public void render(UIContext context)
     {
-        if (this.keyframeEditor != null)
-        {
-            this.editArea.area.render(context.batcher, Colors.A75);
-        }
-
         super.render(context);
     }
 }
