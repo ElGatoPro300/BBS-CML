@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.presets.UICopyPasteController;
@@ -106,15 +107,15 @@ public class UIAnimationStatesOverlayPanel extends UIOverlayPanel
         this.editor = UI.scrollView(
             UI.label(UIKeys.FORMS_EDITOR_STATES_MANAGER_ID), this.id,
             this.main, this.keybind,
-            UI.label(UIKeys.FORMS_EDITOR_STATES_MANAGER_DURATION).marginTop(6), this.duration,
-            UI.label(IKey.comp(Arrays.asList(UIKeys.CAMERA_PANELS_ENVELOPES_START_D, IKey.constant(" / "), UIKeys.CAMERA_PANELS_ENVELOPES_END_D))).marginTop(6), UI.row(this.fadeIn, this.fadeOut),
-            this.looping.marginTop(6), this.offset
+            UI.label(UIKeys.FORMS_EDITOR_STATES_MANAGER_DURATION).marginTop(UIConstants.SECTION_GAP), this.duration,
+            UI.label(IKey.comp(Arrays.asList(UIKeys.CAMERA_PANELS_ENVELOPES_START_D, IKey.constant(" / "), UIKeys.CAMERA_PANELS_ENVELOPES_END_D))).marginTop(UIConstants.SECTION_GAP), UI.row(this.fadeIn, this.fadeOut),
+            this.looping.marginTop(UIConstants.SECTION_GAP), this.offset
         );
 
         this.list.relative(this.content).w(120).h(1F);
         this.list.setList(states.getList());
         this.list.setCurrentScroll(current);
-        this.editor.relative(this.content).x(120).w(1F, -120).h(1F).column(5).vertical().stretch().scroll().padding(10);
+        this.editor.relative(this.content).x(120).w(1F, -120).h(1F).column(UIConstants.MARGIN).vertical().stretch().scroll().padding(UIConstants.SCROLL_PADDING);
 
         this.content.add(this.editor, this.list);
 

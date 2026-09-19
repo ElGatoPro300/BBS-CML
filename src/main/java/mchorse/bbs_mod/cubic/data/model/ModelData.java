@@ -30,15 +30,4 @@ public class ModelData
             this.uvs.add(new Vector2f(mesh.texData[i * 2] * tx, mesh.texData[i * 2 + 1] * ty));
         }
     }
-
-    public ModelData copy()
-    {
-        ModelData data = new ModelData();
-
-        for (Vector3f v : this.vertices) data.vertices.add(new Vector3f(v));
-        for (Vector3f n : this.normals) data.normals.add(new Vector3f(n));
-        for (Vector2f u : this.uvs) data.uvs.add(new Vector2f(u));
-
-        return data;
-    }
 }

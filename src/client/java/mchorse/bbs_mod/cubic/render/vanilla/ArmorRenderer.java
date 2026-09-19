@@ -2,38 +2,26 @@ package mchorse.bbs_mod.cubic.render.vanilla;
 
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
-import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
-import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.object.equipment.ElytraModel;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.entity.ArmorModelSet;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.DyedItemColor;
-import net.minecraft.world.item.equipment.EquipmentAsset;
-import net.minecraft.world.item.equipment.Equippable;
-import net.minecraft.client.resources.model.EquipmentClientInfo;
-import net.minecraft.world.item.equipment.trim.ArmorTrim;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexMultiConsumer;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.TexturedRenderLayers;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.model.BipedEntityModel;
+import net.minecraft.client.render.model.BakedModelManager;
+import net.minecraft.client.texture.Sprite;
+import net.minecraft.client.texture.SpriteAtlasTexture;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ArmorItem;
+import net.minecraft.item.ArmorMaterial;
+import net.minecraft.item.DyeableArmorItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.trim.ArmorTrim;
+import net.minecraft.util.Identifier;
 
 import com.google.common.collect.Maps;
 
@@ -42,125 +30,57 @@ import java.util.Map;
 public class ArmorRenderer
 {
     private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
-    private static final Identifier ELYTRA_TEXTURE = Identifier.fromNamespaceAndPath("minecraft", "textures/entity/equipment/wings/elytra.png");
-    /** Outward shell — avoids coplanar z-fight with armor in film/world cameras (044b2f4a6). */
-    private static final float TRIM_OUTER_SCALE = 1.005F;
-    /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
-    private static final float TRIM_INNER_SCALE = 0.995F;
-    private final ArmorModelSet<HumanoidModel> armorModels;
-    private final ElytraModel elytraModel;
-    private final TextureAtlas armorTrimsAtlas;
+    private final BipedEntityModel innerModel;
+    private final BipedEntityModel outerModel;
+    private final SpriteAtlasTexture armorTrimsAtlas;
 
-    public ArmorRenderer(ArmorModelSet<HumanoidModel> armorModels, ElytraModel elytraModel, TextureAtlas armorTrimsAtlas)
+    public ArmorRenderer(BipedEntityModel innerModel, BipedEntityModel outerModel, BakedModelManager bakery)
     {
-        this.armorModels = armorModels;
-        this.elytraModel = elytraModel;
-        this.armorTrimsAtlas = armorTrimsAtlas;
+        this.innerModel = innerModel;
+        this.outerModel = outerModel;
+        this.armorTrimsAtlas = bakery.getAtlas(TexturedRenderLayers.ARMOR_TRIMS_ATLAS_TEXTURE);
     }
 
-    public ArmorRenderer(HumanoidModel innerModel, HumanoidModel outerModel, ElytraModel elytraModel, TextureAtlas armorTrimsAtlas)
-    {
-        this(new ArmorModelSet<>(outerModel, outerModel, innerModel, outerModel), elytraModel, armorTrimsAtlas);
-    }
-
-    public void renderArmorSlot(PoseStack matrices, MultiBufferSource vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light)
+    public void renderArmorSlot(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light)
     {
         ItemStack itemStack = entity.getEquipmentStack(armorSlot);
         Item item = itemStack.getItem();
-        MultiBufferSource buffers = IrisArmorHooks.wrapEntityBuffers(vertexConsumers);
 
-        try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginArmorPiece(entity, item))
+        if (item instanceof ArmorItem armorItem)
         {
-            this.renderArmorSlotInner(matrices, buffers, entity, armorSlot, type, light, itemStack, item);
-        }
-    }
-
-    private void renderArmorSlotInner(PoseStack matrices, MultiBufferSource vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light, ItemStack itemStack, Item item)
-    {
-        if (itemStack.is(Items.ELYTRA))
-        {
-            if (type == ArmorType.CHEST && this.elytraModel != null)
-            {
-                matrices.pushPose();
-                matrices.translate(0F, 0F, 0.125F);
-
-                this.elytraModel.leftWing.x = 5.0F;
-                this.elytraModel.leftWing.y = 0.0F;
-                this.elytraModel.leftWing.z = 0.0F;
-
-                this.elytraModel.rightWing.x = -5.0F;
-                this.elytraModel.rightWing.y = 0.0F;
-                this.elytraModel.rightWing.z = 0.0F;
-
-                float transition = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
-                float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
-
-                this.elytraModel.leftWing.xRot = Mth.lerp(flyProgress, 0.2617994F, 0.35F);
-                this.elytraModel.leftWing.yRot = Mth.lerp(flyProgress, 0F, -0.1F);
-                this.elytraModel.leftWing.zRot = Mth.lerp(flyProgress, -0.2617994F, -1.55F);
-                this.elytraModel.rightWing.xRot = this.elytraModel.leftWing.xRot;
-                this.elytraModel.rightWing.yRot = -this.elytraModel.leftWing.yRot;
-                this.elytraModel.rightWing.zRot = -this.elytraModel.leftWing.zRot;
-
-                VertexConsumer consumer = vertexConsumers.getBuffer(RenderTypes.armorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY);
-
-                if (itemStack.hasFoil())
-                {
-                    this.elytraModel.renderToBuffer(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY);
-                }
-
-                matrices.popPose();
-            }
-            return;
-        }
-
-        if (itemStack.get(DataComponents.EQUIPPABLE) != null)
-        {
-            Equippable equippable = itemStack.get(DataComponents.EQUIPPABLE);
-
-            if (equippable != null && equippable.slot() == armorSlot)
+            if (armorItem.getSlotType() == armorSlot)
             {
                 boolean innerModel = this.usesInnerModel(armorSlot);
-                HumanoidModel bipedModel = this.getModel(armorSlot);
+                BipedEntityModel bipedModel = this.getModel(armorSlot);
                 ModelPart part = this.getPart(bipedModel, type);
 
-                this.setAllVisible(bipedModel, true);
+                bipedModel.setVisible(true);
 
-                part.x = part.y = part.z = 0F;
-                part.xRot = part.yRot = part.zRot = 0F;
+                part.pivotX = part.pivotY = part.pivotZ = 0F;
+                part.pitch = part.yaw = part.roll = 0F;
                 part.xScale = part.yScale = part.zScale = 1F;
 
-                DyedItemColor dyed = itemStack.get(DataComponents.DYED_COLOR);
-                if (dyed != null)
+                if (armorItem instanceof DyeableArmorItem dyeableArmorItem)
                 {
-                    int color = dyed.rgb();
+                    int color = dyeableArmorItem.getColor(itemStack);
                     float r = (float)(color >> 16 & 255) / 255.0F;
                     float g = (float)(color >> 8 & 255) / 255.0F;
                     float b = (float)(color & 255) / 255.0F;
 
-                    this.renderArmorParts(part, matrices, vertexConsumers, light, itemStack, innerModel, r, g, b, null);
-                    this.renderArmorParts(part, matrices, vertexConsumers, light, itemStack, innerModel, 1F, 1F, 1F, "overlay");
+                    this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, r, g, b, null);
+                    this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, "overlay");
                 }
                 else
                 {
-                    this.renderArmorParts(part, matrices, vertexConsumers, light, itemStack, innerModel, 1F, 1F, 1F, null);
+                    this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                ArmorTrim trim = itemStack.get(DataComponents.TRIM);
-                boolean hasTrim = trim != null;
-                boolean hasGlint = itemStack.hasFoil();
-
-                if (hasTrim)
+                ArmorTrim.getTrim(entity.getWorld().getRegistryManager(), itemStack).ifPresent((trim) ->
                 {
-                    ResourceKey<EquipmentAsset> assetKey = equippable != null && equippable.assetId().isPresent() ? equippable.assetId().get() : null;
-                    /* Trim glint is a separate EQUAL pass fed the same verts as the trim
-                     * shells (union), not a second scaled ModelPart.render — that desync
-                     * was the trim↔glint z-fight. Base armor still gets its own 1.0 glint. */
-                    this.renderTrim(part, assetKey, matrices, vertexConsumers, light, trim, innerModel, hasGlint);
-                }
+                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel);
+                });
 
-                if (hasGlint)
+                if (itemStack.hasGlint())
                 {
                     this.renderGlint(part, matrices, vertexConsumers, light);
                 }
@@ -168,7 +88,7 @@ public class ArmorRenderer
         }
     }
 
-    private ModelPart getPart(HumanoidModel bipedModel, ArmorType type)
+    private ModelPart getPart(BipedEntityModel bipedModel, ArmorType type)
     {
         switch (type)
         {
@@ -195,66 +115,29 @@ public class ArmorRenderer
         return bipedModel.head;
     }
 
-    private void renderArmorParts(ModelPart part, PoseStack matrices, MultiBufferSource vertexConsumers, int light, ItemStack stack, boolean secondTextureLayer, float red, float green, float blue, String overlay)
+    private void renderArmorParts(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorItem item, boolean secondTextureLayer, float red, float green, float blue, String overlay)
     {
-        VertexConsumer base = vertexConsumers.getBuffer(RenderTypes.armorCutoutNoCull(this.getArmorTexture(stack, secondTextureLayer, overlay)));
-        VertexConsumer vertexConsumer = new RecolorVertexConsumer(base, new Color(red, green, blue, 1F));
+        VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(this.getArmorTexture(item, secondTextureLayer, overlay)));
 
-        part.render(matrices, vertexConsumer, light, OverlayTexture.NO_OVERLAY);
+        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, red, green, blue, 1F);
     }
 
-    private void renderTrim(ModelPart part, ResourceKey<EquipmentAsset> armorAssetKey, PoseStack matrices, MultiBufferSource vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
+    private void renderTrim(ModelPart part, ArmorMaterial material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings)
     {
-        TextureAtlasSprite sprite = this.armorTrimsAtlas.getSprite(this.getTrimTexture(trim, armorAssetKey, leggings));
-        VertexConsumer trimConsumer = sprite.wrap(vertexConsumers.getBuffer(Sheets.armorTrimsSheet(trim.pattern().value().decal())));
-        VertexConsumer vertexConsumer = withGlint
-            ? VertexMultiConsumer.create(trimConsumer, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()))
-            : trimConsumer;
+        Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
+        VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims()));
 
-        /* Armor + trim share the same ModelPart. Uniform 1.005 alone hides inner faces
-         * (shell expands away from the cavity). Dual shells keep film/world z-fight fix
-         * (044b2f4a6) while restoring inside trim like vanilla coplanar NoCull geometry.
-         * Scale is baked into vertices — draw is deferred, so GL polygon-offset at submit
-         * would not stick through consumers.draw(). */
-        IrisArmorHooks.beginTrim(trim);
-
-        try
-        {
-            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_OUTER_SCALE);
-            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_INNER_SCALE);
-        }
-        finally
-        {
-            IrisArmorHooks.endTrim();
-        }
+        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
     }
 
-    private Identifier getTrimTexture(ArmorTrim trim, ResourceKey<EquipmentAsset> armorAssetKey, boolean leggings)
+    private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
-        EquipmentClientInfo.LayerType layerType = leggings
-            ? EquipmentClientInfo.LayerType.HUMANOID_LEGGINGS
-            : EquipmentClientInfo.LayerType.HUMANOID;
-
-        /* 26.1: trim atlas IDs moved off trims/models/armor/* — use vanilla resolver. */
-        return trim.layerAssetId(layerType.trimAssetPrefix(), armorAssetKey);
+        part.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
     }
 
-    private void renderGlint(ModelPart part, PoseStack matrices, MultiBufferSource vertexConsumers, int light)
+    private BipedEntityModel getModel(EquipmentSlot slot)
     {
-        part.render(matrices, vertexConsumers.getBuffer(RenderTypes.armorEntityGlint()), light, OverlayTexture.NO_OVERLAY);
-    }
-
-    private void renderScaledPart(ModelPart part, PoseStack matrices, VertexConsumer vertexConsumer, int light, float scale)
-    {
-        matrices.pushPose();
-        matrices.scale(scale, scale, scale);
-        part.render(matrices, vertexConsumer, light, OverlayTexture.NO_OVERLAY);
-        matrices.popPose();
-    }
-
-    private HumanoidModel getModel(EquipmentSlot slot)
-    {
-        return this.armorModels.get(slot);
+        return this.usesInnerModel(slot) ? this.innerModel : this.outerModel;
     }
 
     private boolean usesInnerModel(EquipmentSlot slot)
@@ -262,38 +145,11 @@ public class ArmorRenderer
         return slot == EquipmentSlot.LEGS;
     }
 
-    private Identifier getArmorTexture(ItemStack stack, boolean secondLayer, String overlay)
+    private Identifier getArmorTexture(ArmorItem item, boolean secondLayer, String overlay)
     {
-        // Use default if not found
-        String materialName = "unknown";
-        
-        // Try to get from components
-        Equippable equippable = stack.get(DataComponents.EQUIPPABLE);
-        if (equippable != null && equippable.assetId().isPresent())
-        {
-            materialName = equippable.assetId().get().identifier().getPath();
-        }
+        String materialName = item.getMaterial().getName();
+        String id = "textures/models/armor/" + materialName + "_layer_" + (secondLayer ? 2 : 1) + (overlay == null ? "" : "_" + overlay) + ".png";
 
-        String id = "textures/entity/equipment/" + (secondLayer ? "humanoid_leggings" : "humanoid") + "/" + materialName + (overlay == null ? "" : "_" + overlay) + ".png";
-
-        Identifier found = ARMOR_TEXTURE_CACHE.get(id);
-        if (found == null)
-        {
-            found = Identifier.fromNamespaceAndPath("minecraft", id);
-            ARMOR_TEXTURE_CACHE.put(id, found);
-        }
-
-        return found;
-    }
-
-    private void setAllVisible(HumanoidModel<?> model, boolean visible)
-    {
-        model.head.visible = visible;
-        model.hat.visible = visible;
-        model.body.visible = visible;
-        model.rightArm.visible = visible;
-        model.leftArm.visible = visible;
-        model.rightLeg.visible = visible;
-        model.leftLeg.visible = visible;
+        return ARMOR_TEXTURE_CACHE.computeIfAbsent(id, Identifier::new);
     }
 }

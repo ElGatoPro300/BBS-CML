@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.utils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.utils.Area;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 import org.joml.Vector2i;
@@ -22,7 +23,7 @@ public abstract class UICanvasEditor extends UICanvas
         super();
 
         this.editor = new UIElement();
-        this.editor.relative(this).xy(1F, 1F).w(130).anchor(1F, 1F).column().stretch().vertical().padding(10);
+        this.editor.relative(this).xy(1F, 1F).w(130).anchor(1F, 1F).column().stretch().vertical().padding(UIConstants.SCROLL_PADDING);
         this.add(this.editor);
     }
 

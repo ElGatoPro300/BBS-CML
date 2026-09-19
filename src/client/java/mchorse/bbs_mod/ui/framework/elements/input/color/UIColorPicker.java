@@ -1,52 +1,64 @@
 package mchorse.bbs_mod.ui.framework.elements.input.color;
 
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.ui.ValueColors;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.Area;
-import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
 
 import java.util.function.Consumer;
 
 /**
- * Color picker: SV square, horizontal hue bar, RGB / HSV / Hex modes,
- * plus favorite + recent palettes.
+ * Color picker element
+ *
+ * This is the one that is responsible for picking colors
  */
 public class UIColorPicker extends UIElement
 {
-    public static final int COLOR_PICKER_SIZE = 140;
-    public static final int COLOR_PICKER_TOP = 5;
-    public static final int COLOR_PICKER_GAP = 4;
-    public static final int COLOR_PICKER_BAR_HEIGHT = 12;
-    public static final int COLOR_PICKER_BAR_WIDTH = 14;
-    public static final int MODE_ROW_HEIGHT = 18;
-    public static final int LABEL_ROW_HEIGHT = 14;
-    public static final int FIELD_ROW_HEIGHT = 26;
-    public static final int CHANNEL_BLOCK_HEIGHT = LABEL_ROW_HEIGHT + 3 + FIELD_ROW_HEIGHT;
-    /** Panel fill — UI control-bar grey, not pure black. */
-    public static final int PANEL_BACKGROUND = Colors.CONTROL_BAR;
+    private static final int DRAG_HSV_PICKER = 1;
+    private static final int DRAG_HUE = 2;
+    private static final int DRAG_HSV_ALPHA = 3;
+    private static final int DRAG_RGB_RED = 1;
+    private static final int DRAG_RGB_GREEN = 2;
+    private static final int DRAG_RGB_BLUE = 3;
+    private static final int DRAG_RGB_ALPHA = 4;
 
-    public enum ColorMode
-    {
-        RGB, HSV, HEX
-    }
+    private static final int POPUP_PADDING = 5;
+    private static final int INPUT_HEIGHT = 20;
+    private static final int PREVIEW_SIZE = 20;
+    private static final int HEADER_HEIGHT = 30;
+    private static final int DEFAULT_WIDTH = 200;
+    private static final int RGB_SLIDER_HEIGHT = 50;
+    private static final int RGB_SECTION_GAP = 15;
+    private static final int HSV_PICKER_SIZE = 132;
+    private static final int HSV_SLIDER_WIDTH = 12;
+    private static final int HSV_SLIDER_GAP = 6;
+    private static final int HSV_SECTION_GAP = 15;
+    private static final int PALETTE_GAP = 15;
+    private static final int WINDOW_BOTTOM_GAP = 4;
 
-    public static ValueColors recentColors = new ValueColors("recent");
+    private static final ValueColors RECENT_COLORS_FALLBACK = new ValueColors("recent");
 
     public Color color = new Color();
     public Consumer<Integer> callback;
@@ -55,40 +67,38 @@ public class UIColorPicker extends UIElement
     public UIColorPalette recent;
     public UIColorPalette favorite;
 
-    public UIButton modeRgb;
-    public UIButton modeHsv;
-    public UIButton modeHex;
-    public UIElement modeRow;
-    public UIElement fieldRow;
-    public UIElement labelRow;
-    public UIElement valueRow;
-    public UILabel labelA;
-    public UILabel labelB;
-    public UILabel labelC;
-    public UILabel labelAlpha;
-    public UITrackpad fieldA;
-    public UITrackpad fieldB;
-    public UITrackpad fieldC;
-    public UITrackpad fieldAlpha;
-
     public boolean editAlpha;
-    public ColorMode mode = ColorMode.RGB;
 
+    public Area picker = new Area();
+    public Area hue = new Area();
     public Area red = new Area();
     public Area green = new Area();
     public Area blue = new Area();
     public Area alpha = new Area();
+    public Area preview = new Area();
 
-    protected int dragging = -1;
-    protected Color hsv = new Color();
-    protected boolean fillingFields;
+    private int dragging = -1;
+    private final Color hsv = new Color();
+    private final Color tempColor = new Color();
+    private final Color tempColor2 = new Color();
 
     public static void renderAlphaPreviewQuad(Batcher2D batcher, int x1, int y1, int x2, int y2, Color color)
     {
-        int opaque = Colors.setA(color.getARGBColor(), 1F);
-        int translucent = color.getARGBColor();
+        Matrix4f matrix4f = batcher.getContext().getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
 
-        batcher.box(x1, y1, x2 - x1, y2 - y1, opaque, opaque, translucent, translucent);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+
+        builder.vertex(matrix4f, x1, y1, 0F).color(color.r, color.g, color.b, 1).next();
+        builder.vertex(matrix4f, x1, y2, 0F).color(color.r, color.g, color.b, 1).next();
+        builder.vertex(matrix4f, x2, y1, 0F).color(color.r, color.g, color.b, 1).next();
+        builder.vertex(matrix4f, x2, y1, 0F).color(color.r, color.g, color.b, color.a).next();
+        builder.vertex(matrix4f, x1, y2, 0F).color(color.r, color.g, color.b, color.a).next();
+        builder.vertex(matrix4f, x2, y2, 0F).color(color.r, color.g, color.b, color.a).next();
+
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     public UIColorPicker(Consumer<Integer> callback)
@@ -97,55 +107,23 @@ public class UIColorPicker extends UIElement
 
         this.callback = callback;
 
-        this.input = new UITextbox(7, (string) ->
+        this.input = new UITextbox(7, this::applyColorFromHexInput)
         {
-            if (this.fillingFields)
+            @Override
+            public void unfocus(UIContext context)
             {
-                return;
+                super.unfocus(context);
+
+                UIColorPicker.this.syncHexInputAfterEdit();
             }
-
-            this.setValue(Colors.parse(string));
-            this.callback();
-            /* Refresh RGB/HSV pads only — rewriting the hex box while focused blocks typing. */
-            this.refreshChannelFieldsFromColor(false);
-        });
-        this.input.border().h(FIELD_ROW_HEIGHT);
+        };
         this.input.context((menu) -> menu.action(Icons.FAVORITE, UIKeys.COLOR_CONTEXT_FAVORITES_ADD, () -> this.addToFavorites(this.color)));
-
-        this.modeRgb = new UIButton(UIKeys.COLOR_MODE_RGB, (b) -> this.setMode(ColorMode.RGB));
-        this.modeHsv = new UIButton(UIKeys.COLOR_MODE_HSV, (b) -> this.setMode(ColorMode.HSV));
-        this.modeHex = new UIButton(UIKeys.COLOR_MODE_HEX, (b) -> this.setMode(ColorMode.HEX));
-        this.modeRgb.background(true).h(MODE_ROW_HEIGHT);
-        this.modeHsv.background(true).h(MODE_ROW_HEIGHT);
-        this.modeHex.background(true).h(MODE_ROW_HEIGHT);
-        this.modeRow = UI.row(2, this.modeRgb, this.modeHsv, this.modeHex);
-
-        this.labelA = UI.label(IKey.constant("R"), LABEL_ROW_HEIGHT).labelAnchor(0.5F, 0.5F);
-        this.labelB = UI.label(IKey.constant("G"), LABEL_ROW_HEIGHT).labelAnchor(0.5F, 0.5F);
-        this.labelC = UI.label(IKey.constant("B"), LABEL_ROW_HEIGHT).labelAnchor(0.5F, 0.5F);
-        this.labelAlpha = UI.label(IKey.constant("A"), LABEL_ROW_HEIGHT).labelAnchor(0.5F, 0.5F);
-        this.fieldA = new UITrackpad((v) -> this.applyChannelField(0, v.floatValue()));
-        this.fieldB = new UITrackpad((v) -> this.applyChannelField(1, v.floatValue()));
-        this.fieldC = new UITrackpad((v) -> this.applyChannelField(2, v.floatValue()));
-        this.fieldA.integer().limit(0, 255).plainFormat().h(FIELD_ROW_HEIGHT);
-        this.fieldB.integer().limit(0, 255).plainFormat().h(FIELD_ROW_HEIGHT);
-        this.fieldC.integer().limit(0, 255).plainFormat().h(FIELD_ROW_HEIGHT);
-        this.fieldAlpha = new UITrackpad((v) -> this.applyAlphaField(v.floatValue()));
-        this.fieldAlpha.integer().limit(0, 255).plainFormat().h(FIELD_ROW_HEIGHT);
-
-        /* Three equal columns fill the panel edge-to-edge; alpha is added only in editAlpha(). */
-        this.labelRow = UI.row(4, this.labelA, this.labelB, this.labelC);
-        this.valueRow = UI.row(4, this.fieldA, this.fieldB, this.fieldC);
-        this.labelRow.h(LABEL_ROW_HEIGHT);
-        this.valueRow.h(FIELD_ROW_HEIGHT);
-        this.fieldRow = UI.column(3, this.labelRow, this.valueRow);
-        this.fieldRow.h(CHANNEL_BLOCK_HEIGHT);
 
         this.recent = new UIColorPalette((color) ->
         {
             this.setColor(color.getARGBColor());
-            this.updateColor();
-        }).colors(recentColors.getCurrentColors());
+            this.notifyColorChanged();
+        }).colors(this.getRecentColors().getCurrentColors());
 
         this.recent.context((menu) ->
         {
@@ -160,7 +138,7 @@ public class UIColorPicker extends UIElement
         this.favorite = new UIColorPalette((color) ->
         {
             this.setColor(color.getARGBColor());
-            this.updateColor();
+            this.notifyColorChanged();
         }).colors(BBSSettings.favoriteColors.getCurrentColors());
 
         this.favorite.context((menu) ->
@@ -173,18 +151,7 @@ public class UIColorPicker extends UIElement
             }
         });
 
-        this.modeRow.relative(this).x(5).w(1F, -10).h(MODE_ROW_HEIGHT);
-        this.fieldRow.relative(this).x(5).w(1F, -10).h(CHANNEL_BLOCK_HEIGHT);
-        this.input.relative(this).x(5).w(1F, -10).h(FIELD_ROW_HEIGHT);
-        this.favorite.relative(this).xy(5, 0).w(1F, -10);
-        this.recent.relative(this.favorite).w(1F);
-
-        this.eventPropagataion(EventPropagation.BLOCK_INSIDE).add(
-            this.modeRow, this.fieldRow, this.input, this.favorite, this.recent
-        );
-
-        this.setMode(ColorMode.RGB);
-        this.refreshFieldsFromColor();
+        this.eventPropagataion(EventPropagation.BLOCK_INSIDE).add(this.input, this.favorite, this.recent);
     }
 
     public UIColorPicker editAlpha()
@@ -192,87 +159,50 @@ public class UIColorPicker extends UIElement
         this.editAlpha = true;
         this.input.textbox.setLength(9);
 
-        if (!this.labelAlpha.hasParent())
-        {
-            this.labelRow.add(this.labelAlpha);
-            this.valueRow.add(this.fieldAlpha);
-        }
-
-        this.labelAlpha.setVisible(true);
-        this.fieldAlpha.setVisible(true);
-        this.refreshFieldsFromColor();
-        this.setupSize();
-        this.resize();
-
         return this;
-    }
-
-    public void setMode(ColorMode mode)
-    {
-        this.mode = mode == null ? ColorMode.RGB : mode;
-        this.syncModeButtons();
-        this.syncModeFieldsVisibility();
-        this.refreshFieldsFromColor();
-        this.setupSize();
-        this.resize();
-    }
-
-    private void syncModeButtons()
-    {
-        int active = 0xFF4A90D9;
-        int idle = Colors.GRAY;
-
-        this.modeRgb.color(this.mode == ColorMode.RGB ? active : idle);
-        this.modeHsv.color(this.mode == ColorMode.HSV ? active : idle);
-        this.modeHex.color(this.mode == ColorMode.HEX ? active : idle);
-        this.modeRgb.textColor(this.mode == ColorMode.RGB ? Colors.WHITE : Colors.LIGHTEST_GRAY, false);
-        this.modeHsv.textColor(this.mode == ColorMode.HSV ? Colors.WHITE : Colors.LIGHTEST_GRAY, false);
-        this.modeHex.textColor(this.mode == ColorMode.HEX ? Colors.WHITE : Colors.LIGHTEST_GRAY, false);
-    }
-
-    private void syncModeFieldsVisibility()
-    {
-        boolean hex = this.mode == ColorMode.HEX;
-
-        this.input.setVisible(hex);
-        this.input.setEnabled(hex);
-        this.fieldRow.setVisible(!hex);
-        this.fieldRow.setEnabled(!hex);
-
-        if (this.mode == ColorMode.RGB)
-        {
-            this.labelA.label = IKey.constant("R");
-            this.labelB.label = IKey.constant("G");
-            this.labelC.label = IKey.constant("B");
-            this.labelA.color(0xFFFF5555, false);
-            this.labelB.color(0xFF55FF55, false);
-            this.labelC.color(0xFF5555FF, false);
-        }
-        else if (this.mode == ColorMode.HSV)
-        {
-            this.labelA.label = IKey.constant("H");
-            this.labelB.label = IKey.constant("S");
-            this.labelC.label = IKey.constant("V");
-            this.labelA.color(Colors.WHITE, false);
-            this.labelB.color(Colors.WHITE, false);
-            this.labelC.color(Colors.WHITE, false);
-        }
     }
 
     public void updateField()
     {
-        if (!this.input.isFocused())
+        if (this.input.isFocused())
         {
-            this.input.setText(this.color.stringify(this.editAlpha));
+            return;
         }
 
-        this.refreshChannelFieldsFromColor(false);
+        this.syncHexInputAfterEdit();
     }
 
-    public void updateColor()
+    private void syncHexInputAfterEdit()
     {
-        this.updateField();
-        this.callback();
+        this.input.setText(this.color.stringify(this.editAlpha));
+    }
+
+    private void applyColorFromHexInput(String string)
+    {
+        if (!this.isCompleteHexColorInput(string))
+        {
+            return;
+        }
+
+        this.setValue(Colors.parse(string));
+        this.notifyColorChanged();
+    }
+
+    private boolean isCompleteHexColorInput(String raw)
+    {
+        if (raw == null)
+        {
+            return false;
+        }
+
+        String t = raw.trim();
+
+        if (t.startsWith("#"))
+        {
+            t = t.substring(1);
+        }
+
+        return t.length() == 6 || t.length() == 8;
     }
 
     protected void callback()
@@ -285,11 +215,6 @@ public class UIColorPicker extends UIElement
 
     public void setColor(int color)
     {
-        if (this.dragging >= 0)
-        {
-            return;
-        }
-
         this.setValue(color);
         this.updateField();
     }
@@ -297,258 +222,222 @@ public class UIColorPicker extends UIElement
     public void setValue(int color)
     {
         this.color.set(color, this.editAlpha);
-
-        float prevH = this.hsv.r;
-        float prevS = this.hsv.g;
-
-        Colors.RGBtoHSV(this.hsv, this.color.r, this.color.g, this.color.b);
-        this.hsv.a = this.color.a;
-
-        if (this.color.r == this.color.g && this.color.g == this.color.b)
-        {
-            this.hsv.r = prevH;
-
-            if (this.color.r == 0F)
-            {
-                this.hsv.g = prevS;
-            }
-        }
-    }
-
-    private void refreshFieldsFromColor()
-    {
-        this.refreshChannelFieldsFromColor(true);
-    }
-
-    private void refreshChannelFieldsFromColor(boolean updateHexText)
-    {
-        this.fillingFields = true;
-
-        try
-        {
-            if (this.mode == ColorMode.RGB)
-            {
-                this.fieldA.setValue(Math.round(MathUtils.clamp(this.color.r, 0F, 1F) * 255F));
-                this.fieldB.setValue(Math.round(MathUtils.clamp(this.color.g, 0F, 1F) * 255F));
-                this.fieldC.setValue(Math.round(MathUtils.clamp(this.color.b, 0F, 1F) * 255F));
-            }
-            else if (this.mode == ColorMode.HSV)
-            {
-                this.fieldA.setValue(Math.round(MathUtils.clamp(this.hsv.r, 0F, 1F) * 255F));
-                this.fieldB.setValue(Math.round(MathUtils.clamp(this.hsv.g, 0F, 1F) * 255F));
-                this.fieldC.setValue(Math.round(MathUtils.clamp(this.hsv.b, 0F, 1F) * 255F));
-            }
-
-            if (this.editAlpha)
-            {
-                this.fieldAlpha.setValue(Math.round(MathUtils.clamp(this.color.a, 0F, 1F) * 255F));
-            }
-
-            if (updateHexText && !this.input.isFocused())
-            {
-                this.input.setText(this.color.stringify(this.editAlpha));
-            }
-        }
-        finally
-        {
-            this.fillingFields = false;
-        }
-    }
-
-    private void applyChannelField(int channel, float value)
-    {
-        if (this.fillingFields)
-        {
-            return;
-        }
-
-        float t = MathUtils.clamp(value, 0F, 255F) / 255F;
-
-        if (this.mode == ColorMode.RGB)
-        {
-            if (channel == 0)
-            {
-                this.color.r = t;
-            }
-            else if (channel == 1)
-            {
-                this.color.g = t;
-            }
-            else
-            {
-                this.color.b = t;
-            }
-
-            float prevH = this.hsv.r;
-            float prevS = this.hsv.g;
-
-            Colors.RGBtoHSV(this.hsv, this.color.r, this.color.g, this.color.b);
-            this.hsv.a = this.color.a;
-
-            if (this.color.r == this.color.g && this.color.g == this.color.b)
-            {
-                this.hsv.r = prevH;
-
-                if (this.color.r == 0F)
-                {
-                    this.hsv.g = prevS;
-                }
-            }
-        }
-        else if (this.mode == ColorMode.HSV)
-        {
-            if (channel == 0)
-            {
-                this.hsv.r = t;
-            }
-            else if (channel == 1)
-            {
-                this.hsv.g = t;
-            }
-            else
-            {
-                this.hsv.b = t;
-            }
-
-            Colors.HSVtoRGB(this.color, this.hsv.r, this.hsv.g, this.hsv.b);
-            this.color.a = this.hsv.a;
-        }
-
-        this.updateColor();
-    }
-
-    private void applyAlphaField(float value)
-    {
-        if (this.fillingFields || !this.editAlpha)
-        {
-            return;
-        }
-
-        this.color.a = MathUtils.clamp(value, 0F, 255F) / 255F;
-        this.hsv.a = this.color.a;
-        this.updateColor();
+        this.syncHsvFromColor();
     }
 
     public void setup(int x, int y)
     {
         this.xy(x, y);
-        this.setupSize();
     }
 
-    protected void setupSize()
+    private void notifyColorChanged()
     {
-        int width = 10 + COLOR_PICKER_SIZE;
-        int recent = this.recent.isVisible() && !this.recent.colors.isEmpty() ? this.recent.getHeight(width - 10) : 0;
-        int favorite = this.favorite.isVisible() && !this.favorite.colors.isEmpty() ? this.favorite.getHeight(width - 10) : 0;
-        int fieldsBlock = this.mode == ColorMode.HEX ? FIELD_ROW_HEIGHT : CHANNEL_BLOCK_HEIGHT;
-        int pickerBlock = COLOR_PICKER_TOP + COLOR_PICKER_SIZE + COLOR_PICKER_GAP
-            + COLOR_PICKER_BAR_HEIGHT + COLOR_PICKER_GAP
-            + (this.editAlpha ? COLOR_PICKER_BAR_HEIGHT + COLOR_PICKER_GAP : 0)
-            + MODE_ROW_HEIGHT + COLOR_PICKER_GAP
-            + fieldsBlock + 10;
-        int base = pickerBlock;
+        this.updateField();
+        this.callback();
+    }
 
-        this.w(width);
-        base += favorite > 0 ? favorite + 15 : 0;
-        base += recent > 0 ? recent + 15 : 0;
+    private void syncHsvFromColor()
+    {
+        Colors.RGBtoHSV(this.hsv, this.color.r, this.color.g, this.color.b);
+        this.hsv.a = this.color.a;
+    }
 
-        this.h(base);
-        this.favorite.h(favorite);
-        this.recent.h(recent);
+    private void syncColorFromHsv()
+    {
+        Colors.HSVtoRGB(this.color, this.hsv.r, this.hsv.g, this.hsv.b);
+        this.color.a = this.hsv.a;
+    }
 
-        int modeY = COLOR_PICKER_TOP + COLOR_PICKER_SIZE + COLOR_PICKER_GAP + COLOR_PICKER_BAR_HEIGHT + COLOR_PICKER_GAP
-            + (this.editAlpha ? COLOR_PICKER_BAR_HEIGHT + COLOR_PICKER_GAP : 0);
-        int fieldsY = modeY + MODE_ROW_HEIGHT + COLOR_PICKER_GAP;
-
-        this.modeRow.y(modeY);
-        this.fieldRow.y(fieldsY);
-        this.input.y(fieldsY);
-        this.favorite.y(pickerBlock);
-
-        if (favorite > 0)
-        {
-            this.recent.y(1F, 15);
-        }
-        else
-        {
-            this.recent.y(0);
-        }
+    private ValueColors getRecentColors()
+    {
+        return BBSSettings.recentColors == null ? RECENT_COLORS_FALLBACK : BBSSettings.recentColors;
     }
 
     /* Managing recent and favorite colors */
 
     private void addToRecent()
     {
-        recentColors.addColor(this.color);
+        this.getRecentColors().addColor(this.color);
     }
 
     private void addToFavorites(Color color)
     {
         BBSSettings.favoriteColors.addColor(color);
-
-        this.setupSize();
         this.resize();
     }
 
     private void removeFromFavorites(int index)
     {
         BBSSettings.favoriteColors.remove(index);
-
-        this.setupSize();
         this.resize();
     }
+
+    private void closePicker()
+    {
+        this.removeFromParent();
+        this.addToRecent();
+    }
+
+    /* GuiElement overrides */
 
     @Override
     public void resize()
     {
-        super.resize();
+        PickerLayout layout = this.createLayout();
 
-        int x = this.area.x + 5;
-        int y = this.area.y + COLOR_PICKER_TOP;
-        int width = this.area.w - 10;
-        int square = Math.max(40, Math.min(COLOR_PICKER_SIZE, width));
+        this.w(layout.width);
+        this.h(layout.height);
 
-        this.red.set(x, y, square, square);
-        this.green.set(x, this.red.ey() + COLOR_PICKER_GAP, square, COLOR_PICKER_BAR_HEIGHT);
+        if (this.resizer != null)
+        {
+            this.resizer.apply(this.area);
+        }
+
+        this.afterResizeApplied();
+        this.applyLayout(layout);
+
+        this.input.resize();
+        this.favorite.resize();
+        this.recent.resize();
+
+        if (this.resizer != null)
+        {
+            this.resizer.postApply(this.area);
+        }
+    }
+
+    private PickerLayout createLayout()
+    {
+        PickerLayout layout = new PickerLayout();
+
+        layout.hsv = this.isHsvPicker();
+        layout.width = layout.hsv ? this.getHsvWidth() : DEFAULT_WIDTH;
+        layout.paletteWidth = layout.width - POPUP_PADDING * 2;
+        layout.favoriteHeight = this.favorite.colors.isEmpty() ? 0 : this.favorite.getHeight(layout.paletteWidth);
+        layout.recentHeight = this.recent.colors.isEmpty() ? 0 : this.recent.getHeight(layout.paletteWidth);
+        layout.contentY = HEADER_HEIGHT;
+        layout.paletteY = layout.contentY + (layout.hsv ? HSV_PICKER_SIZE + HSV_SECTION_GAP : RGB_SLIDER_HEIGHT + RGB_SECTION_GAP);
+        layout.height = layout.paletteY;
+
+        if (layout.favoriteHeight > 0)
+        {
+            layout.height += layout.favoriteHeight;
+        }
+
+        if (layout.favoriteHeight > 0 && layout.recentHeight > 0)
+        {
+            layout.height += PALETTE_GAP;
+        }
+
+        if (layout.recentHeight > 0)
+        {
+            layout.height += layout.recentHeight + WINDOW_BOTTOM_GAP;
+        }
+        else if (layout.favoriteHeight > 0)
+        {
+            layout.height += PALETTE_GAP;
+        }
+
+        return layout;
+    }
+
+    private void applyLayout(PickerLayout layout)
+    {
+        int contentX = this.area.x + POPUP_PADDING;
+        int contentY = this.area.y + layout.contentY;
+        int previewX = this.area.ex() - POPUP_PADDING - PREVIEW_SIZE;
+
+        this.preview.set(previewX, this.area.y + POPUP_PADDING, PREVIEW_SIZE, PREVIEW_SIZE);
+        this.input.set(contentX, this.area.y + POPUP_PADDING, layout.paletteWidth - PREVIEW_SIZE - POPUP_PADDING, INPUT_HEIGHT);
+
+        if (layout.hsv)
+        {
+            this.layoutHsv(contentX, contentY);
+        }
+        else
+        {
+            this.layoutRgb(contentX, contentY, layout.paletteWidth);
+        }
+
+        this.favorite.set(contentX, this.area.y + layout.paletteY, layout.paletteWidth, layout.favoriteHeight);
+
+        if (layout.favoriteHeight > 0 && layout.recentHeight > 0)
+        {
+            this.recent.set(contentX, this.favorite.area.ey() + PALETTE_GAP, layout.paletteWidth, layout.recentHeight);
+        }
+        else
+        {
+            this.recent.set(contentX, this.area.y + layout.paletteY, layout.paletteWidth, layout.recentHeight);
+        }
+    }
+
+    private void layoutHsv(int x, int y)
+    {
+        this.picker.set(x, y, HSV_PICKER_SIZE, HSV_PICKER_SIZE);
+        this.hue.set(this.picker.ex() + HSV_SLIDER_GAP, y, HSV_SLIDER_WIDTH, HSV_PICKER_SIZE);
 
         if (this.editAlpha)
         {
-            this.alpha.set(x, this.green.ey() + COLOR_PICKER_GAP, square, COLOR_PICKER_BAR_HEIGHT);
+            this.alpha.set(this.hue.ex() + HSV_SLIDER_GAP, y, HSV_SLIDER_WIDTH, HSV_PICKER_SIZE);
         }
         else
         {
             this.alpha.set(0, 0, 0, 0);
         }
 
+        this.red.set(0, 0, 0, 0);
+        this.green.set(0, 0, 0, 0);
         this.blue.set(0, 0, 0, 0);
+    }
+
+    private void layoutRgb(int x, int y, int width)
+    {
+        int components = this.editAlpha ? 4 : 3;
+        int sliderHeight = RGB_SLIDER_HEIGHT / components;
+        int remainder = RGB_SLIDER_HEIGHT - sliderHeight * components;
+
+        this.red.set(x, y, width, sliderHeight);
+
+        if (this.editAlpha)
+        {
+            this.green.set(x, y + sliderHeight, width, sliderHeight);
+            this.blue.set(x, y + sliderHeight * 2, width, sliderHeight + remainder);
+            this.alpha.set(x, y + RGB_SLIDER_HEIGHT - sliderHeight, width, sliderHeight);
+        }
+        else
+        {
+            this.green.set(x, y + sliderHeight, width, sliderHeight + remainder);
+            this.blue.set(x, y + RGB_SLIDER_HEIGHT - sliderHeight, width, sliderHeight);
+            this.alpha.set(0, 0, 0, 0);
+        }
+
+        this.picker.set(0, 0, 0, 0);
+        this.hue.set(0, 0, 0, 0);
+    }
+
+    private int getHsvWidth()
+    {
+        int width = POPUP_PADDING * 2 + HSV_PICKER_SIZE + HSV_SLIDER_GAP + HSV_SLIDER_WIDTH;
+
+        if (this.editAlpha)
+        {
+            width += HSV_SLIDER_GAP + HSV_SLIDER_WIDTH;
+        }
+
+        return width;
     }
 
     @Override
     public boolean subMouseClicked(UIContext context)
     {
-        if (this.red.isInside(context))
+        if (this.beginDragging(context))
         {
-            this.dragging = 1;
-
-            return true;
-        }
-        else if (this.green.isInside(context))
-        {
-            this.dragging = 2;
-
-            return true;
-        }
-        else if (this.alpha.isInside(context) && this.editAlpha)
-        {
-            this.dragging = 4;
-
             return true;
         }
 
         if (!this.area.isInside(context))
         {
-            this.removeFromParent();
-            this.addToRecent();
+            this.closePicker();
         }
 
         return super.subMouseClicked(context);
@@ -567,8 +456,7 @@ public class UIColorPicker extends UIElement
     {
         if (context.isPressed(GLFW.GLFW_KEY_ESCAPE))
         {
-            this.removeFromParent();
-            this.addToRecent();
+            this.closePicker();
 
             return true;
         }
@@ -579,95 +467,244 @@ public class UIColorPicker extends UIElement
     @Override
     public void render(UIContext context)
     {
-        if (this.dragging >= 0)
+        this.handleDragging(context);
+
+        this.area.render(context.batcher, Colors.LIGHTEST_GRAY);
+        this.renderRect(context.batcher, this.preview.x, this.preview.y, this.preview.ex(), this.preview.ey());
+        context.batcher.outline(this.preview.x, this.preview.y, this.preview.ex(), this.preview.ey(), Colors.A25);
+
+        if (this.isHsvPicker())
         {
-            if (this.dragging == 1)
-            {
-                float saturation = MathUtils.clamp((context.mouseX - this.red.x) / (float) this.red.w, 0F, 1F);
-                float value = 1F - MathUtils.clamp((context.mouseY - this.red.y) / (float) this.red.h, 0F, 1F);
-
-                this.hsv.g = saturation;
-                this.hsv.b = value;
-            }
-            else if (this.dragging == 2)
-            {
-                float hue = MathUtils.clamp((context.mouseX - this.green.x) / (float) this.green.w, 0F, 1F);
-
-                this.hsv.r = hue;
-            }
-            else if (this.dragging == 4 && this.editAlpha)
-            {
-                float alpha = MathUtils.clamp((context.mouseX - this.alpha.x) / (float) this.alpha.w, 0F, 1F);
-
-                this.hsv.a = alpha;
-            }
-
-            Colors.HSVtoRGB(this.color, this.hsv.r, this.hsv.g, this.hsv.b);
-            this.color.a = this.hsv.a;
-            this.updateColor();
+            this.renderHsv(context);
+        }
+        else
+        {
+            this.renderRgb(context);
         }
 
-        this.area.render(context.batcher, PANEL_BACKGROUND);
+        this.renderPaletteLabels(context);
 
-        Color temp = new Color();
+        super.render(context);
+    }
 
-        Colors.HSVtoRGB(temp, this.hsv.r, 1F, 1F);
-        context.batcher.box(this.red.x, this.red.y, this.red.ex(), this.red.ey(), temp.getARGBColor());
-        context.batcher.gradientHBox(this.red.x, this.red.y, this.red.ex(), this.red.ey(), Colors.WHITE, Colors.setA(Colors.WHITE, 0F));
-        context.batcher.gradientVBox(this.red.x, this.red.y, this.red.ex(), this.red.ey(), 0, 0xff000000);
-
-        for (int i = 0; i < 6; i++)
+    private boolean beginDragging(UIContext context)
+    {
+        if (this.isHsvPicker())
         {
-            Colors.HSVtoRGB(temp, i / 6F, 1F, 1F);
-            int left = temp.getARGBColor();
+            if (this.picker.isInside(context))
+            {
+                this.dragging = DRAG_HSV_PICKER;
 
-            Colors.HSVtoRGB(temp, (i + 1) / 6F, 1F, 1F);
-            int right = temp.getARGBColor();
-            int x1 = this.green.x + (int) (this.green.w * (i / 6F));
-            int x2 = this.green.x + (int) (this.green.w * ((i + 1) / 6F));
+                return true;
+            }
 
-            context.batcher.gradientHBox(x1, this.green.y, x2, this.green.ey(), left, right);
+            if (this.hue.isInside(context))
+            {
+                this.dragging = DRAG_HUE;
+
+                return true;
+            }
+
+            if (this.editAlpha && this.alpha.isInside(context))
+            {
+                this.dragging = DRAG_HSV_ALPHA;
+
+                return true;
+            }
+
+            return false;
         }
+
+        if (this.red.isInside(context))
+        {
+            this.dragging = DRAG_RGB_RED;
+
+            return true;
+        }
+
+        if (this.green.isInside(context))
+        {
+            this.dragging = DRAG_RGB_GREEN;
+
+            return true;
+        }
+
+        if (this.blue.isInside(context))
+        {
+            this.dragging = DRAG_RGB_BLUE;
+
+            return true;
+        }
+
+        if (this.editAlpha && this.alpha.isInside(context))
+        {
+            this.dragging = DRAG_RGB_ALPHA;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void handleDragging(UIContext context)
+    {
+        if (this.dragging < 0)
+        {
+            return;
+        }
+
+        if (this.isHsvPicker())
+        {
+            this.handleHsvDragging(context);
+        }
+        else
+        {
+            this.handleRgbDragging(context);
+        }
+    }
+
+    private void handleHsvDragging(UIContext context)
+    {
+        if (this.dragging == DRAG_HSV_PICKER)
+        {
+            this.hsv.g = MathUtils.clamp((context.mouseX - this.picker.x) / (float) this.picker.w, 0F, 1F);
+            this.hsv.b = 1F - MathUtils.clamp((context.mouseY - this.picker.y) / (float) this.picker.h, 0F, 1F);
+        }
+        else if (this.dragging == DRAG_HUE)
+        {
+            this.hsv.r = MathUtils.clamp((context.mouseY - this.hue.y) / (float) this.hue.h, 0F, 1F);
+        }
+        else if (this.dragging == DRAG_HSV_ALPHA && this.editAlpha)
+        {
+            this.hsv.a = 1F - MathUtils.clamp((context.mouseY - this.alpha.y) / (float) this.alpha.h, 0F, 1F);
+        }
+
+        this.syncColorFromHsv();
+        this.notifyColorChanged();
+    }
+
+    private void handleRgbDragging(UIContext context)
+    {
+        float factor = (context.mouseX - (this.red.x + 7)) / (float) (this.red.w - 14);
+
+        this.color.set(MathUtils.clamp(factor, 0, 1), this.dragging);
+        this.syncHsvFromColor();
+        this.notifyColorChanged();
+    }
+
+    private boolean isHsvPicker()
+    {
+        return BBSSettings.hsvColorPicker.get();
+    }
+
+    private void renderHsv(UIContext context)
+    {
+        this.renderSliderBackdrop(context.batcher, this.picker, this.editAlpha ? this.alpha.ex() : this.hue.ex());
+        this.renderHsvSquare(context.batcher);
+        this.renderHueSlider(context.batcher);
 
         if (this.editAlpha)
         {
-            context.batcher.iconArea(Icons.CHECKBOARD, this.alpha.x, this.alpha.y, this.alpha.w, this.alpha.h);
-            Colors.HSVtoRGB(temp, this.hsv.r, this.hsv.g, this.hsv.b);
-            temp.a = 0F;
-            int left = temp.getARGBColor();
-            temp.a = 1F;
-            int right = temp.getARGBColor();
-
-            context.batcher.gradientHBox(this.alpha.x, this.alpha.y, this.alpha.ex(), this.alpha.ey(), left, right);
+            this.renderAlphaSlider(context.batcher);
         }
 
-        context.batcher.outline(this.red.x, this.red.y, this.red.ex(), this.red.ey(), 0x44000000);
-        context.batcher.outline(this.green.x, this.green.y, this.green.ex(), this.green.ey(), 0x44000000);
+        context.batcher.outline(this.picker.x, this.picker.y, this.picker.ex(), this.picker.ey(), Colors.A25);
+        context.batcher.outline(this.hue.x, this.hue.y, this.hue.ex(), this.hue.ey(), Colors.A25);
 
         if (this.editAlpha)
         {
-            context.batcher.outline(this.alpha.x, this.alpha.y, this.alpha.ex(), this.alpha.ey(), 0x44000000);
+            context.batcher.outline(this.alpha.x, this.alpha.y, this.alpha.ex(), this.alpha.ey(), Colors.A25);
         }
 
-        this.renderMarker(context.batcher, this.red.x + (int) (this.red.w * this.hsv.g), this.red.y + (int) (this.red.h * (1F - this.hsv.b)));
-        this.renderMarker(context.batcher, this.green.x + (int) (this.green.w * this.hsv.r), this.green.my());
+        this.renderSquareMarker(context.batcher, this.picker.x + (int) ((this.picker.w - 1) * this.hsv.g), this.picker.y + (int) ((this.picker.h - 1) * (1F - this.hsv.b)));
+        this.renderMarker(context.batcher, this.hue.mx(), this.hue.y + (int) ((this.hue.h - 1) * this.hsv.r));
 
         if (this.editAlpha)
         {
-            this.renderMarker(context.batcher, this.alpha.x + (int) (this.alpha.w * this.hsv.a), this.alpha.my());
+            this.renderMarker(context.batcher, this.alpha.mx(), this.alpha.y + (int) ((this.alpha.h - 1) * (1F - this.hsv.a)));
+        }
+    }
+
+    private void renderRgb(UIContext context)
+    {
+        if (this.editAlpha)
+        {
+            context.batcher.iconArea(Icons.CHECKBOARD, this.alpha.x, this.red.y, this.alpha.w, this.alpha.ey() - this.red.y);
         }
 
-        if (this.favorite.isVisible() && !this.favorite.colors.isEmpty())
+        this.renderRgbSlider(context.batcher, this.red, this.tempColor.copy(this.color).set(0F, DRAG_RGB_RED).getARGBColor(), this.tempColor2.copy(this.color).set(1F, DRAG_RGB_RED).getARGBColor());
+        this.renderRgbSlider(context.batcher, this.green, this.tempColor.copy(this.color).set(0F, DRAG_RGB_GREEN).getARGBColor(), this.tempColor2.copy(this.color).set(1F, DRAG_RGB_GREEN).getARGBColor());
+        this.renderRgbSlider(context.batcher, this.blue, this.tempColor.copy(this.color).set(0F, DRAG_RGB_BLUE).getARGBColor(), this.tempColor2.copy(this.color).set(1F, DRAG_RGB_BLUE).getARGBColor());
+
+        if (this.editAlpha)
+        {
+            this.renderRgbSlider(context.batcher, this.alpha, this.tempColor.copy(this.color).set(0F, DRAG_RGB_ALPHA).getARGBColor(), this.tempColor2.copy(this.color).set(1F, DRAG_RGB_ALPHA).getARGBColor());
+        }
+
+        context.batcher.outline(this.red.x, this.red.y, this.red.ex(), this.editAlpha ? this.alpha.ey() : this.blue.ey(), Colors.A25);
+
+        this.renderMarker(context.batcher, this.red.x + 7 + (int) ((this.red.w - 14) * this.color.r), this.red.my());
+        this.renderMarker(context.batcher, this.green.x + 7 + (int) ((this.green.w - 14) * this.color.g), this.green.my());
+        this.renderMarker(context.batcher, this.blue.x + 7 + (int) ((this.blue.w - 14) * this.color.b), this.blue.my());
+
+        if (this.editAlpha)
+        {
+            this.renderMarker(context.batcher, this.alpha.x + 7 + (int) ((this.alpha.w - 14) * this.color.a), this.alpha.my());
+        }
+    }
+
+    private void renderPaletteLabels(UIContext context)
+    {
+        if (!this.favorite.colors.isEmpty())
         {
             context.batcher.text(UIKeys.COLOR_FAVORITE.get(), this.favorite.area.x, this.favorite.area.y - 10, Colors.GRAY);
         }
 
-        if (this.recent.isVisible() && !this.recent.colors.isEmpty())
+        if (!this.recent.colors.isEmpty())
         {
             context.batcher.text(UIKeys.COLOR_RECENT.get(), this.recent.area.x, this.recent.area.y - 10, Colors.GRAY);
         }
+    }
 
-        super.render(context);
+    private void renderHsvSquare(Batcher2D batcher)
+    {
+        int hueColor = Colors.HSVtoRGB(this.tempColor, this.hsv.r, 1F, 1F).getARGBColor();
+
+        batcher.gradientHBox(this.picker.x, this.picker.y, this.picker.ex(), this.picker.ey(), Colors.WHITE, hueColor);
+        batcher.gradientVBox(this.picker.x, this.picker.y, this.picker.ex(), this.picker.ey(), 0x00000000, Colors.A100);
+    }
+
+    private void renderHueSlider(Batcher2D batcher)
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            float a = i / 6F;
+            float b = (i + 1) / 6F;
+            int top = Colors.HSVtoRGB(this.tempColor, a, 1F, 1F).getARGBColor();
+            int bottom = Colors.HSVtoRGB(this.tempColor2, b, 1F, 1F).getARGBColor();
+
+            batcher.gradientVBox(this.hue.x, this.hue.y + this.hue.h * a, this.hue.ex(), this.hue.y + this.hue.h * b, top, bottom);
+        }
+    }
+
+    private void renderAlphaSlider(Batcher2D batcher)
+    {
+        int opaque = Colors.HSVtoRGB(this.tempColor, this.hsv.r, this.hsv.g, this.hsv.b).getARGBColor();
+
+        this.tempColor2.copy(this.tempColor).a = 0F;
+
+        batcher.iconArea(Icons.CHECKBOARD, this.alpha.x, this.alpha.y, this.alpha.w, this.alpha.h);
+        batcher.gradientVBox(this.alpha.x, this.alpha.y, this.alpha.ex(), this.alpha.ey(), opaque, this.tempColor2.getARGBColor());
+    }
+
+    private void renderRgbSlider(Batcher2D batcher, Area area, int left, int right)
+    {
+        batcher.gradientHBox(area.x, area.y, area.ex(), area.ey(), left, right);
+    }
+
+    private void renderSliderBackdrop(Batcher2D batcher, Area picker, int right)
+    {
+        batcher.box(picker.x - 1, picker.y - 1, right + 1, picker.ey() + 1, Colors.A6);
     }
 
     public void renderRect(Batcher2D batcher, int x1, int y1, int x2, int y2)
@@ -688,5 +725,23 @@ public class UIColorPicker extends UIElement
         batcher.box(x - 4, y - 4, x + 4, y + 4, Colors.A100);
         batcher.box(x - 3, y - 3, x + 3, y + 3, Colors.WHITE);
         batcher.box(x - 2, y - 2, x + 2, y + 2, Colors.LIGHTEST_GRAY);
+    }
+
+    private void renderSquareMarker(Batcher2D batcher, int x, int y)
+    {
+        batcher.outlineCenter(x, y, 4, Colors.A100);
+        batcher.outlineCenter(x, y, 3, Colors.WHITE);
+    }
+
+    private static class PickerLayout
+    {
+        public boolean hsv;
+        public int width;
+        public int height;
+        public int paletteWidth;
+        public int contentY;
+        public int paletteY;
+        public int recentHeight;
+        public int favoriteHeight;
     }
 }

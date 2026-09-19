@@ -1,92 +1,84 @@
 package mchorse.bbs_mod.forms;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
-import mchorse.bbs_mod.forms.forms.FluidForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.FramebufferForm;
 import mchorse.bbs_mod.forms.forms.ItemForm;
 import mchorse.bbs_mod.forms.forms.LabelForm;
-import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
-import mchorse.bbs_mod.forms.forms.ShapeForm;
-import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.forms.renderers.AnchorFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BillboardFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BlockFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ExtrudedFormRenderer;
-import mchorse.bbs_mod.forms.renderers.FluidFormRenderer;
-import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.FramebufferFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ItemFormRenderer;
 import mchorse.bbs_mod.forms.renderers.LabelFormRenderer;
-import mchorse.bbs_mod.forms.renderers.LightFormRenderer;
 import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ParticleFormRenderer;
-import mchorse.bbs_mod.forms.renderers.ShapeFormRenderer;
-import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.entity.ThrownTridentRenderer;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.resources.model.ModelBakery;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.TexturedRenderLayers;
+import net.minecraft.client.render.chunk.BlockBufferBuilderStorage;
+import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.util.Util;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.AbstractSkullBlock;
 
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.SequencedMap;
+import java.util.SortedMap;
 import java.util.Stack;
-
-import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 
 public class FormUtilsClient
 {
-    /**
-     * Bump when {@link #createIsolatedProvider()} layer order changes so cached
-     * Immediates are rebuilt (trim must draw before armor glint for EQUAL depth).
-     */
-    private static final int PROVIDER_LAYER_LAYOUT = 2;
-    private static int activeProviderLayerLayout = -1;
-
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
     private static CustomVertexConsumerProvider customVertexConsumerProvider;
-    /** Isolated Immediate for MobForm morph draws (clothing / held items). */
-    private static CustomVertexConsumerProvider mobMorphVertexConsumerProvider;
     private static Stack<Form> currentForm = new Stack<>();
-    /** Guards against recursive illusion copies spawning more illusions. */
-    private static int illusionDepth;
-    private static final ThreadLocal<Boolean> UI_PREVIEW_ANIMATE = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     static
     {
+        BlockBufferBuilderStorage storage = new BlockBufferBuilderStorage();
+        SortedMap sortedMap = Util.make(new Object2ObjectLinkedOpenHashMap(), map -> {
+            map.put(TexturedRenderLayers.getEntitySolid(), storage.get(RenderLayer.getSolid()));
+            map.put(TexturedRenderLayers.getEntityCutout(), storage.get(RenderLayer.getCutout()));
+            map.put(TexturedRenderLayers.getBannerPatterns(), storage.get(RenderLayer.getCutoutMipped()));
+            map.put(TexturedRenderLayers.getEntityTranslucentCull(), storage.get(RenderLayer.getTranslucent()));
+            assignBufferBuilder(map, TexturedRenderLayers.getShieldPatterns());
+            assignBufferBuilder(map, TexturedRenderLayers.getBeds());
+            assignBufferBuilder(map, TexturedRenderLayers.getShulkerBoxes());
+            assignBufferBuilder(map, TexturedRenderLayers.getSign());
+            assignBufferBuilder(map, TexturedRenderLayers.getHangingSign());
+            map.put(TexturedRenderLayers.getChest(), new BufferBuilder(786432));
+            assignBufferBuilder(map, RenderLayer.getArmorGlint());
+            assignBufferBuilder(map, RenderLayer.getArmorEntityGlint());
+            assignBufferBuilder(map, RenderLayer.getGlint());
+            assignBufferBuilder(map, RenderLayer.getDirectGlint());
+            assignBufferBuilder(map, RenderLayer.getGlintTranslucent());
+            assignBufferBuilder(map, RenderLayer.getEntityGlint());
+            assignBufferBuilder(map, RenderLayer.getDirectEntityGlint());
+            assignBufferBuilder(map, RenderLayer.getWaterMask());
+            ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.forEach(renderLayer -> assignBufferBuilder(map, renderLayer));
+        });
+
+        customVertexConsumerProvider = new CustomVertexConsumerProvider(new BufferBuilder(1536), sortedMap);
+
         register(BillboardForm.class, BillboardFormRenderer::new);
-        register(FluidForm.class, FluidFormRenderer::new);
         register(ExtrudedForm.class, ExtrudedFormRenderer::new);
         register(LabelForm.class, LabelFormRenderer::new);
         register(ModelForm.class, ModelFormRenderer::new);
@@ -98,213 +90,16 @@ public class FormUtilsClient
         register(VanillaParticleForm.class, VanillaParticleFormRenderer::new);
         register(TrailForm.class, TrailFormRenderer::new);
         register(FramebufferForm.class, FramebufferFormRenderer::new);
-        register(StructureForm.class, StructureFormRenderer::new);
-        register(ShapeForm.class, ShapeFormRenderer::new);
-        register(LightForm.class, LightFormRenderer::new);
     }
 
-    /**
-     * Isolated Immediate for form/item/armor/block draws — same idea as original BBS.
-     * <p>
-     * Must NOT wrap {@code getEntityVertexConsumers()}: {@code draw()} would flush
-     * pending vanilla entity layers (enchanted armor) while the form has the lightmap
-     * off. Writing builtin meshes (trident) into the world Immediate instead makes
-     * Iris draw a second, scaled copy. Pre-allocate entity/glint layers so
-     * {@code ModelPart} can switch solid→glint without flushing mid-mesh.
-     */
+    private static void assignBufferBuilder(Object2ObjectLinkedOpenHashMap<RenderLayer, BufferBuilder> builderStorage, RenderLayer layer)
+    {
+        builderStorage.put(layer, new BufferBuilder(layer.getExpectedBufferSize()));
+    }
+
     public static CustomVertexConsumerProvider getProvider()
     {
-        FormUtilsClient.ensureProviderLayout();
-
-        if (customVertexConsumerProvider == null)
-        {
-            customVertexConsumerProvider = FormUtilsClient.createIsolatedProvider();
-        }
-
         return customVertexConsumerProvider;
-    }
-
-    /**
-     * Isolated Immediate for MobForm morph geometry (villager clothing, piglin body,
-     * held items). Separate from {@link #getProvider()} so clothing flushes do not mix
-     * with form-item batches.
-     */
-    public static CustomVertexConsumerProvider getMobMorphProvider()
-    {
-        FormUtilsClient.ensureProviderLayout();
-
-        if (mobMorphVertexConsumerProvider == null)
-        {
-            mobMorphVertexConsumerProvider = FormUtilsClient.createIsolatedProvider();
-        }
-
-        return mobMorphVertexConsumerProvider;
-    }
-
-    private static void ensureProviderLayout()
-    {
-        if (activeProviderLayerLayout == PROVIDER_LAYER_LAYOUT)
-        {
-            return;
-        }
-
-        customVertexConsumerProvider = null;
-        mobMorphVertexConsumerProvider = null;
-        activeProviderLayerLayout = PROVIDER_LAYER_LAYOUT;
-    }
-
-    /**
-     * Original BBS layer map, plus the glint layers vanilla keeps on the entity
-     * Immediate and the trident solid layer (per-texture, not in the atlas map).
-     * <p>
-     * Armor trim atlas layers must come <b>before</b> {@link RenderType#getArmorEntityGlint()}:
-     * glint uses equal-depth and only appears where trim/armor already wrote depth.
-     */
-    private static CustomVertexConsumerProvider createIsolatedProvider()
-    {
-        SequencedMap<RenderType, ByteBufferBuilder> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
-        {
-            map.put(Sheets.cutoutBlockSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.cutoutBlockItemSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.cutoutItemSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.translucentBlockSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.translucentBlockItemSheet(), new ByteBufferBuilder(786432));
-            map.put(Sheets.translucentItemSheet(), new ByteBufferBuilder(786432));
-            FormUtilsClient.assignBuffer(map, RenderTypes.solidMovingBlock());
-            FormUtilsClient.assignBuffer(map, RenderTypes.cutoutMovingBlock());
-            FormUtilsClient.assignBuffer(map, RenderTypes.translucentMovingBlock());
-            /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
-             * has no trim entry; our dual-shell trim must depth-write first). */
-            FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(false));
-            FormUtilsClient.assignBuffer(map, Sheets.armorTrimsSheet(true));
-            FormUtilsClient.assignBuffer(map, RenderTypes.armorEntityGlint());
-            FormUtilsClient.assignBuffer(map, RenderTypes.glint());
-            FormUtilsClient.assignBuffer(map, RenderTypes.glintTranslucent());
-            FormUtilsClient.assignBuffer(map, RenderTypes.entityGlint());
-            FormUtilsClient.assignBuffer(map, RenderTypes.waterMask());
-            FormUtilsClient.assignBuffer(map, RenderTypes.entitySolid(ThrownTridentRenderer.TRIDENT_LOCATION));
-        });
-
-        return new CustomVertexConsumerProvider(
-            MultiBufferSource.immediateWithBuffers(layers, new ByteBufferBuilder(512 * 1024))
-        );
-    }
-
-    private static void assignBuffer(SequencedMap<RenderType, ByteBufferBuilder> storage, RenderType layer)
-    {
-        storage.put(layer, new ByteBufferBuilder(layer.bufferSize()));
-    }
-
-    /**
-     * Trident/shield/skulls use {@code BuiltinModelItemRenderer} (entity ModelParts).
-     * Those meshes tessellate on the world entity Immediate — same path as a vanilla
-     * player. Do not {@code draw()} that Immediate from here (Iris would duplicate).
-     */
-    public static boolean usesBuiltinItemRenderer(ItemStack stack, ItemDisplayContext mode)
-    {
-        if (stack == null || stack.isEmpty())
-        {
-            return false;
-        }
-
-        return stack.is(Items.TRIDENT)
-            || stack.is(Items.SHIELD)
-            || stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock;
-    }
-
-    public static MultiBufferSource routeMobFormBuiltinItemConsumers(ItemStack stack, ItemDisplayContext mode, MultiBufferSource fallback)
-    {
-        if (fallback == null || !BBSRendering.isRenderingWorld() || BBSRendering.isIrisShadowPass())
-        {
-            return fallback;
-        }
-
-        if (!(getCurrentForm() instanceof MobForm))
-        {
-            return fallback;
-        }
-
-        if (!usesBuiltinItemRenderer(stack, mode))
-        {
-            return fallback;
-        }
-
-        return Minecraft.getInstance().renderBuffers().bufferSource();
-    }
-
-    public static boolean isCrumblingLayer(RenderType layer)
-    {
-        if (layer == null)
-        {
-            return false;
-        }
-
-        if (ModelBakery.DESTROY_TYPES.contains(layer))
-        {
-            return true;
-        }
-
-        String name = layer.toString();
-
-        if (name == null || name.isEmpty())
-        {
-            return false;
-        }
-
-        return name.toLowerCase().contains("crumbling");
-    }
-
-    public static boolean isMobFormEquipmentLayer(RenderType layer)
-    {
-        if (layer == null)
-        {
-            return false;
-        }
-
-        String name = layer.toString();
-
-        if (name == null || name.isEmpty())
-        {
-            return false;
-        }
-
-        String lower = name.toLowerCase();
-
-        return lower.contains("armor")
-            || lower.contains("glint")
-            || lower.contains("trident")
-            || lower.contains("shield");
-    }
-
-    public static boolean shouldFlushMobFormFeatureLayers()
-    {
-        return getCurrentForm() instanceof MobForm
-            && BBSRendering.isRenderingWorld()
-            && !BBSRendering.isIrisShadowPass();
-    }
-
-    /**
-     * Armor/clothing use per-texture layers that live in Immediate's fallback buffer.
-     * Flush after the feature so a later throw (trident) cannot skip {@code draw()}
-     * and drop the last armor piece.
-     */
-    public static void flushMobFormFeatureLayers(Object vertexConsumers)
-    {
-        if (!shouldFlushMobFormFeatureLayers() || vertexConsumers == null)
-        {
-            return;
-        }
-
-        BBSRendering.prepareVanillaEntityLighting();
-
-        if (vertexConsumers instanceof CustomVertexConsumerProvider custom)
-        {
-            custom.drawCurrentLayer();
-        }
-        else if (vertexConsumers instanceof MultiBufferSource.BufferSource immediate)
-        {
-            immediate.endLastBatch();
-        }
     }
 
     public static <T extends Form> void register(Class<T> clazz, IFormRendererFactory<T> function)
@@ -343,74 +138,17 @@ public class FormUtilsClient
         return null;
     }
 
-    public static boolean isUIPreviewAnimate()
-    {
-        return Boolean.TRUE.equals(UI_PREVIEW_ANIMATE.get());
-    }
-
     public static void renderUI(Form form, UIContext context, int x1, int y1, int x2, int y2)
-    {
-        /* List / morph thumbnails default to a frozen pose (no idle). Pass true to animate. */
-        renderUI(form, context, x1, y1, x2, y2, false);
-    }
-
-    public static void renderUI(Form form, UIContext context, int x1, int y1, int x2, int y2, boolean animate)
     {
         FormRenderer renderer = getRenderer(form);
 
         if (renderer != null)
         {
-            UI_PREVIEW_ANIMATE.set(animate);
-
-            try
-            {
-                context.batcher.flush();
-                renderer.renderUI(context, x1, y1, x2, y2);
-                context.batcher.flush();
-            }
-            finally
-            {
-                UI_PREVIEW_ANIMATE.set(Boolean.FALSE);
-                BBSRendering.restoreGuiRenderState();
-            }
+            renderer.renderUI(context, x1, y1, x2, y2);
         }
     }
 
-    /**
-     * Cached variant of {@link #renderUI} for list thumbnails and HUD overlays.
-     * Always renders a static pose into the cache (mouse orbit still updates via angle buckets).
-     */
-    public static void renderUICached(Form form, UIContext context, int x1, int y1, int x2, int y2)
-    {
-        FormUIPreviewCache.render(form, context, x1, y1, x2, y2, true);
-    }
-
-    /**
-     * Cached thumbnail at a fixed orbit angle — for category cards that must not
-     * refill on every mouse move.
-     */
-    public static void renderUICachedStatic(Form form, UIContext context, int x1, int y1, int x2, int y2)
-    {
-        FormUIPreviewCache.render(form, context, x1, y1, x2, y2, false);
-    }
-
-    public static boolean is3D(Form form)
-    {
-        FormRenderer renderer = getRenderer(form);
-
-        return renderer != null && renderer.is3D();
-    }
-
     public static void render(Form form, FormRenderingContext context)
-    {
-        render(form, context, null);
-    }
-
-    /**
-     * Renders a form and, at the outermost call, any configured illusions.
-     * {@code extras} carries film-only delay hooks (replay property ticks).
-     */
-    public static void render(Form form, FormRenderingContext context, FormIllusionRenderer.Extras extras)
     {
         FormRenderer renderer = getRenderer(form);
 
@@ -420,36 +158,12 @@ public class FormUtilsClient
 
             try
             {
-                if (context.isPicking())
-                {
-                    StencilFormFramebuffer.rebindActive();
-                }
-
                 renderer.render(context);
-
-                if (context.isPicking())
-                {
-                    StencilFormFramebuffer.rebindActive();
-                }
             }
             catch (Exception e)
             {}
 
             currentForm.pop();
-
-            if (illusionDepth == 0)
-            {
-                illusionDepth++;
-
-                try
-                {
-                    FormIllusionRenderer.render(form, context, extras);
-                }
-                finally
-                {
-                    illusionDepth--;
-                }
-            }
         }
     }
 

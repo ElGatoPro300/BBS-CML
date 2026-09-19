@@ -53,15 +53,6 @@ public class ModelUV implements IDataSerializable<ListType>
         return this.origin.y + this.size.y;
     }
 
-    public ModelUV copy()
-    {
-        ModelUV uv = new ModelUV();
-        uv.origin.set(this.origin);
-        uv.size.set(this.size);
-        uv.rotation = this.rotation;
-        return uv;
-    }
-
     public Quad createQuad()
     {
         Quad quad = new Quad();

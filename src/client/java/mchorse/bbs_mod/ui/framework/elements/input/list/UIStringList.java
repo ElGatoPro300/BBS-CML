@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.list;
 
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.NaturalOrderComparator;
 
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.function.Consumer;
 
 public class UIStringList extends UIList<String>
 {
-    public static final int DEFAULT_HEIGHT = 16;
+    public static final int DEFAULT_HEIGHT = UIConstants.LIST_ITEM_HEIGHT;
 
     public UIStringList(Consumer<List<String>> callback)
     {

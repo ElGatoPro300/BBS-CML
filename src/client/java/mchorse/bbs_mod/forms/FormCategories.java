@@ -21,7 +21,6 @@ public class FormCategories implements IWatchDogListener
     private List<FormSection> sections = new ArrayList<>();
     private RecentFormSection recentForms = new RecentFormSection(this);
     private UserFormSection userForms = new UserFormSection(this);
-    private ExtraFormSection extraForms = new ExtraFormSection(this);
 
     private long lastUpdate;
 
@@ -34,7 +33,7 @@ public class FormCategories implements IWatchDogListener
         this.sections.add(this.userForms);
         this.sections.add(new ModelFormSection(this));
         this.sections.add(new ParticleFormSection(this));
-        this.sections.add(this.extraForms);
+        this.sections.add(new ExtraFormSection(this));
 
         for (FormSection section : this.sections)
         {
@@ -63,11 +62,6 @@ public class FormCategories implements IWatchDogListener
     public UserFormSection getUserForms()
     {
         return this.userForms;
-    }
-
-    public ExtraFormSection getExtraForms()
-    {
-        return this.extraForms;
     }
 
     public List<FormCategory> getAllCategories()

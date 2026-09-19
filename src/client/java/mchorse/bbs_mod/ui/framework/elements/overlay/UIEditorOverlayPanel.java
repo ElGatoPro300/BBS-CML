@@ -4,6 +4,7 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -32,7 +33,7 @@ public abstract class UIEditorOverlayPanel <T> extends UIOverlayPanel
             }
         });
 
-        this.editor = UI.scrollView(5, 10);
+        this.editor = UI.scrollView(UIConstants.MARGIN, UIConstants.SCROLL_PADDING);
 
         this.list.relative(this.content).w(120).h(1F);
         this.editor.relative(this.content).x(120).w(1F, -120).h(1F);

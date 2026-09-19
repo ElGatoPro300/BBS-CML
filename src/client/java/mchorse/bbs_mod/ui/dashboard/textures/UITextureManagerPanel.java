@@ -66,7 +66,7 @@ public class UITextureManagerPanel extends UIDashboardPanel
     {
         super(dashboard);
 
-        this.picker = new UITexturePicker(null).cantBeClosed().disableMultiSkin();
+        this.picker = new UITexturePicker(null).cantBeClosed();
         this.picker.full(this);
         this.picker.fill(null);
 

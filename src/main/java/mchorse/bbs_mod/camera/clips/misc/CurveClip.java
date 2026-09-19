@@ -8,8 +8,8 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
-import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,45 +17,30 @@ import java.util.Map;
 public class CurveClip extends CameraClip
 {
     public static final String SHADER_CURVES_PREFIX = "curve.";
-    public static final String CHROMA_SKY_ID = "chroma_sky";
-    public static final String CHROMA_SKY_MARKER = "chroma_sky";
+
+    public static final String CHROMA_SKY_COLOR = "chroma_sky_color";
+
+    public static boolean isColorChannelId(String id)
+    {
+        return CHROMA_SKY_COLOR.equals(id);
+    }
 
     public final ValueChannels channels = new ValueChannels("channels");
-    public final KeyframeChannel<ChromaSkyCurveSettings> chromaSky = new KeyframeChannel<>(CHROMA_SKY_ID, KeyframeFactories.CHROMA_SKY_SETTINGS);
 
     public static Map<String, Double> getValues(ClipContext context)
     {
         return context.clipData.get("curve_data", HashMap::new);
     }
 
-    public static ChromaSkyCurveSettings getChromaSkySettings(ClipContext context)
+    public static Map<String, Integer> getColorValues(ClipContext context)
     {
-        return context.clipData.get("curve_chroma_sky", ChromaSkyCurveSettings::new);
+        return context.clipData.get("curve_color_data", HashMap::new);
     }
 
     public CurveClip()
     {
         this.add(this.channels);
-        this.add(this.chromaSky);
-        this.ensureDefaultChannels();
-    }
-
-    public void ensureDefaultChannels()
-    {
-        if (this.channels.get("sun_rotation") == null)
-        {
-            this.channels.addChannel("sun_rotation");
-        }
-
-        if (this.channels.get("sun_path_rotation") == null)
-        {
-            this.channels.addChannel("sun_path_rotation");
-        }
-
-        if (this.channels.get("brightness") == null)
-        {
-            this.channels.addChannel("brightness");
-        }
+        this.channels.addChannel("sun_rotation");
     }
 
     @Override
@@ -71,24 +56,20 @@ public class CurveClip extends CameraClip
             }
         }
 
-        if (!this.chromaSky.isEmpty())
+        Map<String, Integer> colorValues = getColorValues(context);
+
+        for (KeyframeChannel<Color> channel : this.channels.getColorChannels())
         {
-            ChromaSkyCurveSettings chromaSkySettings = this.chromaSky.interpolate(context.relativeTick + context.transition);
-            ChromaSkyCurveSettings settings = getChromaSkySettings(context);
+            if (!channel.isEmpty())
+            {
+                var color = channel.interpolate(context.relativeTick + context.transition, null);
 
-            values.put(CHROMA_SKY_MARKER, 1D);
-            settings.enabled = chromaSkySettings.enabled;
-            settings.color.copy(chromaSkySettings.color);
-            settings.terrain = chromaSkySettings.terrain;
-            settings.clouds = chromaSkySettings.clouds;
-            settings.billboard = chromaSkySettings.billboard;
+                if (color != null)
+                {
+                    colorValues.put(channel.getId(), color.getARGBColor());
+                }
+            }
         }
-    }
-
-    @Override
-    public boolean isPositionClip()
-    {
-        return false;
     }
 
     @Override
@@ -117,6 +98,5 @@ public class CurveClip extends CameraClip
         }
 
         super.fromData(data);
-        this.ensureDefaultChannels();
     }
 }

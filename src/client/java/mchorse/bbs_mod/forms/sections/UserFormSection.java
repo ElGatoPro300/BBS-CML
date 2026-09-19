@@ -8,10 +8,8 @@ import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.categories.RecentFormCategory;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -155,20 +153,5 @@ public class UserFormSection extends FormSection
         this.parent.visibility.remove(category.visible.getId());
 
         this.writeUserCategories();
-    }
-
-    public boolean moveUserCategory(int from, int to)
-    {
-        if (from < 0 || to < 0 || from >= this.categories.size() || to >= this.categories.size() || from == to)
-        {
-            return false;
-        }
-
-        UserFormCategory category = this.categories.remove(from);
-        this.categories.add(to, category);
-        this.parent.markDirty();
-        this.writeUserCategories();
-
-        return true;
     }
 }

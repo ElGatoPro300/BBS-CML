@@ -1,17 +1,12 @@
 package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.CameraClipContext;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
 import mchorse.bbs_mod.camera.data.Position;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.Entity;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import java.util.List;
 import java.util.Map;
@@ -33,32 +28,6 @@ public class WorldFilmController extends BaseFilmController
         this.duration = film.camera.calculateDuration();
         this.context = new CameraClipContext();
         this.context.clips = film.camera;
-    }
-
-    public CameraClipContext getCameraContext()
-    {
-        return this.context;
-    }
-
-    /**
-     * Applies camera clips (curves, audio triggers, etc.) into {@link #context}
-     * so world lighting can read curve data outside the film editor.
-     */
-    public void applyCameraClips(float transition)
-    {
-        int tick = Math.max(this.tick, 0);
-        float delta = this.paused ? 0F : transition;
-        List<Clip> clips = this.context.clips.getClips(tick);
-
-        this.context.clipData.clear();
-        this.context.setup(tick, delta);
-
-        for (Clip clip : clips)
-        {
-            this.context.apply(clip, this.position);
-        }
-
-        this.context.currentLayer = 0;
     }
 
     @Override
@@ -88,67 +57,30 @@ public class WorldFilmController extends BaseFilmController
         }
 
         super.update();
-
-        if (this.paused)
-        {
-            this.syncPausedActorAnimationFreeze();
-        }
-
-        /* Keep curve data fresh for time-of-day / sun-path even before render. */
-        this.applyCameraClips(0F);
     }
 
-    /**
-     * World films skip the UPDATE loop while paused, so actor freeze flags must
-     * be applied here for timeline-synced natural animations.
-     */
-    private void syncPausedActorAnimationFreeze()
+    @Override
+    public void render(WorldRenderContext context)
     {
-        boolean freeze = BBSSettings.editorActorPauseAnimations != null
-            && BBSSettings.editorActorPauseAnimations.get();
-        Map<String, Integer> actors = this.getActors();
+        super.render(context);
 
-        if (actors == null || Minecraft.getInstance().level == null)
+        int tick = Math.max(this.tick, 0);
+        List<Clip> clips = this.context.clips.getClips(tick);
+
+        if (clips.isEmpty())
         {
             return;
         }
 
-        for (Integer entityId : actors.values())
+        this.context.clipData.clear();
+        this.context.setup(tick, context.tickDelta());
+
+        for (Clip clip : clips)
         {
-            if (entityId == null)
-            {
-                continue;
-            }
-
-            Entity entity = Minecraft.getInstance().level.getEntity(entityId);
-
-            if (entity instanceof ActorEntity actor)
-            {
-                actor.setPauseNaturalAnimations(freeze);
-            }
+            this.context.apply(clip, this.position);
         }
-    }
 
-    @Override
-    public void startRenderFrame(float transition)
-    {
-        super.startRenderFrame(transition);
-        this.applyCameraClips(transition);
-    }
-
-    @Override
-    public void render(LevelRenderContext context)
-    {
-        super.render(context);
-
-        this.applyCameraClips(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
-
-        if (BBSSettings.recordingCameraPreview.get())
-        {
-            int tick = Math.max(this.tick, 0);
-
-            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.poseStack());
-        }
+        this.context.currentLayer = 0;
 
         AudioClientClip.manageSounds(this.context);
     }
@@ -156,7 +88,6 @@ public class WorldFilmController extends BaseFilmController
     @Override
     public void shutdown()
     {
-        super.shutdown();
         this.context.shutdown();
     }
 }

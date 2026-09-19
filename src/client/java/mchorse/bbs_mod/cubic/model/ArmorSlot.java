@@ -1,38 +1,20 @@
 package mchorse.bbs_mod.cubic.model;
 
+import mchorse.bbs_mod.data.IDataSerializable;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.settings.values.core.ValueGroup;
-import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-public class ArmorSlot extends ValueGroup
+public class ArmorSlot implements IDataSerializable
 {
-    public final ValueString group = new ValueString("group", "");
+    public String group = "";
     public final Transform transform = new Transform();
-
-    public ArmorSlot(String id)
-    {
-        super(id);
-
-        this.add(this.group);
-    }
 
     @Override
     public BaseType toData()
     {
-        if (this.group.get().isEmpty() && this.transform.isDefault())
-        {
-            return null;
-        }
-
-        MapType data = (MapType) super.toData();
-        Transform transform = this.transform.copy();
-
-        transform.toDeg();
-        data.put("transform", transform.toData());
-
-        return data;
+        /* Unnecessary yet */
+        return new MapType();
     }
 
     @Override
@@ -40,31 +22,16 @@ public class ArmorSlot extends ValueGroup
     {
         if (data.isString())
         {
-            this.group.set(data.asString());
-            return;
+            this.transform.identity();
+            this.group = data.asString();
         }
-
-        super.fromData(data);
-
-        if (data.isMap())
+        else if (data.isMap())
         {
             MapType map = data.asMap();
 
-            if (map.has("transform"))
-            {
-                this.transform.fromData(map.getMap("transform"));
-                this.transform.toRad();
-            }
+            this.transform.fromData(map.getMap("transform"));
+            this.transform.toRad();
+            this.group = map.getString("group");
         }
-    }
-
-    public ArmorSlot copy()
-    {
-        ArmorSlot slot = new ArmorSlot(this.getId());
-
-        slot.group.set(this.group.get());
-        slot.transform.copy(this.transform);
-
-        return slot;
     }
 }

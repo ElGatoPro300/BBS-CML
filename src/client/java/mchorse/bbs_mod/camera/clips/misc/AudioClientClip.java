@@ -5,7 +5,6 @@ import mchorse.bbs_mod.audio.SoundPlayer;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.resources.Link;
-import mchorse.bbs_mod.utils.LoopbackAudioController;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 
@@ -14,48 +13,44 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class AudioClientClip extends AudioClip
 {
+    static final class Playback
+    {
+        final float seconds;
+        final float gain;
+
+        Playback(float seconds, float gain)
+        {
+            this.seconds = seconds;
+            this.gain = gain;
+        }
+    }
+
     public AudioClientClip()
     {
         super();
     }
 
-    public static Map<Link, Float> getPlayback(ClipContext context)
+    public static Map<Link, Playback> getPlayback(ClipContext context)
     {
         return context.clipData.get("audio", ConcurrentHashMap::new);
     }
 
-    public static Map<Link, Float> getVolumes(ClipContext context)
-    {
-        return context.clipData.get("audio_gain", ConcurrentHashMap::new);
-    }
-
     public static void manageSounds(ClipContext context)
     {
-        Map<Link, Float> playback = getPlayback(context);
-        Map<Link, Float> volumes = getVolumes(context);
+        Map<Link, Playback> playback = getPlayback(context);
 
-        if (LoopbackAudioController.isFilmClipPlaybackSuppressed())
+        for (Map.Entry<Link, Playback> entry : playback.entrySet())
         {
-            for (Link link : playback.keySet())
-            {
-                BBSModClient.getSounds().stop(link);
-            }
-
-            playback.clear();
-            volumes.clear();
-
-            return;
-        }
-
-        for (Map.Entry<Link, Float> entry : playback.entrySet())
-        {
-            float tickTime = entry.getValue();
+            Playback state = entry.getValue();
+            float tickTime = state.seconds;
             SoundPlayer player = BBSModClient.getSounds().playUnique(entry.getKey());
 
-            if (player == null || player.getBuffer() == null || !player.getBuffer().isValid())
+            if (player == null)
             {
                 continue;
             }
+
+            player.setVolume(state.gain);
 
             if (tickTime < 0 || tickTime >= player.getBuffer().getDuration())
             {
@@ -83,12 +78,7 @@ public class AudioClientClip extends AudioClip
             {
                 player.setPlaybackPosition(tickTime);
             }
-
-            float gain = Math.min(100F, Math.max(0F, volumes.getOrDefault(entry.getKey(), 0F)));
-            player.setVolume(gain);
         }
-
-        volumes.clear();
     }
 
     @Override
@@ -117,26 +107,22 @@ public class AudioClientClip extends AudioClip
         {
             SoundPlayer player = BBSModClient.getSounds().playUnique(link);
 
-            if (player == null || player.getBuffer() == null || !player.getBuffer().isValid())
+            if (player == null)
             {
                 return;
             }
 
             float tickTime = (context.relativeTick + context.transition) / 20F;
-            Map<Link, Float> playback = getPlayback(context);
-            Map<Link, Float> volumes = getVolumes(context);
+            Map<Link, Playback> playback = getPlayback(context);
+            float gain = this.volume.get();
 
             if (context.relativeTick >= this.duration.get() || tickTime < 0)
             {
-                playback.putIfAbsent(link, -1F);
+                playback.putIfAbsent(link, new Playback(-1F, gain));
             }
             else
             {
-                playback.put(link, TimeUtils.toSeconds(this.offset.get()) + tickTime);
-
-                float factor = this.envelope.factorEnabled(this.duration.get(), context.relativeTick + context.transition);
-                float gain = (this.volume.get() / 100F) * factor;
-                volumes.merge(link, gain, Float::sum);
+                playback.put(link, new Playback(TimeUtils.toSeconds(this.offset.get()) + tickTime, gain));
             }
         }
     }

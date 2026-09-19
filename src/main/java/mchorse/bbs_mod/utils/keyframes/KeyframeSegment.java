@@ -2,7 +2,6 @@ package mchorse.bbs_mod.utils.keyframes;
 
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
-import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 /**
  * Keyframe segment.
@@ -61,14 +60,6 @@ public class KeyframeSegment <T>
     public void setup(float ticks)
     {
         float forcedDuration = this.a.getDuration();
-
-        /* Boolean tracks are step/hold. Forced duration only moves segment.x (used by
-         * getClosest and some discrete factories) and would flip “closest” at mid-duration
-         * — that looks like ghost visible/render keyframes. Ignore it for booleans. */
-        if (this.a.getFactory() == KeyframeFactories.BOOLEAN)
-        {
-            forcedDuration = 0F;
-        }
 
         this.duration = forcedDuration > 0 ? forcedDuration : this.b.getTick() - this.a.getTick();
         this.offset = ticks - this.a.getTick();

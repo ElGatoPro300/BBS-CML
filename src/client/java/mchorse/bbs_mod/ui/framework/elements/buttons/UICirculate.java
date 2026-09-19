@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public class UICirculate extends UIClickable<UICirculate>
     {
         super(callback);
 
-        this.h(20);
+        this.h(UIConstants.CONTROL_HEIGHT);
     }
 
     public UICirculate color(int color)

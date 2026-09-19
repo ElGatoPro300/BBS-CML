@@ -1,50 +1,39 @@
 package mchorse.bbs_mod.ui.forms.editors.utils;
 
-import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.renderer.LightTexture;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
-import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
-import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
-import mchorse.bbs_mod.ui.forms.editors.UIForms;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
-import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
-import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
-import mchorse.bbs_mod.ui.utils.gizmo.GizmoRayFrame;
-import mchorse.bbs_mod.ui.utils.gizmo.GizmoSurface;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 
 import java.util.function.Supplier;
 
-public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurface
+public class UIPickableFormRenderer extends UIFormRenderer
 {
     public UIFormEditor formEditor;
 
@@ -52,26 +41,13 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
-    private final Matrix4f lastGizmoMatrix = new Matrix4f();
-    private final Matrix4f unscaledGizmoMatrix = new Matrix4f();
-    private boolean hasGizmoMatrix;
-
-    private final GizmoController gizmoController = new GizmoController(this);
 
     private IEntity target;
     private Supplier<Boolean> renderForm;
-    private Supplier<Boolean> renderFormMesh;
-    /** True when the gizmo is dragging a ModelForm pose bone (not form General transform). */
-    private boolean poseBoneGizmoDrag;
 
     public UIPickableFormRenderer(UIFormEditor formEditor)
     {
         this.formEditor = formEditor;
-    }
-
-    public void setPoseBoneGizmoDrag(boolean poseBoneGizmoDrag)
-    {
-        this.poseBoneGizmoDrag = poseBoneGizmoDrag;
     }
 
     public void updatable()
@@ -84,53 +60,9 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         return this.stencil;
     }
 
-    @Override
-    public StencilFormFramebuffer getGizmoStencil()
-    {
-        return this.stencil;
-    }
-
-    public GizmoController getGizmoController()
-    {
-        return this.gizmoController;
-    }
-
     public void setRenderForm(Supplier<Boolean> renderForm)
     {
         this.renderForm = renderForm;
-    }
-
-    /**
-     * Optional override for whether the form mesh itself is drawn in the UI preview.
-     * When null, follows {@link #isPreviewVisible()}. Used by model-block F7 world
-     * rendering so gizmos/picking can stay active without double-drawing the model.
-     */
-    public void setRenderFormMesh(Supplier<Boolean> renderFormMesh)
-    {
-        this.renderFormMesh = renderFormMesh;
-    }
-
-    private boolean isPreviewVisible()
-    {
-        return this.renderForm == null || this.renderForm.get();
-    }
-
-    private boolean shouldRenderFormMesh()
-    {
-        if (this.renderFormMesh != null)
-        {
-            return this.renderFormMesh.get();
-        }
-
-        return this.isPreviewVisible();
-    }
-
-    private void clearGizmoPickState()
-    {
-        this.stencil.clearPicking();
-        this.gizmoController.updateHover();
-        this.hasGizmoMatrix = false;
-        Gizmo.INSTANCE.setHoveredIndex(-1);
     }
 
     public IEntity getTargetEntity()
@@ -160,25 +92,12 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     @Override
     public boolean subMouseClicked(UIContext context)
     {
-        if (this.formEditor.modelSettingsEditor != null && this.formEditor.modelSettingsEditor.isVisible())
-        {
-            return false;
-        }
-
         if (this.formEditor.clickViewport(context, this.stencil))
         {
             return true;
         }
 
         return super.subMouseClicked(context);
-    }
-
-    @Override
-    public boolean subMouseReleased(UIContext context)
-    {
-        this.formEditor.finishGizmoPendingClick();
-
-        return super.subMouseReleased(context);
     }
 
     @Override
@@ -189,239 +108,82 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             return;
         }
 
-        boolean previewVisible = this.isPreviewVisible();
-
-        if (!previewVisible)
-        {
-            this.clearGizmoPickState();
-        }
-
         this.formEditor.preFormRender(context, this.form);
 
-        IEntity previewEntity = this.target == null ? this.entity : this.target;
-        int previewLight = BBSRendering.resolveEntityBlockLight(
-            previewEntity, LightTexture.pack(15, 15));
-
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, previewEntity, this.createCameraStack(), previewLight, OverlayTexture.NO_OVERLAY, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.target == null ? this.entity : this.target, context.batcher.getContext().getMatrices(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
-            .modelRenderer()
-            .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
+            .modelRenderer();
 
-        boolean renderMesh = this.shouldRenderFormMesh();
-
-        if (previewVisible && renderMesh)
+        if (this.renderForm == null || this.renderForm.get())
         {
             FormUtilsClient.render(this.form, formContext);
 
-            if (this.form.hitbox.get() && this.form.visible.get())
+            if (this.form.hitbox.get())
             {
                 this.renderFormHitbox(context);
             }
         }
 
-        if (this.area.w > 0 && this.area.h > 0)
+        this.renderAxes(context);
+
+        if (this.area.isInside(context))
         {
-            if (this.stencil.getFramebuffer() == null)
-            {
-                this.ensureFramebuffer();
-            }
-            else
-            {
-                this.stencil.resizeGUI(this.area.w, this.area.h);
-            }
-
-            Texture fboTexture = this.stencil.getFramebuffer().getMainTexture();
-            int fboW = fboTexture.width;
-            int fboH = fboTexture.height;
-
             GlStateManager._disableScissorTest();
 
             this.stencilMap.setup();
             this.stencil.apply();
 
-            this.beginStencilViewport(fboW, fboH);
-            this.setupViewport(context);
-
-            /* Restore depth writes so the closest bone along the cursor ray wins picking. */
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthFunc(GL11.GL_LEQUAL);
-            GlStateManager._depthMask(true);
-
-            this.stencil.bindForPick();
             FormUtilsClient.render(this.form, formContext.stencilMap(this.stencilMap));
-            this.stencil.bindForPick();
 
             Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
-            PoseStack stack = this.createCameraStack();
+            MatrixStack stack = context.render.batcher.getContext().getMatrices();
 
-            stack.pushPose();
+            stack.push();
 
             if (matrix != null)
             {
-                MatrixStackUtils.multiply(stack, matrix);
+                MatrixStackUtils.multiply(stack, MatrixStackUtils.stripScale(matrix));
             }
 
-            this.unscaledGizmoMatrix.set(stack.last().pose());
+            Gizmo.INSTANCE.renderStencil(context.batcher.getContext().getMatrices(), this.stencilMap);
 
-            Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.last().pose()));
-            stack.last().pose().set(normalized);
+            stack.pop();
 
-            if (Gizmo.isInteractive())
-            {
-                GlStateManager._disableCull();
-                this.stencil.bindForPick();
-                Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
-                GlStateManager._enableCull();
-            }
-
-            stack.popPose();
-
-            if (this.area.isInside(context))
-            {
-                this.stencil.pickGUI(context, this.area);
-            }
-            else
-            {
-                this.stencil.clearPicking();
-            }
-
+            this.stencil.pickGUI(context, this.area);
             this.stencil.unbind(this.stencilMap);
-            this.gizmoController.updateHover();
 
-            this.endStencilViewport();
-
-            /* resize()/texture.bind() leave the pick FBO color attachment on TU0. Same leak
-             * as film framebuffer.draw() — vanilla Block/Item (and later world) sample it and
-             * draw opaque black. Clear before rebinding the main target. */
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(0);
-
-            /* beginWrite(true) wiped the just-drawn preview mesh (see UIFilmController). */
-            GlStateManager._glBindFramebuffer(36160, 0);
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 
             GlStateManager._enableScissorTest();
         }
-
-        this.setupViewport(context);
-        this.prepareGizmoRenderState();
-        this.renderAxes(context);
-    }
-
-    private void prepareGizmoRenderState()
-    {
-        GlStateManager._depthMask(true);
-        GlStateManager._colorMask(ColorTargetState.WRITE_ALL);
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._disableBlend();
-        GlStateManager._disableCull();
-        // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        else
+        {
+            this.stencil.clearPicking();
+        }
     }
 
     private void renderAxes(UIContext context)
     {
         Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
-        PoseStack stack = this.createCameraStack();
-        this.hasGizmoMatrix = true;
+        MatrixStack stack = context.render.batcher.getContext().getMatrices();
 
-        stack.pushPose();
+        stack.push();
 
         if (matrix != null)
         {
-            MatrixStackUtils.multiply(stack, matrix);
+            MatrixStackUtils.multiply(stack, MatrixStackUtils.stripScale(matrix));
         }
-
-        this.unscaledGizmoMatrix.set(stack.last().pose());
-
-        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.last().pose()));
-        stack.last().pose().set(normalized);
-
-        /* Full drawn MV so drag matches film (view-space rays ↔ view-space gizmo). */
-        this.lastGizmoMatrix.set(normalized);
 
         /* Draw axes */
         if (UIBaseMenu.renderAxes)
         {
-            GlStateManager._disableCull();
-            GlStateManager._disableDepthTest();
+            RenderSystem.disableDepthTest();
             Gizmo.INSTANCE.render(stack);
-            GlStateManager._enableDepthTest();
-            GlStateManager._enableCull();
+            RenderSystem.enableDepthTest();
         }
 
-        stack.popPose();
-    }
-
-    @Override
-    public void prepareGizmoDrag(UIPropTransform transform)
-    {
-        if (transform == null)
-        {
-            return;
-        }
-
-        /* Model Block → Edit (and any form palette): pose bone gizmo must match Film Pose
-         * signs for .bbs.json (Ry(180°) bone-local). General form transform keeps the
-         * per-ring process-bar flips below. */
-        if (this.poseBoneGizmoDrag)
-        {
-            boolean bobjModel = this.form instanceof ModelForm modelForm
-                && ModelFormRenderer.isBobjModel(modelForm);
-
-            transform.setModel(false);
-            transform.configurePoseRingTuning(bobjModel);
-            transform.setInvertGizmoViewRing(true);
-            transform.setInvertGizmoTrackball(false);
-            transform.setInvertFilmPoseGizmoAxes(false);
-            transform.clearTrackballEulerInverts();
-
-            if (bobjModel)
-            {
-                transform.invertModelPoseTrackballXZ();
-            }
-
-            transform.setInvertTrackballDragY(false);
-            transform.setInvertFilmArcballDragY(false);
-            transform.setFilmArcballTrackball(true);
-            transform.setFilmMatchPoseTrackball(false);
-            transform.setInvertRotationArcSweep(false);
-            transform.setInvertRotationArcViewRing(false);
-            transform.setInvertRotationArcY(false);
-            /* Skip filmArcball X/Z process-bar undo for Z only (arc winds with value delta). */
-            transform.setInvertRotationArcZ(true);
-            transform.setForceFrozenRotationArc(false);
-            transform.translationScale(bobjModel ? 1F : 16F);
-            transform.setAxisProjectedTranslation(bobjModel);
-            transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
-                this.camera,
-                this.area,
-                () -> this.hasGizmoMatrix ? this.unscaledGizmoMatrix : null
-            ));
-
-            return;
-        }
-
-        /* Same as model-editor General: per-ring process-bar flips (not global sweep — that
-         * reversed the X ring incorrectly). */
-        transform.setInvertGizmoViewRing(false);
-        transform.setInvertGizmoTrackball(false);
-        transform.setInvertFilmPoseGizmoAxes(false);
-        transform.setFilmArcballTrackball(false);
-        transform.clearTrackballEulerInverts();
-        transform.setInvertTrackballDragY(true);
-        transform.setInvertFilmArcballDragY(false);
-        transform.setInvertRotationArcSweep(false);
-        transform.setInvertRotationArcViewRing(true);
-        transform.setInvertRotationArcY(true);
-        transform.setInvertRotationArcZ(true);
-        transform.configurePoseRingTuning(true);
-        transform.setFilmMatchPoseTrackball(true);
-        transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
-            this.camera,
-            this.area,
-            () -> this.hasGizmoMatrix ? this.unscaledGizmoMatrix : null
-        ));
+        stack.pop();
     }
 
     private void renderFormHitbox(UIContext context)
@@ -430,14 +192,12 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         float hitboxH = this.form.hitboxHeight.get();
         float eyeHeight = hitboxH * this.form.hitboxEyeHeight.get();
 
-        PoseStack stack = this.createCameraStack();
-
         /* Draw look vector */
         final float thickness = 0.01F;
-        Draw.renderBox(stack, -thickness, -thickness + eyeHeight, -thickness, thickness, thickness, 2F, 1F, 0F, 0F);
+        Draw.renderBox(context.batcher.getContext().getMatrices(), -thickness, -thickness + eyeHeight, -thickness, thickness, thickness, 2F, 1F, 0F, 0F);
 
         /* Draw hitbox */
-        Draw.renderBox(stack, -hitboxW / 2, 0, -hitboxW / 2, hitboxW, hitboxH, hitboxW);
+        Draw.renderBox(context.batcher.getContext().getMatrices(), -hitboxW / 2, 0, -hitboxW / 2, hitboxW, hitboxH, hitboxW);
     }
 
     @Override
@@ -445,28 +205,16 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     {
         super.update();
 
-        /* Do not call form.update() here when model-block editing set a target.
-         * That path shares the live Form with ModelBlockEntity, which already ticks it
-         * each world tick (panel canPause=false). A second form.update() here ran
-         * ParticleForm emitters at ~2x (~3–4x before the extra ITickable.tick was removed).
-         * Vanilla particles looked closer to correct because MC ages them once per world
-         * tick; custom emitters age on every form.update().
-         *
-         * Other editors leave target null and rely on Morph / film / owning systems for
-         * shared forms — ticking here would double those clocks too. */
+        if (this.update && this.form != null)
+        {
+            this.form.update(this.entity);
+        }
     }
 
     @Override
     public void render(UIContext context)
     {
         super.render(context);
-
-        if (!this.isPreviewVisible() || this.stencil.getFramebuffer() == null)
-        {
-            return;
-        }
-
-        GlStateManager._enableBlend();
 
         if (!this.stencil.hasPicked())
         {
@@ -479,7 +227,16 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         int w = texture.width;
         int h = texture.height;
 
-        context.batcher.drawPickerPreview(this.stencil.getColorView(), index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h);
+        ShaderProgram previewProgram = BBSShaders.getPickerPreviewProgram();
+        GlUniform target = previewProgram.getUniform("Target");
+
+        if (target != null)
+        {
+            target.set(index);
+        }
+
+        RenderSystem.enableBlend();
+        context.batcher.texturedBox(BBSShaders::getPickerPreviewProgram, texture.id, Colors.WHITE, this.area.x, this.area.y, this.area.w, this.area.h, 0, h, w, 0, w, h);
 
         if (pair != null && pair.a != null)
         {
@@ -497,8 +254,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     @Override
     protected void renderGrid(UIContext context)
     {
-        /* Hide the preview grid when only gizmos/picking run over world rendering. */
-        if (this.isPreviewVisible() && this.shouldRenderFormMesh())
+        if (this.renderForm == null || this.renderForm.get())
         {
             super.renderGrid(context);
         }

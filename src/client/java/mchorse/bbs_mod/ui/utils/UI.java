@@ -11,7 +11,7 @@ public class UI
 {
     public static UIElement row(UIElement... elements)
     {
-        return row(5, elements);
+        return row(UIConstants.MARGIN, elements);
     }
 
     public static UIElement row(int margin, UIElement... elements)
@@ -36,7 +36,7 @@ public class UI
 
     public static UIElement column(UIElement... elements)
     {
-        return column(5, elements);
+        return column(UIConstants.MARGIN, elements);
     }
 
     public static UIElement column(int margin, UIElement... elements)
@@ -80,7 +80,7 @@ public class UI
 
     public static UIScrollView scrollView(UIElement... elements)
     {
-        return scrollView(5, elements);
+        return scrollView(UIConstants.MARGIN, elements);
     }
 
     public static UIScrollView scrollView(int margin, UIElement... elements)

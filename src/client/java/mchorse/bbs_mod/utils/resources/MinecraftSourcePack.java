@@ -5,10 +5,10 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.StringUtils;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.resource.Resource;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.util.Identifier;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,25 +26,14 @@ public class MinecraftSourcePack implements ISourcePack
 
     public MinecraftSourcePack()
     {
-        this.manager = Minecraft.getInstance().getResourceManager();
+        this.manager = MinecraftClient.getInstance().getResourceManager();
 
         this.setupPaths();
-    }
-    
-    private ResourceManager getEffectiveManager(Link link)
-    {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getSingleplayerServer() != null && (link.path.startsWith("structure/") || link.path.endsWith(".nbt")))
-        {
-            return mc.getSingleplayerServer().getResourceManager();
-        }
-        
-        return this.manager;
     }
 
     public void setupPaths()
     {
-        Map<Identifier, List<Resource>> map = this.manager.listResourceStacks("textures", (l) -> l.getNamespace().equals("minecraft") && l.getPath().endsWith(".png"));
+        Map<Identifier, List<Resource>> map = this.manager.findAllResources("textures", (l) -> l.getNamespace().equals("minecraft") && l.getPath().endsWith(".png"));
 
         for (Identifier id : map.keySet())
         {
@@ -88,43 +77,17 @@ public class MinecraftSourcePack implements ISourcePack
     @Override
     public boolean hasAsset(Link link)
     {
-        Identifier id = Identifier.fromNamespaceAndPath(link.source, link.path);
-        ResourceManager effectiveManager = this.getEffectiveManager(link);
-        
-        if (effectiveManager.getResource(id).isPresent())
-        {
-            return true;
-        }
-        
-        if (!link.path.startsWith("structure/") && link.path.endsWith(".nbt"))
-        {
-             Identifier structureId = Identifier.fromNamespaceAndPath(link.source, "structure/" + link.path);
-             if (effectiveManager.getResource(structureId).isPresent())
-             {
-                 return true;
-             }
-        }
-        
-        return false;
+        return this.manager.getResource(new Identifier(link.toString())).isPresent();
     }
 
     @Override
     public InputStream getAsset(Link link) throws IOException
     {
-        Identifier id = Identifier.fromNamespaceAndPath(link.source, link.path);
-        ResourceManager effectiveManager = this.getEffectiveManager(link);
-        
-        Optional<Resource> resource = effectiveManager.getResource(id);
-
-        if (resource.isEmpty() && !link.path.startsWith("structure/") && link.path.endsWith(".nbt"))
-        {
-             Identifier structureId = Identifier.fromNamespaceAndPath(link.source, "structure/" + link.path);
-             resource = effectiveManager.getResource(structureId);
-        }
+        Optional<Resource> resource = this.manager.getResource(new Identifier(link.toString()));
 
         if (resource.isPresent())
         {
-            return resource.get().open();
+            return resource.get().getInputStream();
         }
 
         return null;

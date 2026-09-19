@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.particles.sections.UIParticleSchemeSection;
 import mchorse.bbs_mod.ui.utils.Area;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -47,7 +48,7 @@ public class UIGradientEditor extends UIElement
             }
         });
 
-        this.h(20);
+        this.h(UIConstants.CONTROL_HEIGHT);
     }
 
     private Color fillColor(Solid solid)

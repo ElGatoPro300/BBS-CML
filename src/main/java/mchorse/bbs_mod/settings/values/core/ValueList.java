@@ -26,10 +26,8 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
 
     public void add(T value)
     {
-        this.preNotify(0);
         this.list.add(value);
         value.setParent(this);
-        this.postNotify(0);
     }
 
     public void add(int index, T value)
@@ -41,30 +39,8 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
             return;
         }
 
-        this.preNotify(0);
         this.list.add(index, value);
         value.setParent(this);
-        this.postNotify(0);
-    }
-
-    public void remove(T value)
-    {
-        if (this.list.contains(value))
-        {
-            this.preNotify(0);
-            this.list.remove(value);
-            this.postNotify(0);
-        }
-    }
-
-    public void remove(int index)
-    {
-        if (CollectionUtils.inRange(this.list, index))
-        {
-            this.preNotify(0);
-            this.list.remove(index);
-            this.postNotify(0);
-        }
     }
 
     @Override
@@ -113,10 +89,7 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
 
         for (BaseValue value : group.getAll())
         {
-            T newValue = this.create(value.getId());
-
-            this.add(newValue);
-            newValue.copy(value);
+            this.list.add(this.create(value.getId()));
         }
     }
 
@@ -138,24 +111,14 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
     @Override
     public BaseType toData()
     {
-        if (this.list.isEmpty())
-        {
-            return null;
-        }
-
         ListType list = new ListType();
 
         for (T value : this.list)
         {
-            BaseType data = value.toData();
-
-            if (data != null)
-            {
-                list.add(data);
-            }
+            list.add(value.toData());
         }
 
-        return list.isEmpty() ? null : list;
+        return list;
     }
 
     @Override
@@ -163,7 +126,7 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
     {
         this.list.clear();
 
-        if (data == null || !data.isList())
+        if (!data.isList())
         {
             return;
         }

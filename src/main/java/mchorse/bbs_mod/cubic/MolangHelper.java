@@ -5,8 +5,6 @@ import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.util.Mth;
-
 public class MolangHelper
 {
     public static void registerVars(MolangParser parser)
@@ -51,14 +49,14 @@ public class MolangHelper
 
         if (target != null)
         {
-            float yawHead = Mth.rotLerp(transition, target.getPrevHeadYaw(), target.getHeadYaw());
-            float bodyYaw = Mth.rotLerp(transition, target.getPrevBodyYaw(), target.getBodyYaw());
+            float yawHead = Lerps.lerp(target.getPrevHeadYaw(), target.getHeadYaw(), transition);
+            float bodyYaw = Lerps.lerp(target.getPrevBodyYaw(), target.getBodyYaw(), transition);
 
             dx = target.getVelocity().x;
             dz = target.getVelocity().z;
             yawSpeed = Lerps.lerp(target.getPrevBodyYaw() - target.getPrevPrevBodyYaw(), target.getBodyYaw() - target.getPrevBodyYaw(), transition);
-            headYaw = Mth.wrapDegrees(yawHead - bodyYaw);
-            headPitch = Mth.lerp(transition, target.getPrevPitch(), target.getPitch());
+            headYaw = yawHead - bodyYaw;
+            headPitch = Lerps.lerp(target.getPrevPitch(), target.getPitch(), transition);
             velocity = Math.sqrt(dx * dx + target.getVelocity().y * target.getVelocity().y + dz * dz);
             limbSwingAmount = target.getLimbSpeed(transition);
             limbSwing = target.getLimbPos(transition);

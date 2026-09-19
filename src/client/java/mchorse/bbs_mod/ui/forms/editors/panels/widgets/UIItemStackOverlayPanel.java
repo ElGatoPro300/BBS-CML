@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -11,19 +10,15 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.StringNbtReader;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import com.mojang.brigadier.StringReader;
 
@@ -45,9 +40,9 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     static
     {
-        for (ResourceKey<Item> key : BuiltInRegistries.ITEM.registryKeySet())
+        for (RegistryKey<Item> key : Registries.ITEM.getKeys())
         {
-            itemIDs.add(key.identifier().toString());
+            itemIDs.add(key.getValue().toString());
         }
 
         itemIDs.sort(String::compareToIgnoreCase);
@@ -61,32 +56,27 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
         this.stack = stack.copy();
         this.name = new UITextbox(1000, (v) ->
         {
-            this.stack.set(DataComponents.CUSTOM_NAME, Component.literal(v));
+            this.stack.setCustomName(Text.literal(v));
             this.pickItemStack(this.stack);
             this.updateNbt();
         });
-        this.name.setText(stack.getHoverName().getString());
+        this.name.setText(stack.getName().getString());
         this.count = new UITrackpad((v) ->
         {
             this.stack.setCount(v.intValue());
             this.pickItemStack(this.stack);
             this.updateNbt();
         });
-        this.count.limit(1.0, stack.getMaxStackSize(), true).setValue(stack.getCount());
+        this.count.limit(1.0, stack.getMaxCount(), true).setValue(stack.getCount());
         this.nbt = new UITextarea<>((v) ->
         {
             try
             {
-                CompoundTag nbtCompound = TagParser.parseCompoundFully(v);
-                HolderLookup.Provider registries = BBSMod.getRegistryManager();
-                RegistryOps<Tag> ops = registries != null ? RegistryOps.create(NbtOps.INSTANCE, registries) : null;
-
-                ItemStack itemStack = registries != null
-                    ? ItemStack.CODEC.parse(ops, nbtCompound).result().orElse(ItemStack.EMPTY)
-                    : ItemStack.CODEC.parse(NbtOps.INSTANCE, nbtCompound).result().orElse(ItemStack.EMPTY);
+                NbtCompound nbtCompound = new StringNbtReader(new StringReader(v)).parseCompound();
+                ItemStack itemStack = ItemStack.fromNbt(nbtCompound);
 
                 this.pickItemStack(itemStack);
-                this.itemList.list.setCurrentScroll(BuiltInRegistries.ITEM.getKey(this.stack.getItem()).toString());
+                this.itemList.list.setCurrentScroll(Registries.ITEM.getId(this.stack.getItem()).toString());
             }
             catch (Exception e)
             {
@@ -100,7 +90,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
         this.itemList.label(UIKeys.GENERAL_SEARCH).list.background();
         this.itemList.list.clear();
         this.itemList.list.add(itemIDs);
-        this.itemList.list.setCurrentScroll(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        this.itemList.list.setCurrentScroll(Registries.ITEM.getId(stack.getItem()).toString());
 
         UIElement element = UI.column(5, 6, this.name, this.count);
 
@@ -113,21 +103,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     private void updateNbt()
     {
-        HolderLookup.Provider registries = BBSMod.getRegistryManager();
-        RegistryOps<Tag> ops = registries != null ? RegistryOps.create(NbtOps.INSTANCE, registries) : null;
-
-        String nbtString = "{}";
-
-        if (registries != null)
-        {
-            nbtString = ItemStack.CODEC.encodeStart(ops, this.stack).result().map(Object::toString).orElse("{}");
-        }
-        else
-        {
-            nbtString = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().map(Object::toString).orElse("{}");
-        }
-
-        this.nbt.setText(nbtString);
+        this.nbt.setText((ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().get()).asString());
     }
 
     private void pickItemStack(ItemStack itemStack)
@@ -140,7 +116,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     private void setItem(String s)
     {
-        this.stack = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.parse(s)));
+        this.stack = new ItemStack(Registries.ITEM.get(new Identifier(s)));
 
         this.pickItemStack(this.stack);
         this.updateNbt();

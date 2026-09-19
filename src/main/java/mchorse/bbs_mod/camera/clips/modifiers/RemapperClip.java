@@ -36,12 +36,6 @@ public class RemapperClip extends CameraClip
     }
 
     @Override
-    public boolean isPositionClip()
-    {
-        return false;
-    }
-
-    @Override
     public Clip create()
     {
         return new RemapperClip();

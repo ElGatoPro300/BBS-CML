@@ -51,7 +51,7 @@ public class RunnerCameraController extends CameraWorkCameraController
     {
         this.manual = manual;
 
-        if (manual != null && !this.panel.getController().isFreeCameraMode())
+        if (manual != null && this.panel.getController().getPovMode() != UIFilmController.CAMERA_MODE_FREE)
         {
             manual.copy(this.position);
         }
@@ -62,6 +62,12 @@ public class RunnerCameraController extends CameraWorkCameraController
     {
         if (this.context.playing && this.manual == null)
         {
+            if (this.context.clips == null)
+            {
+                this.setPlaying(false);
+                return;
+            }
+
             this.ticks += 1;
 
             if (this.ticks >= this.context.clips.calculateDuration())
@@ -77,20 +83,13 @@ public class RunnerCameraController extends CameraWorkCameraController
         if (this.manual != null)
         {
             this.manual.apply(camera);
-
-            if (this.context.clips != null)
-            {
-                this.apply(null, this.ticks, this.context.playing ? transition : 0F, false);
-            }
         }
         else if (this.context.clips != null)
         {
             /* kms */
             boolean free = this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_FREE;
 
-            /* Free camera mode evaluates clips for audio and timeline effects,
-             * but skips writing transform and FOV back to preserve the user's view. */
-            this.apply(camera, this.ticks, this.context.playing ? transition : 0F, !free);
+            this.apply(free ? null : camera, this.ticks, this.context.playing ? transition : 0F);
         }
 
         this.panel.getController().handleCamera(camera, transition);

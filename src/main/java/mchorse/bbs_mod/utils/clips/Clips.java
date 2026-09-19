@@ -103,19 +103,14 @@ public class Clips extends ValueGroup
      */
     public int calculateDuration()
     {
-        long max = 0L;
+        int max = 0;
 
         for (Clip clip : this.clips)
         {
-            long end = (long) clip.tick.get() + (long) clip.duration.get();
-
-            if (end > max)
-            {
-                max = end;
-            }
+            max = Math.max(max, clip.tick.get() + clip.duration.get());
         }
 
-        return max > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) max;
+        return max;
     }
 
     public Clip get(int index)

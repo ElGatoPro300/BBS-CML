@@ -6,9 +6,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import org.joml.Matrix3x2fc;
+import net.minecraft.client.render.BufferBuilder;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.joml.Matrix4f;
 
 public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
 {
@@ -25,7 +25,7 @@ public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
     }
 
     @Override
-    public void renderKeyframe(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public void renderKeyframe(UIContext uiContext, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         final int NUM_SEGMENTS = 32;
 
@@ -51,22 +51,22 @@ public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
             float outerX2 = x;
             float outerY2 = y;
 
-            builder.addVertexWith2DPose(matrix, innerX1, innerY1).setColor(c);
-            builder.addVertexWith2DPose(matrix, outerX1, outerY1).setColor(c);
-            builder.addVertexWith2DPose(matrix, outerX2, outerY2).setColor(c);
-            builder.addVertexWith2DPose(matrix, innerX2, innerY2).setColor(c);
+            builder.vertex(matrix, innerX1, innerY1, 0F).color(c).next();
+            builder.vertex(matrix, outerX1, outerY1, 0F).color(c).next();
+            builder.vertex(matrix, outerX2, outerY2, 0F).color(c).next();
+            builder.vertex(matrix, innerX2, innerY2, 0F).color(c).next();
         }
     }
 
     @Override
-    public void renderKeyframeBackground(UIContext uiContext, VertexConsumer builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public void renderKeyframeBackground(UIContext uiContext, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         float centerSize = offset * 0.2f;
         float half = centerSize * 2;
 
-        builder.addVertexWith2DPose(matrix, x - half, y - half).setColor(c);
-        builder.addVertexWith2DPose(matrix, x - half, y + half).setColor(c);
-        builder.addVertexWith2DPose(matrix, x + half, y + half).setColor(c);
-        builder.addVertexWith2DPose(matrix, x + half, y - half).setColor(c);
+        builder.vertex(matrix, x - half, y - half, 0F).color(c).next();
+        builder.vertex(matrix, x - half, y + half, 0F).color(c).next();
+        builder.vertex(matrix, x + half, y + half, 0F).color(c).next();
+        builder.vertex(matrix, x + half, y - half, 0F).color(c).next();
     }
 }

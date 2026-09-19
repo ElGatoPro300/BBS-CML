@@ -22,23 +22,15 @@ public class CameraUtils
 
     public static Vector3f getMouseDirection(Matrix4f projection, Matrix4f view, float mx, float my)
     {
-        Matrix4f inverseProjection = new Matrix4f(projection).invert();
-        Vector4f forward = new Vector4f(mx, my, 0, 1).mul(inverseProjection);
+        Matrix4f matrix4f = new Matrix4f(projection);
 
-        if (Math.abs(forward.w) > 1.0E-6F)
-        {
-            float invW = 1F / forward.w;
+        matrix4f.mul(view);
+        matrix4f.invert();
 
-            forward.x *= invW;
-            forward.y *= invW;
-            forward.z *= invW;
-        }
+        Vector4f forward = new Vector4f(mx, my, 0, 1);
 
-        Vector3f direction = new Vector3f(forward.x, forward.y, forward.z);
+        matrix4f.transform(forward);
 
-        new Matrix4f(view).invert().transformDirection(direction);
-        direction.normalize();
-
-        return direction;
+        return new Vector3f(forward.x, forward.y, forward.z);
     }
 }

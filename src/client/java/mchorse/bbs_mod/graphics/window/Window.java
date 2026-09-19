@@ -1,35 +1,28 @@
 package mchorse.bbs_mod.graphics.window;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 
-import net.minecraft.client.Minecraft;
-
-import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.util.InputUtil;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 
 public class Window
 {
     private static int verticalScroll;
     private static long lastScroll;
-    private static final Map<Integer, Long> standardCursors = new HashMap<>();
-    private static int currentCursorShape = -1;
-
-    private static MapType inMemoryClipboard;
 
     public static long getWindow()
     {
-        return Minecraft.getInstance().getWindow().handle();
+        return MinecraftClient.getInstance().getWindow().getHandle();
     }
 
     public static void setVerticalScroll(int scroll)
@@ -55,22 +48,22 @@ public class Window
 
     public static boolean isCtrlPressed()
     {
-        return isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_CONTROL);
+        return Screen.hasControlDown();
     }
 
     public static boolean isShiftPressed()
     {
-        return isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_SHIFT);
+        return Screen.hasShiftDown();
     }
 
     public static boolean isAltPressed()
     {
-        return isKeyPressed(GLFW.GLFW_KEY_LEFT_ALT) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_ALT);
+        return Screen.hasAltDown();
     }
 
     public static boolean isKeyPressed(int key)
     {
-        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key);
+        return InputUtil.isKeyPressed(getWindow(), key);
     }
 
     public static String getClipboard()
@@ -93,20 +86,13 @@ public class Window
     }
 
     /**
-     * Get a data map from in-memory clipboard with verification key.
+     * Get a data map from clipboard with verification key.
      */
     public static MapType getClipboardMap(String verificationKey)
     {
-        if (BBSSettings.usingInMemoryClipboard.get())
-        {
-            return inMemoryClipboard != null && inMemoryClipboard.getBool(verificationKey) ? inMemoryClipboard : null;
-        }
-        else
-        {
-            MapType data = DataToString.mapFromString(getClipboard());
+        MapType data = DataToString.mapFromString(getClipboard());
 
-            return data != null && data.getBool(verificationKey) ? data : null;
-        }
+        return data != null && data.getBool(verificationKey) ? data : null;
     }
 
     public static ListType getClipboardList()
@@ -144,54 +130,21 @@ public class Window
     }
 
     /**
-     * Save given data to in-memory clipboard with a verification key that could be
+     * Save given data to clipboard with a verification key that could be
      * used in {@link #getClipboardMap(String)} to decode data.
      */
-    public static void setInMemoryClipboard(MapType data, String verificationKey)
+    public static void setClipboard(MapType data, String verificationKey)
     {
         if (data != null)
         {
             data.putBool(verificationKey, true);
-            if (BBSSettings.usingInMemoryClipboard.get())
-            {
-                inMemoryClipboard = data;
-            }
-            else
-            {
-                setClipboard(DataToString.toString(data, true));
-            }
         }
+
+        setClipboard(data);
     }
 
     public static void moveCursor(int x, int y)
     {
         GLFW.glfwSetCursorPos(getWindow(), x, y);
-    }
-
-    public static void setStandardCursor(int shape)
-    {
-        long window = getWindow();
-
-        if (GLFW.glfwGetInputMode(window, GLFW.GLFW_CURSOR) == GLFW.GLFW_CURSOR_DISABLED)
-        {
-            currentCursorShape = -1;
-
-            return;
-        }
-
-        if (currentCursorShape == shape)
-        {
-            return;
-        }
-
-        long cursor = standardCursors.computeIfAbsent(shape, GLFW::glfwCreateStandardCursor);
-
-        GLFW.glfwSetCursor(window, cursor);
-        currentCursorShape = shape;
-    }
-
-    public static void resetCursor()
-    {
-        setStandardCursor(GLFW.GLFW_ARROW_CURSOR);
     }
 }

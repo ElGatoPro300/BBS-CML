@@ -8,30 +8,24 @@ import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
-import mchorse.bbs_mod.client.ItemUseRenderState;
-import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
-import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,8 +37,12 @@ public class Films
 {
     private List<BaseFilmController> controllers = new ArrayList<BaseFilmController>();
     private Recorder recorder;
-    private final RecorderMobCapture editorMobCapture = new RecorderMobCapture();
-    private final RecorderProjectileCapture editorProjectileCapture = new RecorderProjectileCapture();
+
+    /**
+     * When set, video recording is stopped automatically when the film with this id finishes playback.
+     * Used for the "play film and record" (Ctrl+F4) combo.
+     */
+    private String stopVideoRecordingWhenFilmFinishedId;
 
     public Map<String, Map<String, Integer>> actors = new HashMap<>();
 
@@ -66,7 +64,7 @@ public class Films
             {
                 ContentType.FILMS.getRepository().load(filmId, (data) ->
                 {
-                    Minecraft.getInstance().execute(() -> playFilm((Film) data, withCamera));
+                    MinecraftClient.getInstance().execute(() -> playFilm((Film) data, withCamera));
                 });
             }
         }
@@ -144,97 +142,16 @@ public class Films
         return null;
     }
 
-    public List<BaseFilmController> getControllers()
-    {
-        return this.controllers;
-    }
-
     public Recorder getRecorder()
     {
         return this.recorder;
     }
 
-    public RecorderMobCapture getEditorMobCapture()
-    {
-        return this.editorMobCapture;
-    }
-
-    public RecorderProjectileCapture getEditorProjectileCapture()
-    {
-        return this.editorProjectileCapture;
-    }
-
-    public FirstPersonBobbingSample getFirstPersonBobbingSample(float tickDelta)
-    {
-        LocalPlayer player = Minecraft.getInstance().player;
-
-        if (player == null)
-        {
-            return null;
-        }
-
-        for (BaseFilmController controller : this.controllers)
-        {
-            if (controller == null || controller.film == null)
-            {
-                continue;
-            }
-
-            Map<String, Integer> actors = this.actors.get(controller.film.getId());
-
-            if (actors == null || actors.isEmpty())
-            {
-                continue;
-            }
-
-            for (Replay replay : controller.film.replays.getList())
-            {
-                if (replay == null || !replay.enabled.get() || !replay.fp.get())
-                {
-                    continue;
-                }
-
-                Integer actorId = actors.get(replay.getId());
-
-                if (actorId == null || actorId != player.getId())
-                {
-                    continue;
-                }
-
-                float tick = replay.getTick(controller.getTick()) + tickDelta;
-                float vX = replay.keyframes.vX.interpolate(tick).floatValue();
-                float vZ = replay.keyframes.vZ.interpolate(tick).floatValue();
-                boolean grounded = replay.keyframes.grounded.interpolate(tick) > 0D;
-
-                return new FirstPersonBobbingSample(vX, vZ, grounded, controller.paused);
-            }
-        }
-
-        return null;
-    }
-
     public void startRecording(Film film, int replayId, int tick)
     {
-        /* Safety: never leave integrated-server ticks blocked after recording starts. */
-        RecordingPauseHelper.reset();
-
-        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         this.recorder = new Recorder(film, morph == null ? null : morph.getForm(), replayId, tick);
-
-        MobCaptureRecordingSetup setup = MobCaptureRecordingSetup.pending;
-
-        if (setup != null)
-        {
-            this.recorder.getMobCapture().applyRecordingSetup(setup);
-
-            if (setup.shouldCapture())
-            {
-                this.recorder.getMobCapture().bulkCapture(film, tick, setup, null);
-            }
-
-            MobCaptureRecordingSetup.pending = null;
-        }
 
         if (ClientNetwork.isIsBBSModOnServer())
         {
@@ -245,15 +162,12 @@ public class Films
 
         if (replay != null)
         {
-            MobCemPoseCapture.syncReplay(replay);
             ClientNetwork.sendPlayerForm(replay.form.get());
         }
     }
 
     public Recorder stopRecording()
     {
-        RecordingPauseHelper.reset();
-
         Recorder recorder = this.recorder;
 
         this.recorder = null;
@@ -265,17 +179,12 @@ public class Films
                 channel.simplify();
             }
 
-            recorder.getMobCapture().simplify(recorder.film);
-            recorder.getProjectileCapture().simplify(recorder.film);
-
             if (ClientNetwork.isIsBBSModOnServer())
             {
                 ClientNetwork.sendActionRecording(recorder.film.getId(), recorder.exception, recorder.initialTick, 0, false);
             }
 
             recorder.shutdown();
-            recorder.getMobCapture().clear();
-            recorder.getProjectileCapture().clear();
         }
 
         return recorder;
@@ -311,7 +220,6 @@ public class Films
             {
                 next.shutdown();
                 it.remove();
-                ItemUseRenderState.releaseLocalPlayerUse();
 
                 return next.film;
             }
@@ -346,8 +254,19 @@ public class Films
 
             if (film.hasFinished())
             {
+                if (this.stopVideoRecordingWhenFilmFinishedId != null
+                    && film.film.getId().equals(this.stopVideoRecordingWhenFilmFinishedId))
+                {
+                    if (BBSModClient.getVideoRecorder().isRecording())
+                    {
+                        BBSModClient.getVideoRecorder().stopRecording();
+                        BBSRendering.setCustomSize(false, 0, 0);
+                    }
+
+                    this.stopVideoRecordingWhenFilmFinishedId = null;
+                }
+
                 film.shutdown();
-                ItemUseRenderState.releaseLocalPlayerUse();
             }
 
             return film.hasFinished();
@@ -361,26 +280,15 @@ public class Films
 
     public void updateEndWorld()
     {
-        boolean wasDriving = ItemUseRenderState.isDrivingLocalPlayerUse();
-
-        ItemUseRenderState.beginEndWorldUpdate();
-
         for (BaseFilmController controller : this.controllers)
         {
             controller.updateEndWorld();
         }
-
-        if (wasDriving && !ItemUseRenderState.isDrivingLocalPlayerUse())
-        {
-            ItemUseRenderState.releaseLocalPlayerUse();
-        }
     }
 
-    public void render(LevelRenderContext context)
+    public void render(WorldRenderContext context)
     {
-        Gizmo.INSTANCE.clearVisual();
-
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         for (BaseFilmController controller : this.controllers)
         {
@@ -392,9 +300,7 @@ public class Films
             this.recorder.render(context);
         }
 
-        /* Leave world depth usable for later translucent / particle passes. */
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.disableDepthTest();
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)
@@ -414,24 +320,37 @@ public class Films
             batcher2D.icon(Icons.SPHERE, Colors.RED | Colors.A100, x, y);
             batcher2D.textShadow(label, x + 18, y + 4);
 
-            /* Render audio waveform */
-            List<AudioClip> audioClips = new ArrayList<>();
-
-            for (Clip clip : recorder.film.camera.get())
+            /* Render audio waveform (uses preview visibility setting) */
+            if (BBSSettings.audioWaveformVisibleInPreview.get())
             {
-                if (clip instanceof AudioClip)
+                List<AudioClip> audioClips = new ArrayList<>();
+
+                for (Clip clip : recorder.film.camera.get())
                 {
-                    audioClips.add((AudioClip) clip);
+                    if (clip instanceof AudioClip)
+                    {
+                        audioClips.add((AudioClip) clip);
+                    }
+                }
+
+                int sw = MinecraftClient.getInstance().getWindow().getScaledWidth();
+                int sh = MinecraftClient.getInstance().getWindow().getScaledHeight();
+                w = (int) (sw * BBSSettings.audioWaveformWidth.get());
+                x = sw / 2 - w / 2;
+                y = sh / 2 + 100;
+
+                int barH = BBSSettings.audioWaveformHeight.get();
+                float playTick = recorder.getTick() + tickDelta;
+
+                if (BBSSettings.audioWaveformPreviewCombined.get())
+                {
+                    AudioRenderer.renderPreviewCombined(batcher2D, audioClips, playTick, x, y, w, barH, sw, sh);
+                }
+                else
+                {
+                    AudioRenderer.renderAll(batcher2D, audioClips, playTick, x, y, w, barH, sw, sh);
                 }
             }
-
-            int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
-            int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-            w = (int) (sw * BBSSettings.audioWaveformWidth.get());
-            x = sw / 2 - w / 2;
-            y = sh / 2 + 100;
-
-            AudioRenderer.renderAll(batcher2D, audioClips, recorder.getTick() + tickDelta, x, y, w, BBSSettings.audioWaveformHeight.get(), sw, sh);
         }
     }
 
@@ -440,21 +359,20 @@ public class Films
         controllers.clear();
 
         recorder = null;
+        stopVideoRecordingWhenFilmFinishedId = null;
     }
 
-    public static class FirstPersonBobbingSample
+    /**
+     * Schedule video recording to stop when the given film finishes playback.
+     * Used when starting both film and video recording via Ctrl+F4.
+     */
+    public void setStopVideoRecordingWhenFilmFinished(String filmId)
     {
-        public final float vX;
-        public final float vZ;
-        public final boolean grounded;
-        public final boolean paused;
+        this.stopVideoRecordingWhenFilmFinishedId = filmId;
+    }
 
-        public FirstPersonBobbingSample(float vX, float vZ, boolean grounded, boolean paused)
-        {
-            this.vX = vX;
-            this.vZ = vZ;
-            this.grounded = grounded;
-            this.paused = paused;
-        }
+    public void clearStopVideoRecordingWhenFilmFinished()
+    {
+        this.stopVideoRecordingWhenFilmFinishedId = null;
     }
 }

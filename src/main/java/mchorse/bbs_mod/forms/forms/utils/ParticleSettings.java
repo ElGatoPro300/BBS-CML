@@ -3,13 +3,11 @@ package mchorse.bbs_mod.forms.forms.utils;
 import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.MapType;
 
-import net.minecraft.resources.Identifier;
-
-import java.util.Objects;
+import net.minecraft.util.Identifier;
 
 public class ParticleSettings implements IMapSerializable
 {
-    public Identifier particle = Identifier.fromNamespaceAndPath("minecraft", "flame");
+    public Identifier particle = Identifier.of("minecraft", "flame");
     public String arguments = "";
 
     @Override
@@ -22,7 +20,7 @@ public class ParticleSettings implements IMapSerializable
     @Override
     public void fromData(MapType data)
     {
-        this.particle = Identifier.tryParse(data.getString("particle"));
+        this.particle = new Identifier(data.getString("particle"));
         this.arguments = data.getString("args");
     }
 }

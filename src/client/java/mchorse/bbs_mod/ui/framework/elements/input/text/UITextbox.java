@@ -4,6 +4,7 @@ import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.ITextColoring;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.Patterns;
 
 import org.lwjgl.glfw.GLFW;
@@ -36,7 +37,7 @@ public class UITextbox extends UIBaseTextbox implements ITextColoring
 
         this.callback = callback;
 
-        this.border().h(20);
+        this.border().h(UIConstants.CONTROL_HEIGHT);
     }
 
     public UITextbox(int maxLength, Consumer<String> callback)
@@ -217,11 +218,6 @@ public class UITextbox extends UIBaseTextbox implements ITextColoring
     @Override
     public void render(UIContext context)
     {
-        if (this.area.isInside(context))
-        {
-            context.requestCursor(GLFW.GLFW_IBEAM_CURSOR);
-        }
-
         this.textbox.render(context);
 
         this.renderLockedArea(context);

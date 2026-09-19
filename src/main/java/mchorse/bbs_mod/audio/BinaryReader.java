@@ -32,65 +32,36 @@ public abstract class BinaryReader
 
     public String readFourString(InputStream stream) throws Exception
     {
-        this.readFully(stream, this.buf, 4);
+        stream.read(this.buf);
 
         return new String(this.buf);
     }
 
     public int readInt(InputStream stream) throws Exception
     {
-        this.readFully(stream, this.buf, 4);
+        if (stream.read(this.buf) < 4)
+        {
+            throw new EOFException();
+        }
 
         return b2i(this.buf[0], this.buf[1], this.buf[2], this.buf[3]);
     }
 
     public int readShort(InputStream stream) throws Exception
     {
-        this.readFully(stream, this.buf, 2);
+        if (stream.read(this.buf, 0, 2) < 2)
+        {
+            throw new IOException();
+        }
 
         return b2i(this.buf[0], this.buf[1], (byte) 0, (byte) 0);
-    }
-
-    public void readFully(InputStream stream, byte[] buffer, int length) throws IOException
-    {
-        int total = 0;
-
-        while (total < length)
-        {
-            int result = stream.read(buffer, total, length - total);
-
-            if (result == -1)
-            {
-                throw new EOFException();
-            }
-
-            total += result;
-        }
     }
 
     public void skip(InputStream stream, long bytes) throws Exception
     {
         while (bytes > 0)
         {
-            long skipped = stream.skip(bytes);
-
-            if (skipped > 0)
-            {
-                bytes -= skipped;
-            }
-            else
-            {
-                int size = (int) Math.min(bytes, 2048);
-                byte[] buffer = new byte[size];
-                int read = stream.read(buffer);
-
-                if (read == -1)
-                {
-                    throw new EOFException();
-                }
-
-                bytes -= read;
-            }
+            bytes -= stream.skip(bytes);
         }
     }
 }

@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.film.clips.widgets.UIBitToggle;
 import mchorse.bbs_mod.ui.film.utils.UITextboxHelp;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 public class UIMathClip extends UIClip<MathClip>
@@ -38,7 +39,8 @@ public class UIMathClip extends UIClip<MathClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.section(UIKeys.CAMERA_PANELS_EXPRESSION, this.expression), this.active);
+        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_EXPRESSION), this.expression).marginTop(UIConstants.SECTION_GAP));
+        this.panels.add(this.active);
     }
 
     @Override

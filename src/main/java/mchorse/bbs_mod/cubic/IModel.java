@@ -35,51 +35,34 @@ public interface IModel
 
     public Collection<String> getHierarchyGroups(String groupName);
 
-    /**
-     * Returns the parent group key for the given bone/group key,
-     * or null if the bone is a root (has no parent).
-     */
-    public String getParentGroupKey(String key);
-
-    /**
-     * Returns the keys of all root-level groups (bones with no parent).
-     */
     public Collection<String> getRootGroupKeys();
 
-    /**
-     * Returns the keys of direct children of the given group/bone.
-     */
     public Collection<String> getDirectChildrenKeys(String key);
 
-    /**
-     * Returns all group keys in hierarchy order (parents before children).
-     * Default implementation performs a depth-first traversal from roots.
-     */
+    public String getParentGroupKey(String key);
+
     public default List<String> getGroupKeysInHierarchyOrder()
     {
         List<String> out = new ArrayList<>();
 
         for (String root : this.getRootGroupKeys())
         {
-            this.collectDescendants(root, out);
+            this.collectGroupAndDescendants(root, out);
         }
 
         return out;
     }
 
-    default void collectDescendants(String name, List<String> out)
+    default void collectGroupAndDescendants(String name, List<String> out)
     {
         out.add(name);
-
         for (String child : this.getDirectChildrenKeys(name))
         {
-            this.collectDescendants(child, out);
+            this.collectGroupAndDescendants(child, out);
         }
     }
 
     public void apply(IEntity target, Animation action, float tick, float blend, float transition, boolean skipInitial);
 
     public void postApply(IEntity target, Animation action, float tick, float transition);
-
-    public IModel copy();
 }

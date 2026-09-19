@@ -8,19 +8,18 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.particle.ParticleType;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class UIParticleSettings extends UIElement
 {
     public UIButton particle;
     public UITextbox arguments;
-
-    public Consumer<Identifier> particleConsumer;
 
     private ParticleSettings settings;
 
@@ -28,12 +27,12 @@ public class UIParticleSettings extends UIElement
     {
         this.particle = new UIButton(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_PICK, (b) ->
         {
-            UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_TITLE, (l) -> this.setParticle(Identifier.parse(l)));
+            UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_TITLE, (l) -> this.setParticle(new Identifier(l)));
             List<String> strings = new ArrayList<>();
 
-            for (Identifier key : BuiltInRegistries.PARTICLE_TYPE.keySet())
+            for (RegistryKey<ParticleType<?>> key : Registries.PARTICLE_TYPE.getKeys())
             {
-                strings.add(key.toString());
+                strings.add(key.getValue().toString());
             }
 
             overlayPanel.addValues(strings);
@@ -49,13 +48,6 @@ public class UIParticleSettings extends UIElement
         this.add(this.particle, this.arguments);
     }
 
-    public UIParticleSettings callback(Consumer<Identifier> callback)
-    {
-        this.particleConsumer = callback;
-
-        return this;
-    }
-
     public void setSettings(ParticleSettings settings)
     {
         this.settings = settings;
@@ -63,20 +55,9 @@ public class UIParticleSettings extends UIElement
         this.arguments.setText(settings.arguments);
     }
 
-    public void setArgumentsText(String args)
-    {
-        this.settings.arguments = args;
-        this.arguments.setText(args);
-    }
-
     protected void setParticle(Identifier id)
     {
         this.settings.particle = id;
-
-        if (this.particleConsumer != null)
-        {
-            this.particleConsumer.accept(id);
-        }
     }
 
     protected void setArguments(String args)

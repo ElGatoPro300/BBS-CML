@@ -5,32 +5,30 @@ import mchorse.bbs_mod.particles.components.rate.ParticleComponentRate;
 import mchorse.bbs_mod.particles.components.rate.ParticleComponentRateInstant;
 import mchorse.bbs_mod.particles.components.rate.ParticleComponentRateSteady;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
-import mchorse.bbs_mod.ui.particles.utils.UIMolangExpression;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 public class UIParticleSchemeRateSection extends UIParticleSchemeModeSection<ParticleComponentRate>
 {
-    public UIMolangExpression rate;
-    public UIMolangExpression particles;
+    public UIButton rate;
+    public UIButton particles;
 
     public UIParticleSchemeRateSection(UIParticleSchemePanel parent)
     {
         super(parent);
 
-        this.rate = new UIMolangExpression(() -> ((ParticleComponentRateSteady) this.component).spawnRate, (b) ->
+        this.rate = new UIButton(UIKeys.SNOWSTORM_RATE_RATE, (b) ->
         {
             ParticleComponentRateSteady comp = (ParticleComponentRateSteady) this.component;
 
             this.editMoLang("rate.rate", (str) -> comp.spawnRate = this.parse(str, comp.spawnRate), comp.spawnRate);
         });
-        this.rate.icon(Icons.SPRAY).tooltip(UIKeys.SNOWSTORM_RATE_SPAWN_RATE);
-        this.particles = new UIMolangExpression(() -> this.component.particles, (b) ->
+        this.rate.tooltip(UIKeys.SNOWSTORM_RATE_SPAWN_RATE);
+        this.particles = new UIButton(UIKeys.SNOWSTORM_RATE_AMOUNT, (b) ->
         {
             this.editMoLang("rate.particles", (str) -> this.component.particles = this.parse(str, this.component.particles), this.component.particles);
         });
-        this.particles.icon(Icons.PARTICLE);
 
         this.fields.add(this.particles);
     }
@@ -42,10 +40,10 @@ public class UIParticleSchemeRateSection extends UIParticleSchemeModeSection<Par
     }
 
     @Override
-    protected void fillModes(UIIcons button)
+    protected void fillModes(UICirculate button)
     {
-        button.add(Icons.BULLET, UIKeys.SNOWSTORM_RATE_INSTANT);
-        button.add(Icons.TIME, UIKeys.SNOWSTORM_RATE_STEADY);
+        button.addLabel(UIKeys.SNOWSTORM_RATE_INSTANT);
+        button.addLabel(UIKeys.SNOWSTORM_RATE_STEADY);
     }
 
     @Override

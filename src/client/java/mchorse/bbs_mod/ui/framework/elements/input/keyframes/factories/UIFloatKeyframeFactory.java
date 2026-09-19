@@ -1,38 +1,31 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
-import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.TrackpadRecorder;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.utils.UIBezierHandles;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-public class UIFloatKeyframeFactory extends UIKeyframeFactory<Float>
+public class UIFloatKeyframeFactory extends UINumericKeyframeFactory<Float>
 {
-    private UITrackpad value;
-    private UIBezierHandles handles;
-
     public UIFloatKeyframeFactory(Keyframe<Float> keyframe, UIKeyframes editor)
     {
         super(keyframe, editor);
-
-        this.value = new UITrackpad(this::setValue);
-        this.value.setValue(keyframe.getValue());
-        this.handles = new UIBezierHandles(keyframe);
-        this.registerValueTrackpad(this.value);
-
-        this.scroll.add(this.value, this.handles.createColumn());
     }
 
     @Override
-    public void update()
+    protected double getNumericValue(Float value)
     {
-        super.update();
+        return value;
+    }
 
-        if (!this.value.isActivelyEditing() && !this.value.isDragging())
-        {
-            this.value.setValue(this.keyframe.getValue());
-        }
-
-        this.handles.setKeyframe(this.keyframe);
-        this.handles.update();
+    @Override
+    protected void setKeyframeValue(double value)
+    {
+        this.keyframe.setValue((float) value);
+    }
+    
+    @Override
+    protected TrackpadRecorder.ValueConverter createValueConverter()
+    {
+        return (value) -> (float) value;
     }
 }

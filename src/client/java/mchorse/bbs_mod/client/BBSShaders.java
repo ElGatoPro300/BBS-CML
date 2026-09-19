@@ -1,42 +1,29 @@
 package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.resource.Resource;
+import net.minecraft.resource.ResourceFactory;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.util.Identifier;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
-
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
+import java.util.Optional;
 
 public class BBSShaders
 {
-    public static final List<Runnable> LOADERS = new ArrayList<>();
+    private static ShaderProgram model;
+    private static ShaderProgram multiLink;
+    private static ShaderProgram subtitles;
 
-    public static RenderPipeline modelPipeline;
-    public static RenderPipeline multiLinkPipeline;
-    public static RenderPipeline subtitlesPipeline;
-    public static RenderPipeline imageOverlayPipeline;
-
-    public static RenderPipeline pickerBillboardPipeline;
-    public static RenderPipeline pickerBillboardNoShadingPipeline;
-    public static RenderPipeline pickerParticlesPipeline;
-    public static RenderPipeline pickerModelsPipeline;
-    public static RenderPipeline blockPaintOverlayPipeline;
-    public static RenderPipeline flatPaintOverlayPipeline;
-    public static RenderPipeline blockGlowOverlayPipeline;
-    public static RenderPipeline blockColorTintOverlayPipeline;
-    public static RenderPipeline flatColorTintOverlayPipeline;
+    private static ShaderProgram pickerPreview;
+    private static ShaderProgram pickerBillboard;
+    private static ShaderProgram pickerBillboardNoShading;
+    private static ShaderProgram pickerParticles;
+    private static ShaderProgram pickerModels;
 
     static
     {
@@ -45,193 +32,94 @@ public class BBSShaders
 
     public static void setup()
     {
-        modelPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/model"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/model"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/model"))
-            .withSampler("Sampler0")
-            .withSampler("Sampler1")
-            .withSampler("Sampler2")
-            .withSampler("Sampler3")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
+        if (model != null) model.close();
+        if (subtitles != null) subtitles.close();
+        if (subtitles != null) subtitles.close();
 
-        multiLinkPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/multilink"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/multilink"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/multilink"))
-            .withSampler("Sampler0")
-            .withSampler("Sampler3")
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
-            .build();
+        if (pickerPreview != null) pickerPreview.close();
+        if (pickerBillboard != null) pickerBillboard.close();
+        if (pickerBillboardNoShading != null) pickerBillboardNoShading.close();
+        if (pickerParticles != null) pickerParticles.close();
+        if (pickerModels != null) pickerModels.close();
 
-        subtitlesPipeline = RenderPipelines.register(RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/subtitles"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/subtitles"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/subtitles"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
-            .withUniform("SubtitleParameters", UniformType.UNIFORM_BUFFER)
-            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
-            .withCull(false)
-            .build());
-
-        imageOverlayPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/image_overlay"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/image_overlay"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/image_overlay"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
-            .build();
-
-        pickerBillboardPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_billboard"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        pickerBillboardNoShadingPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_billboard_no_shading"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard_no_shading"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_billboard_no_shading"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_LIGHTMAP_COLOR, VertexFormat.Mode.QUADS)
-            .build();
-
-        pickerParticlesPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_particles"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_particles"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_particles"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, VertexFormat.Mode.QUADS)
-            .build();
-
-        pickerModelsPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/picker_models"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_models"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/picker_models"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        blockPaintOverlayPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/block_paint_overlay"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_paint_overlay"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_paint_overlay"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        flatPaintOverlayPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/flat_paint_overlay"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_paint_overlay"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_paint_overlay"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        blockGlowOverlayPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/block_glow_overlay"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_glow_overlay"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_glow_overlay"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        blockColorTintOverlayPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/block_color_tint_overlay"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/block_color_tint_overlay"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        flatColorTintOverlayPipeline = RenderPipeline.builder()
-            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/flat_color_tint_overlay"))
-            .withVertexShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
-            .withFragmentShader(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/flat_color_tint_overlay"))
-            .withSampler("Sampler0")
-            .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-            .build();
-
-        for (Runnable runnable : LOADERS)
+        try
         {
-            runnable.run();
+            ResourceFactory factory = new ProxyResourceFactory(MinecraftClient.getInstance().getResourceManager());
+
+            model = new ShaderProgram(factory, "model", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            multiLink = new ShaderProgram(factory, "multilink", VertexFormats.POSITION_TEXTURE_COLOR);
+            subtitles = new ShaderProgram(factory, "subtitles", VertexFormats.POSITION_TEXTURE_COLOR);
+
+            pickerPreview = new ShaderProgram(factory, "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR);
+            pickerBillboard = new ShaderProgram(factory, "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            pickerBillboardNoShading = new ShaderProgram(factory, "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR);
+            pickerParticles = new ShaderProgram(factory, "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+            pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 
-    public static GlProgram getModel()
+    public static ShaderProgram getModel()
     {
-        GlProgram program = ModelEffectPass.program(false);
+        return model;
+    }
 
-        if (program == null || program == GlProgram.INVALID_PROGRAM)
+    public static ShaderProgram getMultilinkProgram()
+    {
+        return multiLink;
+    }
+
+    public static ShaderProgram getSubtitlesProgram()
+    {
+        return subtitles;
+    }
+
+    public static ShaderProgram getPickerPreviewProgram()
+    {
+        return pickerPreview;
+    }
+
+    public static ShaderProgram getPickerBillboardProgram()
+    {
+        return pickerBillboard;
+    }
+
+    public static ShaderProgram getPickerBillboardNoShadingProgram()
+    {
+        return pickerBillboardNoShading;
+    }
+
+    public static ShaderProgram getPickerParticlesProgram()
+    {
+        return pickerParticles;
+    }
+
+    public static ShaderProgram getPickerModelsProgram()
+    {
+        return pickerModels;
+    }
+
+    private static class ProxyResourceFactory implements ResourceFactory
+    {
+        private ResourceManager manager;
+
+        public ProxyResourceFactory(ResourceManager manager)
         {
-            return BBSRendering.getEntityTranslucentProgram();
+            this.manager = manager;
         }
 
-        return program;
-    }
+        @Override
+        public Optional<Resource> getResource(Identifier id)
+        {
+            if (id.getPath().contains("/core/"))
+            {
+                return this.manager.getResource(new Identifier(BBSMod.MOD_ID, id.getPath()));
+            }
 
-    public static GlProgram getMultilinkProgram()
-    {
-        return BBSRendering.getProgram(multiLinkPipeline);
-    }
-
-    public static GlProgram getSubtitlesProgram()
-    {
-        return BBSRendering.getProgram(subtitlesPipeline);
-    }
-
-    public static GlProgram getImageOverlayProgram()
-    {
-        return BBSRendering.getProgram(imageOverlayPipeline);
-    }
-
-    public static GlProgram getPickerBillboardProgram()
-    {
-        return ModelEffectPass.program("picker_billboard");
-    }
-
-    public static GlProgram getPickerBillboardNoShadingProgram()
-    {
-        return ModelEffectPass.program("picker_billboard_no_shading");
-    }
-
-    public static GlProgram getPickerParticlesProgram()
-    {
-        return ModelEffectPass.program("picker_particles");
-    }
-
-    public static GlProgram getPickerModelsProgram()
-    {
-        return ModelEffectPass.program(true);
-    }
-
-    public static GlProgram getBlockPaintOverlayProgram()
-    {
-        return ModelEffectPass.program("block_paint_overlay");
-    }
-
-    public static GlProgram getFlatPaintOverlayProgram()
-    {
-        return ModelEffectPass.program("flat_paint_overlay");
-    }
-
-    public static GlProgram getBlockGlowOverlayProgram()
-    {
-        return ModelEffectPass.program("block_glow_overlay");
-    }
-
-    public static GlProgram getBlockColorTintOverlayProgram()
-    {
-        return ModelEffectPass.program("block_color_tint_overlay");
-    }
-
-    public static GlProgram getFlatColorTintOverlayProgram()
-    {
-        return ModelEffectPass.program("flat_color_tint_overlay");
+            return this.manager.getResource(id);
+        }
     }
 }

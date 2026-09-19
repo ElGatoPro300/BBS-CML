@@ -22,14 +22,9 @@ public class ParticleComponentMotionParametric extends ParticleComponentMotion i
     @Override
     protected void toData(MapType data)
     {
-        /* Always write the owned axis (even if zero) so the parametric choice survives a round-trip;
-         * otherwise an all-zero parametric component would serialize empty and be dropped. */
-        if (this.drivesPosition)
-        {
-            data.put("relative_position", ParticleUtils.vectorToList(this.position));
-        }
+        data.put("relative_position", ParticleUtils.vectorToList(this.position));
 
-        if (this.drivesRotation)
+        if (!MolangExpression.isZero(this.rotation))
         {
             data.put("rotation", this.rotation.toData());
         }
@@ -45,16 +40,12 @@ public class ParticleComponentMotionParametric extends ParticleComponentMotion i
 
         MapType map = data.asMap();
 
-        /* Which axes this parametric component owns is inferred from the present fields. */
-        this.drivesPosition = map.has("relative_position");
-        this.drivesRotation = map.has("rotation");
-
-        if (this.drivesPosition && map.get("relative_position").isList())
+        if (map.has("relative_position") && map.get("relative_position").isList())
         {
             ParticleUtils.vectorFromList(map.getList("relative_position"), this.position, parser);
         }
 
-        if (this.drivesRotation)
+        if (map.has("rotation"))
         {
             this.rotation = parser.parseDataSilently(map.get("rotation"));
         }
@@ -65,36 +56,20 @@ public class ParticleComponentMotionParametric extends ParticleComponentMotion i
     @Override
     public void apply(ParticleEmitter emitter, Particle particle)
     {
-        if (this.drivesPosition)
-        {
-            particle.manualPosition = true;
-            particle.initialPosition.set(particle.position);
+        Vector3f position = new Vector3f((float) this.position[0].get(), (float) this.position[1].get(), (float) this.position[2].get());
 
-            this.applyPosition(particle);
-        }
+        particle.manual = true;
+        particle.initialPosition.set(particle.position);
 
-        if (this.drivesRotation)
-        {
-            particle.manualRotation = true;
-            particle.rotation = (float) this.rotation.get();
-        }
+        particle.matrix.transform(position);
+        particle.position.x = particle.initialPosition.x + position.x;
+        particle.position.y = particle.initialPosition.y + position.y;
+        particle.position.z = particle.initialPosition.z + position.z;
+        particle.rotation = (float) this.rotation.get();
     }
 
     @Override
     public void update(ParticleEmitter emitter, Particle particle)
-    {
-        if (this.drivesPosition)
-        {
-            this.applyPosition(particle);
-        }
-
-        if (this.drivesRotation)
-        {
-            particle.rotation = (float) this.rotation.get();
-        }
-    }
-
-    private void applyPosition(Particle particle)
     {
         Vector3f position = new Vector3f((float) this.position[0].get(), (float) this.position[1].get(), (float) this.position[2].get());
 
@@ -102,6 +77,7 @@ public class ParticleComponentMotionParametric extends ParticleComponentMotion i
         particle.position.x = particle.initialPosition.x + position.x;
         particle.position.y = particle.initialPosition.y + position.y;
         particle.position.z = particle.initialPosition.z + position.z;
+        particle.rotation = (float) this.rotation.get();
     }
 
     @Override

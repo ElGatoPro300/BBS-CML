@@ -7,9 +7,10 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.items.GunItem;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemUsageContext;
+import net.minecraft.util.Hand;
 
 public class UseBlockItemActionClip extends ItemActionClip
 {
@@ -33,16 +34,15 @@ public class UseBlockItemActionClip extends ItemActionClip
     @Override
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
-        InteractionHand hand = this.hand.get() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+        Hand hand = this.hand.get() ? Hand.MAIN_HAND : Hand.OFF_HAND;
         ItemStack copy = this.itemStack.get().copy();
-        ItemStack previous = player.getItemInHand(hand).copy();
 
         GunItem.actor = actor;
 
         this.applyPositionRotation(player, replay, tick);
-        player.setItemInHand(hand, copy);
-        player.gameMode.useItemOn(player, player.level(), copy, hand, this.hit.getHitResult());
-        player.setItemInHand(hand, previous);
+        player.setStackInHand(hand, copy);
+        this.itemStack.get().useOnBlock(new ItemUsageContext(player.getWorld(), player, hand, copy, this.hit.getHitResult()));
+        player.setStackInHand(hand, ItemStack.EMPTY);
 
         GunItem.actor = null;
     }

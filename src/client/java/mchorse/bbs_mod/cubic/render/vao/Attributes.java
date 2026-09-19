@@ -1,9 +1,7 @@
 package mchorse.bbs_mod.cubic.render.vao;
 
-import net.irisshaders.iris.vertices.IrisVertexFormats;
-
 /**
- * Вершинные атрибуты (могут измениться в зависимости от версии игры или Iris, см. индексы в {@link IrisVertexFormats})
+ * Вершинные атрибуты (могут измениться в зависимости от версии игры или Iris, см. индексы в {@link net.irisshaders.iris.vertices.IrisVertexFormats})
  */
 public class Attributes
 {
@@ -19,6 +17,6 @@ public class Attributes
      * 6 - Padding (Not used)
      * 7 - Entity ID (Not used)
      */
-    public static final int MID_TEXTURE_UV = 7;
-    public static final int TANGENTS = 8;
+    public static final int MID_TEXTURE_UV = 8;
+    public static final int TANGENTS = 9;
 }

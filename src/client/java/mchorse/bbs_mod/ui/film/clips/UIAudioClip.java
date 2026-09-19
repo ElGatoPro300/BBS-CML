@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UISoundOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
@@ -81,9 +82,8 @@ public class UIAudioClip extends UIClip<AudioClip>
         this.offset = new UITrackpad((v) -> this.clip.offset.set(v.intValue()));
         this.offset.integer();
 
-        this.volume = new UITrackpad((v) -> this.clip.volume.set(v.intValue()));
-        this.volume.integer();
-        this.volume.limit(0, 400);
+        this.volume = new UITrackpad((v) -> this.clip.volume.set(v.floatValue()));
+        this.volume.limit(this.clip.volume).values(0.05F, 0.01F, 0.2F).increment(0.1F).tooltip(UIKeys.CAMERA_PANELS_AUDIO_VOLUME);
     }
 
     @Override
@@ -91,7 +91,8 @@ public class UIAudioClip extends UIClip<AudioClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:audio"), UI.row(this.pickAudio, this.extendDuration, this.openFolder), this.offset, this.volume));
+        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:audio")), UI.row(this.pickAudio, this.extendDuration, this.openFolder)).marginTop(UIConstants.SECTION_GAP));
+        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_AUDIO_OFFSET).marginTop(UIConstants.SECTION_GAP), this.offset, UIClip.label(UIKeys.CAMERA_PANELS_AUDIO_VOLUME).marginTop(UIConstants.SECTION_GAP), this.volume).marginTop(UIConstants.SECTION_GAP));
     }
 
     @Override

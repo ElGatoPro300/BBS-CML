@@ -1,13 +1,15 @@
 {
-    "item.bbs.model": "Khối model",
-    "item.bbs.chroma_red": "Phông đỏ",
-    "item.bbs.chroma_green": "Phông xanh",
-    "item.bbs.chroma_blue": "Phông xanh dương",
-    "item.bbs.chroma_cyan": "Phông xanh da trời",
-    "item.bbs.chroma_magenta": "Phông tím",
-    "item.bbs.chroma_yellow": "Phông vàng",
-    "item.bbs.chroma_black": "Phông đen",
-    "item.bbs.chroma_white": "Phông trắng",
+    "block.bbs.model": "Khối model",
+    "item.bbs.gun": "súng BBS",
+    "block.bbs.chroma_red": "Phông đỏ",
+    "block.bbs.chroma_green": "Phông xanh",
+    "block.bbs.chroma_blue": "Phông xanh dương",
+    "block.bbs.chroma_cyan": "Phông xanh da trời",
+    "block.bbs.chroma_magenta": "Phông tím",
+    "block.bbs.chroma_yellow": "Phông vàng",
+    "block.bbs.chroma_black": "Phông đen",
+    "block.bbs.chroma_white": "Phông trắng",
+    "item.bbs.gun": "Súng BBS",
     "itemGroup.bbs.main": "BBS mod",
 
     "key.bbs.item_editor": "chỉnh vật phẩm",
@@ -22,8 +24,6 @@
     "key.bbs.zoom": "Zoom (Súng BBS)",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "Quyền chỉnh sửa của BBS mod",
-    "command.getskin.success": "Tất cả người chơi đều có thể nhìn thấy hình ảnh mới",
-    "command.getskin.error": "Lỗi: %s",
-    "command.getskin.downloading": "Tải xuống hình ảnh..."
+    "gamerule.bbsEditing": "Quyền chỉnh sửa của BBS mod"
+}
 }

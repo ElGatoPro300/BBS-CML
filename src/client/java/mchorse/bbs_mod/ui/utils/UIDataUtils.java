@@ -21,11 +21,6 @@ public class UIDataUtils
 
     public static void renderRightClickHere(UIContext context, Area area)
     {
-        renderRightClickHere(context, area, Colors.A100);
-    }
-
-    public static void renderRightClickHere(UIContext context, Area area, int background)
-    {
         int primary = BBSSettings.primaryColor.get();
         double ticks = context.getTickTransition() % 80D;
         double factor = Math.abs(ticks / 80D * 2 - 1F);
@@ -43,16 +38,11 @@ public class UIDataUtils
 
         String label = UIKeys.GENERAL_RIGHT_CLICK.get();
         int w = (int) (area.w / 1.1F);
-        int from = 0x777777;
-        float t = (float) factor;
-        int r = (int) Lerps.lerp((from >> 16) & 0xFF, (background >> 16) & 0xFF, t);
-        int g = (int) Lerps.lerp((from >> 8) & 0xFF, (background >> 8) & 0xFF, t);
-        int b = (int) Lerps.lerp(from & 0xFF, background & 0xFF, t);
-        int color = 0xFF000000 | (r << 16) | (g << 8) | b;
+        int color = Colors.mulRGB(0x444444, 1 - (float) factor);
 
-        context.batcher.wallText(label, area.mx() - w / 2, area.my() - 20, color, w, 12, 0.5F, 1, false);
+        context.batcher.wallText(label, area.mx() - w / 2, area.my() - 20, color, w, 12, 0.5F, 1);
 
-        context.batcher.gradientVBox(area.x, area.my() + 20, area.ex(), area.my() + 40, Colors.setA(background, 0F), background);
-        context.batcher.box(area.x, area.my() + 40, area.ex(), area.my() + 90, background);
+        context.batcher.gradientVBox(area.x, area.my() + 20, area.ex(), area.my() + 40, 0, Colors.A100);
+        context.batcher.box(area.x, area.my() + 40, area.ex(), area.my() + 90, Colors.A100);
     }
 }

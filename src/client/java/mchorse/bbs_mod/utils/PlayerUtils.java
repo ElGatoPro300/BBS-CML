@@ -2,12 +2,12 @@ package mchorse.bbs_mod.utils;
 
 import mchorse.bbs_mod.network.ClientNetwork;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.Level;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 import com.mojang.authlib.GameProfile;
 
@@ -20,31 +20,31 @@ public class PlayerUtils
 
     public static void teleport(double x, double y, double z, float yaw, float bodyYaw, float pitch)
     {
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (!ClientNetwork.isIsBBSModOnServer())
         {
-            String command = "tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z + " " + yaw + " " + pitch;
+            String command = "tp " + player.getGameProfile().getName() + " " + x + " " + y + " " + z + " " + yaw + " " + pitch;
 
-            player.connection.sendCommand(command);
+            player.networkHandler.sendCommand(command);
         }
         else
         {
             ClientNetwork.sendTeleport(x, y, z, yaw, bodyYaw, pitch);
-            player.setYRot(yaw);
-            player.setYHeadRot(yaw);
-            player.setYBodyRot(bodyYaw);
-            player.setXRot(pitch);
+            player.setYaw(yaw);
+            player.setHeadYaw(yaw);
+            player.setBodyYaw(bodyYaw);
+            player.setPitch(pitch);
         }
     }
 
     public static void teleport(double x, double y, double z)
     {
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
         if (!ClientNetwork.isIsBBSModOnServer())
         {
-            player.connection.sendCommand("tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z);
+            player.networkHandler.sendCommand("tp " + player.getGameProfile().getName() + " " + x + " " + y + " " + z);
         }
         else
         {
@@ -52,22 +52,16 @@ public class PlayerUtils
         }
     }
 
-    public static class ProtectedAccess extends Player
+    public static class ProtectedAccess extends PlayerEntity
     {
-        public static EntityDataAccessor<Byte> getModelParts()
+        public static TrackedData<Byte> getModelParts()
         {
-            return DATA_PLAYER_MODE_CUSTOMISATION;
+            return PLAYER_MODEL_PARTS;
         }
 
-        public ProtectedAccess(Level world, GameProfile gameProfile)
+        public ProtectedAccess(World world, BlockPos pos, float yaw, GameProfile gameProfile)
         {
-            super(world, gameProfile);
-        }
-
-        @Override
-        public GameType gameMode()
-        {
-            return GameType.SURVIVAL;
+            super(world, pos, yaw, gameProfile);
         }
 
         @Override

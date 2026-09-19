@@ -11,7 +11,6 @@ public class Angle implements IMapSerializable
     public float pitch;
     public float roll;
     public float fov = 70;
-    public float distance;
 
     public static Angle angle(Point a, Point b)
     {
@@ -40,7 +39,6 @@ public class Angle implements IMapSerializable
     public void set(Angle angle)
     {
         this.set(angle.yaw, angle.pitch, angle.roll, angle.fov);
-        this.distance = angle.distance;
     }
 
     public void set(float yaw, float pitch, float roll, float fov)
@@ -48,7 +46,6 @@ public class Angle implements IMapSerializable
         this.set(yaw, pitch);
         this.roll = roll;
         this.fov = fov;
-        this.distance = 0;
     }
 
     public void set(float yaw, float pitch)
@@ -65,14 +62,11 @@ public class Angle implements IMapSerializable
             MathUtils.toDeg(camera.rotation.z),
             MathUtils.toDeg(camera.fov)
         );
-        this.distance = 0;
     }
 
     public Angle copy()
     {
-        Angle angle = new Angle(this.yaw, this.pitch, this.roll, this.fov);
-        angle.distance = this.distance;
-        return angle;
+        return new Angle(this.yaw, this.pitch, this.roll, this.fov);
     }
 
     @Override
@@ -82,7 +76,7 @@ public class Angle implements IMapSerializable
         {
             Angle angle = (Angle) obj;
 
-            return this.yaw == angle.yaw && this.pitch == angle.pitch && this.roll == angle.roll && this.fov == angle.fov && this.distance == angle.distance;
+            return this.yaw == angle.yaw && this.pitch == angle.pitch && this.roll == angle.roll && this.fov == angle.fov;
         }
 
         return super.equals(obj);
@@ -95,7 +89,6 @@ public class Angle implements IMapSerializable
         data.putFloat("pitch", this.pitch);
         data.putFloat("roll", this.roll);
         data.putFloat("fov", this.fov);
-        data.putFloat("distance", this.distance);
     }
 
     @Override
@@ -105,6 +98,5 @@ public class Angle implements IMapSerializable
         this.pitch = data.getFloat("pitch");
         this.roll = data.getFloat("roll");
         this.fov = data.getFloat("fov");
-        this.distance = data.getFloat("distance");
     }
 }

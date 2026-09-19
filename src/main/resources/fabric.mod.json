@@ -2,18 +2,11 @@
     "schemaVersion": 1,
     "id": "bbs",
     "version": "${version}",
-    "name": "BBS CML",
+    "name": "BBS FS mod",
     "description": "A new generation of video production mod",
     "authors": [
         "McHorse",
-        "ElGatoPro300",
-        "seb0lla",
-        "Diobede",
-        "Fanyel",
-        "Mattux",
-        "Sirsyp",
-        "Redstoniano",
-        "Eleeter"
+        "Wemppy"
     ],
     "contributors": [
         "Chryfi (tracker clip)",
@@ -33,11 +26,10 @@
         "Rüyaperest (Turkish translations)",
         "Kirkus (Ukrainian translations)",
         "Eleeter (Urdu translations)",
-        "Diobede (Vietnamese translations)",
-        "bay4lly.java (bug fixes)"
+        "Diobede (Vietnamese translations)"
     ],
     "contact": {
-        "homepage": "https://discord.gg/MAHVQBSce6"
+        "homepage": "https://www.patreon.com/McHorse"
     },
     "license": "MIT",
     "icon": "assets/bbs/icon.png",
@@ -48,9 +40,6 @@
         ],
         "client": [
             "mchorse.bbs_mod.BBSModClient"
-        ],
-        "dynamiclights": [
-            "mchorse.bbs_mod.integration.LambDynLightsIntegration"
         ]
     },
     "mixins": [
@@ -62,9 +51,9 @@
     ],
     "accessWidener": "bbs.accesswidener",
     "depends": {
-        "fabricloader": ">=0.19.3",
-        "minecraft": ["26.1", "26.1.1", "26.1.2"],
-        "java": ">=25",
+        "fabricloader": ">=0.15.0",
+        "minecraft": "=1.20.1",
+        "java": ">=17",
         "fabric-api": "*"
     }
 }

@@ -24,7 +24,7 @@ public class SystemTimeUniformsTimerMixin
 
     private int heldFrames;
 
-    @Inject(method = "beginFrame", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    @Inject(method = "beginFrame", at = @At("HEAD"), cancellable = true, remap = false)
     public void onBeginFrame(CallbackInfo info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();

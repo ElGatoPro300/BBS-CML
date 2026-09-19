@@ -2,28 +2,21 @@ package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.importers.IImportPathProvider;
 import mchorse.bbs_mod.importers.ImporterContext;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.state.gui.GuiRenderState;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -38,16 +31,15 @@ public class UIScreen extends Screen implements IFileDropListener
     private UIRenderingContext context;
 
     private int lastGuiScale;
-    private boolean appliedGameScale;
 
     public static void open(UIBaseMenu menu)
     {
-        Minecraft.getInstance().setScreen(new UIScreen(Component.empty(), menu));
+        MinecraftClient.getInstance().setScreen(new UIScreen(Text.empty(), menu));
     }
 
     public static UIBaseMenu getCurrentMenu()
     {
-        Screen currentScreen = Minecraft.getInstance().screen;
+        Screen currentScreen = MinecraftClient.getInstance().currentScreen;
 
         if (currentScreen instanceof UIScreen uiScreen)
         {
@@ -57,17 +49,14 @@ public class UIScreen extends Screen implements IFileDropListener
         return null;
     }
 
-    public UIScreen(Component title, UIBaseMenu menu)
+    public UIScreen(Text title, UIBaseMenu menu)
     {
         super(title);
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         this.menu = menu;
-        /* Placeholder DrawContext just so the UIRenderingContext/Batcher2D exist for layout/event wiring.
-         * It is NEVER drawn into: render() swaps in vanilla's live per-frame DrawContext via
-         * this.context.setContext(...) before any drawing happens (two-phase GUI, 1.21.6+). */
-        this.context = new UIRenderingContext(new GuiGraphicsExtractor(mc, new GuiRenderState(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()));
+        this.context = new UIRenderingContext(new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers()));
 
         this.menu.context.setup(this.context);
     }
@@ -82,21 +71,16 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.update();
     }
 
-    public void renderInWorld(LevelRenderContext context)
+    public void renderInWorld(WorldRenderContext context)
     {
         this.menu.renderInWorld(context);
     }
 
     @Override
-    public void onFilesDrop(List<Path> paths)
-    {
-        super.onFilesDrop(paths);
-
-        this.filesDragged(paths);
-    }
-
     public void filesDragged(List<Path> paths)
     {
+        super.filesDragged(paths);
+
         String[] filePaths = new String[paths.size()];
         int i = 0;
 
@@ -113,96 +97,39 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void removed()
     {
-        this.context.closeFormPreviews();
-        this.restoreGuiScale();
+        MinecraftClient.getInstance().options.getGuiScale().setValue(this.lastGuiScale);
+        MinecraftClient.getInstance().onResolutionChanged();
 
         super.removed();
 
-        /* Force overlay teardown so deferred close animations cannot skip onClose
-         * (e.g. RecordingPauseHelper.pop) when setScreen(null) replaces this UI. */
-        if (this.menu != null && this.menu.overlay != null)
-        {
-            for (UIOverlay overlay : this.menu.overlay.getChildren(UIOverlay.class))
-            {
-                overlay.forceClose();
-            }
-        }
-
         this.menu.onClose(null);
-        DiscordPresenceManager.INSTANCE.onBbsUiClosed();
-
-        /* Stencil unbind leaves FBO 0; preview/pick can leave TU0 / lightmap / ColorModulator
-         * dirty. Next world/pause present would be solid black without this. */
-        BBSRendering.prepareWorldPresentState();
 
         if (this.menu.canHideHUD())
         {
-            Minecraft.getInstance().options.hideGui = false;
+            MinecraftClient.getInstance().options.hudHidden = false;
         }
     }
 
     @Override
-    public void added()
+    public void onDisplayed()
     {
-        Minecraft client = Minecraft.getInstance();
+        this.lastGuiScale = MinecraftClient.getInstance().options.getGuiScale().getValue();
 
-        this.lastGuiScale = client.options.guiScale().get();
-        this.reapplyScale();
+        MinecraftClient.getInstance().options.getGuiScale().setValue(BBSModClient.getGUIScale());
+        MinecraftClient.getInstance().onResolutionChanged();
 
-        super.added();
+        super.onDisplayed();
 
         this.menu.onOpen(null);
-        DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
 
-        client.options.hideGui = this.menu.canHideHUD();
-    }
-
-    /**
-     * Apply BBS scale for the current link-to-game setting. Independent mode never
-     * writes Minecraft's GUI scale; linked mode always forces a window recalc so a
-     * fractional BBS value (1.8 vs game 2) is not skipped by an int early-return.
-     */
-    public void reapplyScale()
-    {
-        if (BbsGuiScale.isLinkedToGame())
+        if (this.menu.canHideHUD())
         {
-            if (!this.appliedGameScale)
-            {
-                this.lastGuiScale = Minecraft.getInstance().options.guiScale().get();
-            }
-
-            this.applyGameGuiScale(BBSModClient.getGUIScale());
-            this.appliedGameScale = true;
-            this.menu.resize(this.minecraft.getWindow().getGuiScaledWidth(), this.minecraft.getWindow().getGuiScaledHeight());
+            MinecraftClient.getInstance().options.hudHidden = true;
         }
-        else
-        {
-            this.restoreGuiScale();
-            BbsGuiScale.resizeMenu(this.menu);
-        }
-    }
-
-    private void applyGameGuiScale(int scale)
-    {
-        Minecraft client = Minecraft.getInstance();
-
-        client.options.guiScale().set(scale);
-        client.resizeGui();
-    }
-
-    private void restoreGuiScale()
-    {
-        if (!this.appliedGameScale)
-        {
-            return;
-        }
-
-        this.appliedGameScale = false;
-        BbsGuiScale.restoringGameScale(() -> this.applyGameGuiScale(this.lastGuiScale));
     }
 
     @Override
-    public boolean isPauseScreen()
+    public boolean shouldPause()
     {
         return this.menu.canPause();
     }
@@ -212,89 +139,72 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.init();
 
-        if (BbsGuiScale.isLinkedToGame())
-        {
-            this.menu.resize(this.width, this.height);
-        }
-        else
-        {
-            BbsGuiScale.resizeMenu(this.menu);
-        }
+        this.menu.resize(this.width, this.height);
     }
 
     @Override
-    public void resize(int width, int height)
+    public void resize(MinecraftClient client, int width, int height)
     {
-        super.resize(width, height);
+        super.resize(client, width, height);
 
-        if (BbsGuiScale.isLinkedToGame())
-        {
-            this.menu.resize(width, height);
-        }
-        else
-        {
-            BbsGuiScale.resizeMenu(this.menu);
-        }
+        this.menu.resize(width, height);
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled)
+    public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
-        return this.menu.mouseClicked(BbsGuiScale.toBbsMouseX((int) click.x()), BbsGuiScale.toBbsMouseY((int) click.y()), click.button());
+        return this.menu.mouseClicked((int) mouseX, (int) mouseY, button);
+    }
+
+    public void setHorizontal(double horizontal)
+    {
+        this.menu.context.mouseWheelHorizontal = horizontal;
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
+    public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount)
     {
-        return this.menu.mouseScrolled(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), horizontalAmount, verticalAmount);
+        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, verticalAmount);
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent click)
+    public boolean mouseReleased(double mouseX, double mouseY, int button)
     {
-        return this.menu.mouseReleased(BbsGuiScale.toBbsMouseX((int) click.x()), BbsGuiScale.toBbsMouseY((int) click.y()), click.button());
+        return this.menu.mouseReleased((int) mouseX, (int) mouseY, button);
     }
 
     @Override
-    public boolean keyPressed(KeyEvent input)
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
     {
-        return this.menu.handleKey(input.key(), input.scancode(), BBSRendering.lastAction, input.modifiers());
+        return this.menu.handleKey(keyCode, scanCode, BBSRendering.lastAction, modifiers);
     }
 
     @Override
-    public boolean keyReleased(KeyEvent input)
+    public boolean keyReleased(int keyCode, int scanCode, int modifiers)
     {
-        return this.menu.handleKey(input.key(), input.scancode(), GLFW.GLFW_RELEASE, input.modifiers());
+        return this.menu.handleKey(keyCode, scanCode, GLFW.GLFW_RELEASE, modifiers);
     }
 
     @Override
-    public boolean charTyped(CharacterEvent input)
+    public boolean charTyped(char chr, int modifiers)
     {
-        this.menu.handleTextInput(input.codepoint());
+        this.menu.handleTextInput(chr);
 
         return true;
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta)
+    public void renderBackground(DrawContext context)
     {}
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta)
+    public void render(DrawContext context, int mouseX, int mouseY, float delta)
     {
-        super.extractRenderState(context, mouseX, mouseY, delta);
+        super.render(context, mouseX, mouseY, delta);
 
-        this.context.setContext(context);
-        int bbsMouseX = BbsGuiScale.toBbsMouseX(mouseX);
-        int bbsMouseY = BbsGuiScale.toBbsMouseY(mouseY);
-
-        BbsGuiScale.withBbsWindowScale(() ->
-        {
-            this.menu.context.setTransition(this.minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false));
-            this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
-            this.menu.context.render.executeRunnables();
-        });
-        this.minecraft.options.hideGui = this.menu.canHideHUD();
+        this.menu.context.setTransition(this.client.getTickDelta());
+        this.menu.renderMenu(this.context, mouseX, mouseY);
+        this.menu.context.render.executeRunnables();
     }
 
     @Override

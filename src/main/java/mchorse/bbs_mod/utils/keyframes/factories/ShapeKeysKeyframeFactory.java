@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
@@ -26,7 +25,7 @@ public class ShapeKeysKeyframeFactory implements IKeyframeFactory<ShapeKeys>
     @Override
     public BaseType toData(ShapeKeys value)
     {
-        return value == null ? new MapType() : value.toData();
+        return value.toData();
     }
 
     @Override
@@ -38,7 +37,7 @@ public class ShapeKeysKeyframeFactory implements IKeyframeFactory<ShapeKeys>
     @Override
     public ShapeKeys copy(ShapeKeys value)
     {
-        return value == null ? new ShapeKeys() : value.copy();
+        return value.copy();
     }
 
     @Override

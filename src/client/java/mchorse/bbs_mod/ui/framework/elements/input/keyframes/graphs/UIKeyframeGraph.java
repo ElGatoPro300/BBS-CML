@@ -3,12 +3,9 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
-import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.line.LineBuilder;
 import mchorse.bbs_mod.graphics.line.SolidColorLineRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
@@ -16,7 +13,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.IKeyframeSha
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Scale;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
-import mchorse.bbs_mod.ui.utils.TimelineRuler;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.IInterp;
@@ -25,20 +21,24 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
-import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
-import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
-import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
-import org.joml.Matrix3x2fc;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.Collections;
 import java.util.List;
 
 public class UIKeyframeGraph implements IUIKeyframeGraph
 {
-    private static final int RULER_HEIGHT = 16;
-
     protected UIKeyframes keyframes;
 
     protected UIKeyframeSheet sheet;
@@ -51,12 +51,6 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         this.sheet = sheet;
 
         this.yAxis = new Scale(this.keyframes.area, ScrollDirection.VERTICAL).inverse();
-    }
-
-    @Override
-    public UIKeyframes getHostKeyframes()
-    {
-        return this.keyframes;
     }
 
     /* Graphing */
@@ -74,14 +68,9 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     /**
      * Whether given mouse coordinates are near the given point?
      */
-    private boolean isNear(double x, double y, int mouseX, int mouseY)
+    protected boolean isNear(double x, double y, int mouseX, int mouseY)
     {
-        return this.isNear(x, y, mouseX, mouseY, UIKeyframeDopeSheet.DEFAULT_HIT_RADIUS_SQ);
-    }
-
-    private boolean isNear(double x, double y, int mouseX, int mouseY, double radiusSq)
-    {
-        return Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2) < radiusSq;
+        return Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2) < 25D;
     }
 
     public void resetViewY(UIKeyframeSheet current)
@@ -217,9 +206,6 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     public Pair<Keyframe, KeyframeType> findKeyframe(int mouseX, int mouseY)
     {
         List keyframes = this.sheet.channel.getKeyframes();
-        double radiusSq = Window.isCtrlPressed()
-            ? UIKeyframeDopeSheet.REMOVE_HIT_RADIUS_SQ
-            : UIKeyframeDopeSheet.DEFAULT_HIT_RADIUS_SQ;
 
         for (int i = 0; i < keyframes.size(); i++)
         {
@@ -227,7 +213,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             int x = this.keyframes.toGraphX(keyframe.getTick());
             int y = this.toGraphY(keyframe.getFactory().getY(keyframe.getValue()));
 
-            if (this.isNear(x, y, mouseX, mouseY, radiusSq))
+            if (this.isNear(x, y, mouseX, mouseY))
             {
                 return new Pair<>(keyframe, KeyframeType.REGULAR);
             }
@@ -235,7 +221,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             int lx = this.keyframes.toGraphX(keyframe.getTick() - keyframe.lx);
             int ly = this.toGraphY(keyframe.getFactory().getY(keyframe.getValue()) + keyframe.ly);
 
-            if (this.isNear(lx, ly, mouseX, mouseY, radiusSq))
+            if (this.isNear(lx, ly, mouseX, mouseY))
             {
                 return new Pair<>(keyframe, KeyframeType.LEFT_HANDLE);
             }
@@ -243,7 +229,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             int rx = this.keyframes.toGraphX(keyframe.getTick() + keyframe.rx);
             int ry = this.toGraphY(keyframe.getFactory().getY(keyframe.getValue()) + keyframe.ry);
 
-            if (this.isNear(rx, ry, mouseX, mouseY, radiusSq))
+            if (this.isNear(rx, ry, mouseX, mouseY))
             {
                 return new Pair<>(keyframe, KeyframeType.RIGHT_HANDLE);
             }
@@ -300,6 +286,11 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             double offsetX = (25F * BBSSettings.scrollingSensitivityHorizontal.get() * context.mouseWheelHorizontal) / this.keyframes.getXAxis().getZoom();
 
             this.keyframes.getXAxis().setShift(this.keyframes.getXAxis().getShift() - offsetX);
+        }
+        else if (Window.isAltPressed() && context.mouseWheel != 0D && this.getSelected() != null)
+        {
+            float delta = (float) (context.mouseWheel * 1F);
+            this.moveSelectedBy(delta, true);
         }
         else
         {
@@ -359,10 +350,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             double offsetY = this.fromGraphY(originalY) - factory.getY(originalV);
 
             float fx = (float) this.keyframes.fromGraphX(context.mouseX) - offsetX;
-            double graphY = this.fromGraphY(context.mouseY) - offsetY;
-            Object fy = factory == KeyframeFactories.LIGHTING_SETTINGS && originalV instanceof LightingSettings lighting
-                ? LightingSettingsKeyframeFactory.applyGraphY(lighting, graphY)
-                : factory.yToValue(graphY);
+            Object fy = factory.yToValue(this.fromGraphY(context.mouseY) - offsetY);
 
             if (!Window.isShiftPressed())
             {
@@ -374,7 +362,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
         else if (type.b == KeyframeType.LEFT_HANDLE)
         {
-            keyframe.lx = Math.max(0, -(float) ((this.keyframes.fromGraphX(context.mouseX)) - keyframe.getTick()));
+            keyframe.lx = -(float) ((this.keyframes.fromGraphX(context.mouseX)) - keyframe.getTick());
             keyframe.ly = (float) (this.fromGraphY(context.mouseY) - factory.getY(originalV));
 
             if (!Window.isShiftPressed())
@@ -385,7 +373,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
         else if (type.b == KeyframeType.RIGHT_HANDLE)
         {
-            keyframe.rx = Math.max(0, (float) ((this.keyframes.fromGraphX(context.mouseX)) - keyframe.getTick()));
+            keyframe.rx = (float) ((this.keyframes.fromGraphX(context.mouseX)) - keyframe.getTick());
             keyframe.ry = (float) (this.fromGraphY(context.mouseY) - factory.getY(originalV));
 
             if (!Window.isShiftPressed())
@@ -402,10 +390,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     public void render(UIContext context)
     {
         this.renderGrid(context);
-        context.batcher.clip(this.keyframes.area.x, this.keyframes.area.y + RULER_HEIGHT, this.keyframes.area.w, this.keyframes.area.h - RULER_HEIGHT, context);
         this.renderGraph(context);
-        this.renderPreviewKeyframes(context);
-        context.batcher.unclip(context);
     }
 
     /**
@@ -415,9 +400,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     {
         /* Draw horizontal grid */
         Area area = this.keyframes.area;
-        TimelineRuler.Step step = TimelineRuler.steps(this.keyframes.getXAxis());
-        int mult = step.minor;
-        int major = step.major;
+        int mult = this.keyframes.getXAxis().getMult();
         int hx = this.keyframes.getDuration() / mult;
         int ht = (int) this.keyframes.fromGraphX(area.x);
 
@@ -431,17 +414,9 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             }
 
             String label = TimeUtils.formatTime(j * mult);
-            boolean majorTick = (j * mult) % major == 0;
-            int tickBottom = area.y + RULER_HEIGHT;
-            int tickHeight = majorTick ? 8 : 4;
 
-            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x1cffffff : 0x0affffff);
-            context.batcher.box(x, tickBottom - tickHeight, x + 1, tickBottom, majorTick ? 0xddffffff : 0x77ffffff);
-
-            if (majorTick)
-            {
-                context.batcher.textShadow(label, x + 4, area.y + 4, Colors.WHITE);
-            }
+            context.batcher.box(x, area.y, x + 1, area.ey(), Colors.setA(Colors.WHITE, 0.25F));
+            context.batcher.text(label, x + 4, area.y + 4);
         }
 
         /* Draw vertical grid */
@@ -464,17 +439,12 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
                 continue;
             }
 
-            context.batcher.box(area.x, y, area.ex(), y + 1, 0x10ffffff);
+            context.batcher.box(area.x, y, area.ex(), y + 1, Colors.setA(Colors.WHITE, 0.25F));
             context.batcher.text(String.valueOf(min + j * mult), area.x + 4, y + 4);
         }
-    }
-
-    private void renderPreviewKeyframes(UIContext context)
-    {
-        Area area = this.keyframes.area;
 
         /* Render where the keyframe will be duplicated or added */
-        if (!area.isInside(context) || TimelineToolbarPointerBlock.blocksPointer(context))
+        if (!area.isInside(context))
         {
             return;
         }
@@ -545,55 +515,12 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
     }
 
-    protected void renderPreviewKeyframe(UIContext context, UIKeyframeSheet sheet, double tick, int y, int color)
+    private void renderPreviewKeyframe(UIContext context, UIKeyframeSheet sheet, double tick, int y, int color)
     {
         int x = this.keyframes.toGraphX(tick);
-        Area area = this.keyframes.area;
+        float a = (float) Math.sin(context.getTickTransition() / 2D) * 0.1F + 0.5F;
 
-        if (x < area.x || x > area.ex() || y < area.y || y > area.ey())
-        {
-            return;
-        }
-
-        int c;
-
-        if (color == Colors.WHITE)
-        {
-            float baseOpacity = BBSSettings.keyframePreviewOpacity == null ? 0.75F : BBSSettings.keyframePreviewOpacity.get();
-            float a = (float) Math.sin(context.getTickTransition() / 2D) * 0.1F + baseOpacity;
-
-            c = BBSSettings.keyframePreviewHighlight(a);
-        }
-        else
-        {
-            float a = (float) Math.sin(context.getTickTransition() / 2D) * 0.15F + 0.85F;
-
-            c = Colors.setA(color, a);
-        }
-
-        KeyframeShape shape = KeyframeShape.SQUARE;
-
-        if (BBSSettings.defaultKeyframeShape != null)
-        {
-            int idx = BBSSettings.defaultKeyframeShape.get();
-            KeyframeShape[] values = KeyframeShape.values();
-
-            if (idx >= 0 && idx < values.length)
-            {
-                shape = values[idx];
-            }
-        }
-
-        Keyframe preview = new Keyframe("preview", sheet.channel.getFactory());
-
-        preview.setShape(shape);
-
-        Matrix3x2fc matrix = context.batcher.getContext().pose();
-        GuiQuadMesh builder = new GuiQuadMesh();
-
-        UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
-
-        context.batcher.drawQuadMesh(builder);
+        context.batcher.box(x - 4, y - 4, x + 4, y + 4, Colors.setA(color, a));
     }
 
     /**
@@ -602,7 +529,8 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     @SuppressWarnings({"rawtypes", "IntegerDivisionInFloatingPointContext"})
     protected void renderGraph(UIContext context)
     {
-        Matrix3x2fc matrix = context.batcher.getContext().pose();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         UIKeyframeSheet sheet = this.sheet;
         List keyframes = sheet.channel.getKeyframes();
@@ -693,15 +621,8 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         lineBuilder.render(context.batcher, SolidColorLineRenderer.get(Colors.COLOR.set(Colors.setA(sheet.color, 1F))));
 
-        /* Empty channels (e.g. cinematic tracks before any key is inserted) have nothing
-         * to draw as quads — ending an empty BufferBuilder crashes on 1.21+. */
-        if (keyframes.isEmpty())
-        {
-            return;
-        }
-
         /* Render track bars (horizontal lines) */
-        GuiQuadMesh builder = new GuiQuadMesh();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         /* Draw keyframe handles (outer) */
         int forcedIndex = 0;
@@ -728,14 +649,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
                 forcedIndex += 1;
             }
 
-            boolean isPointHover = !TimelineToolbarPointerBlock.blocksPointer(context)
-                && this.isNear(
-                    this.keyframes.toGraphX(frame.getTick()),
-                    y,
-                    context.mouseX,
-                    context.mouseY,
-                    Window.isCtrlPressed() ? UIKeyframeDopeSheet.REMOVE_HIT_RADIUS_SQ : UIKeyframeDopeSheet.DEFAULT_HIT_RADIUS_SQ
-                );
+            boolean isPointHover = this.isNear(this.keyframes.toGraphX(frame.getTick()), y, context.mouseX, context.mouseY);
             boolean toRemove = Window.isCtrlPressed() && isPointHover;
 
             if (this.keyframes.isSelecting())
@@ -805,7 +719,9 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             }
         }
 
-        context.batcher.drawQuadMesh(builder);
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     @Override

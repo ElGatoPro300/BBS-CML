@@ -1,12 +1,10 @@
 package mchorse.bbs_mod.ui.film.audio;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.audio.wav.WaveWriter;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.UIClips;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -41,73 +39,60 @@ public class UIAudioRecorder extends UIElement
 
     public static void addOption(UIFilmPanel filmPanel, ContextMenuManager menu)
     {
-        menu.action(Icons.SOUND, UIKeys.CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE, () ->
-            promptThenPlace(filmPanel, filmPanel.cameraEditor.clips));
-    }
-
-    public static void promptThenPlace(UIFilmPanel filmPanel, UIClips clips)
-    {
         UIContext context = filmPanel.getContext();
         String timestampFilename = StringUtils.createTimestampFilename();
         String value = lastInput.isEmpty() ? timestampFilename : lastInput;
 
-        UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
-            UIKeys.CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_TITLE,
-            UIKeys.CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_DESCRIPTION,
-            (t) ->
-            {
-                String newT = t.isEmpty() ? timestampFilename : t;
-
-                clips.enterClipPlacement(UIKeys.TIMELINE_INTERACTION_PLACE_MICROPHONE,
-                    BBSSettings.getDefaultDuration(), -1, -1,
-                    (tick, layer, duration) -> startRecordingAt(filmPanel, clips, newT, tick, layer, value, timestampFilename));
-            }
-        );
-
-        panel.text.setText(value);
-        panel.text.path();
-
-        UIOverlay.addOverlay(context, panel);
-    }
-
-    public static void startRecordingAt(UIFilmPanel filmPanel, UIClips clips, String filename, int tick, int layer,
-        String promptValue, String timestampFilename)
-    {
-        UIContext context = filmPanel.getContext();
-        UIElement overlay = context.menu.overlay;
-        OpenALRecorder recorder = new OpenALRecorder((wave) ->
+        menu.action(Icons.SOUND, UIKeys.CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE, () ->
         {
-            try
-            {
-                File file = new File(BBSMod.getAudioFolder(), filename + ".wav");
-                AudioClientClip clip = new AudioClientClip();
-                Clips clipList = filmPanel.cameraEditor.clips.getClips();
+            UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
+                UIKeys.CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_TITLE,
+                UIKeys.CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_DESCRIPTION,
+                (t) ->
+                {
+                    String newT = t.isEmpty() ? timestampFilename : t;
 
-                file.getParentFile().mkdirs();
-                WaveWriter.write(file, wave);
-                clip.audio.set(Link.assets("audio/" + filename + ".wav"));
-                clip.duration.set((int) (wave.getDuration() * 20));
-                clip.layer.set(layer);
-                clip.tick.set(tick);
+                    UIElement overlay = context.menu.overlay;
+                    OpenALRecorder recorder = new OpenALRecorder((wave) ->
+                    {
+                        try
+                        {
+                            File file = new File(BBSMod.getAudioFolder(), newT + ".wav");
+                            AudioClientClip clip = new AudioClientClip();
+                            Clips clips = filmPanel.cameraEditor.clips.getClips();
 
-                clipList.addClip(clip);
-                filmPanel.cameraEditor.clips.clearSelection();
-                filmPanel.cameraEditor.clips.pickClip(clip);
+                            file.getParentFile().mkdirs();
+                            WaveWriter.write(file, wave);
+                            clip.audio.set(Link.assets("audio/" + newT + ".wav"));
+                            clip.duration.set((int) (wave.getDuration() * 20));
+                            clip.layer.set(clips.getTopLayer() + 1);
 
-                lastInput = filename.equals(promptValue) ? "" : filename;
-            }
-            catch (Exception e)
-            {}
+                            clips.addClip(clip);
+                            filmPanel.cameraEditor.clips.clearSelection();
+                            filmPanel.cameraEditor.clips.pickClip(clip);
+
+                            lastInput = newT.equals(value) ? "" : newT;
+                        }
+                        catch (Exception e)
+                        {}
+                    });
+                    UIAudioRecorder audioRecorder = new UIAudioRecorder(recorder);
+
+                    audioRecorder.full(overlay);
+                    audioRecorder.resize();
+                    overlay.add(audioRecorder);
+
+                    Thread thread = new Thread(recorder, "Супер классный, я записываю твой микрофон хихихи :3");
+
+                    thread.start();
+                }
+            );
+
+            panel.text.setText(value);
+            panel.text.path();
+
+            UIOverlay.addOverlay(context, panel);
         });
-        UIAudioRecorder audioRecorder = new UIAudioRecorder(recorder);
-
-        audioRecorder.full(overlay);
-        audioRecorder.resize();
-        overlay.add(audioRecorder);
-
-        Thread thread = new Thread(recorder, "Супер классный, я записываю твой микрофон хихихи :3");
-
-        thread.start();
     }
 
     @Override

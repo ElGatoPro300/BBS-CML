@@ -4,15 +4,16 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
-import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.Pair;
 
 public class UIBodyPartEditor extends UIScrollView
@@ -20,7 +21,6 @@ public class UIBodyPartEditor extends UIScrollView
     public UIButton pick;
     public UIToggle useTarget;
     public UIStringList bone;
-    public UISearchList<String> boneSearch;
     public UIPropTransform transform;
 
     private final UIFormEditor editor;
@@ -41,6 +41,11 @@ public class UIBodyPartEditor extends UIScrollView
 
                 Form partForm = current.part.getForm();
 
+                if (partForm instanceof ModelForm m)
+                {
+                    m.boneTracks.set(false);
+                }
+
                 if (partForm != null && partForm.getFormId().contains("particle"))
                 {
                     current.part.useTarget.set(true);
@@ -55,32 +60,18 @@ public class UIBodyPartEditor extends UIScrollView
 
         this.useTarget = new UIToggle(UIKeys.FORMS_EDITOR_USE_TARGET, (b) ->
         {
-            for (UIForms.FormEntry entry : this.editor.formsList.getCurrent())
-            {
-                if (entry.part != null)
-                {
-                    entry.part.useTarget.set(b.getValue());
-                }
-            }
+            this.part.useTarget.set(b.getValue());
         });
 
         this.bone = new UIStringList((l) -> this.part.bone.set(l.get(0)));
-        this.bone.background().h(16 * 6);
-        this.boneSearch = new UISearchList<>(this.bone);
-        this.boneSearch.label(UIKeys.GENERAL_SEARCH);
-        this.boneSearch.h(16 * 6 + 20);
+        this.bone.background().h(UIConstants.LIST_ITEM_HEIGHT * 6);
 
         this.transform = new UIPropTransform().callbacks(() -> this.part.transform);
 
         this.pick.keys().register(Keys.FORMS_EDIT, this.pick::clickItself);
 
-        this.column(5).vertical().stretch().scroll().padding(10);
+        this.column(UIConstants.MARGIN).vertical().stretch().scroll().padding(UIConstants.SCROLL_PADDING);
         this.scroll.cancelScrolling();
-    }
-
-    public BodyPart getPart()
-    {
-        return this.part;
     }
 
     public void setPart(BodyPart part, Form form)
@@ -97,7 +88,7 @@ public class UIBodyPartEditor extends UIScrollView
 
         if (!this.bone.getList().isEmpty())
         {
-            this.add(this.pick, this.useTarget, UI.label(UIKeys.FORMS_EDITOR_BONE).marginTop(8), this.boneSearch, this.transform);
+            this.add(this.pick, this.useTarget, UI.label(UIKeys.FORMS_EDITOR_BONE).marginTop(UIConstants.SECTION_GAP), this.bone, this.transform);
         }
         else
         {

@@ -1,25 +1,15 @@
 package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
 
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
-import net.fabricmc.loader.api.metadata.ModMetadata;
-
-import net.minecraft.client.Minecraft;
-
 import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.api.v0.IrisApi;
 import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
-import net.irisshaders.iris.gui.screen.ShaderPackScreen;
-import net.irisshaders.iris.pbr.TextureTracker;
-import net.irisshaders.iris.pbr.loader.PBRTextureLoaderRegistry;
 import net.irisshaders.iris.shaderpack.LanguageMap;
 import net.irisshaders.iris.shaderpack.ShaderPack;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuContainer;
@@ -28,6 +18,8 @@ import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElementScreen;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuLinkElement;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
 import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
+import net.irisshaders.iris.texture.TextureTracker;
+import net.irisshaders.iris.texture.pbr.loader.PBRTextureLoaderRegistry;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.IntCachedUniform;
@@ -35,8 +27,8 @@ import net.irisshaders.iris.vertices.NormI8;
 import net.irisshaders.iris.vertices.NormalHelper;
 import net.irisshaders.iris.vertices.views.TriView;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import joptsimple.internal.Strings;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,39 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import joptsimple.internal.Strings;
-
 public class IrisUtils
 {
     private static Set<Texture> textureSet = new HashSet<>();
-    private static Map<Integer, PBRIntensity> trackedPBRIntensities = new HashMap<>();
-    private static final ThreadLocal<PBRIntensity> activePBRIntensity = new ThreadLocal<>();
     private static ShaderProperties properties;
-
-    private static class PBRIntensity
-    {
-        public float normal = 1F;
-        public float specular = 1F;
-
-        public PBRIntensity()
-        {}
-
-        public PBRIntensity(float normal, float specular)
-        {
-            this.normal = normal;
-            this.specular = specular;
-        }
-
-        public PBRIntensity(PBRIntensity other)
-        {
-            this(other.normal, other.specular);
-        }
-
-        public boolean sameAs(PBRIntensity other)
-        {
-            return other != null && Math.abs(this.normal - other.normal) < 0.0001F && Math.abs(this.specular - other.specular) < 0.0001F;
-        }
-    }
 
     public static void setShaderProperties(ShaderProperties shaderProperties)
     {
@@ -183,10 +146,8 @@ public class IrisUtils
     {
         TextureManager textures = BBSModClient.getTextures();
         Texture error = textures.getError();
-        PBRIntensity active = activePBRIntensity.get();
-        PBRIntensity current = active == null ? new PBRIntensity(1F, 1F) : new PBRIntensity(active);
 
-        if (texture != error)
+        if (texture != error && !textureSet.contains(texture))
         {
             Link key = CollectionUtils.getKey(textures.textures, texture);
 
@@ -204,388 +165,16 @@ public class IrisUtils
                     index = texture.getParent().textures.indexOf(texture);
                 }
 
-                PBRIntensity tracked = trackedPBRIntensities.get(texture.id);
-
-                if (!textureSet.contains(texture) || tracked == null || !tracked.sameAs(current))
-                {
-                    TextureTracker.INSTANCE.trackTexture(texture.id, new IrisTextureWrapper(key, index, current.normal, current.specular));
-                    trackedPBRIntensities.put(texture.id, current);
-                }
+                TextureTracker.INSTANCE.trackTexture(texture.id, new IrisTextureWrapper(key, index));
             }
 
             textureSet.add(texture);
         }
     }
 
-    public static void setPBRTextureIntensity(float normalIntensity, float specularIntensity)
-    {
-        activePBRIntensity.set(new PBRIntensity(normalIntensity, specularIntensity));
-    }
-
-    public static void clearPBRTextureIntensity()
-    {
-        activePBRIntensity.remove();
-    }
-
-    public static float getActivePBRNormalIntensity()
-    {
-        PBRIntensity intensity = activePBRIntensity.get();
-
-        return intensity == null ? 1F : intensity.normal;
-    }
-
-    public static float getActivePBRSpecularIntensity()
-    {
-        PBRIntensity intensity = activePBRIntensity.get();
-
-        return intensity == null ? 1F : intensity.specular;
-    }
-
     public static boolean isShaderPackEnabled()
     {
         return IrisApi.getInstance().isShaderPackInUse();
-    }
-
-    public static void toggleShaders()
-    {
-        try
-        {
-            Iris.toggleShaders(Minecraft.getInstance(), !IrisUtils.isShaderPackEnabled());
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-    }
-
-    public static void reloadShaders()
-    {
-        try
-        {
-            if (isShaderPackEnabled())
-            {
-                Iris.reload();
-            }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-    }
-
-    private static Boolean hasExternalLODMods;
-
-    public static boolean hasExternalLODMods()
-    {
-        if (hasExternalLODMods == null)
-        {
-            hasExternalLODMods = detectExternalLODMods();
-        }
-
-        return hasExternalLODMods;
-    }
-
-    private static boolean detectExternalLODMods()
-    {
-        FabricLoader loader = FabricLoader.getInstance();
-
-        for (ModContainer mod : loader.getAllMods())
-        {
-            ModMetadata meta = mod.getMetadata();
-            String id = meta.getId().toLowerCase();
-            String name = meta.getName().toLowerCase();
-
-            if (id.contains("distant") || id.contains("horizon") || id.contains("voxy")
-                || id.contains("bobby") || id.contains("nvidium")
-                || id.contains("lod") || name.contains("distant horizons")
-                || name.contains("voxy") || name.contains("level of detail"))
-            {
-                return true;
-            }
-        }
-
-        String[] knownClasses = new String[] {
-            "com.seibel.distanthorizons.common.DistantHorizons",
-            "com.seibel.distanthorizons.core.api.internal.ClientApi",
-            "me.cortex.voxy.client.Voxy",
-            "de.johni0702.minecraft.bobby.Bobby"
-        };
-
-        for (String className : knownClasses)
-        {
-            try
-            {
-                Class.forName(className, false, IrisUtils.class.getClassLoader());
-
-                return true;
-            }
-            catch (ClassNotFoundException ignored)
-            {}
-        }
-
-        return false;
-    }
-
-    public static boolean isExternalLODRenderingActive()
-    {
-        if (!hasExternalLODMods())
-        {
-            return false;
-        }
-
-        boolean hasDH = isModLoadedOrClassPresent("distanthorizons", "com.seibel.distanthorizons.common.DistantHorizons");
-        boolean hasVoxy = isModLoadedOrClassPresent("voxy", "me.cortex.voxy.client.Voxy");
-        boolean hasBobby = isModLoadedOrClassPresent("bobby", "de.johni0702.minecraft.bobby.Bobby");
-
-        if (hasDH && isDistantHorizonsActive())
-        {
-            return true;
-        }
-
-        if (hasVoxy && isVoxyActive())
-        {
-            return true;
-        }
-
-        if (hasBobby && isBobbyActive())
-        {
-            return true;
-        }
-
-        /* If none of the specific known mods was found but hasExternalLODMods() was true (generic LOD mod),
-         * return true by default. If specific mods WERE present and all were inactive, return false. */
-        if (!hasDH && !hasVoxy && !hasBobby)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    public static boolean isModLoadedOrClassPresent(String modId, String className)
-    {
-        if (FabricLoader.getInstance().isModLoaded(modId))
-        {
-            return true;
-        }
-
-        try
-        {
-            Class.forName(className, false, IrisUtils.class.getClassLoader());
-
-            return true;
-        }
-        catch (ClassNotFoundException ignored)
-        {}
-
-        return false;
-    }
-
-    /**
-     * Whether Distant Horizons LOD rendering is actually on.
-     * Must follow the home-screen "Enable rendering" toggle ({@code quickEnableRendering} /
-     * API {@code renderingEnabled}), not LOD render distance — distance stays high while
-     * rendering is off and previously caused unnecessary Iris reloads in the film editor.
-     */
-    private static boolean isDistantHorizonsActive()
-    {
-        Boolean enabled = readDistantHorizonsRenderingEnabled();
-
-        if (enabled != null)
-        {
-            return enabled;
-        }
-
-        /* Unknown DH config layout: assume active so the film-editor x-ray fix still runs. */
-        return true;
-    }
-
-    /**
-     * @return {@code Boolean} when the Enable-rendering flag was read; {@code null} if DH
-     * config could not be resolved (caller decides fallback).
-     */
-    private static Boolean readDistantHorizonsRenderingEnabled()
-    {
-        /* Prefer the public API (stable across DH versions). */
-        try
-        {
-            Class<?> delayedClass = Class.forName("com.seibel.distanthorizons.api.DhApi$Delayed", false, IrisUtils.class.getClassLoader());
-            Field configsField = delayedClass.getField("configs");
-            Object configs = configsField.get(null);
-
-            if (configs != null)
-            {
-                Object graphics = configs.getClass().getMethod("graphics").invoke(configs);
-
-                if (graphics != null)
-                {
-                    Object renderingEnabled = graphics.getClass().getMethod("renderingEnabled").invoke(graphics);
-
-                    if (renderingEnabled != null)
-                    {
-                        Object val = renderingEnabled.getClass().getMethod("getValue").invoke(renderingEnabled);
-
-                        if (val instanceof Boolean)
-                        {
-                            return (Boolean) val;
-                        }
-                    }
-                }
-            }
-        }
-        catch (ClassNotFoundException ignored)
-        {}
-        catch (Throwable ignored)
-        {}
-
-        /* Home-page toggle: Config.Client.quickEnableRendering ("Enable rendering"). */
-        Boolean quick = readConfigEntryBoolean("com.seibel.distanthorizons.core.config.Config$Client", "quickEnableRendering");
-
-        if (quick != null)
-        {
-            return quick;
-        }
-
-        /* Linked advanced mode: DISABLED <=> Enable rendering off. */
-        try
-        {
-            Class<?> debuggingClass = Class.forName("com.seibel.distanthorizons.core.config.Config$Client$Advanced$Debugging", false, IrisUtils.class.getClassLoader());
-            Field modeField = debuggingClass.getField("rendererMode");
-            Object configEntry = modeField.get(null);
-
-            if (configEntry != null)
-            {
-                Method getMethod = configEntry.getClass().getMethod("get");
-                Object val = getMethod.invoke(configEntry);
-
-                if (val != null)
-                {
-                    return !"DISABLED".equals(String.valueOf(val));
-                }
-            }
-        }
-        catch (ClassNotFoundException ignored)
-        {}
-        catch (Throwable ignored)
-        {}
-
-        /* Very old DH builds used enableRendering under Debugging. */
-        return readConfigEntryBoolean("com.seibel.distanthorizons.core.config.Config$Client$Advanced$Debugging", "enableRendering");
-    }
-
-    private static Boolean readConfigEntryBoolean(String className, String fieldName)
-    {
-        try
-        {
-            Class<?> clazz = Class.forName(className, false, IrisUtils.class.getClassLoader());
-            Field field = clazz.getField(fieldName);
-            Object configEntry = field.get(null);
-
-            if (configEntry != null)
-            {
-                Method getMethod = configEntry.getClass().getMethod("get");
-                Object val = getMethod.invoke(configEntry);
-
-                if (val instanceof Boolean)
-                {
-                    return (Boolean) val;
-                }
-            }
-        }
-        catch (ClassNotFoundException | NoSuchFieldException ignored)
-        {}
-        catch (Throwable ignored)
-        {}
-
-        return null;
-    }
-
-    private static boolean isVoxyActive()
-    {
-        try
-        {
-            Class<?> voxyClass = Class.forName("me.cortex.voxy.client.Voxy", false, IrisUtils.class.getClassLoader());
-            Method getInstance = voxyClass.getMethod("getInstance");
-            Object instance = getInstance.invoke(null);
-
-            if (instance != null)
-            {
-                try
-                {
-                    Method isRunning = instance.getClass().getMethod("isRunning");
-                    Object res = isRunning.invoke(instance);
-
-                    if (res instanceof Boolean)
-                    {
-                        return (Boolean) res;
-                    }
-                }
-                catch (Throwable ignored)
-                {}
-            }
-
-            Class<?> voxyConfigClass = Class.forName("me.cortex.voxy.client.config.VoxyConfig", false, IrisUtils.class.getClassLoader());
-            Field configField = voxyConfigClass.getField("CONFIG");
-            Object configObj = configField.get(null);
-
-            if (configObj != null)
-            {
-                Field enabledField = configObj.getClass().getField("enabled");
-                Object enabledVal = enabledField.get(configObj);
-
-                if (enabledVal instanceof Boolean)
-                {
-                    return (Boolean) enabledVal;
-                }
-            }
-        }
-        catch (ClassNotFoundException ignored)
-        {}
-        catch (Throwable ignored)
-        {}
-
-        return true;
-    }
-
-    private static boolean isBobbyActive()
-    {
-        try
-        {
-            Class<?> bobbyClass = Class.forName("de.johni0702.minecraft.bobby.Bobby", false, IrisUtils.class.getClassLoader());
-            Method getInstance = bobbyClass.getMethod("getInstance");
-            Object instance = getInstance.invoke(null);
-
-            if (instance != null)
-            {
-                Method isEnabled = instance.getClass().getMethod("isEnabled");
-                Object res = isEnabled.invoke(instance);
-
-                if (res instanceof Boolean)
-                {
-                    return (Boolean) res;
-                }
-            }
-        }
-        catch (ClassNotFoundException ignored)
-        {}
-        catch (Throwable ignored)
-        {}
-
-        return true;
-    }
-
-    public static void openShaderPackScreen()
-    {
-        try
-        {
-            Minecraft client = Minecraft.getInstance();
-
-            client.execute(() -> client.setScreen(new ShaderPackScreen(client.screen)));
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
     }
 
     public static boolean isShadowPass()
@@ -625,7 +214,7 @@ public class IrisUtils
             int ou = i * 6;
             float x0 = v[oi + 0], y0 = v[oi + 1], z0 = v[oi + 2], u0 = u[ou + 0], v0 = u[ou + 1],
                   x1 = v[oi + 3], y1 = v[oi + 4], z1 = v[oi + 5], u1 = u[ou + 2], v1 = u[ou + 3],
-                  x2 = v[oi + 6], y2 = v[oi + 7], z2 = v[oi + 8], u2 = u[ou + 4], v2 = u[ou + 5];
+                  x2 = v[oi + 6], y2 = v[oi + 7], z2 = v[oi + 7], u2 = u[ou + 4], v2 = u[ou + 5];
 
             int t1 = NormalHelper.computeTangent(n[oi + 0], n[oi + 1], n[oi + 2], triangle.set(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2));
             int t2 = NormalHelper.computeTangent(n[oi + 3], n[oi + 4], n[oi + 5], triangle.set(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2));
@@ -654,15 +243,6 @@ public class IrisUtils
     {
         for (ShaderCurves.ShaderVariable value : variableMap.values())
         {
-            if (ShaderCurves.SUN_PATH_ROTATION.equals(value.name))
-            {
-                /* Negated vs sky matrix so Complementary light stays opposite the sun disc. */
-                list.add(new FloatCachedUniform(value.uniformName, UniformUpdateFrequency.PER_FRAME, () ->
-                    SunPathRotation.getLightYawDegrees()));
-
-                continue;
-            }
-
             if (value.integer)
             {
                 list.add(new IntCachedUniform(value.uniformName, UniformUpdateFrequency.PER_FRAME, () -> (int) value.getValue()));

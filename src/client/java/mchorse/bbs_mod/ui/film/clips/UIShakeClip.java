@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.film.clips.widgets.UIBitToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.Direction;
 
 public class UIShakeClip extends UIClip<ShakeClip>
@@ -38,7 +39,8 @@ public class UIShakeClip extends UIClip<ShakeClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:shake"), UI.row(5, 0, 20, this.shake, this.shakeAmount)), this.active);
+        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:shake")), UI.row(UIConstants.MARGIN, 0, 20, this.shake, this.shakeAmount)).marginTop(UIConstants.SECTION_GAP));
+        this.panels.add(this.active);
     }
 
     @Override

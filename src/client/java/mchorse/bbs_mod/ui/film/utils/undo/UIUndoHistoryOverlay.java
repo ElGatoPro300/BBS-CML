@@ -19,29 +19,24 @@ public class UIUndoHistoryOverlay extends UIOverlayPanel
 
         this.panel = panel;
 
-        this.list = new UIUndoList<ValueGroup>((l) ->
+        this.list = new UIUndoList((l) ->
         {
             int index = this.list.getIndex();
             UndoManager<ValueGroup> undoManager = this.panel.getUndoHandler().getUndoManager();
-            boolean changed = false;
 
             while (undoManager.getCurrentUndoIndex() != index)
             {
                 if (undoManager.getCurrentUndoIndex() > index)
                 {
-                    changed = this.panel.getUndoHandler().undo(this.panel.getData()) || changed;
+                    undoManager.undo(this.panel.getData());
                 }
                 else
                 {
-                    changed = this.panel.getUndoHandler().redo(this.panel.getData()) || changed;
+                    undoManager.redo(this.panel.getData());
                 }
             }
 
-            if (changed)
-            {
-                this.panel.refreshAfterUndo();
-                UIUtils.playClick();
-            }
+            UIUtils.playClick();
         });
         this.list.setList(this.panel.getUndoHandler().getUndoManager().getUndos());
         this.list.full(this.content);

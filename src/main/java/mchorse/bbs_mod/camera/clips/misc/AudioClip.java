@@ -3,6 +3,7 @@ package mchorse.bbs_mod.camera.clips.misc;
 import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
@@ -15,7 +16,7 @@ public class AudioClip extends CameraClip
 
     public ValueLink audio = new ValueLink("audio", null);
     public ValueInt offset = new ValueInt("offset", 0, Integer.MIN_VALUE, Integer.MAX_VALUE);
-    public ValueInt volume = new ValueInt("volume", 100, 0, 400);
+    public ValueFloat volume = new ValueFloat("volume", 1F, 0F,1F);
 
     public AudioClip()
     {
@@ -27,26 +28,11 @@ public class AudioClip extends CameraClip
     }
 
     @Override
-    public void shiftLeft(int tick, boolean direct)
+    public void shiftLeft(int tick)
     {
-        super.shiftLeft(tick, direct);
+        super.shiftLeft(tick);
 
-        int newOffset = this.offset.get() - (this.tick.get() - tick);
-
-        if (direct)
-        {
-            this.offset.setDirect(newOffset);
-        }
-        else
-        {
-            this.offset.set(newOffset);
-        }
-    }
-
-    @Override
-    public boolean isPositionClip()
-    {
-        return false;
+        this.offset.set(this.offset.get() - (this.tick.get() - tick));
     }
 
     @Override

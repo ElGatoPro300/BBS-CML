@@ -1,96 +1,78 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import org.joml.Matrix4fc;
-
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.render.VertexConsumer;
 
 public class RecolorVertexConsumer implements VertexConsumer
 {
     public static Color newColor;
-    public static Color newPaintColor;
 
     protected VertexConsumer consumer;
     protected Color color;
-    protected Color paintColor;
 
     public RecolorVertexConsumer(VertexConsumer consumer, Color color)
     {
-        this(consumer, color, null);
-    }
-
-    public RecolorVertexConsumer(VertexConsumer consumer, Color color, Color paintColor)
-    {
         this.consumer = consumer;
         this.color = color;
-        this.paintColor = paintColor;
     }
 
     @Override
-    public VertexConsumer addVertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
-        return this.consumer.addVertex(x, y, z);
+        return this.consumer.vertex(x, y, z);
     }
 
     @Override
-    public VertexConsumer addVertex(Matrix4fc matrix, float x, float y, float z)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        return this.consumer.addVertex(matrix, x, y, z);
+        red = (int) (this.color.r * red);
+        green = (int) (this.color.g * green);
+        blue = (int) (this.color.b * blue);
+        alpha = (int) (this.color.a * alpha);
+
+        return this.consumer.color(red, green, blue, alpha);
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer texture(float u, float v)
     {
-        red = MathUtils.clamp((int) (this.color.r * red), 0, 255);
-        green = MathUtils.clamp((int) (this.color.g * green), 0, 255);
-        blue = MathUtils.clamp((int) (this.color.b * blue), 0, 255);
-        alpha = MathUtils.clamp((int) (this.color.a * alpha), 0, 255);
-
-        int[] rgb = { red, green, blue };
-
-        FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
-        red = MathUtils.clamp(rgb[0], 0, 255);
-        green = MathUtils.clamp(rgb[1], 0, 255);
-        blue = MathUtils.clamp(rgb[2], 0, 255);
-
-        return this.consumer.setColor(red, green, blue, alpha);
+        return this.consumer.texture(u, v);
     }
 
     @Override
-    public VertexConsumer setUv(float u, float v)
+    public VertexConsumer overlay(int u, int v)
     {
-        return this.consumer.setUv(u, v);
+        return this.consumer.overlay(u, v);
     }
 
     @Override
-    public VertexConsumer setUv1(int u, int v)
+    public VertexConsumer light(int u, int v)
     {
-        return this.consumer.setUv1(u, v);
+        return this.consumer.light(u, v);
     }
 
     @Override
-    public VertexConsumer setUv2(int u, int v)
+    public VertexConsumer normal(float x, float y, float z)
     {
-        return this.consumer.setUv2(u, v);
+        return this.consumer.normal(x, y, z);
     }
 
     @Override
-    public VertexConsumer setNormal(float x, float y, float z)
+    public void next()
     {
-        return this.consumer.setNormal(x, y, z);
+        this.consumer.next();
     }
 
     @Override
-    public VertexConsumer setColor(int argb)
+    public void fixedColor(int red, int green, int blue, int alpha)
     {
-        return this.consumer.setColor(argb);
+        this.consumer.fixedColor(red, green, blue, alpha);
     }
 
     @Override
-    public VertexConsumer setLineWidth(float width)
+    public void unfixColor()
     {
-        return this.consumer.setLineWidth(width);
+        this.consumer.unfixColor();
     }
 }

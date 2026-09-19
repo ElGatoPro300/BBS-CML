@@ -12,8 +12,6 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 import mchorse.bbs_mod.utils.watchdog.IWatchDogListener;
 import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
-import net.minecraft.resources.Identifier;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -105,12 +103,7 @@ public class TextureManager implements IWatchDogListener
     {
         BBSRendering.trackTexture(texture);
 
-        texture.bind(unit);
-    }
-
-    public void bindTextureId(Identifier location)
-    {
-        this.bindTexture(Link.create(location.toString()), 0);
+        RenderSystem.setShaderTexture(unit, texture.id);
     }
 
     public void bind(Link texture)
@@ -169,15 +162,6 @@ public class TextureManager implements IWatchDogListener
     {
         Pixels pixels;
 
-        if (Link.COLOR.equals(link.source))
-        {
-            pixels = Pixels.fromSize(1, 1);
-            pixels.setColor(0, 0, new Color().set((int) Long.parseLong(link.path, 16)));
-            pixels.rewindBuffer();
-
-            return pixels;
-        }
-
         if (link instanceof MultiLink)
         {
             pixels = MultiLinkThread.getStreamForMultiLink((MultiLink) link);
@@ -205,11 +189,6 @@ public class TextureManager implements IWatchDogListener
 
     public Texture getTexture(Link link, int filter, boolean silent)
     {
-        if (link == null)
-        {
-            return this.getError();
-        }
-
         Texture texture = this.get(link);
 
         if (texture == null)

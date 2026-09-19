@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.camera.clips.misc;
 
+import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.utils.pose.Transform;
+
 public class Subtitle
 {
     public String label = "";
@@ -17,12 +20,15 @@ public class Subtitle
     public float shadow;
     public boolean shadowOpaque;
 
-    public float lineHeight;
-    public float maxWidth;
-    public float rotationX;
-    public float rotationY;
-    public float rotation;
-    public int renderOrder;
+    public Transform transform;
+    public float factor;
+
+    public int lineHeight;
+    public int maxWidth;
+
+    public Link image;
+    public boolean imageRight;
+    public float imageScale;
 
     public void update(String label, int x, int y, float size, float anchorX, float anchorY, int color, boolean textShadow)
     {
@@ -50,16 +56,22 @@ public class Subtitle
         this.shadowOpaque = shadowOpaque;
     }
 
-    public void updateConstraints(float lineHeight, float maxWidth)
+    public void updateTransform(Transform transform, float factor)
+    {
+        this.transform = transform;
+        this.factor = factor;
+    }
+
+    public void updateConstraints(int lineHeight, int maxWidth)
     {
         this.lineHeight = lineHeight;
         this.maxWidth = maxWidth;
     }
 
-    public void updateRotation(float rotationX, float rotationY, float rotation)
+    public void updateImage(Link image, boolean imageRight, float imageScale)
     {
-        this.rotationX = rotationX;
-        this.rotationY = rotationY;
-        this.rotation = rotation;
+        this.image = image;
+        this.imageRight = imageRight;
+        this.imageScale = imageScale;
     }
 }
