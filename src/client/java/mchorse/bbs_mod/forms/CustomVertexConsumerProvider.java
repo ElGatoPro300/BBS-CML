@@ -5,26 +5,26 @@ import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.lwjgl.opengl.GL11;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class CustomVertexConsumerProvider implements VertexConsumerProvider
+public class CustomVertexConsumerProvider implements MultiBufferSource
 {
-    private static Consumer<RenderLayer> runnables;
+    private static Consumer<RenderType> runnables;
 
-    private final VertexConsumerProvider.Immediate delegate;
+    private final MultiBufferSource.BufferSource delegate;
     private Function<VertexConsumer, VertexConsumer> substitute;
     private boolean ui;
 
-    public static void drawLayer(RenderLayer layer)
+    public static void drawLayer(RenderType layer)
     {
         /* Rebind before/after layer setup: RenderLayer startDrawing can steal the main FB. */
         StencilFormFramebuffer.rebindActive();
@@ -37,7 +37,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
         StencilFormFramebuffer.rebindActive();
     }
 
-    public static void hijackVertexFormat(Consumer<RenderLayer> runnable)
+    public static void hijackVertexFormat(Consumer<RenderType> runnable)
     {
         runnables = runnable;
     }
@@ -47,7 +47,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
         runnables = null;
     }
 
-    public CustomVertexConsumerProvider(VertexConsumerProvider.Immediate delegate)
+    public CustomVertexConsumerProvider(MultiBufferSource.BufferSource delegate)
     {
         this.delegate = delegate;
     }
@@ -76,7 +76,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
     }
 
     @Override
-    public VertexConsumer getBuffer(RenderLayer renderLayer)
+    public VertexConsumer getBuffer(RenderType renderLayer)
     {
         VertexConsumer buffer = this.delegate.getBuffer(renderLayer);
 
@@ -95,7 +95,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
 
     public void draw()
     {
-        this.delegate.draw();
+        this.delegate.endBatch();
 
         if (this.ui)
         {
@@ -112,6 +112,6 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
      */
     public void drawCurrentLayer()
     {
-        this.delegate.drawCurrentLayer();
+        this.delegate.endLastBatch();
     }
 }

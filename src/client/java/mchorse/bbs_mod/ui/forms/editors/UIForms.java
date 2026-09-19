@@ -9,8 +9,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
 import mchorse.bbs_mod.utils.StringUtils;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.Minecraft;
+
+import com.mojang.blaze3d.platform.Lighting;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -348,9 +349,9 @@ public class UIForms extends UIList<UIForms.FormEntry>
 
             y -= 10;
 
-            MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+            Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
             FormUtilsClient.renderUI(form, context, x, y, x + 40, y + 40);
-            MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+            Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.LEVEL);
 
             context.batcher.unclip(context);
         }

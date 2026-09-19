@@ -1,19 +1,19 @@
 package mchorse.bbs_mod.client.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.command.OrderedRenderCommandQueueImpl;
-import net.minecraft.client.render.command.RenderDispatcher;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 
 /**
  * Isolated entity preview draw path for form-list / morph thumbnails.
- * The global {@link RenderDispatcher} can defer layers (eyes, emissive features)
+ * The global {@link FeatureRenderDispatcher} can defer layers (eyes, emissive features)
  * across cells; flushing on a private queue keeps each thumbnail self-contained.
  */
 public final class EntityPreviewRenderHelper
 {
-    private static OrderedRenderCommandQueueImpl isolatedQueue;
-    private static RenderDispatcher isolatedDispatcher;
+    private static SubmitNodeStorage isolatedQueue;
+    private static FeatureRenderDispatcher isolatedDispatcher;
 
     private EntityPreviewRenderHelper()
     {}
@@ -25,28 +25,29 @@ public final class EntityPreviewRenderHelper
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
-        isolatedQueue = new OrderedRenderCommandQueueImpl();
-        isolatedDispatcher = new RenderDispatcher(
+        isolatedQueue = new SubmitNodeStorage();
+        isolatedDispatcher = new FeatureRenderDispatcher(
             isolatedQueue,
-            client.getBlockRenderManager(),
-            client.getBufferBuilders().getEntityVertexConsumers(),
+            client.getModelManager(),
+            client.renderBuffers().bufferSource(),
             client.getAtlasManager(),
-            client.getBufferBuilders().getOutlineVertexConsumers(),
-            client.getBufferBuilders().getEffectVertexConsumers(),
-            client.textRenderer
+            client.renderBuffers().outlineBufferSource(),
+            client.renderBuffers().crumblingBufferSource(),
+            client.font,
+            client.gameRenderer.getGameRenderState()
         );
     }
 
-    public static OrderedRenderCommandQueue getQueue()
+    public static SubmitNodeCollector getQueue()
     {
         ensureIsolatedDispatcher();
 
         return isolatedQueue;
     }
 
-    public static RenderDispatcher getDispatcher()
+    public static FeatureRenderDispatcher getDispatcher()
     {
         ensureIsolatedDispatcher();
 
@@ -56,6 +57,6 @@ public final class EntityPreviewRenderHelper
     /** Flush vanilla entity layers submitted during the preview draw. */
     public static void flushEntityBuffers()
     {
-        MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers().draw();
+        Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
     }
 }

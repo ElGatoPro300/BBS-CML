@@ -458,15 +458,15 @@ public class UIContext implements IViewportStack
 
         this.batcher.flush();
 
-        this.batcher.getContext().getMatrices().pushMatrix();
-        this.batcher.getContext().getMatrices().translate(0F, 0F);
+        this.batcher.getContext().pose().pushMatrix();
+        this.batcher.getContext().pose().translate(0F, 0F);
 
         this.tooltip.render(this);
         this.notifications.render(this);
         this.renderForegroundTextCard();
         this.renderForegroundInteractionHint();
 
-        this.batcher.getContext().getMatrices().popMatrix();
+        this.batcher.getContext().pose().popMatrix();
     }
 
     private void renderForegroundInteractionHint()
@@ -736,7 +736,7 @@ public class UIContext implements IViewportStack
     public void shiftX(int x)
     {
         this.mouseX += x;
-        this.render.batcher.getContext().getMatrices().translate((float) -x, 0.0F);
+        this.render.batcher.getContext().pose().translate((float) -x, 0.0F);
         this.viewportStack.shiftX(x);
     }
 
@@ -744,7 +744,7 @@ public class UIContext implements IViewportStack
     public void shiftY(int y)
     {
         this.mouseY += y;
-        this.render.batcher.getContext().getMatrices().translate(0.0F, (float) -y);
+        this.render.batcher.getContext().pose().translate(0.0F, (float) -y);
         this.viewportStack.shiftY(y);
     }
 
@@ -768,7 +768,7 @@ public class UIContext implements IViewportStack
 
     public void resetMatrix()
     {
-        this.render.batcher.getContext().getMatrices().identity();
+        this.render.batcher.getContext().pose().identity();
     }
 
     public void update()

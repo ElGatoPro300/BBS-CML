@@ -24,13 +24,13 @@ import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,8 +57,8 @@ public class ActionPlayer
     public boolean syncing;
     public boolean stopDamage = true;
 
-    private ServerPlayerEntity serverPlayer;
-    private ServerWorld world;
+    private ServerPlayer serverPlayer;
+    private ServerLevel world;
     private int duration;
     private boolean wasPlaying = true;
 
@@ -78,7 +78,7 @@ public class ActionPlayer
     private int cacheXpLevel;
     private float cacheXpProgress;
 
-    public ActionPlayer(ServerPlayerEntity serverPlayer, ServerWorld world, Film film, int tick, int countdown, int exception, PlayerType type)
+    public ActionPlayer(ServerPlayer serverPlayer, ServerLevel world, Film film, int tick, int countdown, int exception, PlayerType type)
     {
         this.world = world;
         this.film = film;
@@ -96,10 +96,10 @@ public class ActionPlayer
 
         if (this.type == PlayerType.NORMAL && this.serverPlayer != null && fpReplay != null)
         {
-            for (int i = 0; i < this.serverPlayer.getInventory().size(); i++)
+            for (int i = 0; i < this.serverPlayer.getInventory().getContainerSize(); i++)
             {
-                this.cachedInventory.add(serverPlayer.getInventory().getStack(i).copy());
-                this.serverPlayer.getInventory().setStack(i, CollectionUtils.getSafe(fpReplay.inventory.getStacks(), i, ItemStack.EMPTY));
+                this.cachedInventory.add(serverPlayer.getInventory().getItem(i).copy());
+                this.serverPlayer.getInventory().setItem(i, CollectionUtils.getSafe(fpReplay.inventory.getStacks(), i, ItemStack.EMPTY));
             }
 
             Morph morph = Morph.getMorph(this.serverPlayer);
@@ -112,14 +112,14 @@ public class ActionPlayer
             ServerNetwork.sendMorphToTracked(this.serverPlayer, fpReplay.form.get());
 
             this.cacheHp = this.serverPlayer.getHealth();
-            this.cacheHunger = this.serverPlayer.getHungerManager().getSaturationLevel();
+            this.cacheHunger = this.serverPlayer.getFoodData().getSaturationLevel();
             this.cacheXpLevel = this.serverPlayer.experienceLevel;
             this.cacheXpProgress = this.serverPlayer.experienceProgress;
 
             this.serverPlayer.setHealth(this.film.hp.get());
-            this.serverPlayer.getHungerManager().setSaturationLevel(this.film.hunger.get());
+            this.serverPlayer.getFoodData().setSaturation(this.film.hunger.get());
             this.serverPlayer.experienceProgress = this.film.xpProgress.get();
-            this.serverPlayer.setExperienceLevel(this.film.xpLevel.get());
+            this.serverPlayer.setExperienceLevels(this.film.xpLevel.get());
         }
     }
 
@@ -129,7 +129,7 @@ public class ActionPlayer
 
         for (LivingEntity entity : this.actors.values())
         {
-            if (!entity.isPlayer())
+            if (!entity.isAlwaysTicking())
             {
                 entity.discard();
             }
@@ -174,10 +174,10 @@ public class ActionPlayer
 
         if (!this.playing)
         {
-            actor.setVelocity(0D, 0D, 0D);
+            actor.setDeltaMovement(0D, 0D, 0D);
         }
 
-        this.world.spawnEntity(actor);
+        this.world.addFreshEntity(actor);
 
         return actor;
     }
@@ -199,7 +199,7 @@ public class ActionPlayer
 
     private void broadcastActors()
     {
-        for (ServerPlayerEntity player : this.world.getPlayers())
+        for (ServerPlayer player : this.world.players())
         {
             ServerNetwork.sendActors(player, this.film.getId(), this.actors);
         }
@@ -245,7 +245,7 @@ public class ActionPlayer
         }
     }
 
-    public ServerWorld getWorld()
+    public ServerLevel getWorld()
     {
         return this.world;
     }
@@ -264,7 +264,7 @@ public class ActionPlayer
     {
         /* Once combat (Attack clip) has killed this actor, keep snapping to
          * keyframed pose (no knockback hop) while death anim plays. */
-        if (actor instanceof ActorEntity && (actor.isDead() || actor.getHealth() <= 0F))
+        if (actor instanceof ActorEntity && (actor.isDeadOrDying() || actor.getHealth() <= 0F))
         {
             if (actor.deathTime >= DEATH_ANIMATION_TICKS)
             {
@@ -285,12 +285,12 @@ public class ActionPlayer
             float yawBody = replay.keyframes.bodyYaw.interpolate(tick).floatValue();
             float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
 
-            actor.setVelocity(0D, 0D, 0D);
-            actor.setPosition(x, y, z);
-            actor.setYaw(yawHead);
-            actor.setHeadYaw(yawHead);
-            actor.setPitch(pitch);
-            actor.setBodyYaw(yawBody);
+            actor.setDeltaMovement(0D, 0D, 0D);
+            actor.setPos(x, y, z);
+            actor.setYRot(yawHead);
+            actor.setYHeadRot(yawHead);
+            actor.setXRot(pitch);
+            actor.setYBodyRot(yawBody);
 
             /* Seed deathTime so MobForm tip + discard can progress if entity.tick
              * has not advanced it yet this phase. Do not read death_time keyframes
@@ -317,31 +317,31 @@ public class ActionPlayer
         float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
         boolean grounded = replay.keyframes.grounded.interpolate(tick) > 0;
 
-        Vec3d pos = actor.getEntityPos();
+        Vec3 pos = actor.position();
 
         if (ticking)
         {
             actor.setOnGround(grounded);
-            actor.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
+            actor.move(MoverType.SELF, new Vec3(x - pos.x, y - pos.y, z - pos.z));
         }
 
-        actor.setPosition(x, y, z);
-        actor.setYaw(yawHead);
-        actor.setHeadYaw(yawHead);
-        actor.setPitch(pitch);
-        actor.setBodyYaw(yawBody);
-        actor.setSneaking(replay.keyframes.sneaking.interpolate(tick) > 0);
+        actor.setPos(x, y, z);
+        actor.setYRot(yawHead);
+        actor.setYHeadRot(yawHead);
+        actor.setXRot(pitch);
+        actor.setYBodyRot(yawBody);
+        actor.setShiftKeyDown(replay.keyframes.sneaking.interpolate(tick) > 0);
         actor.setOnGround(grounded);
         /* Apply full vanilla pose/action keyframes (sprinting, swimming, limbs, …) so
          * actor-mode procedural/Gecko animators match stub playback. */
-        ActorReplayStateSync.applyFromKeyframes(replay.keyframes, tick, actor, actor.hasVehicle(), ticking);
+        ActorReplayStateSync.applyFromKeyframes(replay.keyframes, tick, actor, actor.isPassenger(), ticking);
         ActionPlayer.equipIfChanged(actor, EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
         ActionPlayer.equipIfChanged(actor, EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
         ActionPlayer.equipIfChanged(actor, EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
         ActionPlayer.equipIfChanged(actor, EquipmentSlot.LEGS, replay.keyframes.armorLegs.interpolate(tick, ItemStack.EMPTY));
         ActionPlayer.equipIfChanged(actor, EquipmentSlot.FEET, replay.keyframes.armorFeet.interpolate(tick, ItemStack.EMPTY));
 
-        if (actor instanceof ServerPlayerEntity player)
+        if (actor instanceof ServerPlayer player)
         {
             int selectedSlot = player.getInventory().getSelectedSlot();
             Integer heldSlot = replay.keyframes.selectedSlot.interpolateHeld(this.tick);
@@ -361,7 +361,7 @@ public class ActionPlayer
 
             if (!ticking)
             {
-                actor.setVelocity(0D, 0D, 0D);
+                actor.setDeltaMovement(0D, 0D, 0D);
             }
             else
             {
@@ -381,7 +381,7 @@ public class ActionPlayer
 
                 double scale = actorEntity.consumePlaybackVelocityScale();
 
-                actor.setVelocity(vx * scale, vy, vz * scale);
+                actor.setDeltaMovement(vx * scale, vy, vz * scale);
             }
         }
         else
@@ -395,7 +395,7 @@ public class ActionPlayer
                 vy = -0.0784;
             }
 
-            actor.setVelocity(vx, vy, vz);
+            actor.setDeltaMovement(vx, vy, vz);
         }
 
         actor.fallDistance = replay.keyframes.fall.interpolate(tick).floatValue();
@@ -404,11 +404,11 @@ public class ActionPlayer
     private static void equipIfChanged(LivingEntity actor, EquipmentSlot slot, ItemStack stack)
     {
         ItemStack next = stack == null ? ItemStack.EMPTY : stack;
-        ItemStack current = actor.getEquippedStack(slot);
+        ItemStack current = actor.getItemBySlot(slot);
 
-        if (!ItemStack.areEqual(current, next))
+        if (!ItemStack.matches(current, next))
         {
-            actor.equipStack(slot, next);
+            actor.setItemSlot(slot, next);
         }
     }
 
@@ -444,13 +444,13 @@ public class ActionPlayer
 
                     if (actor != null && this.serverPlayer != null)
                     {
-                        actor.setPosition(this.serverPlayer.getX(), this.serverPlayer.getY(), this.serverPlayer.getZ());
-                        actor.setYaw(this.serverPlayer.getYaw());
-                        actor.setHeadYaw(this.serverPlayer.getHeadYaw());
-                        actor.setBodyYaw(this.serverPlayer.getBodyYaw());
-                        actor.setPitch(this.serverPlayer.getPitch());
-                        actor.setVelocity(0D, 0D, 0D);
-                        actor.velocityDirty = true;
+                        actor.setPos(this.serverPlayer.getX(), this.serverPlayer.getY(), this.serverPlayer.getZ());
+                        actor.setYRot(this.serverPlayer.getYRot());
+                        actor.setYHeadRot(this.serverPlayer.getYHeadRot());
+                        actor.setYBodyRot(this.serverPlayer.getVisualRotationYInDegrees());
+                        actor.setXRot(this.serverPlayer.getXRot());
+                        actor.setDeltaMovement(0D, 0D, 0D);
+                        actor.needsSync = true;
                         /* Drive procedural walk from the editor player's natural limbs,
                          * not from teleport deltas on the snapped actor body. */
                         ActorReplayStateSync.syncFromSource(actor, new MCEntity(this.serverPlayer), true);
@@ -510,7 +510,7 @@ public class ActionPlayer
                 }
                 else if (!this.playing)
                 {
-                    actor.setVelocity(0D, 0D, 0D);
+                    actor.setDeltaMovement(0D, 0D, 0D);
                 }
             }
         }
@@ -599,7 +599,7 @@ public class ActionPlayer
 
             LivingEntity actor = this.actors.get(replay.getId());
 
-            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0 || actor.isRemoved()))
+            if (actor != null && (actor.isDeadOrDying() || actor.getHealth() <= 0F || actor.deathTime > 0 || actor.isRemoved()))
             {
                 continue;
             }
@@ -696,7 +696,7 @@ public class ActionPlayer
             {
                 actorEntity.setForm(formCopy);
 
-                for (ServerPlayerEntity player : this.world.getPlayers())
+                for (ServerPlayer player : this.world.players())
                 {
                     ServerNetwork.sendEntityForm(player, actorEntity);
                 }
@@ -757,7 +757,7 @@ public class ActionPlayer
                 }
                 else if (!this.playing)
                 {
-                    actor.setVelocity(0D, 0D, 0D);
+                    actor.setDeltaMovement(0D, 0D, 0D);
                 }
             }
         }
@@ -1034,7 +1034,7 @@ public class ActionPlayer
 
             LivingEntity actor = this.actors.get(entry.getKey());
 
-            if (actor == null || actor.isRemoved() || actor.isPlayer())
+            if (actor == null || actor.isRemoved() || actor.isAlwaysTicking())
             {
                 continue;
             }
@@ -1044,7 +1044,7 @@ public class ActionPlayer
             actor.deathTime = 0;
             actor.setHealth(Math.min(hp, actor.getMaxHealth()));
             actor.hurtTime = 0;
-            actor.timeUntilRegen = 0;
+            actor.invulnerableTime = 0;
 
             if (actor instanceof ActorEntity actorEntity)
             {
@@ -1067,7 +1067,7 @@ public class ActionPlayer
 
             LivingEntity actor = entry.getValue();
 
-            if (actor != null && !actor.isPlayer() && !actor.isRemoved())
+            if (actor != null && !actor.isAlwaysTicking() && !actor.isRemoved())
             {
                 actor.discard();
             }
@@ -1096,11 +1096,11 @@ public class ActionPlayer
             fakePlayer.closeReplayChest(replay.getId());
         }
 
-        fakePlayer.closeHandledScreen();
+        fakePlayer.closeContainer();
 
         for (LivingEntity value : this.actors.values())
         {
-            if (!value.isPlayer())
+            if (!value.isAlwaysTicking())
             {
                 value.discard();
             }
@@ -1108,17 +1108,17 @@ public class ActionPlayer
 
         if (this.type == PlayerType.NORMAL && this.serverPlayer != null && this.film.getFirstPersonReplay() != null)
         {
-            for (int i = 0; i < this.serverPlayer.getInventory().size(); i++)
+            for (int i = 0; i < this.serverPlayer.getInventory().getContainerSize(); i++)
             {
-                this.serverPlayer.getInventory().setStack(i, this.cachedInventory.get(i));
+                this.serverPlayer.getInventory().setItem(i, this.cachedInventory.get(i));
             }
 
             ServerNetwork.sendMorphToTracked(this.serverPlayer, this.cachedForm);
 
             this.serverPlayer.setHealth(this.cacheHp);
-            this.serverPlayer.getHungerManager().setSaturationLevel(this.cacheHunger);
+            this.serverPlayer.getFoodData().setSaturation(this.cacheHunger);
             this.serverPlayer.experienceProgress = this.cacheXpProgress;
-            this.serverPlayer.setExperienceLevel(this.cacheXpLevel);
+            this.serverPlayer.setExperienceLevels(this.cacheXpLevel);
         }
     }
 

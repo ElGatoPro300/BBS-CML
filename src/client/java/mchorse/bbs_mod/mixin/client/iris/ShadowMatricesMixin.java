@@ -2,15 +2,15 @@ package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.client.SunPathRotation;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
-
 import net.irisshaders.iris.shadows.ShadowMatrices;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 /**
  * Bakes BBS sun-path yaw into Iris {@code shadowModelView}.
@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ShadowMatricesMixin
 {
     @Inject(method = "createBaselineModelViewMatrix", at = @At("RETURN"), require = 0)
-    private static void bbs$yawShadowBaseline(MatrixStack target, float shadowAngle, float sunPathRotation,
+    private static void bbs$yawShadowBaseline(PoseStack target, float shadowAngle, float sunPathRotation,
         float nearPlane, float farPlane, CallbackInfo ci)
     {
         float degrees = SunPathRotation.getLightYawDegrees();
@@ -35,6 +35,6 @@ public class ShadowMatricesMixin
             return;
         }
 
-        target.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(degrees));
+        target.mulPose(Axis.YP.rotationDegrees(degrees));
     }
 }

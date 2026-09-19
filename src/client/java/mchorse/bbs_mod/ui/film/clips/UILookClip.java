@@ -14,13 +14,13 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorK
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.RayTracing;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class UILookClip extends UIClip<LookClip>
 {
@@ -96,7 +96,7 @@ public class UILookClip extends UIClip<LookClip>
     private void rayTrace(boolean center)
     {
         Camera camera = this.editor.getCamera();
-        World world = MinecraftClient.getInstance().world;
+        Level world = Minecraft.getInstance().level;
 
         HitResult result = RayTracing.rayTraceEntity(world, camera, 128);
 
@@ -109,7 +109,7 @@ public class UILookClip extends UIClip<LookClip>
         }
         else if (!center && result instanceof EntityHitResult ehr && ehr.getType() != HitResult.Type.MISS)
         {
-            Vec3d vec = ehr.getPos();
+            Vec3 vec = ehr.getLocation();
 
             BaseValue.edit(this.clip.block, (block) -> block.get().set(vec.x, vec.y, vec.z));
             this.fillData();

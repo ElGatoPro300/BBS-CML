@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.cubic.animation.gecko.model;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -19,15 +19,15 @@ public class GeckoStateBlend
 
     public void blendTo(Map<GeckoAnimationState, Float> targets, float factor)
     {
-        float clamped = MathHelper.clamp(factor, 0F, 1F);
+        float clamped = Mth.clamp(factor, 0F, 1F);
 
         for (GeckoAnimationState state : GeckoAnimationState.values())
         {
             float current = this.weights.getOrDefault(state, 0F);
-            float target = MathHelper.clamp(targets.getOrDefault(state, 0F), 0F, 1F);
+            float target = Mth.clamp(targets.getOrDefault(state, 0F), 0F, 1F);
             float value = current + (target - current) * clamped;
 
-            this.weights.put(state, MathHelper.clamp(value, 0F, 1F));
+            this.weights.put(state, Mth.clamp(value, 0F, 1F));
         }
     }
 

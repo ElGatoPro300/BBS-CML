@@ -5,53 +5,56 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.block.SkullBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
-import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.command.OrderedRenderCommandQueueImpl;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.object.skull.SkullModelBase;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.blockentity.SkullBlockRenderer;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SkullBlock;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 1.21.11 item draw path: ItemModelManager fills {@link ItemRenderState}, then submits
- * into an {@link OrderedRenderCommandQueue}.
+ * 1.21.11 / 26.1 item draw path: ItemModelResolver fills {@link ItemStackRenderState}, then submits
+ * into an {@link SubmitNodeCollector}.
  * An isolated queue/dispatcher is used for immediate previews to avoid clearing or corrupting
  * unrelated global queues.
  */
 public final class ItemRenderHelper
 {
-    private static final ItemRenderState STATE = new ItemRenderState();
-    private static OrderedRenderCommandQueueImpl isolatedQueue;
-    private static RenderDispatcher isolatedDispatcher;
+    private static final ItemStackRenderState STATE = new ItemStackRenderState();
+    private static SubmitNodeStorage isolatedQueue;
+    private static FeatureRenderDispatcher isolatedDispatcher;
 
     private static void ensureIsolatedDispatcher()
     {
         if (isolatedDispatcher == null)
         {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
 
-            isolatedQueue = new OrderedRenderCommandQueueImpl();
-            isolatedDispatcher = new RenderDispatcher(
+            isolatedQueue = new SubmitNodeStorage();
+            isolatedDispatcher = new FeatureRenderDispatcher(
                 isolatedQueue,
-                client.getBlockRenderManager(),
-                client.getBufferBuilders().getEntityVertexConsumers(),
+                client.getModelManager(),
+                client.renderBuffers().bufferSource(),
                 client.getAtlasManager(),
-                client.getBufferBuilders().getOutlineVertexConsumers(),
-                client.getBufferBuilders().getEffectVertexConsumers(),
-                client.textRenderer
+                client.renderBuffers().outlineBufferSource(),
+                client.renderBuffers().crumblingBufferSource(),
+                client.font,
+                client.gameRenderer.getGameRenderState()
             );
         }
     }
@@ -59,29 +62,29 @@ public final class ItemRenderHelper
     private ItemRenderHelper()
     {}
 
-    public static void renderItem(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, int light, int overlay, World world, LivingEntity entity)
+    public static void renderItem(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, int light, int overlay, Level world, LivingEntity entity)
     {
         renderItem(stack, mode, matrices, light, overlay, world, entity, false);
     }
 
-    public static void renderItem(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, int light, int overlay, World world, LivingEntity entity, boolean flush)
+    public static void renderItem(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, int light, int overlay, Level world, LivingEntity entity, boolean flush)
     {
         if (stack == null || stack.isEmpty())
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         STATE.clear();
 
         if (entity != null)
         {
-            client.getItemModelManager().updateForLivingEntity(STATE, stack, mode, entity);
+            client.getItemModelResolver().updateForLiving(STATE, stack, mode, entity);
         }
         else
         {
-            client.getItemModelManager().clearAndUpdate(STATE, stack, mode, world, null, 0);
+            client.getItemModelResolver().updateForTopItem(STATE, stack, mode, world, null, 0);
         }
 
         if (STATE.isEmpty())
@@ -92,55 +95,55 @@ public final class ItemRenderHelper
         if (flush)
         {
             ensureIsolatedDispatcher();
-            STATE.render(matrices, isolatedQueue, light, overlay, 0);
-            isolatedDispatcher.render();
+            STATE.submit(matrices, isolatedQueue, light, overlay, 0);
+            isolatedDispatcher.renderAllFeatures();
             FormUtilsClient.getProvider().draw();
         }
         else
         {
-            OrderedRenderCommandQueue queue = client.gameRenderer.getEntityRenderCommandQueue();
+            SubmitNodeCollector queue = client.gameRenderer.getSubmitNodeStorage();
 
-            STATE.render(matrices, queue, light, overlay, 0);
+            STATE.submit(matrices, queue, light, overlay, 0);
         }
     }
 
-    public static void renderItem(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, int light, int overlay, World world, LivingEntity entity, OrderedRenderCommandQueue queue)
+    public static void renderItem(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, int light, int overlay, Level world, LivingEntity entity, SubmitNodeCollector queue)
     {
         if (stack == null || stack.isEmpty() || queue == null)
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         STATE.clear();
 
         if (entity != null)
         {
-            client.getItemModelManager().updateForLivingEntity(STATE, stack, mode, entity);
+            client.getItemModelResolver().updateForLiving(STATE, stack, mode, entity);
         }
         else
         {
-            client.getItemModelManager().clearAndUpdate(STATE, stack, mode, world, null, 0);
+            client.getItemModelResolver().updateForTopItem(STATE, stack, mode, world, null, 0);
         }
 
         if (!STATE.isEmpty())
         {
-            STATE.render(matrices, queue, light, overlay, 0);
+            STATE.submit(matrices, queue, light, overlay, 0);
         }
     }
 
-    private static final Map<SkullBlock.SkullType, SkullBlockEntityModel> SKULL_MODELS = new HashMap<>();
+    private static final Map<SkullBlock.Type, SkullModelBase> SKULL_MODELS = new HashMap<>();
 
-    private static SkullBlockEntityModel getSkullModel(SkullBlock.SkullType type)
+    private static SkullModelBase getSkullModel(SkullBlock.Type type)
     {
-        SkullBlockEntityModel model = SKULL_MODELS.get(type);
+        SkullModelBase model = SKULL_MODELS.get(type);
 
         if (model == null)
         {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
 
-            model = SkullBlockEntityRenderer.getModels(client.getLoadedEntityModels(), type);
+            model = SkullBlockRenderer.createModel(client.getEntityModels(), type);
 
             if (model != null)
             {
@@ -151,52 +154,48 @@ public final class ItemRenderHelper
         return model;
     }
 
-    public static void renderSkull(ItemStack stack, SkullBlock.SkullType skullType, float animationProgress, MatrixStack matrices, int light, int overlay, Color color)
+    public static void renderSkull(ItemStack stack, SkullBlock.Type skullType, float animationProgress, PoseStack matrices, int light, int overlay, Color color)
     {
         if (stack == null || stack.isEmpty() || skullType == null)
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        SkullBlockEntityModel skullModel = getSkullModel(skullType);
+        Minecraft client = Minecraft.getInstance();
+        SkullModelBase skullModel = getSkullModel(skullType);
 
         if (skullModel == null)
         {
             return;
         }
 
-        RenderLayer renderLayer;
+        RenderType renderLayer;
 
-        if (skullType == SkullBlock.Type.PLAYER)
+        if (skullType == SkullBlock.Types.PLAYER)
         {
-            ProfileComponent profile = stack.get(DataComponentTypes.PROFILE);
+            ResolvableProfile profile = stack.get(DataComponents.PROFILE);
 
             if (profile != null)
             {
-                renderLayer = client.getPlayerSkinCache().get(profile).getRenderLayer();
+                renderLayer = client.playerSkinRenderCache().getOrDefault(profile).renderType();
             }
             else
             {
-                renderLayer = SkullBlockEntityRenderer.getCutoutRenderLayer(skullType, null);
+                renderLayer = SkullBlockRenderer.getSkullRenderType(skullType, null);
             }
         }
         else
         {
-            renderLayer = SkullBlockEntityRenderer.getCutoutRenderLayer(skullType, null);
+            renderLayer = SkullBlockRenderer.getSkullRenderType(skullType, null);
         }
-
-        ensureIsolatedDispatcher();
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BBSRendering.enableBlend());
         consumers.setSubstitute(BBSRendering.getColorConsumer(color));
 
-        SkullBlockEntityRenderer.render(null, 180F, animationProgress, matrices, isolatedQueue, light, skullModel, renderLayer, 0, null);
+        skullModel.renderToBuffer(matrices, consumers.getBuffer(renderLayer), light, OverlayTexture.NO_OVERLAY, -1);
 
-        isolatedDispatcher.render();
-        client.getBufferBuilders().getEntityVertexConsumers().draw();
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();

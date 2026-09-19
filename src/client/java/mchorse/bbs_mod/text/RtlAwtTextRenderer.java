@@ -8,7 +8,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.CustomFontManager;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 
@@ -569,7 +569,7 @@ public final class RtlAwtTextRenderer
      */
     private static float getPixelScale()
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         if (mc == null)
         {
@@ -583,7 +583,7 @@ public final class RtlAwtTextRenderer
             ui = BBSModClient.getGUIScale();
         }
 
-        float window = (float) mc.getWindow().getScaleFactor();
+        float window = (float) mc.getWindow().getGuiScale();
 
         return Math.max(1F, Math.max(ui, window));
     }

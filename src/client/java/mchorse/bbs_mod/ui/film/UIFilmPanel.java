@@ -116,12 +116,11 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.client.player.LocalPlayer;
 
 import org.joml.Matrix3x2fc;
 import org.joml.Matrix4f;
@@ -129,6 +128,7 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -982,7 +982,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             menu.action(Icons.LINE, UIKeys.FILM_REPLACE_INVENTORY, () ->
             {
-                BaseValue.edit(this.getData().inventory, (inv) -> inv.fromPlayer(MinecraftClient.getInstance().player));
+                BaseValue.edit(this.getData().inventory, (inv) -> inv.fromPlayer(Minecraft.getInstance().player));
             });
         };
 
@@ -6291,9 +6291,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         IdleClip clip = new IdleClip();
         Camera camera = new Camera();
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
-        camera.set(mc.player, MathUtils.toRad(mc.options.getFov().getValue()));
+        camera.set(mc.player, MathUtils.toRad(mc.options.fov().get()));
 
         clip.layer.set(8);
         clip.duration.set(BBSSettings.getDefaultDuration());
@@ -6319,7 +6319,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!this.isAllWorldsBrowseMode())
         {
             if (this.crossWorldPendingJoin == null
-                || WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder))
+                || WorldLaunchHelper.isCurrentWorld(Minecraft.getInstance(), this.crossWorldPendingJoin.worldFolder))
             {
                 if (this.crossWorldPendingJoin != null && data != null)
                 {
@@ -6821,7 +6821,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.data.totalTimeWorked.set(this.data.totalTimeWorked.get() + 1);
 
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (player != null)
         {
@@ -7066,19 +7066,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         if (flight)
         {
             Window.centerCursor();
-            GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+            GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             this.resetFreeFlightLookDrag = true;
             this.freeFlightLookPrimed = false;
             this.dashboard.orbitUI.orbit.release();
         }
         else if (!this.controller.isControlling())
         {
-            GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
+            GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
             this.resetFreeFlightLookDrag = false;
             this.freeFlightLookPrimed = false;
             this.dashboard.orbitUI.orbit.release();
@@ -7096,10 +7096,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         Window.centerCursor();
-        GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
         this.resetFreeFlightLookDrag = true;
         this.freeFlightLookPrimed = false;
     }
@@ -7111,12 +7111,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
-        if (GLFW.glfwGetInputMode(window.getHandle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
+        if (GLFW.glfwGetInputMode(window.handle(), GLFW.GLFW_CURSOR) != GLFW.GLFW_CURSOR_DISABLED)
         {
             Window.centerCursor();
-            GLFW.glfwSetInputMode(window.getHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+            GLFW.glfwSetInputMode(window.handle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             return true;
         }
 
@@ -7132,9 +7132,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         /* Same hybrid as actor control: Mouse callbacks under DISABLED, not glfwGetCursorPos. */
-        Mouse mouse = MinecraftClient.getInstance().mouse;
-        int mouseX = (int) Math.round(mouse.getX());
-        int mouseY = (int) Math.round(mouse.getY());
+        MouseHandler mouse = Minecraft.getInstance().mouseHandler;
+        int mouseX = (int) Math.round(mouse.xpos());
+        int mouseY = (int) Math.round(mouse.ypos());
 
         if (this.resetFreeFlightLookDrag || !this.freeFlightLookPrimed)
         {
@@ -7226,7 +7226,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     }
 
     @Override
-    public void renderInWorld(WorldRenderContext context)
+    public void renderInWorld(LevelRenderContext context)
     {
         if (!this.needsViewportRender())
         {
@@ -7238,10 +7238,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!BBSRendering.isIrisShadowPass())
         {
             this.lastProjection.set(BBSRendering.projection);
-            MatrixStack ms = context.matrices();
+            PoseStack ms = context.poseStack();
             if (ms != null)
             {
-                this.lastView.set(ms.peek().getPositionMatrix());
+                this.lastView.set(ms.last().pose());
             }
             else
             {
@@ -7647,7 +7647,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         CrossWorldFilmScanner.scanAsync().whenComplete((entries, error) ->
         {
-            MinecraftClient.getInstance().execute(() ->
+            Minecraft.getInstance().execute(() ->
             {
                 this.crossWorldScanning = false;
                 this.crossWorldFilmEntries.clear();
@@ -7698,7 +7698,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), entry.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(Minecraft.getInstance(), entry.worldFolder);
     }
 
     private CrossWorldFilmEntry resolveCrossWorldEntryFromTab(String tabId)
@@ -7737,7 +7737,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(Minecraft.getInstance(), this.crossWorldPendingJoin.worldFolder);
     }
 
     public boolean canShowJoinWorld()
@@ -7752,7 +7752,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         return !WorldLaunchHelper.isCurrentWorld(client, this.crossWorldPendingJoin.worldFolder);
     }
@@ -8246,7 +8246,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         float segW = editorW / (float) segments;
         
         GuiQuadMesh mesh = new GuiQuadMesh();
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        Matrix3x2fc matrix = context.batcher.getContext().pose();
 
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
@@ -8305,28 +8305,28 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             float x2 = editorX + (i + 1) * segW;
 
             /* Layer 1 - Upper Quad (yTop1 -> yMid1) */
-            mesh.vertex(matrix, x1, yTop1).color(colTop);
-            mesh.vertex(matrix, x1, yMid1[i]).color(cMid1[i]);
-            mesh.vertex(matrix, x2, yMid1[i+1]).color(cMid1[i+1]);
-            mesh.vertex(matrix, x2, yTop1).color(colTop);
+            mesh.addVertexWith2DPose(matrix, x1, yTop1).setColor(colTop);
+            mesh.addVertexWith2DPose(matrix, x1, yMid1[i]).setColor(cMid1[i]);
+            mesh.addVertexWith2DPose(matrix, x2, yMid1[i+1]).setColor(cMid1[i+1]);
+            mesh.addVertexWith2DPose(matrix, x2, yTop1).setColor(colTop);
 
             /* Layer 1 - Lower Quad (yMid1 -> yBot1) */
-            mesh.vertex(matrix, x1, yMid1[i]).color(cMid1[i]);
-            mesh.vertex(matrix, x1, yBot1[i]).color(colBot);
-            mesh.vertex(matrix, x2, yBot1[i+1]).color(colBot);
-            mesh.vertex(matrix, x2, yMid1[i+1]).color(cMid1[i+1]);
+            mesh.addVertexWith2DPose(matrix, x1, yMid1[i]).setColor(cMid1[i]);
+            mesh.addVertexWith2DPose(matrix, x1, yBot1[i]).setColor(colBot);
+            mesh.addVertexWith2DPose(matrix, x2, yBot1[i+1]).setColor(colBot);
+            mesh.addVertexWith2DPose(matrix, x2, yMid1[i+1]).setColor(cMid1[i+1]);
 
             /* Layer 2 - Upper Quad (yTop2 -> yMid2) */
-            mesh.vertex(matrix, x1, yTop2).color(colTop);
-            mesh.vertex(matrix, x1, yMid2[i]).color(cMid2[i]);
-            mesh.vertex(matrix, x2, yMid2[i+1]).color(cMid2[i+1]);
-            mesh.vertex(matrix, x2, yTop2).color(colTop);
+            mesh.addVertexWith2DPose(matrix, x1, yTop2).setColor(colTop);
+            mesh.addVertexWith2DPose(matrix, x1, yMid2[i]).setColor(cMid2[i]);
+            mesh.addVertexWith2DPose(matrix, x2, yMid2[i+1]).setColor(cMid2[i+1]);
+            mesh.addVertexWith2DPose(matrix, x2, yTop2).setColor(colTop);
 
             /* Layer 2 - Lower Quad (yMid2 -> yBot2) */
-            mesh.vertex(matrix, x1, yMid2[i]).color(cMid2[i]);
-            mesh.vertex(matrix, x1, yBot2[i]).color(colBot);
-            mesh.vertex(matrix, x2, yBot2[i+1]).color(colBot);
-            mesh.vertex(matrix, x2, yMid2[i+1]).color(cMid2[i+1]);
+            mesh.addVertexWith2DPose(matrix, x1, yMid2[i]).setColor(cMid2[i]);
+            mesh.addVertexWith2DPose(matrix, x1, yBot2[i]).setColor(colBot);
+            mesh.addVertexWith2DPose(matrix, x2, yBot2[i+1]).setColor(colBot);
+            mesh.addVertexWith2DPose(matrix, x2, yMid2[i+1]).setColor(cMid2[i+1]);
         }
 
         context.batcher.drawQuadMesh(mesh);
@@ -9778,7 +9778,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 context.batcher.clip(this.area, context);
 
                 VideoRenderer.renderClip(
-                    new MatrixStack(),
+                    new PoseStack(),
                     context.batcher,
                     this.clip,
                     this.panel.getCursor(),

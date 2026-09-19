@@ -10,8 +10,8 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 import java.util.List;
 
@@ -30,8 +30,8 @@ public class UIBlockPickerModeOverlayPanel extends UIOverlayPanel
         }
 
         UIBlockPickerModeOverlayPanel.opened = panel;
-        MinecraftClient client = MinecraftClient.getInstance();
-        Screen returnScreen = client.currentScreen;
+        Minecraft client = Minecraft.getInstance();
+        Screen returnScreen = client.screen;
 
         panel.onClose((event) ->
         {
@@ -84,7 +84,7 @@ public class UIBlockPickerModeOverlayPanel extends UIOverlayPanel
             return true;
         }
 
-        Screen currentScreen = MinecraftClient.getInstance().currentScreen;
+        Screen currentScreen = Minecraft.getInstance().screen;
 
         if (!(currentScreen instanceof UIScreen uiScreen))
         {

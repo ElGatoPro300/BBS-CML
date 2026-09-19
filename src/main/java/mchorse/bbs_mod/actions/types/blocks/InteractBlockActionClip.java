@@ -8,11 +8,11 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.block.ChestBlock;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class InteractBlockActionClip extends ActionClip
 {
@@ -42,16 +42,16 @@ public class InteractBlockActionClip extends ActionClip
 
         BlockHitResult result = this.hit.getHitResult();
         
-        if (player.getEntityWorld().getBlockState(result.getBlockPos()).getBlock() instanceof ChestBlock)
+        if (player.level().getBlockState(result.getBlockPos()).getBlock() instanceof ChestBlock)
         {
             player.openReplayChest(replay.getId(), result.getBlockPos());
             return;
         }
         
-        Hand hand = this.hand.get() ? Hand.MAIN_HAND : Hand.OFF_HAND;
-        ItemStack stack = player.getStackInHand(hand);
+        InteractionHand hand = this.hand.get() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+        ItemStack stack = player.getItemInHand(hand);
 
-        player.interactionManager.interactBlock(player, player.getEntityWorld(), stack, hand, result);
+        player.gameMode.useItemOn(player, player.level(), stack, hand, result);
     }
 
     @Override

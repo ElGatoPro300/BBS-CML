@@ -2,8 +2,8 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.LevelSummary;
 
 import java.io.File;
@@ -22,17 +22,17 @@ public class CrossWorldFilmScanner
      */
     public static CompletableFuture<List<LevelSummary>> scanWorldsAsync()
     {
-        MinecraftClient client = MinecraftClient.getInstance();
-        LevelStorage storage = client.getLevelStorage();
-        LevelStorage.LevelList levelList = storage.getLevelList();
+        Minecraft client = Minecraft.getInstance();
+        LevelStorageSource storage = client.getLevelSource();
+        LevelStorageSource.LevelCandidates levelList = storage.findLevelCandidates();
 
-        return storage.loadSummaries(levelList).thenApply((summaries) ->
+        return storage.loadLevelSummaries(levelList).thenApply((summaries) ->
         {
             List<LevelSummary> worlds = new ArrayList<>();
 
             for (LevelSummary summary : summaries)
             {
-                if (WorldLaunchHelper.isCurrentWorld(client, summary.getName()))
+                if (WorldLaunchHelper.isCurrentWorld(client, summary.getLevelId()))
                 {
                     continue;
                 }
@@ -48,24 +48,24 @@ public class CrossWorldFilmScanner
 
     public static CompletableFuture<List<CrossWorldFilmEntry>> scanAsync()
     {
-        MinecraftClient client = MinecraftClient.getInstance();
-        LevelStorage storage = client.getLevelStorage();
-        LevelStorage.LevelList levelList = storage.getLevelList();
+        Minecraft client = Minecraft.getInstance();
+        LevelStorageSource storage = client.getLevelSource();
+        LevelStorageSource.LevelCandidates levelList = storage.findLevelCandidates();
 
-        return storage.loadSummaries(levelList).thenApply((summaries) ->
+        return storage.loadLevelSummaries(levelList).thenApply((summaries) ->
         {
             Map<String, String> labels = new HashMap<>();
 
             for (LevelSummary summary : summaries)
             {
-                labels.put(summary.getName(), summary.getDisplayName());
+                labels.put(summary.getLevelId(), summary.getLevelName());
             }
 
             List<CrossWorldFilmEntry> entries = new ArrayList<>();
 
-            for (LevelStorage.LevelSave save : levelList.levels())
+            for (LevelStorageSource.LevelDirectory save : levelList.levels())
             {
-                String worldFolder = save.getRootPath();
+                String worldFolder = save.directoryName();
 
                 if (WorldLaunchHelper.isCurrentWorld(client, worldFolder))
                 {

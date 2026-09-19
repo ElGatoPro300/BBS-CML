@@ -134,7 +134,7 @@ public class UIAddonsOverlayPanel extends UIOverlayPanel
         {
             try
             {
-                Util.getOperatingSystem().open(url);
+                Util.getPlatform().openUri(url);
             }
             catch (Exception e)
             {
@@ -156,11 +156,11 @@ public class UIAddonsOverlayPanel extends UIOverlayPanel
             int textX = this.icon != null ? 80 : 10;
             String name = this.mod.name;
 
-            context.batcher.getContext().getMatrices().pushMatrix();
-            context.batcher.getContext().getMatrices().translate(this.area.x + textX, this.area.y + 10);
-            context.batcher.getContext().getMatrices().scale(1.5F, 1.5F);
+            context.batcher.getContext().pose().pushMatrix();
+            context.batcher.getContext().pose().translate(this.area.x + textX, this.area.y + 10);
+            context.batcher.getContext().pose().scale(1.5F, 1.5F);
             context.batcher.text(name, 0, 0, Colors.WHITE);
-            context.batcher.getContext().getMatrices().popMatrix();
+            context.batcher.getContext().pose().popMatrix();
 
             super.render(context);
         }

@@ -4,8 +4,8 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.utils.manager.storage.CompressedDataStorage;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.storage.LevelStorageSource;
 
 import java.io.File;
 import java.util.function.Consumer;
@@ -21,11 +21,11 @@ public class CrossWorldFilmLoader
             return null;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
-        for (LevelStorage.LevelSave save : client.getLevelStorage().getLevelList().levels())
+        for (LevelStorageSource.LevelDirectory save : client.getLevelSource().findLevelCandidates().levels())
         {
-            if (save.getRootPath().equals(worldFolder))
+            if (save.directoryName().equals(worldFolder))
             {
                 return save.path().resolve("bbs/films/" + filmId + ".dat").toFile();
             }

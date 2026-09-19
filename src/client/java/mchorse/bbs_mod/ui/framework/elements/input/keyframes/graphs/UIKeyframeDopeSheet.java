@@ -35,9 +35,9 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
-import net.minecraft.client.render.VertexConsumer;
-
 import org.joml.Matrix3x2fc;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -1300,7 +1300,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        Matrix3x2fc matrix = context.batcher.getContext().pose();
         GuiQuadMesh builder = new GuiQuadMesh();
 
         renderShape(preview, context, builder, matrix, x, y, 3, c);
@@ -1325,7 +1325,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         Area area = this.keyframes.area;
         this.updateSidebarScrollLimits(context);
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        Matrix3x2fc matrix = context.batcher.getContext().pose();
 
         int sidebarX = area.x - this.sidebarScroll;
 

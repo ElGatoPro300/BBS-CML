@@ -1,14 +1,13 @@
 package mchorse.bbs_mod.cubic.render.vao;
 
 import mchorse.bbs_mod.bobj.BOBJBone;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
-
-import net.minecraft.client.render.LightmapTextureManager;
 
 /**
  * Per-bone paint / glow / tint / grade uniforms for BOBJ skinned meshes. BOBJ shares one VAO
@@ -175,7 +174,7 @@ public final class BobjBoneDrawEffects
         {
             float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
             int baseU = groupLight & '\uffff';
-            int u = (int) Lerps.lerp(baseU, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, glowLightT);
+            int u = (int) Lerps.lerp(baseU, LightTexture.FULL_BLOCK, glowLightT);
             int v = groupLight >> 16 & '\uffff';
 
             groupLight = u | v << 16;
@@ -187,7 +186,7 @@ public final class BobjBoneDrawEffects
         }
         else if (bone.lighting != 0F)
         {
-            int u = (int) Lerps.lerp(groupLight & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(bone.lighting, 0F, 1F));
+            int u = (int) Lerps.lerp(groupLight & '\uffff', LightTexture.FULL_BLOCK, MathUtils.clamp(bone.lighting, 0F, 1F));
             int v = groupLight >> 16 & '\uffff';
 
             groupLight = u | v << 16;

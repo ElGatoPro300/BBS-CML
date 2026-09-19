@@ -3,10 +3,10 @@ package mchorse.bbs_mod.utils.iris;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.equipment.trim.ArmorTrim;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.equipment.trim.ArmorTrim;
 
 /**
  * Iris-optional entry points for armor / head-item material IDs.
@@ -50,7 +50,7 @@ public final class IrisArmorHooks
         return IrisEntityArmorContext.beginEquippedItem(entity, stack)::close;
     }
 
-    public static VertexConsumerProvider wrapEntityBuffers(VertexConsumerProvider consumers)
+    public static MultiBufferSource wrapEntityBuffers(MultiBufferSource consumers)
     {
         if (!BBSRendering.isIrisLoaded())
         {

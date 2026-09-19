@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
@@ -38,16 +39,15 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.Minecraft;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -589,7 +589,7 @@ public class ModelInstance implements IModelInstance
             }
             else
             {
-                MinecraftClient.getInstance().execute(model::setup);
+                Minecraft.getInstance().execute(model::setup);
             }
         }
 
@@ -603,13 +603,13 @@ public class ModelInstance implements IModelInstance
         {
             if (RenderSystem.isOnRenderThread())
             {
-                CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new MatrixStack(), model);
+                CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new PoseStack(), model);
             }
             else
             {
-                MinecraftClient.getInstance().execute(() ->
+                Minecraft.getInstance().execute(() ->
                 {
-                    CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new MatrixStack(), model);
+                    CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new PoseStack(), model);
                 });
             }
         }
@@ -746,7 +746,7 @@ public class ModelInstance implements IModelInstance
     {
         if (this.model instanceof Model model)
         {
-            MatrixStack stack = new MatrixStack();
+            PoseStack stack = new PoseStack();
             CubicMatrixRenderer renderer = new CubicMatrixRenderer(model);
 
             CubicRenderer.processRenderModel(renderer, null, stack, model);
@@ -788,7 +788,7 @@ public class ModelInstance implements IModelInstance
         }
     }
 
-    public void render(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
+    public void render(PoseStack stack, Supplier<GlProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
     {
         if (this.model instanceof Model model)
         {
@@ -806,7 +806,7 @@ public class ModelInstance implements IModelInstance
             if (effects)
             {
                 renderer.setEffects(stencilMap != null ? BBSShaders.getPickerModelsProgram() : BBSShaders.getModel(),
-                    new Matrix4f(stack.peek().getPositionMatrix()).invert(), stencilMap);
+                    new Matrix4f(stack.last().pose()).invert(), stencilMap);
             }
 
             renderer.setColor(cr, cg, cb, ca);
@@ -823,8 +823,8 @@ public class ModelInstance implements IModelInstance
 
             if (!vaos.isEmpty())
             {
-                stack.push();
-                stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
+                stack.pushPose();
+                stack.mulPose(Axis.YP.rotationDegrees(180F));
 
                 model.getArmature().setupMatrices();
 
@@ -849,12 +849,12 @@ public class ModelInstance implements IModelInstance
                     }
                 }
 
-                stack.pop();
+                stack.popPose();
             }
         }
     }
 
-    public void renderShapeKeyGlowOverlay(MatrixStack stack, Color glowLayerColor, int overlay, StencilMap stencilMap, ShapeKeys keys, Link defaultTexture, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
+    public void renderShapeKeyGlowOverlay(PoseStack stack, Color glowLayerColor, int overlay, StencilMap stencilMap, ShapeKeys keys, Link defaultTexture, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
     {
         if (!(this.model instanceof Model model) || !this.hasShapeKeys())
         {
@@ -871,7 +871,7 @@ public class ModelInstance implements IModelInstance
             return;
         }
 
-        ShaderProgram shader = BBSShaders.getModel();
+        GlProgram shader = BBSShaders.getModel();
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 
@@ -886,7 +886,7 @@ public class ModelInstance implements IModelInstance
         }
 
         CubicCpuGlowOverlayRenderer renderProcessor = new CubicCpuGlowOverlayRenderer(
-            LightmapTextureManager.MAX_LIGHT_COORDINATE,
+            LightTexture.FULL_BRIGHT,
             overlay,
             stencilMap,
             keys,

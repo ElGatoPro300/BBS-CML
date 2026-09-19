@@ -14,17 +14,17 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -68,9 +68,9 @@ public class PhysBoneRuntime
         double motionZ = entity.getZ() - entity.getPrevZ();
         float bodyYaw = entity.getBodyYaw();
         float prevBodyYaw = entity.getPrevBodyYaw();
-        float bodyTurn = sanitizeRotation(MathHelper.wrapDegrees(bodyYaw - prevBodyYaw));
-        float yawSin = MathHelper.sin(MathUtils.toRad(bodyYaw));
-        float yawCos = MathHelper.cos(MathUtils.toRad(bodyYaw));
+        float bodyTurn = sanitizeRotation(Mth.wrapDegrees(bodyYaw - prevBodyYaw));
+        float yawSin = Mth.sin(MathUtils.toRad(bodyYaw));
+        float yawCos = Mth.cos(MathUtils.toRad(bodyYaw));
         float localStrafe = sanitizeMotion((float) (motionX * yawCos + motionZ * yawSin));
         float localForward = sanitizeMotion((float) (-motionX * yawSin + motionZ * yawCos));
         float verticalVelocity = sanitizeMotion((float) motionY);
@@ -210,8 +210,8 @@ public class PhysBoneRuntime
 
             float swayYaw = (-strafeAccel * 220F - bodyTurn * 0.9F - parentYawTurn * 1.35F) * inertia + gravityYaw;
             float swayPitch = (definition.affectPitch ? ((forwardAccel * 180F - verticalAccel * 120F - parentPitchTurn * 1.2F) * inertia - fallWindPitch) : 0F) + gravityPitch;
-            float targetYaw = MathHelper.clamp(swayYaw, -safeAngle, safeAngle);
-            float targetPitch = MathHelper.clamp(swayPitch, -safeAngle, safeAngle);
+            float targetYaw = Mth.clamp(swayYaw, -safeAngle, safeAngle);
+            float targetPitch = Mth.clamp(swayPitch, -safeAngle, safeAngle);
 
             /* Anchor attraction force if anchorEnd is specified */
             if (definition.anchorEnd != null && !definition.anchorEnd.isEmpty())
@@ -241,8 +241,8 @@ public class PhysBoneRuntime
                             float anchorYaw = computeGravityTilt(localToAnchor.x, localToAnchor.y);
                             float anchorPitch = computeGravityTilt(localToAnchor.z, localToAnchor.y);
 
-                            targetYaw = MathHelper.lerp(0.35F, targetYaw, anchorYaw);
-                            targetPitch = MathHelper.lerp(0.35F, targetPitch, anchorPitch);
+                            targetYaw = Mth.lerp(0.35F, targetYaw, anchorYaw);
+                            targetPitch = Mth.lerp(0.35F, targetPitch, anchorPitch);
                         }
                     }
                 }
@@ -256,7 +256,7 @@ public class PhysBoneRuntime
                 float rollFactor = Math.max(0F, definition.rollFactor);
                 float rollSway = (strafeAccel * 160F + bodyTurn * 1.2F) * inertia * rollFactor;
 
-                targetRoll = MathHelper.clamp(rollSway, -safeAngle * 0.7F, safeAngle * 0.7F);
+                targetRoll = Mth.clamp(rollSway, -safeAngle * 0.7F, safeAngle * 0.7F);
             }
 
             if (!state.initialized)
@@ -302,22 +302,22 @@ public class PhysBoneRuntime
             /* Yaw spring */
             float yawForce = (targetYaw - state.yaw) * stiffness - state.yawVelocity * damping;
             state.yawVelocity += yawForce * subDt;
-            state.yaw = MathHelper.clamp(state.yaw + state.yawVelocity * subDt, limitMinYaw, limitMaxYaw);
+            state.yaw = Mth.clamp(state.yaw + state.yawVelocity * subDt, limitMinYaw, limitMaxYaw);
 
             /* Pitch spring with gravity bias */
             float pitchForce = (targetPitch - state.pitch) * stiffness - state.pitchVelocity * damping + gravity;
             state.pitchVelocity += pitchForce * subDt;
-            state.pitch = MathHelper.clamp(state.pitch + state.pitchVelocity * subDt, limitMinPitch, limitMaxPitch);
+            state.pitch = Mth.clamp(state.pitch + state.pitchVelocity * subDt, limitMinPitch, limitMaxPitch);
 
             /* Roll spring */
             float rollForce = (targetRoll - state.roll) * stiffness - state.rollVelocity * damping;
             state.rollVelocity += rollForce * subDt;
-            state.roll = MathHelper.clamp(state.roll + state.rollVelocity * subDt, limitMinRoll, limitMaxRoll);
+            state.roll = Mth.clamp(state.roll + state.rollVelocity * subDt, limitMinRoll, limitMaxRoll);
         }
 
-        state.yaw = MathHelper.clamp(state.yaw, limitMinYaw, limitMaxYaw);
-        state.pitch = MathHelper.clamp(state.pitch, limitMinPitch, limitMaxPitch);
-        state.roll = MathHelper.clamp(state.roll, limitMinRoll, limitMaxRoll);
+        state.yaw = Mth.clamp(state.yaw, limitMinYaw, limitMaxYaw);
+        state.pitch = Mth.clamp(state.pitch, limitMinPitch, limitMaxPitch);
+        state.roll = Mth.clamp(state.roll, limitMinRoll, limitMaxRoll);
     }
 
     /**
@@ -501,7 +501,7 @@ public class PhysBoneRuntime
                     float vertical = Math.abs(delta.y);
                     float limit = 18F + horizontal * 3F + vertical * 0.2F;
 
-                    limits.put(group.id, MathHelper.clamp(limit, 12F, 45F));
+                    limits.put(group.id, Mth.clamp(limit, 12F, 45F));
                 }
                 else if (head != null && isHairCandidate(group))
                 {
@@ -514,7 +514,7 @@ public class PhysBoneRuntime
                         float vertical = Math.abs(delta.y);
                         float limit = 20F + spread * 1.2F + vertical * 0.2F - headDepth * 5F;
 
-                        limits.put(group.id, MathHelper.clamp(limit, 8F, 28F));
+                        limits.put(group.id, Mth.clamp(limit, 8F, 28F));
                     }
                 }
                 else if (torso != null && isBodyCollisionCandidate(group, torso))
@@ -525,7 +525,7 @@ public class PhysBoneRuntime
                     float vertical = Math.abs(delta.y);
                     float limit = 13F + spread * 1.4F + vertical * 0.15F - torsoDepth * 2.25F;
 
-                    limits.put(group.id, MathHelper.clamp(limit, 8F, 24F));
+                    limits.put(group.id, Mth.clamp(limit, 8F, 24F));
                 }
             }
         }
@@ -607,8 +607,8 @@ public class PhysBoneRuntime
             return new Vector2f();
         }
 
-        float yawTurn = MathHelper.wrapDegrees(parentRotation.x - state.prevParentYaw);
-        float pitchTurn = MathHelper.wrapDegrees(parentRotation.y - state.prevParentPitch);
+        float yawTurn = Mth.wrapDegrees(parentRotation.x - state.prevParentYaw);
+        float pitchTurn = Mth.wrapDegrees(parentRotation.y - state.prevParentPitch);
 
         state.prevParentYaw = parentRotation.x;
         state.prevParentPitch = parentRotation.y;
@@ -886,7 +886,7 @@ public class PhysBoneRuntime
     {
         float tilt = MathUtils.toDeg((float) Math.atan2(axis, -downY));
 
-        return MathHelper.clamp(tilt * 1.4F, -55F, 55F);
+        return Mth.clamp(tilt * 1.4F, -55F, 55F);
     }
 
     private static List<CollisionSphere> getCollisionSpheres(IModel model, Map<String, ModelGroup> groupsById, Map<String, BOBJBone> bobjBones, Set<String> dynamicBones)
@@ -981,7 +981,7 @@ public class PhysBoneRuntime
             radius = Math.max(radius, horizontal + Math.abs(delta.y) * 0.2F + 1.1F);
         }
 
-        return MathHelper.clamp(radius, min, max);
+        return Mth.clamp(radius, min, max);
     }
 
     private static float estimateBOBJRootRadius(BOBJBone root, Map<String, BOBJBone> bobjBones, Set<String> dynamicBones, float fallback, float min, float max)
@@ -1016,7 +1016,7 @@ public class PhysBoneRuntime
             radius = Math.max(radius, horizontal + Math.abs(delta.y) * 0.2F + 1.1F);
         }
 
-        return MathHelper.clamp(radius, min, max);
+        return Mth.clamp(radius, min, max);
     }
 
     private static void solveCollision(IEntity entity, IModel model, String bone, PhysBoneState state, float prevYaw, float prevPitch, Map<String, PhysBoneState> physStates, Map<String, ModelGroup> groupsById, Map<String, BOBJBone> bobjBones, List<CollisionSphere> collisionSpheres, float collisionRadius)
@@ -1074,8 +1074,8 @@ public class PhysBoneRuntime
         for (int i = 0; i < 6; i++)
         {
             float mid = (low + high) * 0.5F;
-            float yaw = MathHelper.lerp(mid, prevYaw, state.yaw);
-            float pitch = MathHelper.lerp(mid, prevPitch, state.pitch);
+            float yaw = Mth.lerp(mid, prevYaw, state.yaw);
+            float pitch = Mth.lerp(mid, prevPitch, state.pitch);
 
             if (collides(entity, model, bone, parent, yaw, pitch, physStates, groupsById, bobjBones, collisionSpheres, collisionRadius))
             {
@@ -1087,8 +1087,8 @@ public class PhysBoneRuntime
             }
         }
 
-        state.yaw = MathHelper.lerp(low, prevYaw, state.yaw);
-        state.pitch = MathHelper.lerp(low, prevPitch, state.pitch);
+        state.yaw = Mth.lerp(low, prevYaw, state.yaw);
+        state.pitch = Mth.lerp(low, prevPitch, state.pitch);
         state.yawVelocity *= 0.35F;
         state.pitchVelocity *= 0.35F;
     }
@@ -1114,15 +1114,15 @@ public class PhysBoneRuntime
             }
         }
 
-        World world = entity == null ? null : entity.getWorld();
+        Level world = entity == null ? null : entity.getWorld();
 
         if (world == null)
         {
             return false;
         }
 
-        Vec3d worldParent = toWorldSpace(entity, parentPivot);
-        Vec3d worldTip = toWorldSpace(entity, tip);
+        Vec3 worldParent = toWorldSpace(entity, parentPivot);
+        Vec3 worldTip = toWorldSpace(entity, tip);
         float thickness = Math.max(0.01F, collisionRadius);
 
         return hasEnvironmentCollision(world, worldParent, worldTip, thickness);
@@ -1189,16 +1189,16 @@ public class PhysBoneRuntime
         return matrix.transformPosition(new Vector3f(group.current.pivot));
     }
 
-    private static Vec3d toWorldSpace(IEntity entity, Vector3f local)
+    private static Vec3 toWorldSpace(IEntity entity, Vector3f local)
     {
         float yaw = entity.getBodyYaw() + 180F;
-        double sin = MathHelper.sin(MathUtils.toRad(yaw));
-        double cos = MathHelper.cos(MathUtils.toRad(yaw));
+        double sin = Mth.sin(MathUtils.toRad(yaw));
+        double cos = Mth.cos(MathUtils.toRad(yaw));
         double x = (local.x * cos - local.z * sin) / 16D;
         double z = (local.x * sin + local.z * cos) / 16D;
         double y = local.y / 16D;
 
-        return new Vec3d(entity.getX() + x, entity.getY() + y, entity.getZ() + z);
+        return new Vec3(entity.getX() + x, entity.getY() + y, entity.getZ() + z);
     }
 
     private static void applyModelGroupMatrix(Matrix4f matrix, ModelGroup group, float extraYaw, float extraPitch)
@@ -1237,15 +1237,15 @@ public class PhysBoneRuntime
         return state == null ? 0F : state.pitch;
     }
 
-    private static boolean hasEnvironmentCollision(World world, Vec3d from, Vec3d to, float radius)
+    private static boolean hasEnvironmentCollision(Level world, Vec3 from, Vec3 to, float radius)
     {
-        if (world == null || from == null || to == null || from.squaredDistanceTo(to) < 0.00001D)
+        if (world == null || from == null || to == null || from.distanceToSqr(to) < 0.00001D)
         {
             return false;
         }
 
-        Vec3d delta = to.subtract(from);
-        Vec3d adjusted = Entity.adjustMovementForCollisions(null, delta, new Box(
+        Vec3 delta = to.subtract(from);
+        Vec3 adjusted = Entity.collideBoundingBox(null, delta, new AABB(
             from.x - radius,
             from.y - radius,
             from.z - radius,
@@ -1254,18 +1254,18 @@ public class PhysBoneRuntime
             from.z + radius
         ), world, Collections.emptyList());
 
-        if (adjusted.squaredDistanceTo(delta) > 0.00000025D)
+        if (adjusted.distanceToSqr(delta) > 0.00000025D)
         {
             return true;
         }
 
-        double length = Math.sqrt(from.squaredDistanceTo(to));
-        int steps = MathHelper.clamp((int) Math.ceil(length / Math.max(0.02D, radius * 0.45D)), 3, 26);
+        double length = Math.sqrt(from.distanceToSqr(to));
+        int steps = Mth.clamp((int) Math.ceil(length / Math.max(0.02D, radius * 0.45D)), 3, 26);
 
         for (int i = 0; i <= steps; i++)
         {
             double factor = i / (double) steps;
-            Vec3d point = from.add(delta.multiply(factor));
+            Vec3 point = from.add(delta.scale(factor));
 
             if (intersectsWorldCollision(world, point, radius))
             {
@@ -1273,26 +1273,26 @@ public class PhysBoneRuntime
             }
         }
 
-        HitResult result = world.raycast(new RaycastContext(
+        HitResult result = world.clip(new ClipContext(
             from,
             to,
-            RaycastContext.ShapeType.COLLIDER,
-            RaycastContext.FluidHandling.NONE,
-            ShapeContext.absent()
+            ClipContext.Block.COLLIDER,
+            ClipContext.Fluid.NONE,
+            CollisionContext.empty()
         ));
 
         return result != null && result.getType() != HitResult.Type.MISS;
     }
 
-    private static boolean intersectsWorldCollision(World world, Vec3d point, float radius)
+    private static boolean intersectsWorldCollision(Level world, Vec3 point, float radius)
     {
-        int minX = MathHelper.floor(point.x - radius) - 1;
-        int maxX = MathHelper.floor(point.x + radius) + 1;
-        int minY = MathHelper.floor(point.y - radius) - 1;
-        int maxY = MathHelper.floor(point.y + radius) + 1;
-        int minZ = MathHelper.floor(point.z - radius) - 1;
-        int maxZ = MathHelper.floor(point.z + radius) + 1;
-        ShapeContext shape = ShapeContext.absent();
+        int minX = Mth.floor(point.x - radius) - 1;
+        int maxX = Mth.floor(point.x + radius) + 1;
+        int minY = Mth.floor(point.y - radius) - 1;
+        int maxY = Mth.floor(point.y + radius) + 1;
+        int minZ = Mth.floor(point.z - radius) - 1;
+        int maxZ = Mth.floor(point.z + radius) + 1;
+        CollisionContext shape = CollisionContext.empty();
         double radiusSq = radius * radius;
 
         for (int x = minX; x <= maxX; x++)
@@ -1316,12 +1316,12 @@ public class PhysBoneRuntime
                         continue;
                     }
 
-                    for (Box box : collision.getBoundingBoxes())
+                    for (AABB box : collision.toAabbs())
                     {
-                        Box worldBox = box.offset(pos);
-                        double nx = MathHelper.clamp(point.x, worldBox.minX, worldBox.maxX);
-                        double ny = MathHelper.clamp(point.y, worldBox.minY, worldBox.maxY);
-                        double nz = MathHelper.clamp(point.z, worldBox.minZ, worldBox.maxZ);
+                        AABB worldBox = box.move(pos);
+                        double nx = Mth.clamp(point.x, worldBox.minX, worldBox.maxX);
+                        double ny = Mth.clamp(point.y, worldBox.minY, worldBox.maxY);
+                        double nz = Mth.clamp(point.z, worldBox.minZ, worldBox.maxZ);
                         double dx = point.x - nx;
                         double dy = point.y - ny;
                         double dz = point.z - nz;

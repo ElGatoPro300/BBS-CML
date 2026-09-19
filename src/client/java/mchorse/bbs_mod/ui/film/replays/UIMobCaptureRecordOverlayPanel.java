@@ -28,12 +28,12 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -130,7 +130,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         UIMobCaptureRecordOverlayPanel panel = new UIMobCaptureRecordOverlayPanel(callback, null);
 
-        panel.onClose((event) -> MinecraftClient.getInstance().setScreen(null));
+        panel.onClose((event) -> Minecraft.getInstance().setScreen(null));
 
         UIScreen.open(new UIBaseMenu()
         {
@@ -487,7 +487,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
     private void seedOriginFromPlayer()
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (player == null)
         {
@@ -508,7 +508,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
     private void syncOriginFieldsFromPlayer()
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (player == null)
         {
@@ -731,16 +731,16 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         super.render(context);
     }
 
-    private Vec3d getScanOrigin()
+    private Vec3 getScanOrigin()
     {
         if (this.setup.usePlayerOrigin)
         {
-            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+            LocalPlayer player = Minecraft.getInstance().player;
 
-            return player == null ? Vec3d.ZERO : player.getEntityPos();
+            return player == null ? Vec3.ZERO : player.position();
         }
 
-        return new Vec3d(this.setup.originX, this.setup.originY, this.setup.originZ);
+        return new Vec3(this.setup.originX, this.setup.originY, this.setup.originZ);
     }
 
     /**
@@ -821,7 +821,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.addColumnHeaderRow();
         this.addSelectAllRow();
 
-        Vec3d origin = this.getScanOrigin();
+        Vec3 origin = this.getScanOrigin();
 
         for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
         {
@@ -961,7 +961,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
     private void updateColumnMetrics()
     {
-        TextRenderer font = MinecraftClient.getInstance().textRenderer;
+        Font font = Minecraft.getInstance().font;
         String addText = UIKeys.FILM_MOB_CAPTURE_COLUMN_ADD.get();
         String vaText = UIKeys.FILM_MOB_CAPTURE_COLUMN_VA.get();
 
@@ -973,9 +973,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         );
     }
 
-    private int measureColumnWidth(TextRenderer font, String text)
+    private int measureColumnWidth(Font font, String text)
     {
-        int natural = font.getWidth(text) + 4;
+        int natural = font.width(text) + 4;
 
         if (natural <= COLUMN_HEADER_MAX_WIDTH)
         {
@@ -985,11 +985,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         return COLUMN_HEADER_MAX_WIDTH;
     }
 
-    private int measureColumnHeaderHeight(TextRenderer font, String text, int width)
+    private int measureColumnHeaderHeight(Font font, String text, int width)
     {
         List<String> lines = FontRenderer.wrap(font, text, Math.max(1, width - 2));
 
-        return Math.max(14, lines.size() * font.fontHeight + 2);
+        return Math.max(14, lines.size() * font.lineHeight + 2);
     }
 
     private UIElement createWrappedColumnHeader(IKey key, int width, int height)
@@ -1313,7 +1313,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
     private boolean isVanillaPlaybackAllowed(Entity entity)
     {
-        return !(entity instanceof PlayerEntity) || !this.setup.playerModelForms;
+        return !(entity instanceof Player) || !this.setup.playerModelForms;
     }
 
     private void removeDisallowedVanillaSelections()
@@ -1411,7 +1411,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             this.label = label;
             this.icon = icon;
             this.h(TAB_HEIGHT);
-            this.w(22 + MinecraftClient.getInstance().textRenderer.getWidth(label.get()) + 8);
+            this.w(22 + Minecraft.getInstance().font.width(label.get()) + 8);
         }
 
         public void setSelected(boolean selected)

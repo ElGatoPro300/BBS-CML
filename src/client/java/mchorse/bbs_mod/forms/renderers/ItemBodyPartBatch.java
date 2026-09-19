@@ -16,12 +16,12 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.ItemModelManager;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.client.renderer.item.ItemModelResolver;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -34,7 +34,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static ItemRenderState cachedRenderState;
+    private static ItemStackRenderState cachedRenderState;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -50,7 +50,7 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static ItemRenderState getCachedRenderState()
+    public static ItemStackRenderState getCachedRenderState()
     {
         return cachedRenderState;
     }
@@ -71,7 +71,7 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ItemStack itemStack = template.stack.get();
         if (itemStack.isEmpty())
         {
@@ -83,9 +83,9 @@ public final class ItemBodyPartBatch
         ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
         boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
 
-        ItemModelManager itemModelManager = client.getItemModelManager();
-        ItemRenderState itemRenderState = new ItemRenderState();
-        itemModelManager.clearAndUpdate(itemRenderState, itemStack, mode, client.world, null, 0);
+        ItemModelResolver itemModelManager = client.getItemModelResolver();
+        ItemStackRenderState itemRenderState = new ItemStackRenderState();
+        itemModelManager.updateForTopItem(itemRenderState, itemStack, mode, client.level, null, 0);
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
@@ -130,11 +130,11 @@ public final class ItemBodyPartBatch
                 }
 
                 context.entity = part.useTarget.get() ? oldEntity : part.getEntity();
-                context.stack.push();
+                context.stack.pushPose();
 
                 if (context.world != null)
                 {
-                    context.world.push();
+                    context.world.pushPose();
                 }
 
                 try
@@ -158,11 +158,11 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(context.color);
                     BlockFormRenderer.color.mul(item.color.get());
 
-                    RenderDispatcher dispatcher = client.gameRenderer.getEntityRenderDispatcher();
-                    cachedRenderState.render(context.stack, dispatcher.getQueue(), context.light, context.overlay, 0);
+                    FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
+                    cachedRenderState.submit(context.stack, dispatcher.getSubmitNodeStorage(), context.light, context.overlay, 0);
                     if (!flushOnce)
                     {
-                        dispatcher.render();
+                        dispatcher.renderAllFeatures();
                     }
 
                     if (context.isPicking())
@@ -172,11 +172,11 @@ public final class ItemBodyPartBatch
                 }
                 finally
                 {
-                    context.stack.pop();
+                    context.stack.popPose();
 
                     if (context.world != null)
                     {
-                        context.world.pop();
+                        context.world.popPose();
                     }
 
                     context.light = savedLight;
@@ -192,8 +192,8 @@ public final class ItemBodyPartBatch
 
             if (flushOnce)
             {
-                RenderDispatcher dispatcher = client.gameRenderer.getEntityRenderDispatcher();
-                dispatcher.render();
+                FeatureRenderDispatcher dispatcher = client.gameRenderer.getFeatureRenderDispatcher();
+                dispatcher.renderAllFeatures();
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
                 BBSRendering.defaultBlendFunc();
@@ -312,7 +312,7 @@ public final class ItemBodyPartBatch
 
     private static boolean isCompatible(ItemForm a, ItemForm b)
     {
-        if (!ItemStack.areEqual(a.stack.get(), b.stack.get()))
+        if (!ItemStack.matches(a.stack.get(), b.stack.get()))
         {
             return false;
         }

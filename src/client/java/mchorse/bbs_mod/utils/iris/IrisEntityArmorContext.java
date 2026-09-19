@@ -4,15 +4,15 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.equipment.trim.ArmorTrim;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.equipment.trim.ArmorTrim;
+import net.minecraft.world.level.block.state.BlockState;
 
 import net.irisshaders.iris.helpers.EntityState;
 import net.irisshaders.iris.shaderpack.materialmap.NamespacedId;
@@ -45,7 +45,7 @@ public final class IrisEntityArmorContext
     }
 
     /** Identity — phase wrapping is unsafe outside the entity dispatcher (see class javadoc). */
-    public static VertexConsumerProvider wrapEntityBuffers(VertexConsumerProvider consumers)
+    public static MultiBufferSource wrapEntityBuffers(MultiBufferSource consumers)
     {
         return consumers;
     }
@@ -65,7 +65,7 @@ public final class IrisEntityArmorContext
 
             if (mcEntity != null)
             {
-                Identifier id = Registries.ENTITY_TYPE.getId(mcEntity.getType());
+                Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(mcEntity.getType());
 
                 return entityIds.applyAsInt(new NamespacedId(id.getNamespace(), id.getPath()));
             }
@@ -84,7 +84,7 @@ public final class IrisEntityArmorContext
             return 0;
         }
 
-        Identifier id = Registries.ITEM.getId(item);
+        Identifier id = BuiltInRegistries.ITEM.getKey(item);
 
         return itemIds.applyAsInt(new NamespacedId(id.getNamespace(), id.getPath()));
     }
@@ -108,7 +108,7 @@ public final class IrisEntityArmorContext
 
             if (blockIds != null)
             {
-                return blockIds.getOrDefault(blockItem.getBlock().getDefaultState(), 0);
+                return blockIds.getOrDefault(blockItem.getBlock().defaultBlockState(), 0);
             }
         }
 
@@ -131,7 +131,7 @@ public final class IrisEntityArmorContext
 
     public static Scope beginArmorPiece(IEntity entity, Item item)
     {
-        return beginEquippedItem(entity, item == null ? ItemStack.EMPTY : item.getDefaultStack());
+        return beginEquippedItem(entity, item == null ? ItemStack.EMPTY : item.getDefaultInstance());
     }
 
     public static Scope beginEquippedItem(IEntity entity, ItemStack stack)

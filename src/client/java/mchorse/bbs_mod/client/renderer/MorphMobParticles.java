@@ -3,16 +3,16 @@ package mchorse.bbs_mod.client.renderer;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.AnimationState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityStatuses;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.WardenEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.entity.AnimationState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityEvent;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.warden.Warden;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 
 import java.util.Map;
 import java.util.UUID;
@@ -59,14 +59,14 @@ public final class MorphMobParticles
             return;
         }
 
-        ClientWorld world = MinecraftClient.getInstance().world;
+        ClientLevel world = Minecraft.getInstance().level;
 
         if (world == null)
         {
             return;
         }
 
-        ParticleState state = STATES.computeIfAbsent(morph.getUuid(), (key) -> new ParticleState());
+        ParticleState state = STATES.computeIfAbsent(morph.getUUID(), (key) -> new ParticleState());
 
         if (morph instanceof LivingEntity living)
         {
@@ -80,7 +80,7 @@ public final class MorphMobParticles
      * Vanilla living entities only spawn the poof burst once when the corpse finishes
      * its death animation ({@code deathTime == 20}), not every tick while dying.
      */
-    private static void emitDeathParticles(World world, LivingEntity living, IEntity source, ParticleState state)
+    private static void emitDeathParticles(Level world, LivingEntity living, IEntity source, ParticleState state)
     {
         int deathTime = source.getDeathTime();
 
@@ -100,32 +100,32 @@ public final class MorphMobParticles
         double x = living.getX();
         double y = living.getY() + living.getEyeHeight(living.getPose()) * 0.5D;
         double z = living.getZ();
-        float width = Math.max(living.getWidth(), 0.6F);
+        float width = Math.max(living.getBbWidth(), 0.6F);
 
         for (int i = 0; i < 20; ++i)
         {
             double offsetX = (living.getRandom().nextDouble() - 0.5D) * width;
-            double offsetY = living.getRandom().nextDouble() * living.getHeight();
+            double offsetY = living.getRandom().nextDouble() * living.getBbHeight();
             double offsetZ = (living.getRandom().nextDouble() - 0.5D) * width;
             double dx = living.getRandom().nextGaussian() * 0.02D;
             double dy = living.getRandom().nextGaussian() * 0.02D;
             double dz = living.getRandom().nextGaussian() * 0.02D;
 
-            world.addParticleClient(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, dx, dy, dz);
+            world.addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, dx, dy, dz);
         }
     }
 
     private static void emitStatusParticles(Entity morph, IEntity source, ParticleState state)
     {
-        if (morph instanceof WardenEntity warden)
+        if (morph instanceof Warden warden)
         {
             emitWardenStatus(warden, source, state);
         }
     }
 
-    private static void emitWardenStatus(WardenEntity warden, IEntity source, ParticleState state)
+    private static void emitWardenStatus(Warden warden, IEntity source, ParticleState state)
     {
-        WardenEntity sourceWarden = getSourceWarden(source, warden);
+        Warden sourceWarden = getSourceWarden(source, warden);
 
         tickWardenAnimations(warden);
 
@@ -135,8 +135,8 @@ public final class MorphMobParticles
         }
 
         boolean charging = sourceWarden != null
-            ? isAnimationRunning(sourceWarden.chargingSonicBoomAnimationState)
-            : isAnimationRunning(warden.chargingSonicBoomAnimationState);
+            ? isAnimationRunning(sourceWarden.sonicBoomAnimationState)
+            : isAnimationRunning(warden.sonicBoomAnimationState);
 
         if (charging && !state.chargingSonicBoom)
         {
@@ -146,54 +146,54 @@ public final class MorphMobParticles
         state.chargingSonicBoom = charging;
 
         boolean roaring = sourceWarden != null
-            ? isAnimationRunning(sourceWarden.roaringAnimationState)
-            : isAnimationRunning(warden.roaringAnimationState);
+            ? isAnimationRunning(sourceWarden.roarAnimationState)
+            : isAnimationRunning(warden.roarAnimationState);
 
         if (roaring && !state.roaring)
         {
-            warden.handleStatus((byte) 4);
+            warden.handleEntityEvent((byte) 4);
         }
 
         state.roaring = roaring;
 
         boolean sniffing = sourceWarden != null
-            ? isAnimationRunning(sourceWarden.sniffingAnimationState)
-            : isAnimationRunning(warden.sniffingAnimationState);
+            ? isAnimationRunning(sourceWarden.sniffAnimationState)
+            : isAnimationRunning(warden.sniffAnimationState);
 
         if (sniffing && !state.sniffing)
         {
-            warden.handleStatus((byte) 61);
+            warden.handleEntityEvent((byte) 61);
         }
 
         state.sniffing = sniffing;
     }
 
-    private static WardenEntity getSourceWarden(IEntity source, WardenEntity morph)
+    private static Warden getSourceWarden(IEntity source, Warden morph)
     {
         if (source instanceof MCEntity mcEntity)
         {
             Entity entity = mcEntity.getMcEntity();
 
-            if (entity instanceof WardenEntity warden)
+            if (entity instanceof Warden warden)
             {
                 return warden;
             }
         }
 
-        World world = MinecraftClient.getInstance().world;
+        Level world = Minecraft.getInstance().level;
 
         if (world == null)
         {
             return null;
         }
 
-        Box box = morph.getBoundingBox().expand(2.0D);
+        AABB box = morph.getBoundingBox().inflate(2.0D);
 
-        for (WardenEntity warden : world.getEntitiesByClass(WardenEntity.class, box, (candidate) -> candidate != morph))
+        for (Warden warden : world.getEntitiesOfClass(Warden.class, box, (candidate) -> candidate != morph))
         {
-            if (isAnimationRunning(warden.chargingSonicBoomAnimationState)
-                || isAnimationRunning(warden.roaringAnimationState)
-                || isAnimationRunning(warden.sniffingAnimationState))
+            if (isAnimationRunning(warden.sonicBoomAnimationState)
+                || isAnimationRunning(warden.roarAnimationState)
+                || isAnimationRunning(warden.sniffAnimationState))
             {
                 return warden;
             }
@@ -202,27 +202,27 @@ public final class MorphMobParticles
         return null;
     }
 
-    private static void tickWardenAnimations(WardenEntity warden)
+    private static void tickWardenAnimations(Warden warden)
     {
-        int age = warden.age;
+        int age = warden.tickCount;
 
-        warden.chargingSonicBoomAnimationState.skip(age, 1.0F);
-        warden.roaringAnimationState.skip(age, 1.0F);
-        warden.sniffingAnimationState.skip(age, 1.0F);
-        warden.attackingAnimationState.skip(age, 1.0F);
-        warden.emergingAnimationState.skip(age, 1.0F);
-        warden.diggingAnimationState.skip(age, 1.0F);
+        warden.sonicBoomAnimationState.fastForward(age, 1.0F);
+        warden.roarAnimationState.fastForward(age, 1.0F);
+        warden.sniffAnimationState.fastForward(age, 1.0F);
+        warden.attackAnimationState.fastForward(age, 1.0F);
+        warden.emergeAnimationState.fastForward(age, 1.0F);
+        warden.diggingAnimationState.fastForward(age, 1.0F);
     }
 
-    private static void triggerSonicBoom(WardenEntity warden)
+    private static void triggerSonicBoom(Warden warden)
     {
-        warden.handleStatus(EntityStatuses.SONIC_BOOM);
+        warden.handleEntityEvent(EntityEvent.SONIC_CHARGE);
         spawnSonicBoomParticle(warden);
     }
 
     private static void spawnSonicBoomParticle(Entity entity)
     {
-        ClientWorld world = MinecraftClient.getInstance().world;
+        ClientLevel world = Minecraft.getInstance().level;
 
         if (world == null)
         {
@@ -230,22 +230,22 @@ public final class MorphMobParticles
         }
 
         double x = entity.getX();
-        double y = entity.getY() + entity.getHeight() * 0.5D;
+        double y = entity.getY() + entity.getBbHeight() * 0.5D;
         double z = entity.getZ();
 
-        world.addParticleClient(ParticleTypes.SONIC_BOOM, x, y, z, 0D, 0D, 0D);
+        world.addParticle(ParticleTypes.SONIC_BOOM, x, y, z, 0D, 0D, 0D);
     }
 
     private static boolean isAnimationRunning(AnimationState animationState)
     {
-        return animationState != null && animationState.isRunning();
+        return animationState != null && animationState.isStarted();
     }
 
     public static void clear(Entity morph)
     {
         if (morph != null)
         {
-            STATES.remove(morph.getUuid());
+            STATES.remove(morph.getUUID());
         }
     }
 

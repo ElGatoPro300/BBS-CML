@@ -15,19 +15,19 @@ import mchorse.bbs_mod.data.types.ShortArrayType;
 import mchorse.bbs_mod.data.types.ShortType;
 import mchorse.bbs_mod.data.types.StringType;
 
-import net.minecraft.nbt.NbtByte;
-import net.minecraft.nbt.NbtByteArray;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtDouble;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtFloat;
-import net.minecraft.nbt.NbtInt;
-import net.minecraft.nbt.NbtIntArray;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtLong;
-import net.minecraft.nbt.NbtShort;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.network.PacketByteBuf;
+import net.minecraft.nbt.ByteArrayTag;
+import net.minecraft.nbt.ByteTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.DoubleTag;
+import net.minecraft.nbt.FloatTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.IntTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.LongTag;
+import net.minecraft.nbt.ShortTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
 
 import org.joml.Matrix3f;
 import org.joml.Vector2i;
@@ -92,7 +92,7 @@ public class DataStorageUtils
         return null;
     }
 
-    public static void writeToPacket(PacketByteBuf packet, BaseType type)
+    public static void writeToPacket(FriendlyByteBuf packet, BaseType type)
     {
         try
         {
@@ -108,7 +108,7 @@ public class DataStorageUtils
         }
     }
 
-    public static BaseType readFromPacket(PacketByteBuf packet)
+    public static BaseType readFromPacket(FriendlyByteBuf packet)
     {
         try
         {
@@ -126,7 +126,7 @@ public class DataStorageUtils
 
     /* NBT */
 
-    public static NbtElement toNbt(BaseType type)
+    public static Tag toNbt(BaseType type)
     {
         if (type == null)
         {
@@ -135,51 +135,51 @@ public class DataStorageUtils
 
         if (type instanceof ByteType byteType)
         {
-            return NbtByte.of(byteType.value);
+            return ByteTag.valueOf(byteType.value);
         }
         else if (type instanceof DoubleType doubleType)
         {
-            return NbtDouble.of(doubleType.value);
+            return DoubleTag.valueOf(doubleType.value);
         }
         else if (type instanceof FloatType floatType)
         {
-            return NbtFloat.of(floatType.value);
+            return FloatTag.valueOf(floatType.value);
         }
         else if (type instanceof IntType intType)
         {
-            return NbtInt.of(intType.value);
+            return IntTag.valueOf(intType.value);
         }
         else if (type instanceof LongType longType)
         {
-            return NbtLong.of(longType.value);
+            return LongTag.valueOf(longType.value);
         }
         else if (type instanceof ShortType shortType)
         {
-            return NbtShort.of(shortType.value);
+            return ShortTag.valueOf(shortType.value);
         }
         else if (type instanceof StringType stringType)
         {
-            return NbtString.of(stringType.value);
+            return StringTag.valueOf(stringType.value);
         }
         else if (type instanceof ByteArrayType byteArrayType)
         {
-            return new NbtByteArray(byteArrayType.value);
+            return new ByteArrayTag(byteArrayType.value);
         }
         else if (type instanceof IntArrayType intArrayType)
         {
-            return new NbtIntArray(intArrayType.value);
+            return new IntArrayTag(intArrayType.value);
         }
         else if (type instanceof ShortArrayType shortArrayType)
         {
-            return new NbtList(); // Minecraft doesn't have NbtShortArray, it usually uses NbtList or NbtIntArray
+            return new ListTag(); // Minecraft doesn't have NbtShortArray, it usually uses NbtList or NbtIntArray
         }
         else if (type instanceof ListType listType)
         {
-            NbtList list = new NbtList();
+            ListTag list = new ListTag();
 
             for (BaseType baseType : listType)
             {
-                NbtElement element = toNbt(baseType);
+                Tag element = toNbt(baseType);
 
                 if (element != null)
                 {
@@ -191,11 +191,11 @@ public class DataStorageUtils
         }
         else if (type instanceof MapType mapType)
         {
-            NbtCompound compound = new NbtCompound();
+            CompoundTag compound = new CompoundTag();
 
             for (String key : mapType.keys())
             {
-                NbtElement element = toNbt(mapType.get(key));
+                Tag element = toNbt(mapType.get(key));
 
                 if (element != null)
                 {
@@ -209,60 +209,60 @@ public class DataStorageUtils
         return null;
     }
 
-    public static BaseType fromNbt(NbtElement element)
+    public static BaseType fromNbt(Tag element)
     {
-        if (element instanceof NbtByte nbtByte)
+        if (element instanceof ByteTag nbtByte)
         {
             return new ByteType(nbtByte.byteValue());
         }
-        else if (element instanceof NbtDouble nbtDouble)
+        else if (element instanceof DoubleTag nbtDouble)
         {
             return new DoubleType(nbtDouble.doubleValue());
         }
-        else if (element instanceof NbtFloat nbtFloat)
+        else if (element instanceof FloatTag nbtFloat)
         {
             return new FloatType(nbtFloat.floatValue());
         }
-        else if (element instanceof NbtInt nbtInt)
+        else if (element instanceof IntTag nbtInt)
         {
             return new IntType(nbtInt.intValue());
         }
-        else if (element instanceof NbtLong nbtLong)
+        else if (element instanceof LongTag nbtLong)
         {
             return new LongType(nbtLong.longValue());
         }
-        else if (element instanceof NbtShort nbtShort)
+        else if (element instanceof ShortTag nbtShort)
         {
             return new ShortType(nbtShort.shortValue());
         }
-        else if (element instanceof NbtString nbtString)
+        else if (element instanceof StringTag nbtString)
         {
             return new StringType(nbtString.value());
         }
-        else if (element instanceof NbtByteArray nbtByteArray)
+        else if (element instanceof ByteArrayTag nbtByteArray)
         {
-            return new ByteArrayType(nbtByteArray.getByteArray());
+            return new ByteArrayType(nbtByteArray.getAsByteArray());
         }
-        else if (element instanceof NbtIntArray nbtIntArray)
+        else if (element instanceof IntArrayTag nbtIntArray)
         {
-            return new IntArrayType(nbtIntArray.getIntArray());
+            return new IntArrayType(nbtIntArray.getAsIntArray());
         }
-        else if (element instanceof NbtList nbtList)
+        else if (element instanceof ListTag nbtList)
         {
             ListType list = new ListType();
 
-            for (NbtElement nbtElement : nbtList)
+            for (Tag nbtElement : nbtList)
             {
                 list.add(fromNbt(nbtElement));
             }
 
             return list;
         }
-        else if (element instanceof NbtCompound nbtCompound)
+        else if (element instanceof CompoundTag nbtCompound)
         {
             MapType map = new MapType();
 
-            for (String key : nbtCompound.getKeys())
+            for (String key : nbtCompound.keySet())
             {
                 map.put(key, fromNbt(nbtCompound.get(key)));
             }
@@ -273,9 +273,9 @@ public class DataStorageUtils
         return null;
     }
 
-    public static void writeToNbtCompound(NbtCompound compound, String key, BaseType data)
+    public static void writeToNbtCompound(CompoundTag compound, String key, BaseType data)
     {
-        NbtElement nbt = toNbt(data);
+        Tag nbt = toNbt(data);
 
         if (nbt != null)
         {
@@ -283,7 +283,7 @@ public class DataStorageUtils
         }
     }
 
-    public static BaseType readFromNbtCompound(NbtCompound compound, String key)
+    public static BaseType readFromNbtCompound(CompoundTag compound, String key)
     {
         BaseType baseType = DataStorageUtils.fromNbt(compound.get(key));
 

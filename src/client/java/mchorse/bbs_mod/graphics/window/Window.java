@@ -7,9 +7,10 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.mixin.client.MouseAccessor;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
+
+import com.mojang.blaze3d.platform.InputConstants;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryUtil;
@@ -30,7 +31,7 @@ public class Window
 
     public static long getWindow()
     {
-        return MinecraftClient.getInstance().getWindow().getHandle();
+        return Minecraft.getInstance().getWindow().handle();
     }
 
     public static void setVerticalScroll(int scroll)
@@ -71,7 +72,7 @@ public class Window
 
     public static boolean isKeyPressed(int key)
     {
-        return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow(), key);
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key);
     }
 
     public static String getClipboard()
@@ -178,7 +179,7 @@ public class Window
      */
     public static void centerCursor()
     {
-        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
+        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
 
         if (window == null)
         {
@@ -198,7 +199,7 @@ public class Window
      */
     public static void syncClientMouseTo(double x, double y)
     {
-        Mouse mouse = MinecraftClient.getInstance().mouse;
+        MouseHandler mouse = Minecraft.getInstance().mouseHandler;
 
         if (!(mouse instanceof MouseAccessor accessor))
         {

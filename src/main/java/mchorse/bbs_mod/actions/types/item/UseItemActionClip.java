@@ -7,9 +7,9 @@ import mchorse.bbs_mod.items.GunItem;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 
 public class UseItemActionClip extends ItemActionClip
 {
@@ -25,26 +25,26 @@ public class UseItemActionClip extends ItemActionClip
     @Override
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
-        Hand hand = this.hand.get() ? Hand.MAIN_HAND : Hand.OFF_HAND;
+        InteractionHand hand = this.hand.get() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
 
         GunItem.actor = actor;
 
         this.applyPositionRotation(player, replay, tick);
         ItemStack copy = this.itemStack.get().copy();
-        int maxUseTime = copy.getMaxUseTime(player);
+        int maxUseTime = copy.getUseDuration(player);
         int used = this.useTicks.get();
 
-        player.setStackInHand(hand, copy);
-        copy.use(player.getEntityWorld(), player, hand);
+        player.setItemInHand(hand, copy);
+        copy.use(player.level(), player, hand);
 
         if (used > 0 && maxUseTime > 0)
         {
             int remaining = Math.max(0, maxUseTime - used);
-            copy.onStoppedUsing(player.getEntityWorld(), player, remaining);
-            player.stopUsingItem();
+            copy.releaseUsing(player.level(), player, remaining);
+            player.releaseUsingItem();
         }
 
-        player.setStackInHand(hand, ItemStack.EMPTY);
+        player.setItemInHand(hand, ItemStack.EMPTY);
 
         GunItem.actor = null;
     }

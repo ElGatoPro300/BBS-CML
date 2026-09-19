@@ -6,9 +6,9 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import net.minecraft.client.render.VertexConsumer;
-
 import org.joml.Matrix3x2fc;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 public class SquareKeyframeShapeRenderer implements IKeyframeShapeRenderer
 {

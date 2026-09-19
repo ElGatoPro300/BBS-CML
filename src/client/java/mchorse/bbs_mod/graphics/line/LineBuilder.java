@@ -82,7 +82,7 @@ public class LineBuilder <T>
         }
 
         GuiQuadMesh mesh = new GuiQuadMesh();
-        Matrix3x2fc matrix = batcher2D.getContext().getMatrices();
+        Matrix3x2fc matrix = batcher2D.getContext().pose();
 
         for (List<LinePoint<T>> points : build)
         {

@@ -1,8 +1,8 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,17 +85,17 @@ public class StructurePickerSelection
         return second;
     }
 
-    public static List<BlockPos> collect(World world, BlockPos first, BlockPos second, StructurePickerMode mode)
+    public static List<BlockPos> collect(Level world, BlockPos first, BlockPos second, StructurePickerMode mode)
     {
         return StructurePickerSelection.collect(world, first, second, mode, false);
     }
 
-    public static List<BlockPos> collect(World world, BlockPos first, BlockPos second, StructurePickerMode mode, boolean includeAir)
+    public static List<BlockPos> collect(Level world, BlockPos first, BlockPos second, StructurePickerMode mode, boolean includeAir)
     {
         return StructurePickerSelection.collect(world, first, second, mode, includeAir, null);
     }
 
-    public static List<BlockPos> collect(World world, BlockPos first, BlockPos second, StructurePickerMode mode, boolean includeAir, Direction triangleFacing)
+    public static List<BlockPos> collect(Level world, BlockPos first, BlockPos second, StructurePickerMode mode, boolean includeAir, Direction triangleFacing)
     {
         BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
         BlockPos min = StructurePickerSelection.min(first, adjusted);
@@ -121,12 +121,12 @@ public class StructurePickerSelection
         return blocks;
     }
 
-    public static List<BlockPos> preview(World world, BlockPos first, BlockPos second, StructurePickerMode mode)
+    public static List<BlockPos> preview(Level world, BlockPos first, BlockPos second, StructurePickerMode mode)
     {
         return StructurePickerSelection.preview(world, first, second, mode, null);
     }
 
-    public static List<BlockPos> preview(World world, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)
+    public static List<BlockPos> preview(Level world, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)
     {
         if (first == null || second == null)
         {
@@ -235,8 +235,8 @@ public class StructurePickerSelection
 
         if (plane == StructurePickerPlane.XZ)
         {
-            forwardA = triangleFacing.getOffsetX();
-            forwardB = triangleFacing.getOffsetZ();
+            forwardA = triangleFacing.getStepX();
+            forwardB = triangleFacing.getStepZ();
         }
         else
         {
@@ -244,13 +244,13 @@ public class StructurePickerSelection
 
             if (locked == StructurePickerAxis.Z)
             {
-                forwardA = triangleFacing.getOffsetX();
-                forwardB = triangleFacing.getOffsetY();
+                forwardA = triangleFacing.getStepX();
+                forwardB = triangleFacing.getStepY();
             }
             else
             {
-                forwardA = triangleFacing.getOffsetZ();
-                forwardB = triangleFacing.getOffsetY();
+                forwardA = triangleFacing.getStepZ();
+                forwardB = triangleFacing.getStepY();
             }
         }
 

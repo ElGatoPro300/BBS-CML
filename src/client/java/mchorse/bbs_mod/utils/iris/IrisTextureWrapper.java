@@ -6,11 +6,11 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.resource.ResourceManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.server.packs.resources.ResourceManager;
 
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 
@@ -90,20 +90,20 @@ public class IrisTextureWrapper extends AbstractTexture
          * processed PBR intensity without transferring ownership of their GL ids. */
         int id = source == BBSModClient.getTextures().getError() ? source.id : this.getGlId();
 
-        return MinecraftClient.getInstance().getTextureManager().getTexture(
+        return Minecraft.getInstance().getTextureManager().getTexture(
             AdoptedTexture.identifier(id, source.width, source.height, source.isLinear()));
     }
 
     @Override
-    public GpuTexture getGlTexture()
+    public GpuTexture getTexture()
     {
-        return this.resolveGpuTexture().getGlTexture();
+        return this.resolveGpuTexture().getTexture();
     }
 
     @Override
-    public GpuTextureView getGlTextureView()
+    public GpuTextureView getTextureView()
     {
-        return this.resolveGpuTexture().getGlTextureView();
+        return this.resolveGpuTexture().getTextureView();
     }
 
     public int getGlId()
@@ -112,7 +112,7 @@ public class IrisTextureWrapper extends AbstractTexture
 
         if (texture == null || texture == BBSModClient.getTextures().getError())
         {
-            return (this.fallback != null && this.fallback.getGlTexture() instanceof GlTexture gt) ? gt.getGlId() : -1;
+            return (this.fallback != null && this.fallback.getTexture() instanceof GlTexture gt) ? gt.glId() : -1;
         }
 
         if (this.index >= 0 && texture.getParent() != null)

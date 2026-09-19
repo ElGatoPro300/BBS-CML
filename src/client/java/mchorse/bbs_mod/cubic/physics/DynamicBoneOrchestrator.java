@@ -11,7 +11,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -124,7 +124,7 @@ public final class DynamicBoneOrchestrator
         return new WindDef(wind.power(), dir.x, dir.y, dir.z, wind.gustiness(), wind.gustSpeed(), wind.gustScale(), false);
     }
 
-    private static void applyCompiled(World world, int age, float transition, IModel model, ModelInstance instance, List<SpringChainCompiler.CompiledChain> compiledChains, WindDef wind, Map<String, JointLimitConfig.JointLimit> jointLimits, InstanceState state, Matrix4f baseTransform)
+    private static void applyCompiled(Level world, int age, float transition, IModel model, ModelInstance instance, List<SpringChainCompiler.CompiledChain> compiledChains, WindDef wind, Map<String, JointLimitConfig.JointLimit> jointLimits, InstanceState state, Matrix4f baseTransform)
     {
         Set<String> wanted = new HashSet<>();
         Set<String> chainIds = new HashSet<>();
@@ -162,7 +162,7 @@ public final class DynamicBoneOrchestrator
         }
     }
 
-    private static void applyChain(World world, int age, float transition, IModel model, ModelInstance instance, SpringChainCompiler.CompiledChain chain, WindDef wind, Map<String, JointLimitConfig.JointLimit> jointLimits, Map<String, PivotFrame> frames, InstanceState instanceState)
+    private static void applyChain(Level world, int age, float transition, IModel model, ModelInstance instance, SpringChainCompiler.CompiledChain chain, WindDef wind, Map<String, JointLimitConfig.JointLimit> jointLimits, Map<String, PivotFrame> frames, InstanceState instanceState)
     {
         List<String> ids = chain.chainRootToEnd();
         int pivotCount = ids.size();

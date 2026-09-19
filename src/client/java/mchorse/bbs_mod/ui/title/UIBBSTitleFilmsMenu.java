@@ -14,9 +14,9 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +47,7 @@ public class UIBBSTitleFilmsMenu extends UIBaseMenu
 
         this.backButton = new UIButton(UIKeys.RAW_BACK, (b) ->
         {
-            MinecraftClient.getInstance().setScreen(this.returnScreen);
+            Minecraft.getInstance().setScreen(this.returnScreen);
         });
 
         this.statusLabel = new UILabel(UIKeys.TITLE_MENU_FILMS_LOADING);
@@ -121,7 +121,7 @@ public class UIBBSTitleFilmsMenu extends UIBaseMenu
 
         CrossWorldFilmScanner.scanAsync().whenComplete((entries, error) ->
         {
-            MinecraftClient.getInstance().execute(() ->
+            Minecraft.getInstance().execute(() ->
             {
                 this.scanning = false;
 

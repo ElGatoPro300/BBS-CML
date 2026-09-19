@@ -3,21 +3,21 @@ package mchorse.bbs_mod.forms.entities;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.AABB;
 
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LimbAnimator;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.WalkAnimationState;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class StubEntity implements IEntity
 {
-    private World world;
+    private Level world;
     private int age;
 
     private Form form;
@@ -39,7 +39,7 @@ public class StubEntity implements IEntity
     private int itemUseTimeLeft;
     private int fireTicks;
     private boolean particlesEnabled = true;
-    private Hand activeHand = Hand.MAIN_HAND;
+    private InteractionHand activeHand = InteractionHand.MAIN_HAND;
     private float fallFlyingTicks;
     private float prevFallFlyingTicks;
 
@@ -68,20 +68,20 @@ public class StubEntity implements IEntity
     private float handSwingProgress;
     private float prevHandSwingProgress;
 
-    private Vec3d velocity = Vec3d.ZERO;
+    private Vec3 velocity = Vec3.ZERO;
 
     private float[] extraVariables = new float[10];
     private float[] prevExtraVariables = new float[10];
     private boolean externalPrevPosition;
     private boolean externalPrevRotation;
 
-    private LimbAnimator limbAnimator = new LimbAnimator();
+    private WalkAnimationState limbAnimator = new WalkAnimationState();
     private final Map<EquipmentSlot, ItemStack> items = new HashMap<>();
     private IEntity mountTarget;
     private IEntity riderTarget;
     private boolean sitting;
 
-    public StubEntity(World world)
+    public StubEntity(Level world)
     {
         this.world = world;
 
@@ -100,13 +100,13 @@ public class StubEntity implements IEntity
     }
 
     @Override
-    public void setWorld(World world)
+    public void setWorld(Level world)
     {
         this.world = world;
     }
 
     @Override
-    public World getWorld()
+    public Level getWorld()
     {
         return this.world;
     }
@@ -364,15 +364,15 @@ public class StubEntity implements IEntity
     }
 
     @Override
-    public Hand getActiveHand()
+    public InteractionHand getActiveHand()
     {
         return this.activeHand;
     }
 
     @Override
-    public void setActiveHand(Hand hand)
+    public void setActiveHand(InteractionHand hand)
     {
-        this.activeHand = hand == null ? Hand.MAIN_HAND : hand;
+        this.activeHand = hand == null ? InteractionHand.MAIN_HAND : hand;
     }
 
     @Override
@@ -447,7 +447,7 @@ public class StubEntity implements IEntity
     }
 
     @Override
-    public Vec3d getVelocity()
+    public Vec3 getVelocity()
     {
         return this.velocity;
     }
@@ -455,7 +455,7 @@ public class StubEntity implements IEntity
     @Override
     public void setVelocity(float x, float y, float z)
     {
-        this.velocity = new Vec3d(x, y, z);
+        this.velocity = new Vec3(x, y, z);
     }
 
     @Override
@@ -605,10 +605,10 @@ public class StubEntity implements IEntity
     @Override
     public void update()
     {
-        float delta = (float) MathHelper.magnitude(this.x - this.prevX, 0D, this.z - this.prevZ);
+        float delta = (float) Mth.length(this.x - this.prevX, 0D, this.z - this.prevZ);
         float speed = Math.min(delta * 4F, 1F);
 
-        this.limbAnimator.updateLimbs(speed, 0.4F, 1F);
+        this.limbAnimator.update(speed, 0.4F, 1F);
 
         this.tickHandSwing();
         this.age += 1;
@@ -650,7 +650,7 @@ public class StubEntity implements IEntity
     }
 
     @Override
-    public LimbAnimator getLimbAnimator()
+    public WalkAnimationState getLimbAnimator()
     {
         return this.limbAnimator;
     }
@@ -658,13 +658,13 @@ public class StubEntity implements IEntity
     @Override
     public float getLimbPos(float tickDelta)
     {
-        return this.limbAnimator.getAnimationProgress(tickDelta);
+        return this.limbAnimator.position(tickDelta);
     }
 
     @Override
     public float getLimbSpeed(float tickDelta)
     {
-        return this.limbAnimator.getAmplitude(tickDelta);
+        return this.limbAnimator.speed(tickDelta);
     }
 
     @Override
@@ -680,19 +680,19 @@ public class StubEntity implements IEntity
     }
 
     @Override
-    public EntityPose getEntityPose()
+    public Pose getEntityPose()
     {
         if (this.mountTarget != null || this.sitting)
         {
-            return EntityPose.SITTING;
+            return Pose.SITTING;
         }
 
         if (this.sneaking)
         {
-            return EntityPose.CROUCHING;
+            return Pose.CROUCHING;
         }
 
-        return EntityPose.STANDING;
+        return Pose.STANDING;
     }
 
     @Override
@@ -776,22 +776,22 @@ public class StubEntity implements IEntity
     @Override
     public float getFallFlyingProgress(float transition)
     {
-        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
-        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
+        float ticks = Mth.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
+        float progress = Mth.clamp(ticks / 10F, 0F, 1F);
 
         return progress * progress;
     }
 
     @Override
-    public Vec3d getRotationVec(float transition)
+    public Vec3 getRotationVec(float transition)
     {
-        return Vec3d.ZERO;
+        return Vec3.ZERO;
     }
 
     @Override
-    public Vec3d lerpVelocity(float transition)
+    public Vec3 lerpVelocity(float transition)
     {
-        return Vec3d.ZERO;
+        return Vec3.ZERO;
     }
 
     @Override

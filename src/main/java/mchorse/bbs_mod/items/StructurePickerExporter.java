@@ -8,18 +8,18 @@ import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.mixin.StructureTemplateAccessor;
 import mchorse.bbs_mod.mixin.StructureTemplatePalettedListAccessor;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.property.Properties;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.util.WorldSavePath;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +30,7 @@ import java.util.Set;
 
 public class StructurePickerExporter
 {
-    public static String export(ServerWorld world, List<BlockPos> blocks)
+    public static String export(ServerLevel world, List<BlockPos> blocks)
     {
         if (blocks.isEmpty())
         {
@@ -46,13 +46,13 @@ public class StructurePickerExporter
             max = StructurePickerSelection.max(max, pos);
         }
 
-        Vec3i size = max.subtract(min).add(1, 1, 1);
+        Vec3i size = max.subtract(min).offset(1, 1, 1);
         StructureTemplate template = new StructureTemplate();
 
-        template.saveFromWorld(world, min, size, true, Collections.singletonList(Blocks.STRUCTURE_VOID));
+        template.fillFromWorld(world, min, size, true, Collections.singletonList(Blocks.STRUCTURE_VOID));
         filterTemplate(template, min, new HashSet<>(blocks));
 
-        File generatedFolder = world.getServer().getSavePath(WorldSavePath.GENERATED).toFile();
+        File generatedFolder = world.getServer().getWorldPath(LevelResource.GENERATED_DIR).toFile();
         File folder = new File(new File(generatedFolder, "minecraft"), "structures");
 
         if (!folder.exists())
@@ -65,9 +65,9 @@ public class StructurePickerExporter
 
         try
         {
-            NbtCompound nbt = new NbtCompound();
+            CompoundTag nbt = new CompoundTag();
 
-            template.writeNbt(nbt);
+            template.save(nbt);
             NbtIo.writeCompressed(nbt, file.toPath());
         }
         catch (IOException e)
@@ -80,14 +80,14 @@ public class StructurePickerExporter
         return "world:" + fileName;
     }
 
-    public static boolean placeModelBlock(ServerWorld world, BlockPos center, String structurePath)
+    public static boolean placeModelBlock(ServerLevel world, BlockPos center, String structurePath)
     {
         if (structurePath == null || structurePath.isEmpty())
         {
             return false;
         }
 
-        if (world.getBlockState(center).isOf(BBSMod.MODEL_BLOCK))
+        if (world.getBlockState(center).is(BBSMod.MODEL_BLOCK))
         {
             BlockEntity blockEntity = world.getBlockEntity(center);
 
@@ -102,8 +102,8 @@ public class StructurePickerExporter
                 properties.setForm(form);
                 properties.setName("Structure");
                 properties.setHitbox(true);
-                modelBlockEntity.markDirty();
-                world.updateListeners(center, world.getBlockState(center), world.getBlockState(center), 3);
+                modelBlockEntity.setChanged();
+                world.sendBlockUpdated(center, world.getBlockState(center), world.getBlockState(center), 3);
 
                 return true;
             }
@@ -113,11 +113,11 @@ public class StructurePickerExporter
 
         form.structureFile.set(structurePath);
 
-        BlockState modelState = BBSMod.MODEL_BLOCK.getDefaultState()
-            .with(Properties.WATERLOGGED, world.getFluidState(center).isOf(Fluids.WATER))
-            .with(ModelBlock.LIGHT_LEVEL, 0);
+        BlockState modelState = BBSMod.MODEL_BLOCK.defaultBlockState()
+            .setValue(BlockStateProperties.WATERLOGGED, world.getFluidState(center).is(Fluids.WATER))
+            .setValue(ModelBlock.LIGHT_LEVEL, 0);
 
-        if (!world.setBlockState(center, modelState, 3))
+        if (!world.setBlock(center, modelState, 3))
         {
             return false;
         }
@@ -134,23 +134,23 @@ public class StructurePickerExporter
         properties.setForm(form);
         properties.setName("Structure");
         properties.setHitbox(true);
-        modelBlockEntity.markDirty();
-        world.updateListeners(center, modelState, modelState, 3);
+        modelBlockEntity.setChanged();
+        world.sendBlockUpdated(center, modelState, modelState, 3);
 
         return true;
     }
 
-    public static void removeBlocks(ServerWorld world, List<BlockPos> blocks)
+    public static void removeBlocks(ServerLevel world, List<BlockPos> blocks)
     {
         for (BlockPos pos : blocks)
         {
             /* Never break model blocks (e.g. one just placed at the selection center) */
-            if (world.getBlockState(pos).isOf(BBSMod.MODEL_BLOCK))
+            if (world.getBlockState(pos).is(BBSMod.MODEL_BLOCK))
             {
                 continue;
             }
 
-            world.setBlockState(pos, Blocks.AIR.getDefaultState(), 3);
+            world.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
         }
     }
 
@@ -174,11 +174,11 @@ public class StructurePickerExporter
     {
         StructureTemplateAccessor accessor = (StructureTemplateAccessor) template;
 
-        for (StructureTemplate.PalettedBlockInfoList list : accessor.bbs$getBlockInfoLists())
+        for (StructureTemplate.Palette list : accessor.bbs$getBlockInfoLists())
         {
             StructureTemplatePalettedListAccessor palette = (StructureTemplatePalettedListAccessor) (Object) list;
 
-            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos())));
+            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.offset(info.pos())));
         }
 
         accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());

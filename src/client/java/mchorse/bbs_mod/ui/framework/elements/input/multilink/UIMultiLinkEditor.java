@@ -21,13 +21,12 @@ import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.FilteredLink;
 
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-
 import org.joml.Matrix3x2fStack;
 
+import com.mojang.blaze3d.opengl.GlProgram;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class UIMultiLinkEditor extends UICanvasEditor
@@ -233,7 +232,7 @@ public class UIMultiLinkEditor extends UICanvasEditor
 
                 if (needsMultLinkShader)
                 {
-                    ShaderProgram shader = BBSShaders.getMultilinkProgram();
+                    GlProgram shader = BBSShaders.getMultilinkProgram();
 
                     if (shader != null)
                     {
@@ -254,15 +253,15 @@ public class UIMultiLinkEditor extends UICanvasEditor
 
                         texture.bind(0);
 
-                        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-                        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+                        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+                        Matrix3x2fStack matrices = context.batcher.getContext().pose();
 
-                        builder.vertex(matrices, (float) area.x, (float) area.ey()).texture(0F, 1F).color(child.color);
-                        builder.vertex(matrices, (float) area.ex(), (float) area.ey()).texture(1F, 1F).color(child.color);
-                        builder.vertex(matrices, (float) area.ex(), (float) area.y).texture(1F, 0F).color(child.color);
-                        builder.vertex(matrices, (float) area.x, (float) area.y).texture(0F, 0F).color(child.color);
+                        builder.addVertexWith2DPose(matrices, (float) area.x, (float) area.ey()).setUv(0F, 1F).setColor(child.color);
+                        builder.addVertexWith2DPose(matrices, (float) area.ex(), (float) area.ey()).setUv(1F, 1F).setColor(child.color);
+                        builder.addVertexWith2DPose(matrices, (float) area.ex(), (float) area.y).setUv(1F, 0F).setColor(child.color);
+                        builder.addVertexWith2DPose(matrices, (float) area.x, (float) area.y).setUv(0F, 0F).setColor(child.color);
 
-                        BufferRenderer.drawWithGlobalProgram(builder.end());
+                        BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
                         BBSRendering.unbindProgram();
 
                         if (atlas != null)
