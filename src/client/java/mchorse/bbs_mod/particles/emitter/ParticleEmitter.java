@@ -2,12 +2,8 @@ package mchorse.bbs_mod.particles.emitter;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
-import mchorse.bbs_mod.forms.renderers.utils.ParticleRenderLayers;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.math.IExpression;
 import mchorse.bbs_mod.math.Variable;
@@ -23,21 +19,24 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +53,7 @@ public class ParticleEmitter
 
     public Link texture;
     public LivingEntity target;
-    public Level world;
+    public World world;
     public boolean lit;
     public boolean modelRenderer;
 
@@ -141,10 +140,10 @@ public class ParticleEmitter
     public void setTarget(LivingEntity target)
     {
         this.target = target;
-        this.world = target == null ? null : target.level();
+        this.world = target == null ? null : target.getWorld();
     }
 
-    public void setWorld(Level world)
+    public void setWorld(World world)
     {
         this.world = world;
     }
@@ -484,7 +483,7 @@ public class ParticleEmitter
     /**
      * Render the particle on screen
      */
-    public void renderUI(PoseStack stack, float transition)
+    public void renderUI(MatrixStack stack, float transition)
     {
         if (this.scheme == null)
         {
@@ -507,27 +506,28 @@ public class ParticleEmitter
             this.setEmitterVariables(transition);
             this.setParticleVariables(this.uiParticle, transition);
 
-            Matrix4f matrix = stack.last().pose();
-            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+            Matrix4f matrix = stack.peek().getPositionMatrix();
+            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
             for (IComponentParticleRender render : list)
             {
                 render.renderUI(this.uiParticle, builder, matrix, transition);
             }
 
-            BBSRendering.disableCull();
-            ParticleRenderLayers.draw(builder.buildOrThrow(), this.getTexture());
+            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            RenderSystem.disableCull();
+            BufferRenderer.drawWithGlobalProgram(builder.end());
 
             this.renderGlowOverlay(stack, transition, true);
 
-            BBSRendering.enableCull();
+            RenderSystem.enableCull();
         }
     }
 
     /**
      * Render all the particles in this particle emitter
      */
-    public void render(VertexFormat format, Supplier<GlProgram> program, PoseStack stack, int overlay, float transition)
+    public void render(VertexFormat format, Supplier<ShaderProgram> program, MatrixStack stack, int overlay, float transition)
     {
         if (this.scheme == null)
         {
@@ -543,8 +543,8 @@ public class ParticleEmitter
 
         if (!this.particles.isEmpty())
         {
-            Matrix4f matrix = stack.last().pose();
-            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
+            Matrix4f matrix = stack.peek().getPositionMatrix();
+            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
             this.bindTexture();
 
@@ -558,27 +558,17 @@ public class ParticleEmitter
                     component.render(this, format, particle, builder, matrix, overlay, transition);
                 }
             }
-            
-            BBSRendering.enableBlend();
-            BBSRendering.defaultBlendFunc();
-            BBSRendering.disableCull();
 
-            GlProgram prog = program != null ? program.get() : null;
-            boolean picking = prog != null && (prog == BBSShaders.getPickerParticlesProgram() || prog == BBSShaders.getPickerBillboardProgram());
-
-            if (picking)
-            {
-                BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
-            }
-            else
-            {
-                ParticleRenderLayers.draw(builder.buildOrThrow(), this.getTexture());
-            }
+            RenderSystem.setShader(program);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableCull();
+            BufferRenderer.drawWithGlobalProgram(builder.end());
 
             this.renderGlowOverlay(stack, overlay, transition, false);
 
-            BBSRendering.enableCull();
-            BBSRendering.disableBlend();
+            RenderSystem.enableCull();
+            RenderSystem.disableBlend();
         }
 
         for (IComponentParticleRender component : renders)
@@ -587,12 +577,12 @@ public class ParticleEmitter
         }
     }
 
-    private void renderGlowOverlay(PoseStack stack, float transition, boolean ui)
+    private void renderGlowOverlay(MatrixStack stack, float transition, boolean ui)
     {
-        this.renderGlowOverlay(stack, OverlayTexture.NO_OVERLAY, transition, ui);
+        this.renderGlowOverlay(stack, OverlayTexture.DEFAULT_UV, transition, ui);
     }
 
-    private void renderGlowOverlay(PoseStack stack, int overlay, float transition, boolean ui)
+    private void renderGlowOverlay(MatrixStack stack, int overlay, float transition, boolean ui)
     {
         float glowIntensity = this.getGlowIntensity();
 
@@ -608,14 +598,15 @@ public class ParticleEmitter
             return;
         }
 
-        Matrix4f matrix = stack.last().pose();
+        Matrix4f matrix = stack.peek().getPositionMatrix();
 
         this.bindTexture();
-        Texture texture = this.getTexture();
 
         FlatGlowOverlayPass.render(this.glowSettings, this.legacyGlow, this.glowAlpha, glowIntensity, (glowColor) ->
         {
-            BufferBuilder glowBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+            BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
+
+            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
 
             if (ui)
             {
@@ -638,20 +629,15 @@ public class ParticleEmitter
                 }
             }
 
-            ParticleRenderLayers.drawGlow(glowBuilder.buildOrThrow(), texture);
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });
-    }
-
-    public Texture getTexture()
-    {
-        Link link = this.texture != null ? this.texture : (this.scheme != null ? this.scheme.texture : null);
-
-        return BBSModClient.getTextures().getTexture(link);
     }
 
     private void bindTexture()
     {
-        BBSModClient.getTextures().bindTexture(this.getTexture());
+        Texture texture = BBSModClient.getTextures().getTexture(this.texture == null ? this.scheme.texture : this.texture);
+
+        BBSModClient.getTextures().bindTexture(texture);
     }
 
     public void setupCameraProperties(Camera camera)
@@ -663,12 +649,12 @@ public class ParticleEmitter
         this.cZ = camera.position.z;
     }
 
-    public void setupCameraProperties(net.minecraft.client.Camera camera)
+    public void setupCameraProperties(net.minecraft.client.render.Camera camera)
     {
-        this.cYaw = 180 - camera.yRot();
-        this.cPitch = -camera.xRot();
-        this.cX = camera.position().x;
-        this.cY = camera.position().y;
-        this.cZ = camera.position().z;
+        this.cYaw = 180 - camera.getYaw();
+        this.cPitch = -camera.getPitch();
+        this.cX = camera.getPos().x;
+        this.cY = camera.getPos().y;
+        this.cZ = camera.getPos().z;
     }
 }

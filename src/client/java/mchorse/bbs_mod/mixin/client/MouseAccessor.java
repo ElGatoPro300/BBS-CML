@@ -1,22 +1,22 @@
 package mchorse.bbs_mod.mixin.client;
 
-import net.minecraft.client.MouseHandler;
+import net.minecraft.client.Mouse;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(MouseHandler.class)
+@Mixin(Mouse.class)
 public interface MouseAccessor
 {
-    @Accessor("xpos")
+    @Accessor("x")
     public void bbs$setX(double x);
 
-    @Accessor("ypos")
+    @Accessor("y")
     public void bbs$setY(double y);
 
-    @Accessor("accumulatedDX")
+    @Accessor("cursorDeltaX")
     public void bbs$setCursorDeltaX(double cursorDeltaX);
 
-    @Accessor("accumulatedDY")
+    @Accessor("cursorDeltaY")
     public void bbs$setCursorDeltaY(double cursorDeltaY);
 }

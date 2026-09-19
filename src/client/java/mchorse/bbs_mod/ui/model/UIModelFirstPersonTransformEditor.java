@@ -23,8 +23,8 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.CameraType;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.Perspective;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -39,7 +39,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     public UIStringList hands;
     public UIIcon back;
 
-    private CameraType lastPerspective;
+    private Perspective lastPerspective;
     private Form lastForm;
     private boolean changed;
     private ModelInstance cachedModel;
@@ -102,7 +102,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
 
     private void acquireModel()
     {
-        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         if (morph != null && morph.getForm() instanceof ModelForm)
         {
@@ -172,11 +172,11 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     {
         super.appear();
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        this.lastPerspective = mc.options.getCameraType();
-        mc.options.setCameraType(CameraType.FIRST_PERSON);
-        mc.options.hideGui = false;
+        this.lastPerspective = mc.options.getPerspective();
+        mc.options.setPerspective(Perspective.FIRST_PERSON);
+        mc.options.hudHidden = false;
 
         BBSModClient.getCameraController().remove(this.dashboard.camera);
 
@@ -204,7 +204,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
         this.host.forceSave();
         this.restore();
 
-        Minecraft.getInstance().options.hideGui = true;
+        MinecraftClient.getInstance().options.hudHidden = true;
         BBSModClient.getCameraController().add(this.dashboard.camera);
     }
 
@@ -224,11 +224,11 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
 
     private void restore()
     {
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         if (this.lastPerspective != null)
         {
-            mc.options.setCameraType(this.lastPerspective);
+            mc.options.setPerspective(this.lastPerspective);
             this.lastPerspective = null;
         }
 

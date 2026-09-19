@@ -206,7 +206,7 @@ public class UITriggerEditor
     {
         if (this.entity != null)
         {
-            ClientNetwork.sendTriggerBlockUpdate(this.entity.getBlockPos(), this.entity);
+            ClientNetwork.sendTriggerBlockUpdate(this.entity.getPos(), this.entity);
         }
     }
 

@@ -10,13 +10,16 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.ItemStack;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.function.Consumer;
 
@@ -43,8 +46,8 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
     private static final int SLOT_HOVER_TINT  = 0x33FFFFFF;
 
     private final Consumer<ItemStack> callback;
-    private final LocalPlayer player;
-    private final Inventory playerInventory;
+    private final ClientPlayerEntity player;
+    private final PlayerInventory playerInventory;
 
     public UIPlayerInventoryPanel(Consumer<ItemStack> callback)
     {
@@ -52,7 +55,7 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
         this.callback = callback;
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
         this.player = mc.player;
         this.playerInventory = (this.player != null) ? this.player.getInventory() : null;
 
@@ -177,11 +180,11 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
         private ItemStack getStack()
         {
-            if (playerInventory == null || slotIndex < 0 || slotIndex >= playerInventory.getContainerSize())
+            if (playerInventory == null || slotIndex < 0 || slotIndex >= playerInventory.size())
             {
                 return ItemStack.EMPTY;
             }
-            return playerInventory.getItem(slotIndex);
+            return playerInventory.getStack(slotIndex);
         }
 
         @Override
@@ -221,17 +224,14 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
                 Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                 Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
-                // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                context.batcher.getContext().item(stack, itemX, itemY);
-                context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
+                context.batcher.getContext().drawItem(stack, itemX, itemY);
+                context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                /* 1.21.11: DrawContext.draw() removed */
-                // context.batcher.getContext().draw();
+                context.batcher.getContext().draw();
 
-                /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
-                // DiffuseLighting.disableGuiDepthLighting();
+                DiffuseLighting.disableGuiDepthLighting();
 
                 if (hovered)
                 {
@@ -259,7 +259,7 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
                 return ItemStack.EMPTY;
             }
 
-            return player.getItemBySlot(this.slot);
+            return player.getEquippedStack(this.slot);
         }
 
         @Override
@@ -306,17 +306,14 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
                 Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                 Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
-                // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                context.batcher.getContext().item(stack, itemX, itemY);
-                context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
+                context.batcher.getContext().drawItem(stack, itemX, itemY);
+                context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                /* 1.21.11: DrawContext.draw() removed */
-                // context.batcher.getContext().draw();
+                context.batcher.getContext().draw();
 
-                /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
-                // DiffuseLighting.disableGuiDepthLighting();
+                DiffuseLighting.disableGuiDepthLighting();
 
                 if (hovered)
                 {

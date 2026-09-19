@@ -13,34 +13,32 @@ import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.StringUtils;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityDimensions;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.DefaultAttributeContainer;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityDimensions;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.HumanoidArm;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.packet.s2c.play.ItemPickupAnimationS2CPacket;
+import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.RegistryOps;
+import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
+import net.minecraft.util.Arm;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.random.Random;
+import net.minecraft.world.World;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,23 +51,18 @@ import java.util.UUID;
 
 public class ActorEntity extends LivingEntity implements IEntityFormProvider
 {
-    public static AttributeSupplier.Builder createActorAttributes()
+    public static DefaultAttributeContainer.Builder createActorAttributes()
     {
         return LivingEntity.createLivingAttributes()
-            .add(Attributes.ATTACK_DAMAGE, 1D)
-            .add(Attributes.MOVEMENT_SPEED, 0.1D)
-            .add(Attributes.ATTACK_SPEED)
-            .add(Attributes.LUCK);
+            .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 1D)
+            .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.1D)
+            .add(EntityAttributes.GENERIC_ATTACK_SPEED)
+            .add(EntityAttributes.GENERIC_LUCK);
     }
 
     private boolean despawn;
     private MCEntity entity = new MCEntity(this);
     private Form form;
-
-    public MCEntity getBbsEntity()
-    {
-        return this.entity;
-    }
 
     private Map<EquipmentSlot, ItemStack> equipment = new HashMap<>();
 
@@ -87,7 +80,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private int playbackVelocityBlendTicks;
 
     /**
-     * When true, {@link #spawnSprintParticle()} is a no-op. Used while the film
+     * When true, {@link #spawnSprintingParticles()} is a no-op. Used while the film
      * editor has actor-control on this replay: the live player may be sprinting, and
      * {@code ActorReplayStateSync} copies that flag onto this entity, but the body can
      * still sit on the film pose — without this, vanilla dust sprays at the wrong place.
@@ -106,7 +99,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * velocity cleared (avoids ice drift). Applied only around {@link Form#update} so
      * emoticons/procedural jump+fall still see {@code |vy| > 0.2}. Cleared after the update.
      */
-    private Vec3 animationVelocityHint;
+    private Vec3d animationVelocityHint;
 
     /**
      * Cached deterministic limb phase for timeline-paused scrubbing.
@@ -144,7 +137,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private float filmShadowOffsetY;
     private float filmShadowOffsetZ;
 
-    public ActorEntity(EntityType<? extends LivingEntity> entityType, Level world)
+    public ActorEntity(EntityType<? extends LivingEntity> entityType, World world)
     {
         super(entityType, world);
     }
@@ -193,7 +186,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
         else
         {
-            this.setCustomName(Component.literal(StringUtils.processColoredText(nameTag)));
+            this.setCustomName(Text.literal(StringUtils.processColoredText(nameTag)));
             this.setCustomNameVisible(true);
         }
     }
@@ -330,7 +323,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     /**
      * Film playback resumed after a hold-still pause. Softens the first walk
-     * velocities so {@link WalkAnimationState} does not jump.
+     * velocities so {@link LimbAnimator} does not jump.
      */
     public void markPlaybackResumed()
     {
@@ -379,7 +372,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * Hint for form animators while physics velocity is forced to zero (actor-control).
      * Consumed on the next {@link #tick()} around {@link Form#update}.
      */
-    public void setAnimationVelocityHint(Vec3 velocity)
+    public void setAnimationVelocityHint(Vec3d velocity)
     {
         this.animationVelocityHint = velocity;
     }
@@ -390,7 +383,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      */
     public void applyTimelineLimbPhase(ReplayKeyframes keyframes, int tick, boolean mounted)
     {
-        if (!(this.walkAnimation instanceof LimbAnimatorAccessor limb))
+        if (!(this.limbAnimator instanceof LimbAnimatorAccessor limb))
         {
             return;
         }
@@ -459,7 +452,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             /* Seeking backward: one age drop so ModelFormRenderer can reset. */
             if (this.form != null)
             {
-                this.tickCount = Math.max(0, this.tickCount + delta);
+                this.age = Math.max(0, this.age + delta);
                 this.form.update(this.entity);
             }
         }
@@ -484,7 +477,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.timelineFormTick = t;
         }
 
-        if (this.timelineLimbTick < 0 && this.walkAnimation instanceof LimbAnimatorAccessor limb)
+        if (this.timelineLimbTick < 0 && this.limbAnimator instanceof LimbAnimatorAccessor limb)
         {
             this.timelineLimbPos = limb.getPos();
             this.timelineLimbTick = t;
@@ -504,7 +497,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         for (int i = 0; i < steps; i++)
         {
-            this.tickCount += 1;
+            this.age += 1;
             this.form.update(this.entity);
         }
     }
@@ -517,7 +510,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void advanceNaturalMotionStep(double fromX, double fromZ, double toX, double toZ)
     {
         ActorReplayStateSync.advanceLimbStep(this, fromX, fromZ, toX, toZ);
-        this.tickCount += 1;
+        this.age += 1;
 
         if (this.form != null)
         {
@@ -526,14 +519,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    protected void spawnSprintParticle()
+    protected void spawnSprintingParticles()
     {
         if (this.suppressSprintParticles)
         {
             return;
         }
 
-        super.spawnSprintParticle();
+        super.spawnSprintingParticles();
     }
 
     private void initializeRuntimeInventory()
@@ -552,7 +545,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.runtimeInventoryInitialized = true;
     }
 
-    public MCEntity getWrappingEntity()
+    public MCEntity getEntity()
     {
         return this.entity;
     }
@@ -576,7 +569,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         this.form = form;
 
-        if (!this.level().isClientSide())
+        if (!this.getWorld().isClient())
         {
             if (lastForm != null) lastForm.onDemorph(this);
             if (form != null) form.onMorph(this);
@@ -585,37 +578,40 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.updateHitboxDimensions();
     }
 
+    @Override
     public boolean isCollidable()
     {
         return this.form != null && this.form.hitbox.get();
     }
 
+    @Override
     public boolean isPushable()
     {
         return this.form == null || !this.form.hitbox.get();
     }
 
-    public void push(Entity entity)
+    @Override
+    public void pushAwayFrom(Entity entity)
     {
         if (this.form == null || !this.form.hitbox.get())
         {
-            super.push(entity);
+            super.pushAwayFrom(entity);
         }
     }
 
     @Override
-    public boolean skipAttackInteraction(Entity attacker)
+    public void pushAway(Entity entity)
     {
         if (this.form == null || !this.form.hitbox.get())
         {
-            return super.skipAttackInteraction(attacker);
+            super.pushAway(entity);
         }
-        return false;
     }
 
-    public boolean shouldRenderAtSqrDistance(double distance)
+    @Override
+    public boolean shouldRender(double distance)
     {
-        double d = this.getBoundingBox().getSize();
+        double d = this.getBoundingBox().getAverageSideLength();
 
         if (Double.isNaN(d))
         {
@@ -625,32 +621,34 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         return distance < (d * 256D) * (d * 256D);
     }
 
+    @Override
     public Iterable<ItemStack> getHandItems()
     {
-        return List.of(this.getItemBySlot(EquipmentSlot.MAINHAND), this.getItemBySlot(EquipmentSlot.OFFHAND));
-    }
-
-    public Iterable<ItemStack> getArmorItems()
-    {
-        return List.of(this.getItemBySlot(EquipmentSlot.FEET), this.getItemBySlot(EquipmentSlot.LEGS), this.getItemBySlot(EquipmentSlot.CHEST), this.getItemBySlot(EquipmentSlot.HEAD));
+        return List.of(this.getEquippedStack(EquipmentSlot.MAINHAND), this.getEquippedStack(EquipmentSlot.OFFHAND));
     }
 
     @Override
-    public ItemStack getItemBySlot(EquipmentSlot slot)
+    public Iterable<ItemStack> getArmorItems()
+    {
+        return List.of(this.getEquippedStack(EquipmentSlot.FEET), this.getEquippedStack(EquipmentSlot.LEGS), this.getEquippedStack(EquipmentSlot.CHEST), this.getEquippedStack(EquipmentSlot.HEAD));
+    }
+
+    @Override
+    public ItemStack getEquippedStack(EquipmentSlot slot)
     {
         return this.equipment.getOrDefault(slot, ItemStack.EMPTY);
     }
 
     @Override
-    public void setItemSlot(EquipmentSlot slot, ItemStack stack)
+    public void equipStack(EquipmentSlot slot, ItemStack stack)
     {
         this.equipment.put(slot, stack == null ? ItemStack.EMPTY : stack);
     }
 
     @Override
-    public HumanoidArm getMainArm()
+    public Arm getMainArm()
     {
-        return HumanoidArm.RIGHT;
+        return Arm.RIGHT;
     }
 
     @Override
@@ -660,15 +658,15 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         /* Timeline freeze must not stall vanilla death: otherwise corpses never
          * finish deathTime removal and leave permanent shadow/nametag ghosts. */
-        boolean dying = this.isDeadOrDying() || this.getHealth() <= 0F || this.deathTime > 0;
+        boolean dying = this.isDead() || this.getHealth() <= 0F || this.deathTime > 0;
 
         if (this.pauseNaturalAnimations && !dying)
         {
             /* Hold limbs / emoticon clocks; still allow swipe hand-swing progress. */
-            this.updateSwingTime();
+            this.tickHandSwing();
             this.updateHitboxDimensions();
 
-            if (!this.level().isClientSide())
+            if (!this.getWorld().isClient())
             {
                 this.tickItemPickup();
             }
@@ -677,23 +675,23 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
 
         /* Poof burst on the last living death tick — same timing as MobDeathActionClip. */
-        if (this.level().isClientSide() && dying && this.deathTime == 19)
+        if (this.getWorld().isClient() && dying && this.deathTime == 19)
         {
             this.spawnDeathBurstParticles();
         }
 
         super.tick();
 
-        this.updateSwingTime();
+        this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        Vec3 animationVelocity = this.animationVelocityHint;
+        Vec3d animationVelocity = this.animationVelocityHint;
 
         this.animationVelocityHint = null;
 
         if (animationVelocity != null)
         {
-            this.setDeltaMovement(animationVelocity);
+            this.setVelocity(animationVelocity);
         }
 
         try
@@ -708,11 +706,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             if (animationVelocity != null)
             {
                 /* Keep physics velocity cleared; next client sync snaps position again. */
-                this.setDeltaMovement(0D, 0D, 0D);
+                this.setVelocity(0D, 0D, 0D);
             }
         }
 
-        if (!this.level().isClientSide())
+        if (!this.getWorld().isClient())
         {
             this.tickItemPickup();
         }
@@ -720,7 +718,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     private void spawnDeathBurstParticles()
     {
-        RandomSource random = this.level().getRandom();
+        Random random = this.getWorld().getRandom();
         double x = this.getX();
         double y = this.getY() + this.getEyeHeight(this.getPose()) * 0.5D;
         double z = this.getZ();
@@ -735,36 +733,36 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             double velocityY = random.nextGaussian() * 0.02D;
             double velocityZ = random.nextGaussian() * 0.02D;
 
-            this.level().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
+            this.getWorld().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 
     private void tickItemPickup()
     {
         /* Don't pickup items when dead */
-        if (this.isDeadOrDying())
+        if (this.isDead())
         {
             return;
         }
 
         /* Pickup items */
-        AABB box = this.getBoundingBox().inflate(1D, 0.5D, 1D);
-        List<Entity> list = this.level().getEntities(this, box);
+        Box box = this.getBoundingBox().expand(1D, 0.5D, 1D);
+        List<Entity> list = this.getWorld().getOtherEntities(this, box);
 
         for (Entity entity : list)
         {
             if (entity instanceof ItemEntity itemEntity)
             {
-                UUID entityId = itemEntity.getUUID();
-                ItemStack itemStack = itemEntity.getItem();
+                UUID entityId = itemEntity.getUuid();
+                ItemStack itemStack = itemEntity.getStack();
                 int i = itemStack.getCount();
 
-                if (!entity.isRemoved() && !itemEntity.hasPickUpDelay() && !this.pickedUpEntityIds.contains(entityId))
+                if (!entity.isRemoved() && !itemEntity.cannotPickup() && !this.pickedUpEntityIds.contains(entityId))
                 {
                     this.pickedUpEntityIds.add(entityId);
                     this.addToRuntimeInventory(itemStack.copy());
                     
-                    ((ServerLevel) this.level()).getChunkSource().sendToTrackingPlayers(entity, new ClientboundTakeItemEntityPacket(entity.getId(), this.getId(), i));
+                    ((ServerWorld) this.getWorld()).getChunkManager().sendToOtherNearbyPlayers(entity, new ItemPickupAnimationS2CPacket(entity.getId(), this.getId(), i));
                     entity.discard();
                 }
             }
@@ -791,7 +789,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
             if (existing.isEmpty())
             {
-                int move = Math.min(remaining, stack.getMaxStackSize());
+                int move = Math.min(remaining, stack.getMaxCount());
                 ItemStack copy = stack.copy();
                 copy.setCount(move);
                 this.runtimeInventory.set(i, copy);
@@ -802,11 +800,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                     return;
                 }
             }
-            else if (ItemStack.isSameItemSameComponents(existing, stack) && existing.getCount() < existing.getMaxStackSize())
+            else if (ItemStack.areItemsAndComponentsEqual(existing, stack) && existing.getCount() < existing.getMaxCount())
             {
-                int space = existing.getMaxStackSize() - existing.getCount();
+                int space = existing.getMaxCount() - existing.getCount();
                 int move = Math.min(space, remaining);
-                existing.grow(move);
+                existing.increment(move);
                 remaining -= move;
 
                 if (remaining <= 0)
@@ -825,9 +823,9 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public void setShiftKeyDown(boolean sneaking)
+    public void setSneaking(boolean sneaking)
     {
-        super.setShiftKeyDown(sneaking);
+        super.setSneaking(sneaking);
 
         if (this.form != null && this.form.hitbox.get())
         {
@@ -843,7 +841,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
 
         boolean enabled = this.form.hitbox.get();
-        boolean sneaking = this.isShiftKeyDown();
+        boolean sneaking = this.isSneaking();
         float width = this.form.hitboxWidth.get();
         float height = this.form.hitboxHeight.get();
         float sneakMultiplier = this.form.hitboxSneakMultiplier.get();
@@ -863,23 +861,23 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.lastHitboxSneakMultiplier = sneakMultiplier;
             this.lastHitboxEyeHeight = eyeHeight;
 
-            this.refreshDimensions();
+            this.calculateDimensions();
         }
     }
 
     @Override
-    public EntityDimensions getDefaultDimensions(Pose pose)
+    public EntityDimensions getBaseDimensions(EntityPose pose)
     {
-        EntityDimensions dimensions = super.getDefaultDimensions(pose);
+        EntityDimensions dimensions = super.getBaseDimensions(pose);
         Form currentForm = this.form;
 
         if (currentForm != null && currentForm.hitbox.get())
         {
-            float height = currentForm.hitboxHeight.get() * (this.isShiftKeyDown() ? currentForm.hitboxSneakMultiplier.get() : 1F);
+            float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
             float eyeHeight = currentForm.hitboxEyeHeight.get() * height;
             EntityDimensions shaped = dimensions.fixed()
                 ? EntityDimensions.fixed(currentForm.hitboxWidth.get(), height)
-                : EntityDimensions.scalable(currentForm.hitboxWidth.get(), height);
+                : EntityDimensions.changing(currentForm.hitboxWidth.get(), height);
 
             return shaped.withEyeHeight(eyeHeight);
         }
@@ -890,7 +888,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
 
     @Override
-    public void knockback(double strength, double x, double z)
+    public void takeKnockback(double strength, double x, double z)
     {
         /* Film actors are pose-driven by keyframes; vanilla hit knockback causes
          * a visible hop on lethal hits. */
@@ -899,15 +897,15 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             return;
         }
 
-        super.knockback(strength, x, z);
+        super.takeKnockback(strength, x, z);
     }
 
     @Override
-    public void die(DamageSource damageSource)
+    public void onDeath(DamageSource damageSource)
     {
-        super.die(damageSource);
+        super.onDeath(damageSource);
         
-        if (!this.level().isClientSide() && !this.replayItemsDropped && this.replay != null && this.film != null && this.replay.dropItemsOnDeath.get())
+        if (!this.getWorld().isClient() && !this.replayItemsDropped && this.replay != null && this.film != null && this.replay.dropItemsOnDeath.get())
         {
             this.dropReplayItems();
             this.replayItemsDropped = true;
@@ -920,26 +918,26 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * {@link BBSSettings#actorDamageAnimation}. Keyframed damage still applies
      * via {@link ActorReplayStateSync}.
      * <p>
-     * Only {@link #handleDamageEvent} / {@link #animateHurt} are overridden — {@code damage()}
-     * already calls {@link #handleDamageEvent}, so a second hook there would double-run.
+     * Only {@link #onDamaged} / {@link #animateDamage} are overridden — {@code damage()}
+     * already calls {@link #onDamaged}, so a second hook there would double-run.
      */
     @Override
-    public void handleDamageEvent(DamageSource damageSource)
+    public void onDamaged(DamageSource damageSource)
     {
-        super.handleDamageEvent(damageSource);
+        super.onDamaged(damageSource);
         /* super already set limbAnimator speed to 1.5F */
         this.gateLiveDamageReaction(true);
     }
 
     @Override
-    public void animateHurt(float yaw)
+    public void animateDamage(float yaw)
     {
         if (!BBSSettings.shouldKeepActorLiveHurtTime())
         {
             return;
         }
 
-        super.animateHurt(yaw);
+        super.animateDamage(yaw);
         /* animateDamage only sets hurtTime */
         this.gateLiveDamageReaction(false);
     }
@@ -951,7 +949,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (!BBSSettings.shouldKeepActorLiveHurtTime())
         {
             this.hurtTime = 0;
-            this.hurtDuration = 0;
+            this.maxHurtTime = 0;
             this.setLimbSwingSpeed(0F);
             this.pendingHurtAnimation = false;
 
@@ -965,7 +963,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                 this.setLimbSwingSpeed(1.5F);
             }
 
-            if (this.level().isClientSide())
+            if (this.getWorld().isClient())
             {
                 this.pendingHurtAnimation = true;
             }
@@ -1017,21 +1015,21 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      */
     public void clearStaleCombatDeathIfAlive()
     {
-        if (this.deathTime <= 0 || this.getHealth() <= 0F || this.isDeadOrDying())
+        if (this.deathTime <= 0 || this.getHealth() <= 0F || this.isDead())
         {
             return;
         }
 
         this.deathTime = 0;
         this.hurtTime = 0;
-        this.hurtDuration = 0;
+        this.maxHurtTime = 0;
         this.keyframeHurtActive = false;
         this.pendingHurtAnimation = false;
     }
 
     private void setLimbSwingSpeed(float speed)
     {
-        if (this.walkAnimation instanceof LimbAnimatorAccessor limb)
+        if (this.limbAnimator instanceof LimbAnimatorAccessor limb)
         {
             limb.setPrevSpeed(speed <= 0F ? 0F : limb.getSpeed());
             limb.setSpeed(speed);
@@ -1044,14 +1042,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * still applies via {@link ActorReplayStateSync}.
      */
     @Override
-    public boolean isInvulnerableTo(ServerLevel world, DamageSource damageSource)
+    public boolean isInvulnerableTo(DamageSource damageSource)
     {
         if (this.isKeyframeInvulnerable())
         {
             return true;
         }
 
-        return super.isInvulnerableTo(world, damageSource);
+        return super.isInvulnerableTo(damageSource);
     }
 
     private boolean isKeyframeInvulnerable()
@@ -1168,7 +1166,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         
         // Create item entity at actor's position
         ItemEntity itemEntity = new ItemEntity(
-            this.level(),
+            this.getWorld(),
             this.getX(),
             this.getY() + 0.5,
             this.getZ(),
@@ -1190,10 +1188,10 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         double velocityY = minY + this.random.nextDouble() * (maxY - minY);
         double velocityZ = minZ + this.random.nextDouble() * (maxZ - minZ);
         
-        itemEntity.setDeltaMovement(velocityX, velocityY, velocityZ);
-        itemEntity.setDefaultPickUpDelay();
+        itemEntity.setVelocity(velocityX, velocityY, velocityZ);
+        itemEntity.setToDefaultPickupDelay();
         
-        this.level().addFreshEntity(itemEntity);
+        this.getWorld().spawnEntity(itemEntity);
     }
 
 
@@ -1209,35 +1207,33 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public void startSeenByPlayer(ServerPlayer player)
+    public void onStartedTrackingBy(ServerPlayerEntity player)
     {
-        super.startSeenByPlayer(player);
+        super.onStartedTrackingBy(player);
 
         ServerNetwork.sendEntityForm(player, this);
     }
 
     @Override
-    public void readAdditionalSaveData(ValueInput view)
+    public void readCustomDataFromNbt(NbtCompound nbt)
     {
-        super.readAdditionalSaveData(view);
+        super.readCustomDataFromNbt(nbt);
 
-        this.despawn = view.getBooleanOr("despawn", false);
+        this.despawn = nbt.getBoolean("despawn");
 
-        if (view.contains("Equipment"))
+        if (nbt.contains("Equipment", 10))
         {
-            CompoundTag equipmentNbt = view.read("Equipment", CompoundTag.CODEC).orElse(null);
-            if (equipmentNbt == null) return;
-            HolderLookup.Provider registries = this.level() != null ? this.level().registryAccess() : BBSMod.getRegistryManager();
+            NbtCompound equipmentNbt = nbt.getCompound("Equipment");
+            RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
             for (EquipmentSlot slot : EquipmentSlot.values())
             {
-                if (equipmentNbt.contains(slot.getName()))
+                if (equipmentNbt.contains(slot.getName(), 10))
                 {
-                    CompoundTag itemNbt = equipmentNbt.getCompound(slot.getName()).orElse(null);
-                    if (itemNbt == null) continue;
+                    NbtCompound itemNbt = equipmentNbt.getCompound(slot.getName());
                     ItemStack stack = registries != null
-                        ? ItemStack.CODEC.parse(RegistryOps.create(NbtOps.INSTANCE, registries), itemNbt).result().orElse(ItemStack.EMPTY)
-                        : ItemStack.EMPTY;
+                        ? ItemStack.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registries), itemNbt).result().orElse(ItemStack.EMPTY)
+                        : ItemStack.fromNbtOrEmpty(null, itemNbt);
 
                     this.equipment.put(slot, stack);
                 }
@@ -1246,34 +1242,35 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public void addAdditionalSaveData(ValueOutput view)
+    public void writeCustomDataToNbt(NbtCompound nbt)
     {
-        super.addAdditionalSaveData(view);
+        super.writeCustomDataToNbt(nbt);
 
-        view.putBoolean("despawn", true);
+        nbt.putBoolean("despawn", true);
 
-        CompoundTag equipmentNbt = new CompoundTag();
-        HolderLookup.Provider registries = this.level() != null ? this.level().registryAccess() : BBSMod.getRegistryManager();
+        NbtCompound equipmentNbt = new NbtCompound();
+        RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
         for (Map.Entry<EquipmentSlot, ItemStack> entry : this.equipment.entrySet())
         {
             if (!entry.getValue().isEmpty())
             {
                 ItemStack stack = entry.getValue();
-                Tag itemNbt = registries != null
-                    ? ItemStack.CODEC.encodeStart(RegistryOps.create(NbtOps.INSTANCE, registries), stack).result().orElse(null)
+                NbtElement itemNbt = registries != null
+                    ? ItemStack.CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, registries), stack).result().orElse(null)
                     : ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, stack).result().orElse(null);
 
-                if (itemNbt instanceof CompoundTag compound)
+                if (itemNbt instanceof NbtCompound compound)
                 {
                     equipmentNbt.put(entry.getKey().getName(), compound);
                 }
             }
         }
 
-        view.store("Equipment", CompoundTag.CODEC, equipmentNbt);
+        nbt.put("Equipment", equipmentNbt);
     }
 
+    @Override
     protected int getPermissionLevel()
     {
         return 4;

@@ -16,12 +16,12 @@ import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.PacketByteBuf;
+import net.minecraft.util.Identifier;
 
 public class GunProperties extends ModelProperties
 {
@@ -75,7 +75,7 @@ public class GunProperties extends ModelProperties
     public static GunProperties get(ItemStack stack)
     {
         GunProperties properties = new GunProperties();
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        NbtComponent customData = stack.get(DataComponentTypes.CUSTOM_DATA);
 
         if (customData == null)
         {
@@ -83,7 +83,7 @@ public class GunProperties extends ModelProperties
             return properties;
         }
 
-        CompoundTag nbt = customData.copyTag();
+        NbtCompound nbt = customData.copyNbt();
         BaseType data = DataStorageUtils.readFromNbtCompound(nbt, "GunData");
 
         if (data != null && data.isMap())
@@ -107,7 +107,7 @@ public class GunProperties extends ModelProperties
         Transform tp = properties.getTransformThirdPerson();
         Transform fp = properties.getTransformFirstPerson();
 
-        value.particle = Identifier.fromNamespaceAndPath("minecraft", "falling_water");
+        value.particle = Identifier.of("minecraft", "falling_water");
         projectileForm.settings.set(value);
         projectileForm.frequency.set(1);
         projectileForm.offsetX.set(0.1F);
@@ -142,7 +142,7 @@ public class GunProperties extends ModelProperties
         this.zoomForm = this.processForm(zoomForm);
     }
 
-    public void fromNetwork(FriendlyByteBuf buf)
+    public void fromNetwork(PacketByteBuf buf)
     {
         BaseType type = DataStorageUtils.readFromPacket(buf);
 
@@ -166,7 +166,7 @@ public class GunProperties extends ModelProperties
         this.collideEntities = buf.readBoolean();
     }
 
-    public void toNetwork(FriendlyByteBuf buf)
+    public void toNetwork(PacketByteBuf buf)
     {
         DataStorageUtils.writeToPacket(buf, this.projectileTransform.toData());
         buf.writeBoolean(this.useTarget);

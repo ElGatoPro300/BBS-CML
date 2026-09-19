@@ -53,11 +53,11 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.render.DiffuseLighting;
 
-import org.joml.Matrix3x2fStack;
+import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.Lighting;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -169,11 +169,8 @@ public class UIFormList extends UIElement
             @Override
             public void render(UIContext context)
             {
-                Matrix3x2fStack matrices = context.batcher.getContext().pose();
-                matrices.pushMatrix();
-                /* TODO(1.21.11): Matrix3x2fStack does not support 3D translate
+                context.batcher.getContext().getMatrices().push();
                 context.batcher.getContext().getMatrices().translate(0, 0, 200);
-                */
                 this.area.render(context.batcher, Colors.CONTROL_BAR);
                 super.render(context);
 
@@ -192,7 +189,7 @@ public class UIFormList extends UIElement
                     context.batcher.textShadow(valueId, x, y + 10, Colors.LIGHTEST_GRAY);
                 }
 
-                matrices.popMatrix();
+                context.batcher.getContext().getMatrices().pop();
             }
         };
         this.search = new UITextbox(100, this::search).placeholder(UIKeys.FORMS_LIST_SEARCH);
@@ -2507,11 +2504,14 @@ public class UIFormList extends UIElement
             this.setSelected(selected);
         }
 
-        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
+        Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+
+        RenderSystem.setupLevelDiffuseLighting(a, b);
 
         super.render(context);
 
-        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.LEVEL);
+        DiffuseLighting.disableGuiDepthLighting();
 
     }
 
@@ -3807,7 +3807,6 @@ public class UIFormList extends UIElement
                 String key = langKey.key;
                 if ("bbs.ui.forms.categories.extra".equals(key) ||
                     "bbs.ui.forms.categories.mobs_animals".equals(key) ||
-                    "bbs.ui.forms.categories.mobs_baby".equals(key) ||
                     "bbs.ui.forms.categories.mobs_neutral".equals(key) ||
                     "bbs.ui.forms.categories.mobs_hostile".equals(key) ||
                     "bbs.ui.forms.categories.mobs_misc".equals(key))
@@ -3823,8 +3822,8 @@ public class UIFormList extends UIElement
                 return true;
             }
 
-            return title.equals("mobs (animales)") || title.equals("mobs (crias)") || title.equals("mobs (crías)") || title.equals("mobs (bebes)") || title.equals("mobs (bebés)") || title.equals("mobs (neutrales)") || title.equals("mobs (hostiles)") || title.equals("mobs (miscelaneos)") || title.equals("mobs (misceláneos)") ||
-                   title.equals("mobs (animals)") || title.equals("mobs (baby)") || title.equals("mobs (neutral)") || title.equals("mobs (hostile)") || title.equals("mobs (miscellaneous)");
+            return title.equals("mobs (animales)") || title.equals("mobs (neutrales)") || title.equals("mobs (hostiles)") || title.equals("mobs (miscelaneos)") || title.equals("mobs (misceláneos)") ||
+                   title.equals("mobs (animals)") || title.equals("mobs (neutral)") || title.equals("mobs (hostile)") || title.equals("mobs (miscellaneous)");
         }
 
         private String normalize(String value)

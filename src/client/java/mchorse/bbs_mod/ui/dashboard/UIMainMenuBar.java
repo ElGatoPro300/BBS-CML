@@ -40,7 +40,7 @@ import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.repos.IRepository;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import java.util.function.Consumer;
 
@@ -802,7 +802,7 @@ public class UIMainMenuBar extends UIElement
             {
                 int textWidth = RtlAwtTextRenderer.isReady() && RtlTextEngine.isActive()
                     ? RtlAwtTextRenderer.getWidth(label.get())
-                    : Minecraft.getInstance().font.width(label.get());
+                    : MinecraftClient.getInstance().textRenderer.getWidth(label.get());
                 this.w(textWidth + 10);
             }
             catch (Exception e)
@@ -885,7 +885,7 @@ public class UIMainMenuBar extends UIElement
             {
                 int textWidth = RtlAwtTextRenderer.isReady() && RtlTextEngine.isActive()
                     ? RtlAwtTextRenderer.getWidth(label.get())
-                    : Minecraft.getInstance().font.width(label.get());
+                    : MinecraftClient.getInstance().textRenderer.getWidth(label.get());
                 this.w(textWidth + 10);
             }
             catch (Exception e)
@@ -901,7 +901,7 @@ public class UIMainMenuBar extends UIElement
             {
                 int textWidth = RtlAwtTextRenderer.isReady() && RtlTextEngine.isActive()
                     ? RtlAwtTextRenderer.getWidth(this.label.get())
-                    : Minecraft.getInstance().font.width(this.label.get());
+                    : MinecraftClient.getInstance().textRenderer.getWidth(this.label.get());
                 this.w(textWidth + 10);
             }
             catch (Exception e)

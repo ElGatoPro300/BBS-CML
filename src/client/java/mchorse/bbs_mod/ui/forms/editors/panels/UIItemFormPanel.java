@@ -21,7 +21,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 
 public class UIItemFormPanel extends UIFormPanel<ItemForm>
 {
@@ -131,15 +131,15 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         {
             this.getContext().replaceContextMenu((menu) ->
             {
-                for (ItemDisplayContext value : ItemDisplayContext.values())
+                for (ModelTransformationMode value : ModelTransformationMode.values())
                 {
                     if (this.form.modelTransform.get() == value)
                     {
-                        menu.action(Icons.LINE, IKey.constant(value.getSerializedName()), true, () -> {});
+                        menu.action(Icons.LINE, IKey.constant(value.asString()), true, () -> {});
                     }
                     else
                     {
-                        menu.action(Icons.LINE, IKey.constant(value.getSerializedName()), () -> this.setModelTransform(value));
+                        menu.action(Icons.LINE, IKey.constant(value.asString()), () -> this.setModelTransform(value));
                     }
                 }
             });
@@ -164,11 +164,11 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         );
     }
 
-    private void setModelTransform(ItemDisplayContext value)
+    private void setModelTransform(ModelTransformationMode value)
     {
         this.form.modelTransform.set(value);
 
-        this.modelTransform.label = IKey.constant(value.getSerializedName());
+        this.modelTransform.label = IKey.constant(value.asString());
     }
 
     @Override
@@ -195,7 +195,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
 
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
-        this.modelTransform.label = IKey.constant(form.modelTransform.get().getSerializedName());
+        this.modelTransform.label = IKey.constant(form.modelTransform.get().asString());
         this.sameAnimationWhenDropped.setValue(form.sameAnimationWhenDropped.get());
         this.itemStackEditor.setStack(form.stack.get());
     }

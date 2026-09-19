@@ -2,9 +2,6 @@ package mchorse.bbs_mod.ui.home;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.forms.ModelForm;
-import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
@@ -30,6 +27,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UISoundOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
+import mchorse.bbs_mod.ui.model.UIModelPreviewRenderer;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.DataPath;
@@ -40,7 +38,17 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.repos.IRepository;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -613,7 +621,7 @@ public class UIHomePanel extends UIDashboardPanel
                             this.prefetchBannerImage(entry.link);
                         }
 
-                        Minecraft.getInstance().execute(() -> this.homeBanners.addAll(remote));
+                        MinecraftClient.getInstance().execute(() -> this.homeBanners.addAll(remote));
                     }
                 }
             }
@@ -640,7 +648,7 @@ public class UIHomePanel extends UIDashboardPanel
 
                     if (pixels != null)
                     {
-                        Minecraft.getInstance().execute(() ->
+                        RenderSystem.recordRenderCall(() ->
                         {
                             Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
 
@@ -710,7 +718,11 @@ public class UIHomePanel extends UIDashboardPanel
         int segments = 40;
         float segW = editorW / (float) segments;
 
-        GuiQuadMesh mesh = new GuiQuadMesh();
+        Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
@@ -769,28 +781,28 @@ public class UIHomePanel extends UIDashboardPanel
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
 
-            mesh.addVertex(x1, yTop1f, 0).setColor(colTop);
-            mesh.addVertex(x1, yMid1[i], 0).setColor(cMid1[i]);
-            mesh.addVertex(x2, yMid1[i + 1], 0).setColor(cMid1[i + 1]);
-            mesh.addVertex(x2, yTop1f, 0).setColor(colTop);
+            builder.vertex(matrix4f, x1, yTop1f, 0).color(colTop);
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]);
+            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]);
+            builder.vertex(matrix4f, x2, yTop1f, 0).color(colTop);
 
-            mesh.addVertex(x1, yMid1[i], 0).setColor(cMid1[i]);
-            mesh.addVertex(x1, yBot1[i], 0).setColor(colBot);
-            mesh.addVertex(x2, yBot1[i + 1], 0).setColor(colBot);
-            mesh.addVertex(x2, yMid1[i + 1], 0).setColor(cMid1[i + 1]);
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]);
+            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yBot1[i + 1], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]);
 
-            mesh.addVertex(x1, yTop2f, 0).setColor(colTop);
-            mesh.addVertex(x1, yMid2[i], 0).setColor(cMid2[i]);
-            mesh.addVertex(x2, yMid2[i + 1], 0).setColor(cMid2[i + 1]);
-            mesh.addVertex(x2, yTop2f, 0).setColor(colTop);
+            builder.vertex(matrix4f, x1, yTop2f, 0).color(colTop);
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]);
+            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]);
+            builder.vertex(matrix4f, x2, yTop2f, 0).color(colTop);
 
-            mesh.addVertex(x1, yMid2[i], 0).setColor(cMid2[i]);
-            mesh.addVertex(x1, yBot2[i], 0).setColor(colBot);
-            mesh.addVertex(x2, yBot2[i + 1], 0).setColor(colBot);
-            mesh.addVertex(x2, yMid2[i + 1], 0).setColor(cMid2[i + 1]);
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]);
+            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yBot2[i + 1], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]);
         }
 
-        context.batcher.drawQuadMesh(mesh);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         this.renderCardAndBanners(context, this.homePage, dividerX, UIKeys.FILM_HOME_LIST.get(), true);
     }
@@ -920,8 +932,8 @@ public class UIHomePanel extends UIDashboardPanel
 
         if (alpha > 0.001F)
         {
-            /* TODO 1.21.11: RenderSystem.enableBlend removed */
-            /* TODO 1.21.11: RenderSystem.defaultBlendFunc removed */
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             context.batcher.texturedBox(texture, Colors.setA(Colors.WHITE, alpha), tx, ty, tw, th, 0, 0, texture.width, texture.height);
         }
 
@@ -1046,8 +1058,6 @@ public class UIHomePanel extends UIDashboardPanel
         {
             UIElement card = new UIElement()
             {
-                private ModelForm modelForm;
-
                 @Override
                 public boolean subMouseClicked(UIContext context)
                 {
@@ -1085,12 +1095,12 @@ public class UIHomePanel extends UIDashboardPanel
 
                     this.area.render(context.batcher, Colors.setA(0, 0.3F));
                     context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + CARD_SIZE, Colors.setA(0, 0.2F));
-
+                    
                     if (selected || hover)
                     {
                         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + CARD_SIZE, Colors.A25);
                     }
-
+                    
                     context.batcher.box(this.area.x, this.area.y + CARD_SIZE, this.area.ex(), this.area.ey(), Colors.A50);
 
                     super.render(context);
@@ -1102,8 +1112,7 @@ public class UIHomePanel extends UIDashboardPanel
 
                         if (thumbnail != null)
                         {
-                            int maxW = this.area.w - 4;
-                            int w = maxW;
+                            int w = CARD_SIZE - 4;
                             int h = (int) (w * (thumbnail.height / (float) thumbnail.width));
 
                             if (h > CARD_SIZE - 4)
@@ -1112,7 +1121,7 @@ public class UIHomePanel extends UIDashboardPanel
                                 w = (int) (h * (thumbnail.width / (float) thumbnail.height));
                             }
 
-                            int ix = this.area.x + 2 + (maxW - w) / 2;
+                            int ix = this.area.x + 2 + (CARD_SIZE - 4 - w) / 2;
                             int iy = this.area.y + 2 + (CARD_SIZE - 4 - h) / 2;
 
                             context.batcher.fullTexturedBox(thumbnail, ix, iy, w, h);
@@ -1130,21 +1139,7 @@ public class UIHomePanel extends UIDashboardPanel
                     {
                         this.renderIcon(context, Icons.SOUND);
                     }
-                    else if (entry.type == ContentType.MODELS)
-                    {
-                        if (this.modelForm == null)
-                        {
-                            this.modelForm = new ModelForm();
-                            this.modelForm.model.set(entry.id);
-                        }
-
-                        int tx = this.area.x + 2;
-                        int ty = this.area.y + 2;
-                        int tw = CARD_SIZE - 4;
-                        int th = CARD_SIZE - 4;
-
-                        FormUtilsClient.renderUICachedStatic(this.modelForm, context, tx, ty, tx + tw, ty + th);
-                    }
+                    /* Models render through the embedded UIModelPreviewRenderer child */
 
                     String label = new DataPath(entry.id).getLast();
                     int maxW = this.area.w - 4;
@@ -1170,18 +1165,27 @@ public class UIHomePanel extends UIDashboardPanel
                     int iconX = this.area.mx();
                     int iconY = this.area.y + CARD_SIZE / 2;
 
-                    context.batcher.getContext().pose().pushMatrix();
-                    context.batcher.getContext().pose().translate((float) iconX, (float) iconY);
-                    context.batcher.getContext().pose().scale(2F, 2F);
-                    context.batcher.getContext().pose().translate((float) -iconX, (float) -iconY);
+                    context.batcher.getContext().getMatrices().push();
+                    context.batcher.getContext().getMatrices().translate(iconX, iconY, 0);
+                    context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
+                    context.batcher.getContext().getMatrices().translate(-iconX, -iconY, 0);
                     context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
-                    context.batcher.getContext().pose().popMatrix();
+                    context.batcher.getContext().getMatrices().pop();
                 }
             };
 
             card.context((menu) -> menu.action(Icons.REMOVE, UIKeys.FILM_HOME_REMOVE_RECENT,
                 () -> UIRecentMosaicGrid.this.home.removeFromRecent(entry)));
             card.relative(this).x(cx).y(cy).w(CARD_SIZE).h(CARD_SIZE + CARD_LABEL_H);
+
+            if (entry.type == ContentType.MODELS)
+            {
+                UIModelPreviewRenderer preview = new UIModelPreviewRenderer();
+
+                preview.relative(card).x(2).y(2).w(CARD_SIZE - 4).h(CARD_SIZE - 4);
+                preview.setModel(entry.id);
+                card.add(preview);
+            }
 
             return card;
         }

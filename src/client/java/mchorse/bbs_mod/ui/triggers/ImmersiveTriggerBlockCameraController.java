@@ -5,7 +5,7 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public class ImmersiveTriggerBlockCameraController implements ICameraController
 {
@@ -28,7 +28,7 @@ public class ImmersiveTriggerBlockCameraController implements ICameraController
 
         this.renderer.setupPosition();
 
-        BlockPos pos = this.entity.getBlockPos();
+        BlockPos pos = this.entity.getPos();
         Camera rendererCamera = this.renderer.camera;
 
         camera.position.set(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);

@@ -36,7 +36,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
 
 public class UIImageClip extends UIClip<ImageClip>
 {
@@ -275,11 +275,11 @@ public class UIImageClip extends UIClip<ImageClip>
     {
         if (channel == this.clip.blend)
         {
-            value = Mth.clamp(value, ImageClip.BLEND_MIN, ImageClip.BLEND_MAX);
+            value = MathHelper.clamp(value, ImageClip.BLEND_MIN, ImageClip.BLEND_MAX);
         }
         else if (channel == this.clip.opacity)
         {
-            value = Mth.clamp(value, ImageClip.OPACITY_MIN, ImageClip.OPACITY_MAX);
+            value = MathHelper.clamp(value, ImageClip.OPACITY_MIN, ImageClip.OPACITY_MAX);
         }
 
         if (this.clip.useKeyframes.get())
@@ -341,7 +341,7 @@ public class UIImageClip extends UIClip<ImageClip>
 
     private int getClipTick()
     {
-        return Mth.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
+        return MathHelper.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
     }
 
     /**

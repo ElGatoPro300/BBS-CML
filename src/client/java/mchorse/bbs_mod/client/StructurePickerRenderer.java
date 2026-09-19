@@ -6,22 +6,23 @@ import mchorse.bbs_mod.items.StructurePickerRegionMerger;
 import mchorse.bbs_mod.items.StructurePickerSelection;
 import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class StructurePickerRenderer
 {
-    public static void render(LevelRenderContext context)
+    public static void render(WorldRenderContext context)
     {
         if (!StructurePickerClient.isActive() && !UIStructurePickerPanel.isOpened())
         {
@@ -33,23 +34,23 @@ public class StructurePickerRenderer
             return;
         }
 
-        Minecraft mc = Minecraft.getInstance();
-
-        if (context.poseStack() == null)
+        if (context.matrixStack() == null)
         {
             return;
         }
 
-        Vec3 camera = mc.gameRenderer.getMainCamera().position();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Vec3d camera = mc.gameRenderer.getCamera().getPos();
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
-        PoseStack stack = context.poseStack();
+        MatrixStack stack = context.matrixStack();
 
-        stack.pushPose();
+        stack.push();
         stack.translate(-camera.x, -camera.y, -camera.z);
 
         Set<BlockPos> blockPositions = new LinkedHashSet<>();
@@ -83,14 +84,14 @@ public class StructurePickerRenderer
             }
         }
 
-        stack.popPose();
+        stack.pop();
 
-        GlStateManager._depthMask(true);
-        GlStateManager._enableDepthTest();
-        GlStateManager._disableBlend();
+        RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
     }
 
-    private static void renderRegionBox(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b)
+    private static void renderRegionBox(MatrixStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b)
     {
         BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
         BlockPos min = StructurePickerSelection.min(first, adjusted);
@@ -107,7 +108,7 @@ public class StructurePickerRenderer
         Draw.renderBox(stack, min.getX(), min.getY(), min.getZ(), sizeX, sizeY, sizeZ, r, g, b, 0.95F);
     }
 
-    private static void renderMergedBlockBox(PoseStack stack, BlockPos min, BlockPos max, float r, float g, float b)
+    private static void renderMergedBlockBox(MatrixStack stack, BlockPos min, BlockPos max, float r, float g, float b)
     {
         double sizeX = max.getX() - min.getX() + 1D;
         double sizeY = max.getY() - min.getY() + 1D;

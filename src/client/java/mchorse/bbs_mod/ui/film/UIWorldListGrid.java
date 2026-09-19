@@ -78,7 +78,7 @@ public class UIWorldListGrid extends UIScrollView
 
         for (LevelSummary summary : this.visibleWorlds)
         {
-            if (this.selectedWorldFolder.equals(summary.getLevelId()))
+            if (this.selectedWorldFolder.equals(summary.getName()))
             {
                 return summary;
             }
@@ -114,8 +114,8 @@ public class UIWorldListGrid extends UIScrollView
             return true;
         }
 
-        String name = summary.getLevelId() == null ? "" : summary.getLevelId().toLowerCase(Locale.ROOT);
-        String display = summary.getLevelName() == null ? "" : summary.getLevelName().toLowerCase(Locale.ROOT);
+        String name = summary.getName() == null ? "" : summary.getName().toLowerCase(Locale.ROOT);
+        String display = summary.getDisplayName() == null ? "" : summary.getDisplayName().toLowerCase(Locale.ROOT);
 
         return name.contains(this.filterQuery) || display.contains(this.filterQuery);
     }
@@ -127,7 +127,7 @@ public class UIWorldListGrid extends UIScrollView
         for (int i = 0; i < this.visibleWorlds.size(); i++)
         {
             final LevelSummary summary = this.visibleWorlds.get(i);
-            final String folder = summary.getLevelId();
+            final String folder = summary.getName();
             int y = ENTRY_GAP + i * (ENTRY_H + ENTRY_GAP);
 
             UIElement row = new UIElement()
@@ -187,9 +187,9 @@ public class UIWorldListGrid extends UIScrollView
 
                     int textX = iconX + ICON_SIZE + 6;
                     int textW = this.area.ex() - textX - 6;
-                    String displayName = summary.getLevelName();
+                    String displayName = summary.getDisplayName();
                     String midLine = UIWorldListGrid.this.buildMiddleLine(summary);
-                    String details = summary.getInfo() == null ? "" : summary.getInfo().getString();
+                    String details = summary.getDetails() == null ? "" : summary.getDetails().getString();
 
                     context.batcher.textShadow(
                         context.batcher.getFont().limitToWidth(displayName, textW),
@@ -223,7 +223,7 @@ public class UIWorldListGrid extends UIScrollView
 
     private String buildMiddleLine(LevelSummary summary)
     {
-        String folder = summary.getLevelId();
+        String folder = summary.getName();
         long lastPlayed = summary.getLastPlayed();
 
         if (lastPlayed <= 0L)
@@ -236,7 +236,7 @@ public class UIWorldListGrid extends UIScrollView
 
     private void onRowClicked(LevelSummary summary)
     {
-        String folder = summary.getLevelId();
+        String folder = summary.getName();
         long now = System.currentTimeMillis();
         boolean sameAsPrev = folder.equals(this.lastClickedFolder);
         boolean doubleClick = sameAsPrev && now - this.lastClickTime <= 300L;

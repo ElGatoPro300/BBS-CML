@@ -2,10 +2,10 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
 
 import org.lwjgl.system.MemoryStack;
 
@@ -39,7 +39,7 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
     }
 
     @Override
-    public VertexConsumer setColor(int red, int green, int blue, int alpha)
+    public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         Color savedColor = newColor;
         Color savedPaint = newPaintColor;
@@ -49,7 +49,7 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
 
         try
         {
-            return super.setColor(red, green, blue, alpha);
+            return super.color(red, green, blue, alpha);
         }
         finally
         {
@@ -59,7 +59,7 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
     }
 
     @Override
-    public VertexConsumer setColor(float red, float green, float blue, float alpha)
+    public VertexConsumer color(float red, float green, float blue, float alpha)
     {
         Color savedColor = newColor;
         Color savedPaint = newPaintColor;
@@ -69,7 +69,7 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
 
         try
         {
-            return super.setColor(red, green, blue, alpha);
+            return super.color(red, green, blue, alpha);
         }
         finally
         {

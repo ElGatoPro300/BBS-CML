@@ -41,9 +41,9 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributes;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -348,15 +348,15 @@ public abstract class Form extends ValueGroup
 
         if (hp != 20F)
         {
-            entity.getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
+            entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(hp);
             entity.setHealth(hp);
         }
-        if (speed != 0.1F) entity.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(speed);
-        /* setStepHeight() was removed in 1.20.5+; step-up is STEP_HEIGHT attribute now in 1.21.4.
+        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
+        /* setStepHeight() was removed in 1.20.5+; step-up is GENERIC_STEP_HEIGHT now.
          * Default matches vanilla living/player step height (0.6). */
         if (stepHeight != 0.6F)
         {
-            AttributeInstance step = entity.getAttribute(Attributes.STEP_HEIGHT);
+            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
 
             if (step != null)
             {
@@ -367,11 +367,11 @@ public abstract class Form extends ValueGroup
 
     public void onDemorph(LivingEntity entity)
     {
-        entity.getAttribute(Attributes.MAX_HEALTH).setBaseValue(20F);
+        entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
-        entity.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.1F);
+        entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
 
-        AttributeInstance step = entity.getAttribute(Attributes.STEP_HEIGHT);
+        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
 
         if (step != null)
         {

@@ -13,18 +13,16 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup.Provider;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.listener.ClientPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
+import net.minecraft.registry.RegistryWrapper.WrapperLookup;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +42,7 @@ public class ModelBlockEntity extends BlockEntity
 
     public String getName()
     {
-        BlockPos pos = this.getBlockPos();
+        BlockPos pos = this.getPos();
         Form form = this.getProperties().getForm();
         String s = "(" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")";
         String customName = this.getProperties().getName();
@@ -109,7 +107,7 @@ public class ModelBlockEntity extends BlockEntity
         this.currentYaw = currentYaw;
     }
 
-    public static void tick(Level world, BlockPos pos, BlockState state, ModelBlockEntity blockEntity)
+    public static void tick(World world, BlockPos pos, BlockState state, ModelBlockEntity blockEntity)
     {
         ModelBlockEntityUpdateCallback.EVENT.invoker().update(blockEntity);
         /* Asegura que el StubEntity tenga posición y mundo correctos para cálculos de luz/bioma.
@@ -155,7 +153,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
-        if (!world.isClientSide())
+        if (!world.isClient)
         {
             int target = blockEntity.properties.getLightLevel();
             Form form = blockEntity.properties.getForm();
@@ -182,9 +180,9 @@ public class ModelBlockEntity extends BlockEntity
                 int intensity = (sl != null) ? sl.intensity : blockForm.lightIntensity.get();
                 BlockState formState = blockForm.blockState.get();
 
-                if (enabled && formState != null && formState.getLightEmission() > 0)
+                if (enabled && formState != null && formState.getLuminance() > 0)
                 {
-                    target = Math.max(0, Math.min(15, Math.min(formState.getLightEmission(), intensity)));
+                    target = Math.max(0, Math.min(15, Math.min(formState.getLuminance(), intensity)));
                 }
             }
 
@@ -195,7 +193,7 @@ public class ModelBlockEntity extends BlockEntity
 
                 try
                 {
-                    world.setBlock(pos, state.setValue(ModelBlock.LIGHT_LEVEL, target), Block.UPDATE_CLIENTS);
+                    world.setBlockState(pos, state.with(ModelBlock.LIGHT_LEVEL, target), Block.NOTIFY_LISTENERS);
                 }
                 catch (Exception e) {}
             }
@@ -204,70 +202,94 @@ public class ModelBlockEntity extends BlockEntity
 
     @Nullable
     @Override
-    public Packet<ClientGamePacketListener> getUpdatePacket()
+    public Packet<ClientPlayPacketListener> toUpdatePacket()
     {
-        return ClientboundBlockEntityDataPacket.create(this);
+        return BlockEntityUpdateS2CPacket.create(this);
     }
 
     @Override
-    public CompoundTag getUpdateTag(Provider registryLookup)
+    public NbtCompound toInitialChunkDataNbt(WrapperLookup registryLookup)
     {
-        return this.saveWithoutMetadata(registryLookup);
+        return this.createNbtWithId(registryLookup);
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view)
+    protected void writeNbt(NbtCompound nbt, WrapperLookup registryLookup)
     {
-        super.saveAdditional(view);
+        super.writeNbt(nbt, registryLookup);
 
         /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
          * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
-        MapType data = this.properties.toData(BBSMod.getRegistryManager());
-        CompoundTag nbt = new CompoundTag();
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registryLookup != null && prev != registryLookup)
+        {
+            BBSMod.setRegistryManager(registryLookup);
+        }
 
-        DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
-
-        view.store("Properties", CompoundTag.CODEC, nbt.getCompoundOrEmpty("Properties"));
+        try
+        {
+            MapType data = this.properties.toData(registryLookup);
+            DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        }
+        finally
+        {
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
     }
 
     @Override
-    protected void loadAdditional(ValueInput view)
+    public void readNbt(NbtCompound nbt, WrapperLookup registryLookup)
     {
-        super.loadAdditional(view);
-
-        CompoundTag nbt = new CompoundTag();
-
-        view.read("Properties", CompoundTag.CODEC).ifPresent((compound) -> nbt.put("Properties", compound));
+        super.readNbt(nbt, registryLookup);
 
         BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType, BBSMod.getRegistryManager());
+            WrapperLookup prev = BBSMod.getRegistryManager();
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(registryLookup);
+            }
+
+            try
+            {
+                this.properties.fromData(mapType, registryLookup);
+            }
+            finally
+            {
+                if (registryLookup != null && prev != registryLookup)
+                {
+                    BBSMod.setRegistryManager(prev);
+                }
+            }
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
-        if (this.level != null && !this.level.isClientSide())
+        if (this.world != null && !this.world.isClient)
         {
             try
             {
                 int level = this.properties.getLightLevel();
-                BlockPos pos = this.getBlockPos();
-                BlockState state = this.level.getBlockState(pos);
+                BlockPos pos = this.getPos();
+                BlockState state = this.world.getBlockState(pos);
 
                 if (state.getBlock() instanceof Block)
                 {
-                    this.level.setBlock(pos, state.setValue(ModelBlock.LIGHT_LEVEL, level), Block.UPDATE_CLIENTS);
+                    this.world.setBlockState(pos, state.with(ModelBlock.LIGHT_LEVEL, level), Block.NOTIFY_LISTENERS);
                 }
             }
             catch (Exception e) {}
         }
     }
 
-    public void updateForm(MapType data, Level world)
+    public void updateForm(MapType data, World world)
     {
-        Provider registries = world != null ? world.registryAccess() : null;
+        WrapperLookup registries = world != null ? world.getRegistryManager() : null;
 
-        Provider prev = BBSMod.getRegistryManager();
+        WrapperLookup prev = BBSMod.getRegistryManager();
         if (registries != null && prev != registries)
         {
             BBSMod.setRegistryManager(registries);
@@ -285,21 +307,21 @@ public class ModelBlockEntity extends BlockEntity
             }
         }
 
-        BlockPos pos = this.getBlockPos();
+        BlockPos pos = this.getPos();
         BlockState blockState = world.getBlockState(pos);
         int level = this.properties.getLightLevel();
-        BlockState newState = blockState.setValue(ModelBlock.LIGHT_LEVEL, level);
+        BlockState newState = blockState.with(ModelBlock.LIGHT_LEVEL, level);
 
-        this.setChanged();
-        world.blockEntityChanged(pos);
+        this.markDirty();
+        world.markDirty(pos);
 
         if (blockState != newState)
         {
-            world.setBlock(pos, newState, Block.UPDATE_CLIENTS);
+            world.setBlockState(pos, newState, Block.NOTIFY_LISTENERS);
         }
         else
         {
-            world.sendBlockUpdated(pos, blockState, newState, Block.UPDATE_CLIENTS);
+            world.updateListeners(pos, blockState, newState, Block.NOTIFY_LISTENERS);
         }
     }
 }

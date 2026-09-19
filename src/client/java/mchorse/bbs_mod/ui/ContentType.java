@@ -17,7 +17,7 @@ import mchorse.bbs_mod.utils.repos.FilmRepository;
 import mchorse.bbs_mod.utils.repos.FolderManagerRepository;
 import mchorse.bbs_mod.utils.repos.IRepository;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import java.io.File;
 import java.util.function.Function;
@@ -38,7 +38,7 @@ public class ContentType
 
     private static IRepository<? extends ValueGroup> getFilmsRepository()
     {
-        if (Minecraft.getInstance().hasSingleplayerServer())
+        if (MinecraftClient.getInstance().isIntegratedServerRunning())
         {
             return FILMS_REPOSITORY;
         }

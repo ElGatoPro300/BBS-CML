@@ -7,8 +7,8 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -28,12 +28,12 @@ public class ImmersiveMorphingCameraController implements ICameraController
     public void setup(Camera camera, float transition)
     {
         UIModelRenderer renderer = this.modelRenderer.get();
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
-        float bodyYaw = MathUtils.toRad(Lerps.lerp(player.yBodyRotO, player.yBodyRot, transition));
+        float bodyYaw = MathUtils.toRad(Lerps.lerp(player.prevBodyYaw, player.bodyYaw, transition));
 
-        camera.position.set(player.xo, player.yo, player.zo);
-        camera.position.lerp(new Vector3d(player.getX(), player.getY(), player.getZ()), transition);
+        camera.position.set(player.prevX, player.prevY, player.prevZ);
+        camera.position.lerp(new Vector3d(player.getPos().x, player.getPos().y, player.getPos().z), transition);
         camera.rotation.set(0, bodyYaw, 0);
 
         if (renderer == null)
@@ -42,7 +42,7 @@ public class ImmersiveMorphingCameraController implements ICameraController
 
             rotation.mul(2F);
             camera.position.add(rotation.x, rotation.y + 1F, rotation.z);
-            camera.setFov(Minecraft.getInstance().options.fov().get());
+            camera.setFov(MinecraftClient.getInstance().options.getFov().getValue());
         }
         else
         {

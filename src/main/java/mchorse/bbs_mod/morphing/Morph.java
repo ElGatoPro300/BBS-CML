@@ -8,17 +8,15 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.utils.RayTracing;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.ProblemReporter;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.storage.TagValueOutput;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,9 +38,9 @@ public class Morph
     private float lastHitboxEyeHeight = Float.NaN;
     private boolean lastSneaking;
 
-    public static Form getMobForm(Player player)
+    public static Form getMobForm(PlayerEntity player)
     {
-        HitResult hitResult = RayTracing.rayTraceEntity(player, player.level(), player.getEyePosition(), player.getLookAngle(), 64);
+        HitResult hitResult = RayTracing.rayTraceEntity(player, player.getWorld(), player.getEyePos(), player.getRotationVector(), 64);
 
         if (hitResult.getType() == HitResult.Type.ENTITY)
         {
@@ -54,7 +52,7 @@ public class Morph
         return null;
     }
 
-    public static Form captureFormFromEntity(Player player, Entity target)
+    public static Form captureFormFromEntity(PlayerEntity player, Entity target)
     {
         if (target == null || target == player)
         {
@@ -71,14 +69,12 @@ public class Morph
             }
         }
 
-        Optional<ResourceKey<EntityType<?>>> key = BuiltInRegistries.ENTITY_TYPE.getResourceKey(target.getType());
+        Optional<RegistryKey<EntityType<?>>> key = Registries.ENTITY_TYPE.getKey(target.getType());
 
         if (key.isPresent())
         {
             MobForm form = new MobForm();
-            TagValueOutput view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, target.level().registryAccess());
-            target.saveWithoutId(view);
-            CompoundTag compound = view.buildResult();
+            NbtCompound compound = target.writeNbt(new NbtCompound());
 
             for (String s : Arrays.asList(
                 "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
@@ -91,7 +87,7 @@ public class Morph
                 compound.remove(s);
             }
 
-            form.mobID.set(key.get().identifier().toString());
+            form.mobID.set(key.get().getValue().toString());
             form.mobNBT.set(compound.toString());
 
             return form;
@@ -122,21 +118,21 @@ public class Morph
 
     public void setForm(Form form)
     {
-        if (form == null && this.form != null && this.entity.getMcEntity() instanceof Player player)
+        if (form == null && this.form != null && this.entity.getMcEntity() instanceof PlayerEntity player)
         {
             this.form.onDemorph(player);
         }
 
         this.form = form;
 
-        if (this.form != null && this.entity.getMcEntity() instanceof Player player)
+        if (this.form != null && this.entity.getMcEntity() instanceof PlayerEntity player)
         {
             this.form.onMorph(player);
             this.form.playMain();
         }
 
         this.resetHitboxCache();
-        this.entity.getMcEntity().refreshDimensions();
+        this.entity.getMcEntity().calculateDimensions();
         this.syncHitboxCache();
     }
 
@@ -164,7 +160,7 @@ public class Morph
 
         Entity entity = this.entity.getMcEntity();
         boolean enabled = this.form.hitbox.get();
-        boolean sneaking = entity.isShiftKeyDown();
+        boolean sneaking = entity.isSneaking();
         float width = this.form.hitboxWidth.get();
         float height = this.form.hitboxHeight.get();
         float sneakMultiplier = this.form.hitboxSneakMultiplier.get();
@@ -184,7 +180,7 @@ public class Morph
             this.lastHitboxSneakMultiplier = sneakMultiplier;
             this.lastHitboxEyeHeight = eyeHeight;
 
-            entity.refreshDimensions();
+            entity.calculateDimensions();
         }
     }
 
@@ -200,7 +196,7 @@ public class Morph
         Entity entity = this.entity.getMcEntity();
 
         this.lastHitboxEnabled = this.form.hitbox.get();
-        this.lastSneaking = entity.isShiftKeyDown();
+        this.lastSneaking = entity.isSneaking();
         this.lastHitboxWidth = this.form.hitboxWidth.get();
         this.lastHitboxHeight = this.form.hitboxHeight.get();
         this.lastHitboxSneakMultiplier = this.form.hitboxSneakMultiplier.get();
@@ -217,9 +213,9 @@ public class Morph
         this.lastSneaking = false;
     }
 
-    public Tag toNbt()
+    public NbtElement toNbt()
     {
-        CompoundTag compound = new CompoundTag();
+        NbtCompound compound = new NbtCompound();
 
         if (this.form != null)
         {
@@ -229,11 +225,11 @@ public class Morph
         return compound;
     }
 
-    public void fromNbt(CompoundTag compound)
+    public void fromNbt(NbtCompound compound)
     {
         if (compound.contains("Form"))
         {
-            MapType map = (MapType) DataStorageUtils.fromNbt(compound.getCompoundOrEmpty("Form"));
+            MapType map = (MapType) DataStorageUtils.fromNbt(compound.getCompound("Form"));
 
             this.form = FormUtils.fromData(map);
         }

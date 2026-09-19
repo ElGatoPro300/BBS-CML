@@ -104,11 +104,11 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.world.World;
 
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -996,7 +996,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     private Vector3d rayTraceViewportBlock(UIContext context, Area area)
     {
-        Level world = Minecraft.getInstance().level;
+        World world = MinecraftClient.getInstance().world;
         UIFilmPreview preview = this.filmPanel.preview;
 
         if (world == null || preview == null || area == null || area.w <= 0 || area.h <= 0)
@@ -1010,7 +1010,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
          * not include the camera rotation (see renderPickingPreview). */
         Camera camera = this.filmPanel.getWorldCamera();
 
-        Area viewport = preview.getViewport();
+        Area viewport = preview.getAbsoluteViewport();
 
         if (!viewport.isInside(context.mouseX(), context.mouseY()))
         {
@@ -1062,9 +1062,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         else
         {
             vec = new Vector3d(
-                blockHitResult.getLocation().x,
-                blockHitResult.getLocation().y,
-                blockHitResult.getLocation().z
+                blockHitResult.getPos().x,
+                blockHitResult.getPos().y,
+                blockHitResult.getPos().z
             );
         }
 
@@ -4969,13 +4969,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             float headYaw = replay.keyframes.headYaw.interpolate(tick).floatValue();
             float bodyYaw = replay.keyframes.bodyYaw.interpolate(tick).floatValue();
             float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
-            LocalPlayer player = Minecraft.getInstance().player;
+            ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
             PlayerUtils.teleport(x, y, z, headYaw, pitch);
-            player.setYRot(yaw);
-            player.setYHeadRot(headYaw);
-            player.setYBodyRot(bodyYaw);
-            player.setXRot(pitch);
+            player.setYaw(yaw);
+            player.setHeadYaw(headYaw);
+            player.setBodyYaw(bodyYaw);
+            player.setPitch(pitch);
         }
     }
 

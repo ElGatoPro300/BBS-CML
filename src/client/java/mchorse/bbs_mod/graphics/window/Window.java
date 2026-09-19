@@ -7,10 +7,10 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.mixin.client.MouseAccessor;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.MouseHandler;
-
-import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.util.InputUtil;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryUtil;
@@ -31,7 +31,7 @@ public class Window
 
     public static long getWindow()
     {
-        return Minecraft.getInstance().getWindow().handle();
+        return MinecraftClient.getInstance().getWindow().getHandle();
     }
 
     public static void setVerticalScroll(int scroll)
@@ -57,22 +57,22 @@ public class Window
 
     public static boolean isCtrlPressed()
     {
-        return isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_CONTROL);
+        return Screen.hasControlDown();
     }
 
     public static boolean isShiftPressed()
     {
-        return isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_SHIFT);
+        return Screen.hasShiftDown();
     }
 
     public static boolean isAltPressed()
     {
-        return isKeyPressed(GLFW.GLFW_KEY_LEFT_ALT) || isKeyPressed(GLFW.GLFW_KEY_RIGHT_ALT);
+        return Screen.hasAltDown();
     }
 
     public static boolean isKeyPressed(int key)
     {
-        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key);
+        return InputUtil.isKeyPressed(getWindow(), key);
     }
 
     public static String getClipboard()
@@ -179,7 +179,7 @@ public class Window
      */
     public static void centerCursor()
     {
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
+        net.minecraft.client.util.Window window = MinecraftClient.getInstance().getWindow();
 
         if (window == null)
         {
@@ -199,7 +199,7 @@ public class Window
      */
     public static void syncClientMouseTo(double x, double y)
     {
-        MouseHandler mouse = Minecraft.getInstance().mouseHandler;
+        Mouse mouse = MinecraftClient.getInstance().mouse;
 
         if (!(mouse instanceof MouseAccessor accessor))
         {

@@ -2,6 +2,8 @@ package mchorse.bbs_mod.mixin.client.audio;
 
 import mchorse.bbs_mod.utils.LoopbackAudioController;
 
+import net.minecraft.client.sound.SoundEngine;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -12,26 +14,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import com.mojang.blaze3d.audio.DeviceList;
-import com.mojang.blaze3d.audio.Library;
-
 import org.lwjgl.openal.ALC10;
 import org.lwjgl.openal.SOFTLoopback;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
 
-@Mixin(Library.class)
+@Mixin(SoundEngine.class)
 public class SoundEngineMixin
 {
     @Shadow
-    private long currentDevice;
+    private long devicePointer;
 
     @Unique
     private boolean bbs$usingLoopbackDevice;
 
     @Inject(method = "init", at = @At("HEAD"))
-    private void bbs$init(String deviceSpecifier, DeviceList deviceList, boolean directionalAudio, CallbackInfo ci)
+    private void bbs$init(String deviceSpecifier, boolean directionalAudio, CallbackInfo ci)
     {
         this.bbs$usingLoopbackDevice = LoopbackAudioController.isCaptureRequested();
 
@@ -42,15 +41,15 @@ public class SoundEngineMixin
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void bbs$afterInit(String deviceSpecifier, DeviceList deviceList, boolean directionalAudio, CallbackInfo ci)
+    private void bbs$afterInit(String deviceSpecifier, boolean directionalAudio, CallbackInfo ci)
     {
         if (this.bbs$usingLoopbackDevice)
         {
-            LoopbackAudioController.setLoopbackDevice(this.currentDevice);
+            LoopbackAudioController.setLoopbackDevice(this.devicePointer);
         }
     }
 
-    @Inject(method = "cleanup", at = @At("HEAD"))
+    @Inject(method = "close", at = @At("HEAD"))
     private void bbs$close(CallbackInfo ci)
     {
         if (this.bbs$usingLoopbackDevice)
@@ -61,13 +60,13 @@ public class SoundEngineMixin
 
     @WrapOperation(
         method = "init",
-        at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/audio/Library;openDeviceOrFallback(Ljava/lang/String;Ljava/lang/String;)J")
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/sound/SoundEngine;openDeviceOrFallback(Ljava/lang/String;)J")
     )
-    private long bbs$openLoopbackDevice(String deviceSpecifier, String fallbackSpecifier, Operation<Long> original)
+    private long bbs$openLoopbackDevice(String deviceSpecifier, Operation<Long> original)
     {
         if (!this.bbs$usingLoopbackDevice)
         {
-            return original.call(deviceSpecifier, fallbackSpecifier);
+            return original.call(deviceSpecifier);
         }
 
         return SOFTLoopback.alcLoopbackOpenDeviceSOFT((CharSequence) null);

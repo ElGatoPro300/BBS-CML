@@ -13,16 +13,20 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.registry.Registries;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -44,7 +48,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
     private static final List<ItemStack> ALL_ITEMS = createAllItems();
 
     private final Consumer<ItemStack> callback;
-    private final LocalPlayer player;
+    private final ClientPlayerEntity player;
 
     private final UITextbox search;
     private final UIButton allButton;
@@ -59,7 +63,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
         super(UIKeys.INVENTORY_TITLE);
 
         this.callback = callback;
-        this.player = Minecraft.getInstance().player;
+        this.player = MinecraftClient.getInstance().player;
         this.search = new UITextbox(200, (s) -> this.refreshItems()).placeholder(UIKeys.GENERAL_SEARCH);
         this.allButton = new UIButton(UIKeys.CREATIVE_ALL, (b) -> this.setMode(ViewMode.ALL));
         this.inventoryButton = new UIButton(UIKeys.CREATIVE_INVENTORY, (b) -> this.setMode(ViewMode.INVENTORY));
@@ -83,7 +87,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
     {
         List<ItemStack> stacks = new ArrayList<>();
 
-        for (Item item : BuiltInRegistries.ITEM)
+        for (Item item : Registries.ITEM)
         {
             ItemStack stack = new ItemStack(item);
 
@@ -93,7 +97,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
             }
         }
 
-        stacks.sort((a, b) -> BuiltInRegistries.ITEM.getKey(a.getItem()).toString().compareToIgnoreCase(BuiltInRegistries.ITEM.getKey(b.getItem()).toString()));
+        stacks.sort((a, b) -> Registries.ITEM.getId(a.getItem()).toString().compareToIgnoreCase(Registries.ITEM.getId(b.getItem()).toString()));
 
         return stacks;
     }
@@ -140,14 +144,14 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
     private boolean matchesFilter(ItemStack stack, String filter)
     {
-        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase(Locale.ROOT);
+        String id = Registries.ITEM.getId(stack.getItem()).toString().toLowerCase(Locale.ROOT);
 
         if (id.contains(filter))
         {
             return true;
         }
 
-        return stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains(filter);
+        return stack.getName().getString().toLowerCase(Locale.ROOT).contains(filter);
     }
 
     private List<ItemStack> getInventoryItems()
@@ -160,19 +164,19 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
             return result;
         }
 
-        this.addEquipment(result, visited, this.player.getItemBySlot(EquipmentSlot.HEAD));
-        this.addEquipment(result, visited, this.player.getItemBySlot(EquipmentSlot.CHEST));
-        this.addEquipment(result, visited, this.player.getItemBySlot(EquipmentSlot.LEGS));
-        this.addEquipment(result, visited, this.player.getItemBySlot(EquipmentSlot.FEET));
-        this.addEquipment(result, visited, this.player.getItemBySlot(EquipmentSlot.OFFHAND));
+        this.addEquipment(result, visited, this.player.getEquippedStack(EquipmentSlot.HEAD));
+        this.addEquipment(result, visited, this.player.getEquippedStack(EquipmentSlot.CHEST));
+        this.addEquipment(result, visited, this.player.getEquippedStack(EquipmentSlot.LEGS));
+        this.addEquipment(result, visited, this.player.getEquippedStack(EquipmentSlot.FEET));
+        this.addEquipment(result, visited, this.player.getEquippedStack(EquipmentSlot.OFFHAND));
 
-        Inventory inventory = this.player.getInventory();
+        PlayerInventory inventory = this.player.getInventory();
 
         if (inventory != null)
         {
-            for (int i = 0; i < inventory.getContainerSize(); i++)
+            for (int i = 0; i < inventory.size(); i++)
             {
-                this.addEquipment(result, visited, inventory.getItem(i));
+                this.addEquipment(result, visited, inventory.getStack(i));
             }
         }
 
@@ -188,8 +192,8 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
         ItemStack normalized = stack.copy();
         normalized.setCount(1);
-        String encoded = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, normalized).result().map(Object::toString).orElse("{}");
-        String key = BuiltInRegistries.ITEM.getKey(stack.getItem()) + "|" + encoded;
+        String encoded = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, normalized).result().map(NbtElement::asString).orElse("{}");
+        String key = Registries.ITEM.getId(stack.getItem()) + "|" + encoded;
 
         if (visited.add(key))
         {
@@ -375,17 +379,14 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
                     Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                     Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
-                    // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                    RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                    context.batcher.getContext().item(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
-                    /* 1.21.11: DrawContext.draw() removed */
-                    // context.batcher.getContext().draw();
+                    context.batcher.getContext().draw();
 
-                    /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
-                    // DiffuseLighting.disableGuiDepthLighting();
+                    DiffuseLighting.disableGuiDepthLighting();
 
                     if (hover)
                     {
@@ -400,7 +401,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
             if (!hoveredStack.isEmpty())
             {
-                this.hoverTooltip.label = IKey.constant(hoveredStack.getHoverName().getString());
+                this.hoverTooltip.label = IKey.constant(hoveredStack.getName().getString());
                 this.tooltip(this.hoverTooltip);
             }
             else
@@ -451,14 +452,14 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                 return ItemStack.EMPTY;
             }
 
-            Inventory inventory = UICreativeItemSelectorPanel.this.player.getInventory();
+            PlayerInventory inventory = UICreativeItemSelectorPanel.this.player.getInventory();
 
             if (inventory == null || index < 0 || index >= 9)
             {
                 return ItemStack.EMPTY;
             }
 
-            return inventory.getItem(index);
+            return inventory.getStack(index);
         }
 
         @Override
@@ -480,17 +481,14 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                 {
                     Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                     Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
-                    // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                    RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
-                    context.batcher.getContext().item(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().itemDecorations(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
-                    /* 1.21.11: DrawContext.draw() removed */
-                    // context.batcher.getContext().draw();
+                    context.batcher.getContext().draw();
 
-                    /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
-                    // DiffuseLighting.disableGuiDepthLighting();
+                    DiffuseLighting.disableGuiDepthLighting();
                 }
 
                 if (hover)

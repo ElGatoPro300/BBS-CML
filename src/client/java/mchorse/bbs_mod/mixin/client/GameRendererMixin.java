@@ -8,78 +8,39 @@ import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
-import mchorse.bbs_mod.graphics.WorldOverlayRenderer;
+import mchorse.bbs_mod.items.GunZoom;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.SubmitNodeStorage;
-import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
-import net.minecraft.client.renderer.state.level.CameraEntityRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
-import net.minecraft.util.Mth;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RotationAxis;
 
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
+import org.objectweb.asm.Opcodes;
 
 @Mixin(GameRenderer.class)
-public class GameRendererMixin implements WorldOverlayRenderer.Provider
+public class GameRendererMixin
 {
-    @Shadow
-    @Final
-    private SubmitNodeStorage submitNodeStorage;
-    @Shadow
-    @Final
-    private FeatureRenderDispatcher featureRenderDispatcher;
-    @Unique
-    private WorldOverlayRenderer bbs$worldOverlays;
-
     private long bbs$lastFpBobbingTick = Long.MIN_VALUE;
     private float bbs$fpBobPhase;
     private float bbs$fpBobPrevPhase;
     private float bbs$fpBobStride;
     private float bbs$fpBobPrevStride;
 
-    @Override
-    public WorldOverlayRenderer bbs$getWorldOverlays()
-    {
-        if (this.bbs$worldOverlays == null)
-        {
-            this.bbs$worldOverlays = new WorldOverlayRenderer(this.submitNodeStorage, this.featureRenderDispatcher);
-        }
-
-        return this.bbs$worldOverlays;
-    }
-
-    @Inject(method = "close", at = @At("HEAD"))
-    private void bbs$closeWorldOverlays(CallbackInfo info)
-    {
-        if (this.bbs$worldOverlays != null)
-        {
-            this.bbs$worldOverlays.close();
-            this.bbs$worldOverlays = null;
-        }
-    }
-
     /**
      * This injection cancels bobbing when camera controller takes over
      */
     @Inject(method = "bobView", at = @At("HEAD"), cancellable = true)
-    public void onBob(CameraRenderState cameraRenderState, PoseStack matrices, CallbackInfo ci)
+    public void onBob(MatrixStack matrices, float tickDelta, CallbackInfo ci)
     {
-        Minecraft mc = Minecraft.getInstance();
-        float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         Films.FirstPersonBobbingSample sample = BBSModClient.getFilms().getFirstPersonBobbingSample(tickDelta);
 
         if (sample != null)
@@ -98,16 +59,16 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         }
     }
 
-    private void bbs$applyReplayFirstPersonBobbing(PoseStack matrices, float tickDelta, Films.FirstPersonBobbingSample sample)
+    private void bbs$applyReplayFirstPersonBobbing(MatrixStack matrices, float tickDelta, Films.FirstPersonBobbingSample sample)
     {
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        if (mc.level == null)
+        if (mc.world == null)
         {
             return;
         }
 
-        long worldTick = mc.level.getGameTime();
+        long worldTick = mc.world.getTime();
 
         if (this.bbs$lastFpBobbingTick != worldTick)
         {
@@ -117,8 +78,8 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
 
             if (!sample.paused)
             {
-                float movement = sample.grounded ? Mth.sqrt(sample.vX * sample.vX + sample.vZ * sample.vZ) * 4F : 0F;
-                float frequency = BBSSettings.replayFpBobbingFrequency == null ? 1F : Mth.clamp(BBSSettings.replayFpBobbingFrequency.get(), 0F, 3F);
+                float movement = sample.grounded ? MathHelper.sqrt(sample.vX * sample.vX + sample.vZ * sample.vZ) * 4F : 0F;
+                float frequency = BBSSettings.replayFpBobbingFrequency == null ? 1F : MathHelper.clamp(BBSSettings.replayFpBobbingFrequency.get(), 0F, 3F);
 
                 movement = Math.min(1F, movement);
                 this.bbs$fpBobStride += (movement - this.bbs$fpBobStride) * 0.4F;
@@ -126,13 +87,13 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
             }
         }
 
-        float phase = Mth.lerp(tickDelta, this.bbs$fpBobPrevPhase, this.bbs$fpBobPhase);
-        float intensity = BBSSettings.replayFpBobbingIntensity == null ? 1F : Mth.clamp(BBSSettings.replayFpBobbingIntensity.get(), 0F, 2F);
-        float stride = Mth.lerp(tickDelta, this.bbs$fpBobPrevStride, this.bbs$fpBobStride) * intensity;
+        float phase = MathHelper.lerp(tickDelta, this.bbs$fpBobPrevPhase, this.bbs$fpBobPhase);
+        float intensity = BBSSettings.replayFpBobbingIntensity == null ? 1F : MathHelper.clamp(BBSSettings.replayFpBobbingIntensity.get(), 0F, 2F);
+        float stride = MathHelper.lerp(tickDelta, this.bbs$fpBobPrevStride, this.bbs$fpBobStride) * intensity;
 
-        matrices.translate(Mth.sin(phase * (float) Math.PI) * stride * 0.5F, -Math.abs(Mth.cos(phase * (float) Math.PI) * stride), 0F);
-        matrices.mulPose(Axis.ZP.rotationDegrees(Mth.sin(phase * (float) Math.PI) * stride * 3F));
-        matrices.mulPose(Axis.XP.rotationDegrees(Math.abs(Mth.cos(phase * (float) Math.PI - 0.2F) * stride) * 5F));
+        matrices.translate(MathHelper.sin(phase * (float) Math.PI) * stride * 0.5F, -Math.abs(MathHelper.cos(phase * (float) Math.PI) * stride), 0F);
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(MathHelper.sin(phase * (float) Math.PI) * stride * 3F));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(Math.abs(MathHelper.cos(phase * (float) Math.PI - 0.2F) * stride) * 5F));
     }
 
     private void bbs$resetReplayFirstPersonBobbing()
@@ -145,11 +106,36 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
     }
 
     /**
-     * Replaces vanilla camera roll with the active BBS film/editor roll, while still
-     * applying vanilla hurt/death tilt from the camera entity.
+     * This injection replaces the camera FOV when camera controller takes over
      */
-    @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
-    public void onTiltViewWhenHurt(CameraRenderState cameraRenderState, PoseStack matrices, CallbackInfo info)
+    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
+    public void onGetFov(CallbackInfoReturnable<Double> info)
+    {
+        GunZoom gunZoom = BBSModClient.getGunZoom();
+
+        if (gunZoom != null)
+        {
+            info.setReturnValue((double) gunZoom.getFOV(info.getReturnValue().floatValue()));
+
+            return;
+        }
+
+        CameraController controller = BBSModClient.getCameraController();
+
+        if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
+        {
+            info.setReturnValue(controller.getFOV());
+        }
+    }
+
+    /**
+     * Replaces vanilla camera roll with the active BBS film/editor roll, while still
+     * applying vanilla hurt/death tilt from the camera entity. Cancelling the whole
+     * method previously removed damage shake during first-person film playback whenever
+     * a camera controller (e.g. film editor runner) was active.
+     */
+    @Inject(method = "tiltViewWhenHurt", at = @At("HEAD"), cancellable = true)
+    public void onTiltViewWhenHurt(MatrixStack matrices, float tickDelta, CallbackInfo info)
     {
         CameraController controller = BBSModClient.getCameraController();
 
@@ -158,41 +144,40 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
             return;
         }
 
-        matrices.mulPose(Axis.ZP.rotationDegrees(controller.getRoll()));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(controller.getRoll()));
 
-        CameraEntityRenderState entityRenderState = cameraRenderState.entityRenderState;
+        MinecraftClient client = MinecraftClient.getInstance();
 
-        if (entityRenderState != null && entityRenderState.isLiving)
+        if (client.getCameraEntity() instanceof LivingEntity livingEntity)
         {
-            float f = entityRenderState.hurtTime;
+            float f = livingEntity.hurtTime - tickDelta;
 
-            if (entityRenderState.isDeadOrDying)
+            if (livingEntity.isDead())
             {
-                float deathTilt = Math.min(entityRenderState.deathTime, 20.0F);
+                float deathTilt = Math.min(livingEntity.deathTime + tickDelta, 20.0F);
 
-                matrices.mulPose(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (deathTilt + 200.0F)));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(40.0F - 8000.0F / (deathTilt + 200.0F)));
             }
 
-            if (f >= 0.0F && entityRenderState.hurtDuration > 0)
+            if (f >= 0.0F && livingEntity.maxHurtTime > 0)
             {
-                f /= (float) entityRenderState.hurtDuration;
-                f = Mth.sin(f * f * f * f * (float) Math.PI);
+                f /= livingEntity.maxHurtTime;
+                f = MathHelper.sin(f * f * f * f * (float) Math.PI);
 
-                float tiltYaw = entityRenderState.hurtDir;
-                Minecraft client = Minecraft.getInstance();
-                float strength = (float) (-f * 14.0 * client.options.damageTiltStrength().get());
+                float tiltYaw = livingEntity.getDamageTiltYaw();
+                float strength = (float) (-f * 14.0 * client.options.getDamageTiltStrength().getValue());
 
-                matrices.mulPose(Axis.YP.rotationDegrees(-tiltYaw));
-                matrices.mulPose(Axis.ZP.rotationDegrees(strength));
-                matrices.mulPose(Axis.YP.rotationDegrees(tiltYaw));
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-tiltYaw));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(strength));
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(tiltYaw));
             }
         }
 
         info.cancel();
     }
 
-    @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
-    public void onRenderHand(CameraRenderState cameraRenderState, float tickDelta, Matrix4fc positionMatrix, CallbackInfo info)
+    @Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)
+    public void onRenderHand(CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 
@@ -202,23 +187,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         }
     }
 
-    /**
-     * Capture the perspective uploaded for the world, including camera effects.
-     * LevelRenderer's Matrix4fc argument is the view rotation in 26.1.
-     */
-    @ModifyArg(method = "renderLevel", at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"), index = 0)
-    private Matrix4f bbs$captureWorldProjection(Matrix4f projection)
-    {
-        CameraRenderState camera = Minecraft.getInstance().gameRenderer.getGameRenderState().levelRenderState.cameraRenderState;
-
-        BBSRendering.camera.set(camera.viewRotationMatrix);
-        BBSRendering.projection.set(projection);
-
-        return projection;
-    }
-
-    @Inject(at = @At("HEAD"), method = "renderLevel")
+    @Inject(at = @At("HEAD"), method = "renderWorld")
     private void onWorldRenderBegin(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderBegin();
@@ -226,11 +195,12 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
 
     /**
      * Flush Iris-deferred paint overlays after the world has been composited but before
-     * AAA Particles pastes a cleared depth buffer and draws Effekseer.
+     * AAA Particles pastes a cleared depth buffer and draws Effekseer (same GETFIELD point
+     * as AAA's {@code beforeRenderHand}, earlier {@code order} so we run first).
      */
     @Inject(
-        method = "renderLevel",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderItemInHand(Lnet/minecraft/client/renderer/state/level/CameraRenderState;FLorg/joml/Matrix4fc;)V"),
+        method = "renderWorld",
+        at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/render/GameRenderer;renderHand:Z"),
         order = 900
     )
     private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)
@@ -243,7 +213,7 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
         ModelVAORenderer.flushPaintOverlayQueue();
     }
 
-    @Inject(at = @At("RETURN"), method = "renderLevel")
+    @Inject(at = @At("RETURN"), method = "renderWorld")
     private void onWorldRenderEnd(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderEnd();
@@ -254,10 +224,20 @@ public class GameRendererMixin implements WorldOverlayRenderer.Provider
      * world forms can leave ColorModulator, TU0, lightmap, or blend (DST_COLOR) dirty — blur
      * then darkens hotbar / sky / leaves on NeoForge while menu buttons still look fine.
      */
-    @Inject(method = "processBlurEffect", at = @At("HEAD"))
+    @Inject(method = "renderBlur", at = @At("HEAD"))
     private void bbsPrepareMenuBlurState(CallbackInfo callbackInfo)
     {
         BBSRendering.prepareMenuBackgroundState();
     }
 
+    @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
+    private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
+    {
+        ICameraController current = BBSModClient.getCameraController().getCurrent();
+
+        if (MinecraftClient.getInstance().options.hudHidden && current == null)
+        {
+            BBSRendering.onRenderBeforeScreen();
+        }
+    }
 }

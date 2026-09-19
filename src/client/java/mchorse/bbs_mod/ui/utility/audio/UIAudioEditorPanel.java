@@ -1260,14 +1260,14 @@ public class UIAudioEditorPanel extends UISidebarDashboardPanel
                         boolean isFolder = id.endsWith("/");
                         Icon icon = isFolder || id.equals(PARENT_FOLDER_ENTRY) ? Icons.FOLDER : Icons.SOUND;
                         
-                        context.batcher.getContext().pose().pushMatrix();
-                        context.batcher.getContext().pose().translate((float) iconX, (float) iconY);
-                        context.batcher.getContext().pose().scale(2F, 2F);
-                        context.batcher.getContext().pose().translate((float) -iconX, (float) -iconY);
+                        context.batcher.getContext().getMatrices().push();
+                        context.batcher.getContext().getMatrices().translate(iconX, iconY, 0);
+                        context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
+                        context.batcher.getContext().getMatrices().translate(-iconX, -iconY, 0);
                         
                         context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
                         
-                        context.batcher.getContext().pose().popMatrix();
+                        context.batcher.getContext().getMatrices().pop();
 
                         String label = id;
                         if (id.startsWith(AUDIO_PREFIX))

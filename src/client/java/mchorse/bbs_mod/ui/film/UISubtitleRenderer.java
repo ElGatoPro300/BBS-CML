@@ -1,223 +1,242 @@
 package mchorse.bbs_mod.ui.film;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.renderer.LightTexture;
-import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
+import mchorse.bbs_mod.client.screen.ColorGradeRenderer;
+import mchorse.bbs_mod.graphics.Framebuffer;
+import mchorse.bbs_mod.graphics.texture.Texture;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.Std140Builder;
-import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.system.MemoryStack;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL30;
 
-import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.OptionalInt;
+import java.util.function.Supplier;
 
 public class UISubtitleRenderer
 {
-    private static final ModelPreviewRenderer TEXT_TARGET = new ModelPreviewRenderer();
-
-    static
+    private static Framebuffer getTextFramebuffer()
     {
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> TEXT_TARGET.close());
+        return BBSModClient.getFramebuffers().getFramebuffer(Link.bbs("camera_subtitles"), (f) ->
+        {
+            Texture texture = BBSModClient.getTextures().createTexture(Link.bbs("test"));
+
+            texture.setFilter(GL11.GL_NEAREST);
+            texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
+
+            f.deleteTextures();
+            f.attach(texture, GL30.GL_COLOR_ATTACHMENT0);
+
+            f.unbind();
+        });
     }
 
-    public static void renderSubtitles(Batcher2D batcher, List<Subtitle> subtitles, int width, int height)
+    public static void renderSubtitles(MatrixStack stack, Batcher2D batcher, List<Subtitle> subtitles)
     {
-        if (subtitles == null || subtitles.isEmpty() || width <= 0 || height <= 0)
+        if (subtitles.isEmpty())
         {
             return;
         }
 
-        /* GUI commands must finish before the immediate subtitle pass. */
-        BBSRendering.flushGuiRenderState();
+        ShaderProgram program = BBSShaders.getSubtitlesProgram();
+        GlUniform blur = program.getUniform("Blur");
+        GlUniform textureSize = program.getUniform("TextureSize");
+        Supplier<ShaderProgram> supplier = () -> program;
 
-        Font font = Minecraft.getInstance().font;
-        int[] viewport = new int[4];
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
+        int width = fb.textureWidth;
+        int height = fb.textureHeight;
 
-        /* Legacy subtitles use half-resolution framebuffer pixels, independent of GUI scale. */
-        RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
-        int subtitleWidth = main.width / 2;
-        int subtitleHeight = main.height / 2;
-        float depth = Math.max(1000F, Math.max(subtitleWidth, subtitleHeight) * 8F);
-        Matrix4f projection = new Matrix4f().ortho(0F, subtitleWidth, subtitleHeight, 0F, -depth, depth);
+        /* Text-atlas FBO applyClear() shrinks glViewport; beginWrite(false) alone may not
+         * restore it (same class of bug as UIFilmController stencil picking). Save so
+         * Hotbar/Bossbar/Image drawn after a Subtitle keep full-frame placement. */
+        int[] prevViewport = new int[4];
 
-        try
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+
+        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+
+        width /= 2;
+        height /= 2;
+
+        Framebuffer framebuffer = getTextFramebuffer();
+        Texture texture = framebuffer.getMainTexture();
+        Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
+        FontRenderer font = Batcher2D.getVanillaTextRenderer();
+        TextRenderer vanilla = MinecraftClient.getInstance().textRenderer;
+
+        /*
+         * After ColorGrade raw-GL, the first textured Minecraft draw repairs Sampler0
+         * tracking. If Subtitle is the only HUD clip it would otherwise bake text with
+         * texture 0 bound → black atlas. Image/Hotbar/another Subtitle hide the bug by
+         * drawing a textured quad first; do that here explicitly.
+         */
+        fb.beginWrite(false);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        ColorGradeRenderer.resyncMinecraftState(batcher);
+
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.disableCull();
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        for (Subtitle subtitle : subtitles)
         {
-            for (Subtitle subtitle : subtitles)
+            float alpha = Colors.getA(subtitle.color);
+
+            if (alpha <= 0)
             {
-                if (Colors.getA(subtitle.color) <= 0F || subtitle.size <= 0F)
-                {
-                    continue;
-                }
-
-                String label = StringUtils.processColoredText(subtitle.label);
-                List<String> lines = subtitle.maxWidth <= 10F ? Collections.singletonList(label)
-                    : FontRenderer.wrap(font, label, Math.max(0, Math.round(subtitle.maxWidth)));
-                int textWidth = 0;
-
-                for (String line : lines)
-                {
-                    textWidth = Math.max(textWidth, font.width(line.trim()));
-                }
-
-                float textHeight = (lines.size() - 1) * subtitle.lineHeight + font.lineHeight - 2;
-                int textureWidth = (int) ((textWidth + 10) * subtitle.size);
-                int textureHeight = (int) ((textHeight + 10) * subtitle.size);
-
-                if (textureWidth <= 0 || textureHeight <= 0)
-                {
-                    continue;
-                }
-
-                bakeText(font, subtitle, lines, textWidth, textHeight, textureWidth, textureHeight);
-                drawSubtitle(subtitle, projection, subtitleWidth, subtitleHeight, textureWidth, textureHeight);
+                continue;
             }
-        }
-        finally
-        {
-            GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-        }
-    }
 
-    private static void bakeText(Font font, Subtitle subtitle, List<String> lines, int width, float height, int textureWidth, int textureHeight)
-    {
-        /* RenderLayer uses GPU attachment overrides in 1.21.11, not the raw GL binding. */
-        TEXT_TARGET.begin(textureWidth, textureHeight, new Matrix4f().ortho(0F, width + 10F, height + 10F, 0F, -100F, 100F));
+            String label = StringUtils.processColoredText(subtitle.label);
+            float w = 0;
+            float h = 0;
+            int x = (int) (width * subtitle.windowX + subtitle.x);
+            int y = (int) (height * subtitle.windowY + subtitle.y);
+            float scale = subtitle.size;
+            int subColor = subtitle.color;
+            int wrapWidth = Math.max(0, Math.round(subtitle.maxWidth));
 
-        try (ByteBufferBuilder allocator = new ByteBufferBuilder(786432))
-        {
-            MultiBufferSource.BufferSource consumers = MultiBufferSource.immediate(allocator);
-            Matrix4f matrix = new Matrix4f();
-            float y = 5F;
+            List<String> strings = subtitle.maxWidth <= 10F ? Arrays.asList(label) : FontRenderer.wrap(vanilla, label, wrapWidth);
 
-            for (String line : lines)
+            for (String string : strings)
             {
-                line = line.trim();
-                int lineWidth = font.width(line);
-                int x = 5 + (width - lineWidth) / 2;
+                w = Math.max(w, vanilla.getWidth(string.trim()));
+            }
 
-                if (Colors.getA(subtitle.backgroundColor) > 0F)
+            h = (strings.size() - 1) * subtitle.lineHeight + vanilla.fontHeight - 2;
+
+            int fw = (int) ((w + 10) * scale);
+            int fh = (int) ((h + 10) * scale);
+
+            if (fw <= 0 || fh <= 0)
+            {
+                continue;
+            }
+
+            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, 0, h + 10, -100, 100), VertexSorter.BY_Z);
+
+            framebuffer.resize(fw, fh);
+            /* Transparent clear — opaque world clear-color would show as a black plate
+             * if text baking still failed. */
+            GL11.glClearColor(0F, 0F, 0F, 0F);
+            framebuffer.applyClear();
+            RenderSystem.setShaderTexture(0, 0);
+
+            float yy = 5F;
+
+            for (String string : strings)
+            {
+                string = string.trim();
+
+                int xx = 5 + (int) ((w - vanilla.getWidth(string)) / 2);
+
+                if (Colors.getA(subtitle.backgroundColor) > 0)
                 {
                     float offset = subtitle.backgroundOffset;
-                    VertexConsumer vertices = consumers.getBuffer(Draw.getPositionColorNoDepthLayer());
-                    float left = x - offset;
-                    float top = y - offset;
-                    float right = x + lineWidth + offset - 1;
-                    float bottom = y + font.lineHeight - 2 + offset;
-                    int color = subtitle.backgroundColor;
+                    int tw = vanilla.getWidth(string);
+                    int th = vanilla.fontHeight - 2;
 
-                    vertices.addVertex(left, top, 0F).setColor(color);
-                    vertices.addVertex(left, bottom, 0F).setColor(color);
-                    vertices.addVertex(right, bottom, 0F).setColor(color);
-                    vertices.addVertex(left, top, 0F).setColor(color);
-                    vertices.addVertex(right, bottom, 0F).setColor(color);
-                    vertices.addVertex(right, top, 0F).setColor(color);
-                    consumers.endBatch();
+                    batcher.box(xx - offset, yy - offset, xx + tw + offset - 1, yy + th + offset, Colors.mulA(subtitle.backgroundColor, alpha));
+                    batcher.text(font, string, xx, (int) yy, Colors.setA(subColor, 1F), subtitle.textShadow);
+                }
+                else
+                {
+                    batcher.text(font, string, xx, (int) yy, Colors.setA(subColor, 1F), subtitle.textShadow);
                 }
 
-                font.drawInBatch(line, x, y, Colors.setA(subtitle.color, 1F), subtitle.textShadow, matrix,
-                    consumers, Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
-                consumers.endBatch();
-                y += subtitle.lineHeight;
+                yy += subtitle.lineHeight;
             }
-        }
-        finally
-        {
-            TEXT_TARGET.end();
-        }
-    }
 
-    private static void drawSubtitle(Subtitle subtitle, Matrix4f projection, int width, int height, int textureWidth, int textureHeight)
-    {
-        Matrix4f transform = new Matrix4f(projection)
-            .translate(width * subtitle.windowX + subtitle.x, height * subtitle.windowY + subtitle.y, 0F)
-            .rotateX((float) Math.toRadians(subtitle.rotationX))
-            .rotateY((float) Math.toRadians(subtitle.rotationY))
-            .rotateZ((float) Math.toRadians(subtitle.rotation));
-        float x = -textureWidth * subtitle.anchorX;
-        float y = -textureHeight * subtitle.anchorY;
-        int color = Colors.setA(Colors.WHITE, Colors.getA(subtitle.color));
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+            batcher.flush();
 
-        builder.addVertex(x, y, 0F).setUv(0F, 1F).setColor(color);
-        builder.addVertex(x, y + textureHeight, 0F).setUv(0F, 0F).setColor(color);
-        builder.addVertex(x + textureWidth, y + textureHeight, 0F).setUv(1F, 0F).setColor(color);
-        builder.addVertex(x + textureWidth, y, 0F).setUv(1F, 1F).setColor(color);
+            /* Do not clear the main target — that would wipe Hotbar/Bossbar/Image already
+             * drawn earlier in renderHudOverlays. Also restore viewport explicitly. */
+            fb.beginWrite(false);
+            GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
 
-        try (MeshData buffer = builder.buildOrThrow(); MemoryStack memory = MemoryStack.stackPush())
-        {
-            ByteBuffer data = Std140Builder.onStack(memory, 80).putMat4f(transform)
-                .putFloat(subtitle.shadow).putFloat(subtitle.shadowOpaque ? 1F : 0F)
-                .putFloat(textureWidth).putFloat(textureHeight).get();
-            GpuBuffer vertices = DefaultVertexFormat.POSITION_TEX_COLOR.uploadImmediateVertexBuffer(buffer.vertexBuffer());
-            RenderSystem.AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(VertexFormat.Mode.QUADS);
-            GpuBuffer indexBuffer = indices.getBuffer(6);
-            GpuTextureView destination = RenderSystem.outputColorTextureOverride != null
-                ? RenderSystem.outputColorTextureOverride : Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
+            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
 
-            try (GpuBuffer uniforms = RenderSystem.getDevice().createBuffer(() -> "BBS subtitle parameters", GpuBuffer.USAGE_UNIFORM, data);
-                 RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "BBS subtitle", destination, OptionalInt.empty()))
+            stack.push();
+            stack.translate(x, y, 0);
+
+            /* Rotate around the subtitle anchor in XYZ (same contract as Image overlays). */
+            if (subtitle.rotationX != 0F)
             {
-                pass.setPipeline(BBSShaders.subtitlesPipeline);
-                pass.setUniform("SubtitleParameters", uniforms);
-                pass.bindTexture("Sampler0", TEXT_TARGET.getColorView(), RenderSystem.getSamplerCache().getSampler(AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
-                pass.setVertexBuffer(0, vertices);
-                pass.setIndexBuffer(indexBuffer, indices.type());
-                pass.drawIndexed(0, 0, 6, 1);
+                stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(subtitle.rotationX));
             }
-        }
-    }
 
-    public static void renderSubtitle(Batcher2D batcher, Subtitle subtitle, int width, int height)
-    {
-        if (subtitle != null)
+            if (subtitle.rotationY != 0F)
+            {
+                stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(subtitle.rotationY));
+            }
+
+            if (subtitle.rotation != 0F)
+            {
+                stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(subtitle.rotation));
+            }
+
+            if (blur != null)
+            {
+                blur.set(subtitle.shadow, subtitle.shadowOpaque ? 1F : 0F);
+            }
+
+            if (textureSize != null)
+            {
+                textureSize.set((float) texture.width, (float) texture.height);
+            }
+
+            RenderSystem.enableBlend();
+            RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+
+            batcher.texturedBox(supplier, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
+
+            stack.pop();
+        }
+
+        /* Clear Blur so later HUD draws that reuse this program stay unaffected. */
+        if (blur != null)
         {
-            renderSubtitles(batcher, Collections.singletonList(subtitle), width, height);
+            blur.set(0F, 0F);
         }
+
+        batcher.flush();
+        RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.enableCull();
     }
 
-    public static void renderSubtitles(PoseStack stack, Batcher2D batcher, List<Subtitle> subtitles)
+    public static void renderSubtitle(MatrixStack stack, Batcher2D batcher, Subtitle subtitle)
     {
-        Minecraft client = Minecraft.getInstance();
-        renderSubtitles(batcher, subtitles, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
-    }
+        if (subtitle == null)
+        {
+            return;
+        }
 
-    public static void renderSubtitle(PoseStack stack, Batcher2D batcher, Subtitle subtitle)
-    {
-        Minecraft client = Minecraft.getInstance();
-        renderSubtitle(batcher, subtitle, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
+        renderSubtitles(stack, batcher, Collections.singletonList(subtitle));
     }
 }

@@ -2,10 +2,10 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
 
 import org.lwjgl.system.MemoryStack;
 

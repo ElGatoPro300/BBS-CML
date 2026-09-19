@@ -167,7 +167,7 @@ public final class TimelineInteractionHints
             contentW = Math.max(contentW, font.getWidth(line));
         }
 
-        int lineHeight = font.getRenderer().lineHeight;
+        int lineHeight = font.getRenderer().fontHeight;
         int textBlockH = lines.size() <= 1 ? lineHeight : (lines.size() - 1) * lineHeight + lineHeight;
         int cardW = contentW + padX * 2;
         int cardH = textBlockH + padY * 2 - TimelineToolbarSettings.INTERACTION_HINT_BOTTOM_TRIM;

@@ -9,7 +9,7 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.registry.Registries;
 
 public class BlockForm extends Form
 {
@@ -61,7 +61,7 @@ public class BlockForm extends Form
     @Override
     protected String getDefaultDisplayName()
     {
-        return BuiltInRegistries.BLOCK.getKey(this.blockState.get().getBlock()).toString();
+        return Registries.BLOCK.getId(this.blockState.get().getBlock()).toString();
     }
 
     @Override

@@ -8,12 +8,11 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.MathUtils;
 
-import net.minecraft.util.Mth;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 
 /**
  * Vanilla-style death tip (Z roll) driven by float {@code death_time} progress.
@@ -97,7 +96,7 @@ public final class FormDeathTilt
             }
 
             /* Combat death still advances LivingEntity.deathTime — keep vanilla sub-tick ease. */
-            if (actor.deathTime > 0 || !actor.isAlive() || actor.getHealth() <= 0F)
+            if (actor.deathTime > 0 || actor.isDead() || actor.getHealth() <= 0F)
             {
                 progress = Math.max(progress, actor.deathTime + tickDelta);
             }
@@ -116,7 +115,7 @@ public final class FormDeathTilt
 
     public static int resolveDeathTime(IEntity source)
     {
-        return Mth.floor(resolveDeathProgress(source, 0F));
+        return MathHelper.floor(resolveDeathProgress(source, 0F));
     }
 
     public static float tipDegrees(float deathProgress)
@@ -135,10 +134,10 @@ public final class FormDeathTilt
             return 0F;
         }
 
-        return Math.min(Mth.sqrt(deathAngle), 1F) * 90F;
+        return Math.min(MathHelper.sqrt(deathAngle), 1F) * 90F;
     }
 
-    public static void apply(PoseStack matrices, IEntity entity, Form form, float tickDelta)
+    public static void apply(MatrixStack matrices, IEntity entity, Form form, float tickDelta)
     {
         if (form == null || entity == null)
         {
@@ -149,7 +148,7 @@ public final class FormDeathTilt
 
         if (degrees != 0F)
         {
-            matrices.mulPose(Axis.ZP.rotationDegrees(degrees));
+            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(degrees));
         }
     }
 
