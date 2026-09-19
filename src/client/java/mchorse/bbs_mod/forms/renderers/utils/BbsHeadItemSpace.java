@@ -58,21 +58,20 @@ public final class BbsHeadItemSpace
     {
         alignBoneToModelPart(stack);
 
-        /* Vanilla HeadFeatureRenderer.translate — Ry(180) omitted: captureMatrices baked it. */
+        /* Vanilla HeadFeatureRenderer / CustomHeadLayer translate */
         stack.translate(0F, -0.25F, 0F);
+        stack.mulPose(Axis.YP.rotationDegrees(180F));
         stack.scale(HAT_SCALE, -HAT_SCALE, -HAT_SCALE);
     }
 
     /**
-     * Vanilla skull branch pre-transform in {@code HeadFeatureRenderer} (scale 1.1875 +
-     * {@code T(-0.5,0,-0.5)} before {@code SkullBlockEntityRenderer.renderSkull}).
+     * Vanilla skull placement: aligns BBS head bone to ModelPart space and scales uniformly.
      */
     public static void applySkull(PoseStack stack)
     {
         alignBoneToModelPart(stack);
 
-        stack.scale(SKULL_SCALE, -SKULL_SCALE, -SKULL_SCALE);
-        stack.translate(-0.5F, 0F, -0.5F);
+        stack.scale(SKULL_SCALE, SKULL_SCALE, SKULL_SCALE);
     }
 
     /**
