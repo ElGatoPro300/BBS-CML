@@ -77,6 +77,11 @@ public class RunnerCameraController extends CameraWorkCameraController
         if (this.manual != null)
         {
             this.manual.apply(camera);
+
+            if (this.context.clips != null)
+            {
+                this.apply(null, this.ticks, this.context.playing ? transition : 0F, false);
+            }
         }
         else if (this.context.clips != null)
         {

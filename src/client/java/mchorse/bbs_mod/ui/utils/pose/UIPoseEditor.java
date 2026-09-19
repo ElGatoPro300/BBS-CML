@@ -45,8 +45,6 @@ import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1867,7 +1865,8 @@ public class UIPoseEditor extends UIElement
             context.batcher.textShadow(line2, x2, y, color);
             int iconX = x2 + line2TextWidth + iconSpacing;
             int iconY = y + (context.batcher.getFont().getHeight() - iconSize) / 2;
-            RenderSystem.enableBlend();
+            /* 1.21.11: GlStateManager._enableBlend() removed */
+            // GlStateManager._enableBlend();
             context.batcher.icon(Icons.VISIBLE, color, iconX, iconY);
             context.batcher.unclip(context);
         }
@@ -1880,7 +1879,8 @@ public class UIPoseEditor extends UIElement
             boolean marked = UIPoseEditor.this.markedBones.contains(element);
             int iconColor = marked ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.35F);
 
-            RenderSystem.enableBlend();
+            /* 1.21.11: GlStateManager._enableBlend() removed */
+            // GlStateManager._enableBlend();
             context.batcher.icon(Icons.CHECKMARK, iconColor, iconX, iconY);
 
             int textX = x + 22;

@@ -14,7 +14,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
@@ -86,7 +86,8 @@ public class UIModelPreviewRenderer extends UIModelRenderer
                 }
                 else if (globalModel.isVAORendered())
                 {
-                    this.previewModel.borrowVaosFrom(globalModel);
+                    /* TODO 1.21.11: ModelInstance.borrowVaosFrom() removed — use setup() */
+                    this.previewModel.setup();
                 }
                 else
                 {
@@ -138,12 +139,12 @@ public class UIModelPreviewRenderer extends UIModelRenderer
         int sx = -context.globalX(0);
         int sy = -context.globalY(0);
 
-        context.batcher.getContext().getMatrices().push();
-        context.batcher.getContext().getMatrices().translate(sx, sy, 0);
+        context.batcher.getContext().getMatrices().pushMatrix();
+        context.batcher.getContext().getMatrices().translate((float) sx, (float) sy);
 
         super.render(context);
 
-        context.batcher.getContext().getMatrices().pop();
+        context.batcher.getContext().getMatrices().popMatrix();
     }
 
     /* ---- Orthographic viewport ---- */
@@ -170,7 +171,8 @@ public class UIModelPreviewRenderer extends UIModelRenderer
         int vw = (int) (this.area.w * rx);
         int vh = (int) (this.area.h * ry);
 
-        RenderSystem.viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+        /* TODO 1.21.11: RenderSystem.viewport removed */
+        GlStateManager._viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
 
         /* Orthographic projection scaled so the model fits nicely (zoomed out) */
         float orthoScale = (float) this.distance.getValue() * 0.3F;
@@ -189,7 +191,7 @@ public class UIModelPreviewRenderer extends UIModelRenderer
     protected void renderUserModel(UIContext context)
     {
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, context.batcher.getContext().getMatrices(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, this.createCameraStack(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 

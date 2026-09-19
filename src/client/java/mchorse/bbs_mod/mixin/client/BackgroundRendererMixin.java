@@ -3,8 +3,8 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.render.BackgroundRenderer;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.fog.FogRenderer;
 import net.minecraft.client.world.ClientWorld;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,11 +14,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import org.joml.Vector4f;
 
-@Mixin(BackgroundRenderer.class)
+@Mixin(FogRenderer.class)
 public class BackgroundRendererMixin
 {
     @Inject(method = "getFogColor", at = @At("HEAD"), cancellable = true)
-    private static void onGetFogColor(Camera camera, float tickDelta, ClientWorld world, int clampedViewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> info)
+    private void onGetFogColor(Camera camera, float tickDelta, ClientWorld world, int clampedViewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> info)
     {
         if (BBSRendering.isChromaSkyEnabled())
         {

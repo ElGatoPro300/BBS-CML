@@ -1,9 +1,13 @@
-#version 150
+#version 330
 
 uniform sampler2D Sampler0;
 
-uniform vec2 Blur;
-uniform vec2 TextureSize;
+layout(std140) uniform SubtitleParameters
+{
+    mat4 SubtitleTransform;
+    vec2 Blur;
+    vec2 TextureSize;
+};
 
 in vec2 texCoord0;
 in vec4 vertexColor;

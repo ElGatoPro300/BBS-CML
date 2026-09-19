@@ -12,14 +12,11 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.function.Consumer;
 
@@ -224,14 +221,17 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
                 Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                 Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
+                // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                 context.batcher.getContext().drawItem(stack, itemX, itemY);
                 context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                context.batcher.getContext().draw();
+                /* 1.21.11: DrawContext.draw() removed */
+                // context.batcher.getContext().draw();
 
-                DiffuseLighting.disableGuiDepthLighting();
+                /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
+                // DiffuseLighting.disableGuiDepthLighting();
 
                 if (hovered)
                 {
@@ -306,14 +306,17 @@ public class UIPlayerInventoryPanel extends UIOverlayPanel
 
                 Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                 Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+                /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
+                // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
                 context.batcher.getContext().drawItem(stack, itemX, itemY);
                 context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, itemX, itemY);
 
-                context.batcher.getContext().draw();
+                /* 1.21.11: DrawContext.draw() removed */
+                // context.batcher.getContext().draw();
 
-                DiffuseLighting.disableGuiDepthLighting();
+                /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
+                // DiffuseLighting.disableGuiDepthLighting();
 
                 if (hovered)
                 {

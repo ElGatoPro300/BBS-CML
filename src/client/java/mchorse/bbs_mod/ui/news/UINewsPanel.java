@@ -30,7 +30,6 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 
 import net.minecraft.client.MinecraftClient;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 
 import com.google.gson.Gson;
@@ -531,7 +530,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
                         return;
                     }
 
-                    RenderSystem.recordRenderCall(() ->
+                    MinecraftClient.getInstance().execute(() ->
                     {
                         try
                         {

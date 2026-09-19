@@ -1,14 +1,12 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.resources.Link;
 
-import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -64,9 +62,7 @@ public final class CubicGroupTextureBlend
             return false;
         }
 
-        GlUniform uniform = shader.getUniform("TextureBlendActive");
-
-        return uniform != null;
+        return shader.getUniform("TextureBlendActive") != null;
     }
 
     public static Link resolveDrawTexture(CubicGroupTextureBlend state, Link defaultTexture)
@@ -129,14 +125,14 @@ public final class CubicGroupTextureBlend
      */
     public static void drawTwoPass(Runnable fromPass, Runnable toPass, float blend)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        BBSRendering.enableBlend();
+        BBSRendering.defaultBlendFunc();
 
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
 
         fromPass.run();
 
-        RenderSystem.depthMask(false);
+        BBSRendering.depthMask(false);
 
         try
         {
@@ -144,7 +140,7 @@ public final class CubicGroupTextureBlend
         }
         finally
         {
-            RenderSystem.depthMask(depthMask);
+            BBSRendering.depthMask(depthMask);
         }
     }
 }

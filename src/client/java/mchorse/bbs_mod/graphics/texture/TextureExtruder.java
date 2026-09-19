@@ -17,6 +17,7 @@ import java.util.Map;
 public class TextureExtruder
 {
     private Map<Link, ModelVAO> extruded = new HashMap<>();
+    private Map<Link, ModelVAOData> meshes = new HashMap<>();
 
     /**
      * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
@@ -91,6 +92,7 @@ public class TextureExtruder
 
     public void delete(Link key)
     {
+        this.meshes.remove(key);
         ModelVAO remove = this.extruded.remove(key);
 
         if (remove != null)
@@ -103,10 +105,14 @@ public class TextureExtruder
     {
         for (ModelVAO value : this.extruded.values())
         {
-            value.delete();
+            if (value != null)
+            {
+                value.delete();
+            }
         }
 
         this.extruded.clear();
+        this.meshes.clear();
     }
 
     public ModelVAO get(Link key)
@@ -114,6 +120,21 @@ public class TextureExtruder
         if (this.extruded.containsKey(key))
         {
             return this.extruded.get(key);
+        }
+
+        ModelVAOData mesh = this.getMesh(key);
+        ModelVAO buffer = mesh == null ? null : new ModelVAO(mesh);
+
+        this.extruded.put(key, buffer);
+
+        return buffer;
+    }
+
+    public ModelVAOData getMesh(Link key)
+    {
+        if (this.meshes.containsKey(key))
+        {
+            return this.meshes.get(key);
         }
 
         Pixels pixels = null;
@@ -129,20 +150,26 @@ public class TextureExtruder
 
         if (pixels == null)
         {
-            this.extruded.put(key, null);
+            this.meshes.put(key, null);
 
             return null;
         }
 
-        ModelVAO buffer = this.generate(pixels);
+        try
+        {
+            ModelVAOData mesh = this.generate(pixels);
 
-        pixels.delete();
-        this.extruded.put(key, buffer);
+            this.meshes.put(key, mesh);
 
-        return buffer;
+            return mesh;
+        }
+        finally
+        {
+            pixels.delete();
+        }
     }
 
-    private ModelVAO generate(Pixels pixels)
+    private ModelVAOData generate(Pixels pixels)
     {
         List<Float> vertices = new ArrayList<>();
         List<Float> normals = new ArrayList<>();
@@ -204,7 +231,7 @@ public class TextureExtruder
             float[] u = CollectionUtils.toArray(uvs);
             float[] t = BBSRendering.calculateTangents(v, n, u);
 
-            return new ModelVAO(new ModelVAOData(v, n, t, u));
+            return new ModelVAOData(v, n, t, u);
         }
 
         return null;

@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import org.objectweb.asm.Opcodes;
+import org.joml.Matrix4f;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin
@@ -177,7 +177,7 @@ public class GameRendererMixin
     }
 
     @Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)
-    public void onRenderHand(CallbackInfo info)
+    public void onRenderHand(float tickDelta, boolean sleeping, Matrix4f positionMatrix, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 
@@ -200,7 +200,7 @@ public class GameRendererMixin
      */
     @Inject(
         method = "renderWorld",
-        at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/render/GameRenderer;renderHand:Z"),
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/GameRenderer;renderHand(FZLorg/joml/Matrix4f;)V"),
         order = 900
     )
     private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)
@@ -230,7 +230,7 @@ public class GameRendererMixin
         BBSRendering.prepareMenuBackgroundState();
     }
 
-    @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/InGameHud;render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V"), require = 0)
     private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();

@@ -18,7 +18,8 @@
         "LevelPropertiesAccessor",
         "StructureTemplateAccessor",
         "StructureTemplatePalettedListAccessor",
-        "EntityMixin"
+        "EntityAccessor",
+        "LivingEntityAccessor"
     ],
     "injectors": {
         "defaultRequire": 1

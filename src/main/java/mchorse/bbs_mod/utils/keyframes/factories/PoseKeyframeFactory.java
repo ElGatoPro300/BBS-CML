@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
@@ -36,7 +37,7 @@ public class PoseKeyframeFactory implements IKeyframeFactory<Pose>
     @Override
     public BaseType toData(Pose value)
     {
-        return value.toData();
+        return value == null ? new MapType() : value.toData();
     }
 
     @Override
@@ -48,7 +49,7 @@ public class PoseKeyframeFactory implements IKeyframeFactory<Pose>
     @Override
     public Pose copy(Pose value)
     {
-        return value.copy();
+        return value == null ? new Pose() : value.copy();
     }
 
     @Override

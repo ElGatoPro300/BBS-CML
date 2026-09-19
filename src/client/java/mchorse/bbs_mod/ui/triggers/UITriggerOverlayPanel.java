@@ -28,7 +28,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.StringNbtReader;
 
 public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
@@ -71,9 +70,9 @@ public class UITriggerOverlayPanel extends UIEditorOverlayPanel<Trigger>
             try
             {
                 String clipboard = MinecraftClient.getInstance().keyboard.getClipboard();
-                NbtElement element = StringNbtReader.parse(clipboard);
+                NbtCompound element = StringNbtReader.readCompound(clipboard);
 
-                if (element instanceof NbtCompound)
+                if (element != null)
                 {
                     menu.action(Icons.PASTE, TriggerKeys.PASTE_TRIGGER, () ->
                     {

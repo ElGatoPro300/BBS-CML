@@ -21,8 +21,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.util.Identifier;
 
-import com.mojang.brigadier.StringReader;
-
 import java.util.List;
 
 public class UISelectorsOverlayPanel extends UIOverlayPanel
@@ -93,7 +91,7 @@ public class UISelectorsOverlayPanel extends UIOverlayPanel
                 }
                 else
                 {
-                    this.current.nbt = (new StringNbtReader(new StringReader(t))).parseCompound();
+                    this.current.nbt = StringNbtReader.readCompound(t);
                 }
 
                 BBSModClient.getSelectors().update();
