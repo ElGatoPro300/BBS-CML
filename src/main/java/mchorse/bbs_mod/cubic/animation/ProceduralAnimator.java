@@ -173,15 +173,18 @@ public class ProceduralAnimator implements IAnimator
         float velocityForwardSpeed = ((float) entityVelocity.x * forwardX + (float) entityVelocity.z * forwardZ) * 20F;
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
-        /* Film actors: ActionPlayer lookahead velocity creates a one-frame void
-         * (velocity says walking, LimbAnimator still idle). Filling that void from
-         * velocity + age*0.6662 caused the idle→walk microsnap. Gate swing/gecko
-         * motion on real prev→pos displacement instead; keep LimbAnimator for the
-         * rest of the walk once it catches up. */
-        boolean filmActor = target instanceof MCEntity mcEntity
-            && mcEntity.getMcEntity() instanceof ActorEntity;
+        /* Film-driven entities: gate swing/gecko soft-fill on real prev→pos displacement.
+         * - ActorEntity: ActionPlayer lookahead velocity creates a one-frame void
+         *   (velocity says walking, LimbAnimator still idle); filling from velocity
+         *   caused idle→walk microsnaps.
+         * - StubEntity: ReplayKeyframes.apply() can still write vX/vZ (or leftover
+         *   velocity) while XYZ is frozen after truncating position keys — soft-fill
+         *   then synthesizes ghost arm/leg swing. Actors already used displacement
+         *   only; stubs must match so stationary replays stay idle. */
+        boolean filmDriven = target instanceof StubEntity
+            || (target instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity);
 
-        if (filmActor)
+        if (filmDriven)
         {
             horizontalSpeed = displacementHorizontalSpeed;
             forwardSpeed = displacementForwardSpeed;

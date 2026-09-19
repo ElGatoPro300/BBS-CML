@@ -36,6 +36,20 @@ public class BlockPaintOverlayVertexConsumer implements VertexConsumer
     }
 
     @Override
+    public void vertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ)
+    {
+        int a = (color >> 24) & 0xFF;
+        int r = MathUtils.clamp((int) (this.paintColor.r * 255F), 0, 255);
+        int g = MathUtils.clamp((int) (this.paintColor.g * 255F), 0, 255);
+        int b = MathUtils.clamp((int) (this.paintColor.b * 255F), 0, 255);
+        int outA = MathUtils.clamp((int) (this.strength * a), 0, 255);
+
+        int recolored = (outA << 24) | (r << 16) | (g << 8) | b;
+
+        this.consumer.vertex(x, y, z, recolored, u, v, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE, normalX, normalY, normalZ);
+    }
+
+    @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         int r = MathUtils.clamp((int) (this.paintColor.r * 255F), 0, 255);
