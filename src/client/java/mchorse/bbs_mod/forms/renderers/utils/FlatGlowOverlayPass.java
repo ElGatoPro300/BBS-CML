@@ -71,8 +71,8 @@ public class FlatGlowOverlayPass
             /* Intensity MUST use PTC layers — soft-only path was invisible under HDR / full-bleed sprites. */
             RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
 
-            int intensityLayers = Math.min(6, Math.max(1, FormColorEffects.resolveGlowOverlayLayers(glowIntensity)));
-            int bundles = Math.min(3, Math.max(1, FormColorEffects.resolveGlowOverlayBundles(glowIntensity)));
+            int intensityLayers = Math.max(1, FormColorEffects.resolveGlowOverlayLayers(glowIntensity));
+            int bundles = Math.max(1, FormColorEffects.resolveGlowOverlayBundles(glowIntensity));
 
             for (int bundle = 0; bundle < bundles; bundle++)
             {
@@ -84,9 +84,11 @@ public class FlatGlowOverlayPass
                 }
             }
 
-            int sizeShells = FormColorEffects.resolveGlowSizeShells(size, spread);
+            /* Intensity alone must bloom — Size=0 used to skip all outer shells. */
+            float bloomSize = FormColorEffects.resolveBloomSizeFromIntensity(glowIntensity, size);
+            int sizeShells = FormColorEffects.resolveGlowSizeShells(bloomSize, spread);
 
-            if (sizeShells <= 0)
+            if (sizeShells <= 0 || FormGlowBloomPatch.shouldSkipGeometrySizeShells())
             {
                 return;
             }
@@ -99,9 +101,9 @@ public class FlatGlowOverlayPass
 
                 for (int i = 0; i < sizeShells; i++)
                 {
-                    float expand = FormColorEffects.resolveGlowShellExpand(size, spread, i, sizeShells);
+                    float expand = FormColorEffects.resolveGlowShellExpand(bloomSize, spread, i, sizeShells);
                     float fade = FormColorEffects.resolveGlowShellFade(spread, i, sizeShells);
-                    float shellSize = Math.max(0.5F, size * (1F - (i + 1F) / (sizeShells + 1F) * 0.35F));
+                    float shellSize = Math.max(0.5F, bloomSize * (1F - (i + 1F) / (sizeShells + 1F) * 0.35F));
                     Color tint = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, paint, legacyPaint, formColor, alpha, glowIntensity);
                     Color layer = tint.copy();
 
@@ -117,7 +119,7 @@ public class FlatGlowOverlayPass
             {
                 for (int i = 0; i < sizeShells; i++)
                 {
-                    float expand = FormColorEffects.resolveGlowShellExpand(size, spread, i, sizeShells);
+                    float expand = FormColorEffects.resolveGlowShellExpand(bloomSize, spread, i, sizeShells);
                     float fade = FormColorEffects.resolveGlowShellFade(spread, i, sizeShells);
                     Color layer = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, paint, legacyPaint, formColor, alpha, glowIntensity, Math.max(1, sizeShells));
 

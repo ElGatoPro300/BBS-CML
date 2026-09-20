@@ -61,7 +61,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
     private long update;
     private long lastUpdate;
 
-    private UndoManager<UITextarea> undo;
+    private UndoManager<UITextarea> undo = new UndoManager<UITextarea>(100).simpleMerge();
 
     private int lastW;
 
@@ -95,6 +95,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
         super();
 
         this.callback = callback;
+        this.ensureAtLeastOneLine();
 
         this.horizontal.direction = ScrollDirection.HORIZONTAL;
         this.horizontal.cancelScrollEdge = true;
@@ -165,6 +166,9 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
         /* Same content: keep caret so external refreshes don't yank the cursor. */
         if (this.getText().equals(text))
         {
+            this.ensureAtLeastOneLine();
+            this.ensureUndo();
+
             return;
         }
 
@@ -205,6 +209,23 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
         {
             this.recalculateWrapping();
             this.recalculateSizes();
+        }
+    }
+
+    private void ensureAtLeastOneLine()
+    {
+        if (this.text.isEmpty())
+        {
+            this.text.add(this.createTextLine(""));
+            this.cursor.set(0, 0);
+        }
+    }
+
+    private void ensureUndo()
+    {
+        if (this.undo == null)
+        {
+            this.undo = new UndoManager<UITextarea>(100).simpleMerge();
         }
     }
 
@@ -370,6 +391,13 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
      */
     public Pair<Cursor, Cursor> findGroup(int direction, Cursor cursor)
     {
+        this.ensureAtLeastOneLine();
+
+        if (!this.hasLine(cursor.line))
+        {
+            return null;
+        }
+
         StringGroupMatcher matcher = new StringGroupMatcher();
         Pair<Integer, Integer> group = matcher.findGroup(direction, this.text.get(cursor.line).text, cursor.offset);
 
@@ -554,6 +582,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
         this.writeString(text);
 
         undo.ready().post(text, this.cursor, this.selection);
+        this.ensureUndo();
         this.undo.pushUndo(undo);
     }
 
@@ -791,10 +820,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
 
     private void moveToCursorWrapped(FontRenderer font, Cursor cursor, int x, int y)
     {
-        if (this.text.isEmpty())
-        {
-            return;
-        }
+        this.ensureAtLeastOneLine();
 
         T current = null;
         int line = y < 0 ? 0 : y / this.lineHeight;
@@ -869,6 +895,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
 
     private void moveCursorToUnwrapped(FontRenderer font, Cursor cursor, int x, int y)
     {
+        this.ensureAtLeastOneLine();
         cursor.line = MathUtils.clamp(y / this.lineHeight, 0, this.text.size() - 1);
 
         String line = this.text.get(cursor.line).text;
@@ -1133,6 +1160,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
 
         if (undo.ready)
         {
+            this.ensureUndo();
             this.undo.pushUndo(undo);
         }
 
@@ -1162,6 +1190,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
                 this.playSound("input");
 
                 this.moveViewportToCursor();
+                this.ensureUndo();
                 this.undo.pushUndo(undo);
             }
 
@@ -1179,6 +1208,8 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
         /* Undo/redo */
         if (ctrl && context.isPressed(GLFW.GLFW_KEY_Z))
         {
+            this.ensureUndo();
+
             boolean result = this.undo.undo(this);
 
             if (result)
@@ -1190,6 +1221,8 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
         }
         else if (ctrl && context.isPressed(GLFW.GLFW_KEY_Y))
         {
+            this.ensureUndo();
+
             boolean result = this.undo.redo(this);
 
             if (result)

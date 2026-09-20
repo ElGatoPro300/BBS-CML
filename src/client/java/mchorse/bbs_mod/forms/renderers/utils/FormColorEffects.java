@@ -9,13 +9,16 @@ public class FormColorEffects
 {
     public static final float EMISSION_STRENGTH = 8F;
     public static final float OVERLAY_GLOW_BOOST = EMISSION_STRENGTH;
-    /** Hard ceiling on albedo multiply so HDR/bloom does not clip form Color to white. */
-    public static final float MAX_ALBEDO_GLOW_SCALE = 2.25F;
+    /**
+     * Soft ceiling on albedo multiply. High enough that Intensity ~50 still climbs
+     * visibly (was 2.25 — flatlined by Intensity ~5).
+     */
+    public static final float MAX_ALBEDO_GLOW_SCALE = 12F;
     /** Cap additive overlay passes per bundle — intensity itself stays unbounded. */
     public static final int MAX_GLOW_OVERLAY_LAYERS = 8;
     /** Extra additive bundles for high intensity (FPS ceiling ≈ layers × bundles). */
-    public static final int MAX_GLOW_OVERLAY_BUNDLES = 6;
-    public static final int MAX_GLOW_SIZE_SHELLS = 8;
+    public static final int MAX_GLOW_OVERLAY_BUNDLES = 8;
+    public static final int MAX_GLOW_SIZE_SHELLS = 10;
 
     /**
      * Shadow-pass alpha follows form opacity (0 = no ground shadow). Kept for call-site
@@ -119,7 +122,8 @@ public class FormColorEffects
     }
 
     /**
-     * Soft albedo boost: intensity 1 ≈ 1.75×, high values asymptote toward {@link #MAX_ALBEDO_GLOW_SCALE}.
+     * Soft albedo boost that keeps climbing through the UI range.
+     * Intensity 1 ≈ 2.3×, Intensity 10 ≈ 6.5×, Intensity 50 ≈ 10× (toward {@link #MAX_ALBEDO_GLOW_SCALE}).
      */
     public static float resolveAlbedoGlowScale(float intensity)
     {
@@ -128,24 +132,45 @@ public class FormColorEffects
             return 1F;
         }
 
-        float soft = intensity / (1F + intensity * 0.55F);
+        /* Slower asymptote than intensity/(1+0.55*i) which flatlined near Intensity 5. */
+        float soft = intensity / (1F + intensity * 0.12F);
 
         return 1F + soft * (MAX_ALBEDO_GLOW_SCALE - 1F);
     }
 
     /**
-     * Soft strength for BBS {@code GlowingColor} / model.fsh. Keeps climbing with intensity
-     * (no hard max) while avoiding the old linear ×8 white-clip.
+     * Strength for BBS {@code GlowingColor} / model.fsh.
+     * Mild intensities stay linear; very high values keep climbing without early soft-cap.
      */
     public static float resolveShaderGlowStrength(float intensity)
     {
         if (intensity <= 0F)
         {
-            return intensity;
+            return 0F;
         }
 
-        /* Mild asymptote: 1≈1.1, 10≈5.4, 100≈18. */
-        return intensity / (1F + intensity * 0.08F) * 1.2F;
+        /* Keep UI Intensity meaningful past ~5 (old albedo path stopped changing look). */
+        return intensity;
+    }
+
+    /**
+     * When Glow Size is 0, high Intensity still needs a bloom radius for Iris packs /
+     * outer shells — otherwise Intensity 50 looks the same as Intensity 2 on LDR.
+     */
+    public static float resolveBloomSizeFromIntensity(float intensity, float size)
+    {
+        if (Math.abs(size) > 0.001F)
+        {
+            return size;
+        }
+
+        if (intensity <= 0.5F)
+        {
+            return 0F;
+        }
+
+        /* Intensity 10 → ~3.3, Intensity 50 → ~16 (clamped) — Size 0 must still bloom. */
+        return Math.min(16F, (intensity - 0.5F) * 0.35F);
     }
 
     /**
@@ -219,24 +244,10 @@ public class FormColorEffects
 
         if (intensity > 0F)
         {
-            /* Keep albedo hue (form Color / texture). Soft-cap boost so HDR does not clip white. */
-            boolean glowNearWhite = r > 0.999F && g > 0.999F && b > 0.999F;
-            float softBoost = resolveAlbedoGlowScale(intensity) - 1F;
-
-            if (glowNearWhite)
-            {
-                float scale = 1F + softBoost;
-
-                base.r *= scale;
-                base.g *= scale;
-                base.b *= scale;
-            }
-            else
-            {
-                base.r += r * softBoost;
-                base.g += g * softBoost;
-                base.b += b * softBoost;
-            }
+            float t = Math.min(intensity, 1F);
+            base.r = base.r + (r - base.r) * t + r * intensity * 7F;
+            base.g = base.g + (g - base.g) * t + g * intensity * 7F;
+            base.b = base.b + (b - base.b) * t + b * intensity * 7F;
         }
         else
         {
@@ -494,12 +505,13 @@ public class FormColorEffects
         int safeLayers = Math.max(1, layers);
         int bundles = Math.max(1, resolveGlowOverlayBundles(intensity));
         float total = intensity * OVERLAY_GLOW_BOOST;
-        float layerStrength = MathUtils.clamp(total / (safeLayers * (float) bundles), 0F, 1F);
+        /* Allow HDR-style overbright per layer so Intensity > ~1 keeps getting brighter. */
+        float layerStrength = Math.max(0F, total / (safeLayers * (float) bundles));
 
         resolveGlowTint(glow, legacyGlow, paint, legacyPaint, formColor, resolved);
-        color.r = MathUtils.clamp(resolved.r * layerStrength, 0F, 1F);
-        color.g = MathUtils.clamp(resolved.g * layerStrength, 0F, 1F);
-        color.b = MathUtils.clamp(resolved.b * layerStrength, 0F, 1F);
+        color.r = Math.max(0F, resolved.r * layerStrength);
+        color.g = Math.max(0F, resolved.g * layerStrength);
+        color.b = Math.max(0F, resolved.b * layerStrength);
         color.a = alpha;
 
         return color;

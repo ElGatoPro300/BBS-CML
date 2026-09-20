@@ -20,6 +20,7 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.keys.KeyAction;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
+import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -545,7 +546,7 @@ public class OrbitFilmCameraController implements ICameraController
 
             if (pivot != null)
             {
-                int index = this.controller.panel.getData().replays.getList().indexOf(pivot);
+                int index = CollectionUtils.getIndex(this.controller.panel.getData().replays.getList(), pivot);
                 IEntity pivotEntity = this.controller.getEntities().get(index);
 
                 if (pivotEntity != null)

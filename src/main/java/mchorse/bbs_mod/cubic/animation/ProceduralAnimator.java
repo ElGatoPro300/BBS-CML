@@ -173,21 +173,7 @@ public class ProceduralAnimator implements IAnimator
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
 
-        if (!target.isRiding() && !target.isSitting())
-        {
-            if (limbSpeed < 0.01F && horizontalSpeed > 0.08F)
-            {
-                limbSpeed = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
-                /* Synthesizing amplitude from motion must also drive phase. Leaving a
-                 * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
-                limbPhase = age * 0.6662F;
-            }
-            else if (limbPhase == 0F && horizontalSpeed > 0.08F)
-            {
-                limbPhase = age * 0.6662F;
-            }
-        }
-        else
+        if (target.isRiding() || target.isSitting())
         {
             limbSpeed = 0F;
             horizontalSpeed = 0F;

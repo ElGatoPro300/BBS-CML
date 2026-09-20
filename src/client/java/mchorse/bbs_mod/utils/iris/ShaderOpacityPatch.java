@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -192,6 +193,17 @@ public class ShaderOpacityPatch
 
     public static void reassertPostDeferredDepthState()
     {
+        /* Mid-alpha skin pass (glasses): must not write depth or body-parts under those
+         * pixels fail the depth test. Wins over forceLiveDepthWrite. */
+        if (ModelVAORenderer.getAlphaPass() > 1.5F)
+        {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(false);
+
+            return;
+        }
+
         if (flushingPostDeferred)
         {
             reassertPostDeferredDepthState(flushingDepthWrite);
@@ -643,17 +655,23 @@ public class ShaderOpacityPatch
 
     public static String processSource(String source)
     {
-        if (!isActive() || source == null || source.isEmpty())
+        if (source == null || source.isEmpty())
         {
             return source;
         }
 
-        String patched = source;
+        /* Always (any pack): mid-alpha skin/glass split for BBS VAO draws under Iris. */
+        String patched = patchTextureAlphaDepthPass(source);
+
+        if (!isActive() || patched.isEmpty())
+        {
+            return patched;
+        }
 
         /* Shadow casters: skip alpha-test rewrites (those hole foliage/terrain shadows), but
          * keep vertex-alpha dither so per-actor Opacity / shadow_opacity can fade ground
          * shadows on otherwise binary Iris shadow maps. */
-        if (isShadowCasterSource(source))
+        if (isShadowCasterSource(patched))
         {
             return processShadowOpacity(processShadowCasterAlpha(patchComplementaryOpaqueBlockShadow(patched)));
         }
@@ -663,6 +681,95 @@ public class ShaderOpacityPatch
         patched = LITERAL_POINT_ONE_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
 
         return processShadowOpacity(patched);
+    }
+
+    private static final String TEX_ALPHA_U = "BbsTexAlphaPass";
+    private static final String TEX_ALPHA_GUARD = "BBS_TEX_ALPHA_DEPTH_PASS";
+    private static final Pattern TEX_ALBEDO_ASSIGN = Pattern.compile(
+        "\\b(vec4\\s+)(\\w+)(\\s*=\\s*texture(?:2D)?\\s*\\(\\s*(?:tex|texture)\\s*,[^;]+;)"
+    );
+
+    /**
+     * Injects {@code BbsTexAlphaPass} into entity/block gbuffer fragments so Iris live draws
+     * can discard mid-alpha texels on pass 1 and draw only glass on pass 2 (no depth write).
+     */
+    private static String patchTextureAlphaDepthPass(String source)
+    {
+        if (source.contains(TEX_ALPHA_GUARD) || isShadowCasterSource(source))
+        {
+            return source;
+        }
+
+        boolean looksLikeFragment = source.contains("gl_FragData")
+            || source.contains("FRAGMENT_SHADER")
+            || source.contains("layout(location = 0) out")
+            || source.contains("colortex0Out");
+
+        if (!looksLikeFragment)
+        {
+            return source;
+        }
+
+        if (source.contains("GBUFFERS_TERRAIN") || source.contains("GBUFFERS_WATER")
+            || source.contains("GBUFFERS_SKY") || source.contains("GBUFFERS_CLOUDS")
+            || source.contains("GBUFFERS_WEATHER"))
+        {
+            return source;
+        }
+
+        boolean entityOrBlock = source.contains("GBUFFERS_ENTITIES")
+            || source.contains("GBUFFERS_BLOCK")
+            || source.contains("entityColor")
+            || source.contains("currentRenderedItemId")
+            || (source.contains("DoLighting") && source.contains("entityId"));
+
+        if (!entityOrBlock)
+        {
+            return source;
+        }
+
+        String helpers =
+            "uniform float " + TEX_ALPHA_U + ";\n"
+                + "#ifndef " + TEX_ALPHA_GUARD + "\n"
+                + "#define " + TEX_ALPHA_GUARD + "\n"
+                + "vec4 bbsApplyTexAlphaPass(vec4 c){\n"
+                + " if(" + TEX_ALPHA_U + ">0.5&&" + TEX_ALPHA_U + "<1.5){if(c.a<0.9) discard;}\n"
+                + " else if(" + TEX_ALPHA_U + ">1.5){if(c.a<0.1||c.a>=0.9) discard;}\n"
+                + " return c;\n"
+                + "}\n"
+                + "#endif\n";
+
+        int version = source.indexOf("#version");
+
+        if (version >= 0)
+        {
+            int nextNewLine = source.indexOf('\n', version);
+
+            if (nextNewLine >= 0)
+            {
+                source = source.substring(0, nextNewLine + 1) + helpers + source.substring(nextNewLine + 1);
+            }
+            else
+            {
+                source = helpers + source;
+            }
+        }
+        else
+        {
+            source = helpers + source;
+        }
+
+        Matcher albedo = TEX_ALBEDO_ASSIGN.matcher(source);
+
+        if (albedo.find())
+        {
+            String var = albedo.group(2);
+            String replacement = albedo.group(1) + var + albedo.group(3) + "\n" + var + " = bbsApplyTexAlphaPass(" + var + ");";
+
+            source = source.substring(0, albedo.start()) + replacement + source.substring(albedo.end());
+        }
+
+        return source;
     }
 
     public static boolean isShadowCasterSourcePublic(String source)

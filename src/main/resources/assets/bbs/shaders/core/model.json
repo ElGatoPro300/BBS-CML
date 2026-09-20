@@ -77,6 +77,7 @@
         { "name": "GradeSaturationHalf", "type": "float", "count": 3, "values": [ 0.5, 0.475, 0.5 ] },
         { "name": "GradeSaturationBottomAnchored", "type": "float", "count": 1, "values": [ 1.0 ] },
         { "name": "GradeSaturationShape", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "GlowPaintOnly", "type": "float", "count": 1, "values": [ 0.0 ] }
+        { "name": "GlowPaintOnly", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "AlphaPass", "type": "float", "count": 1, "values": [ 0.0 ] }
     ]
 }

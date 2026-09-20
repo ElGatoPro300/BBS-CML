@@ -230,8 +230,8 @@ public final class ComplementaryFormGlowPatch
                 + "        vec3 bbsSoft = mix(bbsSized, bbsWide, 0.55);\n"
                 + "        vec3 bbsSharp = mix(bbsSized, bbsTight, 0.55);\n"
                 + "        vec3 bbsGlowBlur = mix(bbsSoft, bbsSharp, bbsGlowSpread);\n"
-                + "        /* Soft-cap intensity so HDR tonemap does not dirty pure white. */\n"
-                + "        float bbsGlowAmt = smoothstep(0.001, 0.35, bbsGlowIntensity);\n"
+                + "        /* Reach full glow blur by ~Intensity 8; keep Size/Spread shaping beyond that. */\n"
+                + "        float bbsGlowAmt = clamp(bbsGlowIntensity / (1.2 + bbsGlowIntensity * 0.08), 0.0, 1.0);\n"
                 + "        vec3 blur = mix(bbsDefault, bbsGlowBlur, bbsGlowAmt); /* " + DO_BLOOM_GUARD + " */";
 
         source = source.replace(from, to);
@@ -240,11 +240,8 @@ public final class ComplementaryFormGlowPatch
         String strengthTo =
             "float bloomStrength = BLOOM_STRENGTH + 0.2 * darknessFactor;\n"
                 + "        if (bbsGlowIntensity > 0.001) {\n"
-                + "         float bbsISoft = bbsGlowIntensity / (1.0 + bbsGlowIntensity * 0.12);\n"
-                + "         bloomStrength *= 1.0 + bbsISoft * 0.1 + max(bbsGlowSize, 0.0) * 0.28;\n"
-                + "         bloomStrength *= mix(1.35, 0.7, bbsGlowSpread);\n"
-                + "         /* Slight lift so whites stay clean under Complementary tonemap. */\n"
-                + "         bloomStrength = min(bloomStrength * 1.05, BLOOM_STRENGTH * 2.4);\n"
+                + "         bloomStrength *= 1.0 + bbsGlowIntensity * 0.55 + max(bbsGlowSize, 0.0) * 0.35;\n"
+                + "         bloomStrength *= mix(1.55, 0.7, bbsGlowSpread);\n"
                 + "        } /* BBS_COMP_GLOW_STRENGTH */";
 
         if (source.contains(strengthFrom) && !source.contains("BBS_COMP_GLOW_STRENGTH"))
@@ -271,21 +268,21 @@ public final class ComplementaryFormGlowPatch
                 + "#define " + PACK_GUARD + " 1\n"
                 + "float " + APPLY + "(){\n"
                 + " if(" + U_INTENSITY + "<=0.001) return 0.0;\n"
-                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.08);\n"
+                + " float soft=" + U_INTENSITY + ";\n"
                 + " float sizeM=clamp(" + U_SIZE + ",-32.0,24.0);\n"
                 + " float spreadM=clamp(" + U_SPREAD + ",0.0,1.0);\n"
-                + " /* Soft emission seed — avoid overdrive that dirty-washes white. */\n"
-                + " return soft*(1.25+max(sizeM,0.0)*0.45)*(0.95+spreadM*0.15);\n"
+                + " /* Intensity keeps driving emission — no early soft-cap at 0.35. */\n"
+                + " return soft*(1.6+max(sizeM,0.0)*0.55)*(0.95+spreadM*0.2);\n"
                 + "}\n"
                 + "vec3 " + AFTER_LIGHT + "(vec3 rgb){\n"
                 + " if(" + U_INTENSITY + "<=0.001) return rgb;\n"
-                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.08);\n"
+                + " float soft=" + U_INTENSITY + ";\n"
                 + " float sizeM=clamp(" + U_SIZE + ",-32.0,24.0);\n"
                 + " float spreadM=clamp(" + U_SPREAD + ",0.0,1.0);\n"
-                + " /* Gentle lift toward glow tint; keep neutrals clean white. */\n"
-                + " rgb += rgb*soft*(0.12+max(sizeM,0.0)*0.1);\n"
-                + " float lift=mix(1.02,1.12,spreadM);\n"
-                + " return mix(rgb, rgb*lift, soft*mix(0.2,0.4,spreadM));\n"
+                + " float liftAmt=clamp(soft/(2.0+soft*0.15),0.0,1.0);\n"
+                + " rgb += rgb*soft*(0.2+max(sizeM,0.0)*0.12);\n"
+                + " float lift=mix(1.05,1.35,spreadM);\n"
+                + " return mix(rgb, rgb*lift, liftAmt);\n"
                 + "}\n"
                 + "#endif\n";
 

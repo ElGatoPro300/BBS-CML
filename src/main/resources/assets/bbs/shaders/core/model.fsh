@@ -10,6 +10,8 @@ uniform float FogEnd;
 uniform vec4 FogColor;
 uniform float TextureBlendFactor;
 uniform float TextureBlendActive;
+/* 0 = all texels, 1 = opaque only (depth write), 2 = mid-alpha only (glasses; no depth write). */
+uniform float AlphaPass;
 
 /* rgb = paint color, a = paint strength (−1 = full darken, 0 = off, 1 = full override).
    PaintOverlay = 1 during Iris second pass. */
@@ -256,7 +258,7 @@ vec3 bbsApplyFormColorGrade(vec3 rgb, vec3 rootPos)
     return clamp(outRgb, 0.0, 1.0);
 }
 
-vec3 bbsApplyGlow(vec3 color, float strength)
+vec3 bbsApplyGlow(vec3 color, vec3 glowColor, float strength)
 {
     if (abs(strength) < 0.001)
     {
@@ -265,9 +267,12 @@ vec3 bbsApplyGlow(vec3 color, float strength)
 
     if (strength > 0.0)
     {
-        /* Soft amplify — keep form Color / texture hue. Intensity stays usable without hard cap. */
-        float soft = strength / (1.0 + strength * 0.08);
-        return color * (1.0 + soft * 2.0);
+        float t = min(strength, 1.0);
+        vec3 tinted = mix(color, glowColor, t);
+        /* Keep climbing past Intensity 1 — soft asymptote still grows through Intensity 50+. */
+        float boost = strength * 7.0 + strength * strength * 0.15;
+
+        return tinted + glowColor * boost;
     }
 
     float factor = max(0.0, 1.0 + strength);
@@ -381,7 +386,7 @@ void main()
                 }
 
                 glowStrength *= bbsPaintEffectMask(formRootPos, GlowEffectInverse, GlowEffectActive, GlowMaskHalf, GlowMaskBottomAnchored, GlowMaskShape);
-                outRgb = bbsApplyGlow(outRgb, glowStrength);
+                outRgb = bbsApplyGlow(outRgb, GlowingColor.rgb, glowStrength);
             }
         }
 
@@ -397,6 +402,23 @@ void main()
     if (texSample.a < 0.1)
     {
         discard;
+    }
+
+    /* Split opaque vs real glass. 0.99 treated filtered overlay edges as glass, so eyebrows
+     * lost depth and vanished when the head/brow rotated. Glasses sit around ~0.5 alpha. */
+    if (AlphaPass > 0.5 && AlphaPass < 1.5)
+    {
+        if (texSample.a < 0.9)
+        {
+            discard;
+        }
+    }
+    else if (AlphaPass > 1.5)
+    {
+        if (texSample.a < 0.1 || texSample.a >= 0.9)
+        {
+            discard;
+        }
     }
 
     vec4 color = texSample;
@@ -450,7 +472,7 @@ void main()
 
     strength *= bbsPaintEffectMask(formRootPos, GlowEffectInverse, GlowEffectActive, GlowMaskHalf, GlowMaskBottomAnchored, GlowMaskShape);
 
-    color.rgb = bbsApplyGlow(color.rgb, strength);
+    color.rgb = bbsApplyGlow(color.rgb, GlowingColor.rgb, strength);
 
     /* Brightness/contrast/hue/saturation each respect their own Transform mask. */
     color.rgb = bbsApplyFormColorGrade(color.rgb, formRootPos);

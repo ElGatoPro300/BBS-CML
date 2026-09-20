@@ -155,6 +155,9 @@ public abstract class FormRenderer <T extends Form>
             u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
             context.light = u | v << 16;
 
+            /* Opaque skin first (glass texels skipped / no depth), then body parts (eyes in
+             * the holes, eyebrows on the overlay), then mid-alpha glasses without depth write.
+             * Drawing parts *before* the mesh hid eyebrows/hair at glancing angles. */
             this.render3D(context);
 
             if (isPicking)
@@ -163,9 +166,11 @@ public abstract class FormRenderer <T extends Form>
             }
 
             this.renderBodyParts(context);
+            this.renderAfterBodyParts(context);
         }
         finally
         {
+            this.clearBodyPartPrepareState();
             context.stack.pop();
             if (context.world != null)
             {
@@ -178,6 +183,29 @@ public abstract class FormRenderer <T extends Form>
             this.form.unapplyStates();
         }
     }
+
+    /**
+     * When true, body parts are posed/captured and drawn before {@link #render3D}.
+     */
+    protected boolean shouldRenderBodyPartsBeforeMesh(FormRenderingContext context)
+    {
+        return false;
+    }
+
+    /**
+     * Pose + bone matrices for body parts when they draw before the mesh (Iris path).
+     */
+    protected void prepareBodyPartMatrices(FormRenderingContext context)
+    {}
+
+    protected void clearBodyPartPrepareState()
+    {}
+
+    /**
+     * Extra draws after body parts (e.g. mid-alpha skin / glasses without depth writes).
+     */
+    protected void renderAfterBodyParts(FormRenderingContext context)
+    {}
 
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
     {

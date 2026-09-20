@@ -62,6 +62,7 @@ public class Animator implements IAnimator
     public ActionPlayback lastActive;
     public List<ActionPlayback> actions = new ArrayList<>();
 
+    public IEntity lastTarget;
     public double prevX = Float.MAX_VALUE;
     public double prevZ = Float.MAX_VALUE;
     public double prevMY;
@@ -185,6 +186,7 @@ public class Animator implements IAnimator
      */
     public void syncUIPreviewEntity(IEntity stub)
     {
+        this.lastTarget = stub;
         this.prevX = stub.getX();
         this.prevZ = stub.getZ();
         this.prevMY = 0D;
@@ -206,11 +208,19 @@ public class Animator implements IAnimator
     @Override
     public void update(IEntity target)
     {
-        /* Fix issue with forms sudden running action */
-        if (this.prevX == Float.MAX_VALUE)
+        if (target == null)
         {
+            return;
+        }
+
+        /* Fix issue with forms sudden running action and isolate different entities */
+        if (this.lastTarget != target || this.prevX == Float.MAX_VALUE)
+        {
+            this.lastTarget = target;
             this.prevX = target.getX();
             this.prevZ = target.getZ();
+            this.prevMY = target.getVelocity().y;
+            this.wasOnGround = target.isOnGround();
         }
 
         this.controlActions(target);
@@ -234,6 +244,12 @@ public class Animator implements IAnimator
         if (this.lastActive != null)
         {
             this.lastActive.update();
+
+            if (this.active == null || !this.active.isFading())
+            {
+                this.lastActive.stopFade();
+                this.lastActive = null;
+            }
         }
 
         /* Update secondary actions */
@@ -263,8 +279,25 @@ public class Animator implements IAnimator
         Vec3d velocity = target.getVelocity();
         double dx = target.getX() - this.prevX;
         double dz = target.getZ() - this.prevZ;
-        final float threshold = 0.01F;
-        boolean moves = Math.abs(dx) > threshold || Math.abs(dz) > threshold;
+        double distSq = dx * dx + dz * dz;
+        double velSq = velocity.x * velocity.x + velocity.z * velocity.z;
+        float limbSpeed = target.getLimbSpeed(0F);
+
+        boolean wasMoving = this.active == this.running
+            || (this.sprinting != null && this.active == this.sprinting)
+            || this.active == this.crouching;
+
+        boolean moves;
+        if (wasMoving)
+        {
+            moves = limbSpeed > 0.015F || distSq > 0.0002 || velSq > 0.0002;
+        }
+        else
+        {
+            moves = (limbSpeed > 0.03F && (distSq > 0.0001 || velSq > 0.0001))
+                || distSq > 0.000625
+                || (velSq > 0.0016 && distSq > 0.0001);
+        }
 
         /* if (target.getHealth() <= 0)
         {
@@ -315,7 +348,7 @@ public class Animator implements IAnimator
                     double mdx = mount.getX() - mount.getPrevX();
                     double mdz = mount.getZ() - mount.getPrevZ();
 
-                    mountMoves = Math.abs(mdx) > threshold || Math.abs(mdz) > threshold;
+                    mountMoves = (mdx * mdx + mdz * mdz) > 0.0004 || mount.getLimbSpeed(0F) > 0.02F;
                 }
 
                 ActionPlayback ridingAction = !mountMoves && this.ridingIdle != null ? this.ridingIdle : this.riding;
@@ -452,6 +485,33 @@ public class Animator implements IAnimator
 
         if (this.active != null && action.priority < this.active.priority)
         {
+            return;
+        }
+
+        /* If we are reversing an in-flight transition back to the previous action:
+         * active was fading in with factor f, while lastActive had weight (1 - f).
+         * Reversing should seamlessly restore lastActive as active without resetting its timeline,
+         * avoiding any sudden pop of the interrupted action to 100% weight. */
+        if (this.active != null && this.lastActive == action && this.active.isFadingModeIn())
+        {
+            ActionPlayback interrupted = this.active;
+            float factor = interrupted.getFadeFactor(0F);
+            int fadeTicks = Math.round(factor * action.config.fade);
+
+            this.active = action;
+            this.lastActive = interrupted;
+
+            if (fadeTicks <= 0)
+            {
+                this.active.stopFade();
+                this.lastActive.stopFade();
+                this.lastActive = null;
+            }
+            else
+            {
+                this.active.startFade(fadeTicks, ActionPlayback.Fade.IN);
+                this.lastActive.startFade(fadeTicks, ActionPlayback.Fade.OUT);
+            }
             return;
         }
 

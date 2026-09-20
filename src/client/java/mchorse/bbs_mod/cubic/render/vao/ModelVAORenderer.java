@@ -79,6 +79,9 @@ public class ModelVAORenderer
     private static float textureBlendFactor;
     private static Link textureBlendTo;
 
+    /* 0 = draw all, 1 = opaque texels only, 2 = mid-alpha texels only (see model.fsh AlphaPass). */
+    private static float alphaPass;
+
     /* When true, the model is being drawn as a shader-pack paint overlay pass. Groups still sample their
      * real skin texture so transparent UV regions are discarded; only textured pixels receive paint. */
     private static boolean paintPass;
@@ -1291,6 +1294,21 @@ public class ModelVAORenderer
         ModelVAORenderer.textureBlendTo = null;
     }
 
+    public static void setAlphaPass(float pass)
+    {
+        ModelVAORenderer.alphaPass = pass;
+    }
+
+    public static void clearAlphaPass()
+    {
+        ModelVAORenderer.alphaPass = 0F;
+    }
+
+    public static float getAlphaPass()
+    {
+        return ModelVAORenderer.alphaPass;
+    }
+
     public static void setPaintEffectTransform(Matrix4f formRootInverseMatrix, EffectTransform transform, Vector3f maskHalf)
     {
         setPaintEffectTransform(formRootInverseMatrix, transform, maskHalf, true);
@@ -1880,6 +1898,20 @@ public class ModelVAORenderer
         if (textureBlendActiveUniform != null)
         {
             textureBlendActiveUniform.set(ModelVAORenderer.textureBlendActive ? 1F : 0F);
+        }
+
+        GlUniform alphaPassUniform = shader.getUniform("AlphaPass");
+
+        if (alphaPassUniform != null)
+        {
+            alphaPassUniform.set(ModelVAORenderer.alphaPass);
+        }
+
+        GlUniform bbsTexAlphaPassUniform = shader.getUniform("BbsTexAlphaPass");
+
+        if (bbsTexAlphaPassUniform != null)
+        {
+            bbsTexAlphaPassUniform.set(ModelVAORenderer.alphaPass);
         }
 
         GlUniform formRootInverseUniform = shader.getUniform("FormRootInverse");

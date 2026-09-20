@@ -5,20 +5,20 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.Pair;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.ConcurrentModificationException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Pose implements IMapSerializable
 {
-    private static Set<String> keys = new HashSet<>();
     private static List<Pair<Pattern, String>> patterns = new ArrayList<>();
 
-    public final Map<String, PoseTransform> transforms = new HashMap<>();
+    public final Map<String, PoseTransform> transforms = new ConcurrentHashMap<>();
 
     static
     {
@@ -143,17 +143,21 @@ public class Pose implements IMapSerializable
     @Override
     public boolean equals(Object obj)
     {
-        if (super.equals(obj))
+        if (this == obj)
         {
             return true;
         }
 
-        if (obj instanceof Pose)
+        if (!(obj instanceof Pose pose))
         {
-            Pose pose = (Pose) obj;
+            return false;
+        }
 
-            keys.clear();
-            keys.addAll(this.transforms.keySet());
+        try
+        {
+            /* Local set — never share a static key buffer across equals calls. */
+            Set<String> keys = new HashSet<>(this.transforms.keySet());
+
             keys.addAll(pose.transforms.keySet());
 
             for (String key : keys)
@@ -161,15 +165,34 @@ public class Pose implements IMapSerializable
                 Transform a = this.transforms.get(key);
                 Transform b = pose.transforms.get(key);
 
-                if (a != null && b != null && !a.equals(b)) return false;
-                if (a == null && !b.isDefault()) return false;
-                if (b == null && !a.isDefault()) return false;
+                if (a != null && b != null)
+                {
+                    if (!a.equals(b))
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                if (a == null && b != null && !b.isDefault())
+                {
+                    return false;
+                }
+
+                if (b == null && a != null && !a.isDefault())
+                {
+                    return false;
+                }
             }
 
             return true;
         }
-
-        return false;
+        catch (ConcurrentModificationException e)
+        {
+            /* Pose maps can still race with animators; treat as unequal rather than crash. */
+            return false;
+        }
     }
 
     public Pose copy()

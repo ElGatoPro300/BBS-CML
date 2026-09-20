@@ -102,12 +102,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private ActionsConfig lastConfigs;
     private IAnimator animator;
     private ModelInstance lastModel;
+    private ActionsConfig lastUiConfigs;
+    private IAnimator uiAnimator;
+    private ModelInstance lastUiModel;
     /** Per-form live copy so pose/IK/physics do not mutate the shared ModelManager instance. */
     private ModelInstance cachedModel;
     private String cachedModelId;
     private boolean ikAppliedThisRender;
     private boolean physicsAppliedThisRender;
     private boolean constraintsAppliedThisRender;
+    /** Pose/Y-flip already applied so body parts can draw before the mesh (Iris). */
+    private boolean bodyPartsPreparedBeforeMesh;
+    /** Mid-alpha skin (glasses) redraw after body parts — depth writes off. */
+    private PendingTextureAlphaTranslucent pendingTextureAlphaTranslucent;
 
     private int lastAge = -1;
     private int lastUiAnimTick = Integer.MIN_VALUE;
@@ -230,6 +237,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         this.lastModel = null;
         this.animator = null;
         this.lastConfigs = null;
+        this.uiAnimator = null;
+        this.lastUiModel = null;
+        this.lastUiConfigs = null;
     }
 
     public ModelInstance getModel()
@@ -374,6 +384,39 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         this.animator = null;
         this.lastModel = null;
+        this.uiAnimator = null;
+        this.lastUiModel = null;
+    }
+
+    public void ensureUIAnimator()
+    {
+        ModelInstance model = this.getModel();
+        ActionsConfig actionsConfig = this.resolveActionsConfig(model);
+
+        if (model == null)
+        {
+            return;
+        }
+
+        if (this.lastUiModel == model && this.uiAnimator != null)
+        {
+            if (!Objects.equals(actionsConfig, this.lastUiConfigs))
+            {
+                this.uiAnimator.setup(model, actionsConfig, true);
+
+                this.lastUiConfigs = new ActionsConfig();
+                this.lastUiConfigs.copy(actionsConfig);
+            }
+
+            return;
+        }
+
+        this.uiAnimator = model.procedural ? new ProceduralAnimator() : new Animator();
+        this.uiAnimator.setup(model, actionsConfig, false);
+
+        this.lastUiConfigs = new ActionsConfig();
+        this.lastUiConfigs.copy(actionsConfig);
+        this.lastUiModel = model;
     }
 
     private void applyPBRTextureIntensity()
@@ -459,11 +502,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         context.batcher.flush();
 
-        this.ensureAnimator(context.getTransition());
-
         ModelInstance model = this.getModel();
 
-        if (this.animator != null && model != null)
+        if (model != null)
         {
             MatrixStack stack = context.batcher.getContext().getMatrices();
 
@@ -489,28 +530,32 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             model.model.resetPose();
 
             /* Morph / form-list thumbnails stay on bind pose until the form is selected
-             * (clicked); then idle plays. Mouse orbit is separate. */
-            if (FormUtilsClient.isUIPreviewAnimate() && this.animator != null)
+             * (clicked); then idle plays. Mouse orbit is separate.
+             * Use dedicated uiAnimator so UI preview never mutates in-world entity animator. */
+            if (FormUtilsClient.isUIPreviewAnimate())
             {
-                MinecraftClient client = MinecraftClient.getInstance();
-                int tick = client.world != null ? (int) (client.world.getTime() & 0x7FFFFFFF) : this.lastUiAnimTick + 1;
+                this.ensureUIAnimator();
 
-                /* Advance animator once per game tick — apply every frame for smooth blend. */
-                if (tick != this.lastUiAnimTick)
+                if (this.uiAnimator != null)
                 {
-                    this.lastUiAnimTick = tick;
+                    MinecraftClient client = MinecraftClient.getInstance();
+                    int tick = client.world != null ? (int) (client.world.getTime() & 0x7FFFFFFF) : this.lastUiAnimTick + 1;
 
-                    /* Recent / applied forms often share this renderer with the world tick.
-                     * Sync movement tracking so UI never inherits a fake "running" action. */
-                    if (this.animator instanceof Animator keyframeAnimator)
+                    /* Advance UI animator once per game tick — apply every frame for smooth blend. */
+                    if (tick != this.lastUiAnimTick)
                     {
-                        keyframeAnimator.syncUIPreviewEntity(this.entity);
+                        this.lastUiAnimTick = tick;
+
+                        if (this.uiAnimator instanceof Animator keyframeAnimator)
+                        {
+                            keyframeAnimator.syncUIPreviewEntity(this.entity);
+                        }
+
+                        this.uiAnimator.update(this.entity);
                     }
 
-                    this.animator.update(this.entity);
+                    this.uiAnimator.applyActions(null, model, context.getTransition());
                 }
-
-                this.animator.applyActions(null, model, context.getTransition());
             }
 
             model.model.applyPose(this.getPose());
@@ -538,6 +583,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.renderBodyParts(new FormRenderingContext()
                 .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
                 .inUI());
+
+            this.flushPendingTextureAlphaTranslucent();
 
             stack.pop();
             stack.pop();
@@ -1978,12 +2025,16 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 return;
             }
 
-            this.renderModelGeometry(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
+            this.renderModelGeometryAlphaSplit(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
 
-            if (FormColorEffects.hasPositiveGlow(glow, legacyGlow) && Math.abs(glow.resolveSize()) > 0.001F
-                && !FormGlowBloomPatch.shouldSkipGeometrySizeShells())
+            if (FormColorEffects.hasPositiveGlow(glow, legacyGlow) && !FormGlowBloomPatch.shouldSkipGeometrySizeShells())
             {
-                this.renderGlowSizeShells(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow);
+                float bloomSize = FormColorEffects.resolveBloomSizeFromIntensity(glow.resolveIntensity(legacyGlow), glow.resolveSize());
+
+                if (Math.abs(bloomSize) > 0.001F)
+                {
+                    this.renderGlowSizeShells(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow);
+                }
             }
         }
         finally
@@ -1993,16 +2044,239 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     /**
+     * Opaque skin writes depth; mid-alpha texels (glasses) are queued and drawn after body
+     * parts without depth writes so eyes/models under glass stay visible.
+     */
+    private void renderModelGeometryAlphaSplit(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend)
+    {
+        if (!this.shouldSplitTextureAlphaDepth(model, stencilMap, color))
+        {
+            this.renderModelGeometry(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
+
+            return;
+        }
+
+        /* Iris world: keep pack entity program (BbsTexAlphaPass). Otherwise BBS model.fsh. */
+        Supplier<ShaderProgram> splitProgram = BBSRendering.isIrisWorldModelPass()
+            ? program
+            : BBSShaders::getModel;
+
+        ModelVAORenderer.setAlphaPass(1F);
+        RenderSystem.depthMask(true);
+
+        try
+        {
+            this.renderModelGeometry(stack, splitProgram, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
+        }
+        finally
+        {
+            ModelVAORenderer.clearAlphaPass();
+        }
+
+        this.pendingTextureAlphaTranslucent = new PendingTextureAlphaTranslucent(
+            new Matrix4f(stack.peek().getPositionMatrix()),
+            new Matrix3f(stack.peek().getNormalMatrix()),
+            splitProgram,
+            model,
+            light,
+            overlay,
+            color == null ? null : color.copy(),
+            defaultTexture,
+            textureBlend
+        );
+    }
+
+    private boolean shouldSplitTextureAlphaDepth(ModelInstance model, StencilMap stencilMap, Color color)
+    {
+        if (stencilMap != null)
+        {
+            return false;
+        }
+
+        /* Iris world keeps entity_translucent for the opaque pass; AlphaPass is also uploaded
+         * as BbsTexAlphaPass when the pack was patched. Skip only shadow / pick / overlays. */
+        if (BBSRendering.isIrisShadowPass())
+        {
+            return false;
+        }
+
+        if (ModelVAORenderer.isPaintOverlayPass()
+            || ModelVAORenderer.isColorTintOverlayPass()
+            || ModelVAORenderer.isColorGradeOverlayPass()
+            || ModelVAORenderer.isDeferredTranslucentPass())
+        {
+            return false;
+        }
+
+        if (color != null && color.a < 0.99F)
+        {
+            return false;
+        }
+
+        return model != null && model.supportsBbsModelShaderEffects();
+    }
+
+    @Override
+    protected void prepareBodyPartMatrices(FormRenderingContext context)
+    {
+        this.ensureAnimator(context.getTransition());
+
+        ModelInstance model = this.getModel();
+
+        if (this.animator == null || model == null)
+        {
+            return;
+        }
+
+        model.model.resetPose();
+        this.animator.applyActions(context.entity, model, context.getTransition());
+        model.model.applyPose(this.getPose());
+
+        context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+
+        if (context.world != null)
+        {
+            context.world.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+        }
+
+        /* IK / physics / constraints run inside renderModel; approximate bone mats from pose
+         * first, then render3D refreshes after the full pipeline when parts-first is off.
+         * For parts-first, run a lightweight capture after applying the same one-shot solvers
+         * used at the start of renderModel. */
+        Matrix4f identity = new Matrix4f();
+
+        this.ikAppliedThisRender = false;
+        this.physicsAppliedThisRender = false;
+        this.constraintsAppliedThisRender = false;
+        this.applyIKOnce(model, identity);
+        this.applyPhysicsOnce(context.entity, model, context.getTransition(), identity);
+        this.applyConstraintsOnce(model);
+        this.captureMatrices(model);
+        this.bodyPartsPreparedBeforeMesh = true;
+    }
+
+    @Override
+    protected void clearBodyPartPrepareState()
+    {
+        this.bodyPartsPreparedBeforeMesh = false;
+        this.pendingTextureAlphaTranslucent = null;
+        ModelVAORenderer.clearAlphaPass();
+    }
+
+    @Override
+    protected void renderAfterBodyParts(FormRenderingContext context)
+    {
+        this.flushPendingTextureAlphaTranslucent();
+    }
+
+    private void flushPendingTextureAlphaTranslucent()
+    {
+        PendingTextureAlphaTranslucent pending = this.pendingTextureAlphaTranslucent;
+
+        if (pending == null)
+        {
+            return;
+        }
+
+        this.pendingTextureAlphaTranslucent = null;
+
+        MatrixStack stack = new MatrixStack();
+
+        stack.peek().getPositionMatrix().set(pending.position);
+        stack.peek().getNormalMatrix().set(pending.normal);
+
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        int savedCullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
+        int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        /* Same facing rule as soft-limb translucency (Iris may restore camera ModelView). */
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        facingMatrix.mul(pending.position);
+
+        boolean flipWinding = facingMatrix.determinant() < 0F;
+
+        ModelVAORenderer.setAlphaPass(2F);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
+        GL11.glFrontFace(flipWinding ? GL11.GL_CW : GL11.GL_CCW);
+        GL11.glCullFace(GL11.GL_BACK);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        /* Stronger than body-part lift so lenses blend over eyes; still units-only. */
+        GL11.glPolygonOffset(0F, -72F);
+
+        try
+        {
+            this.renderModelGeometry(stack, pending.program, pending.model, pending.light, pending.overlay, null, pending.color, pending.defaultTexture, pending.textureBlend);
+        }
+        finally
+        {
+            ModelVAORenderer.clearAlphaPass();
+            RenderSystem.depthMask(savedDepthMask);
+            GL11.glCullFace(savedCullFace);
+            GL11.glFrontFace(savedFrontFace);
+            GL11.glPolygonOffset(0F, 0F);
+
+            if (savedPolygonOffsetFill)
+            {
+                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+            else
+            {
+                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+
+            if (cullWasEnabled)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+        }
+    }
+
+    private static final class PendingTextureAlphaTranslucent
+    {
+        private final Matrix4f position;
+        private final Matrix3f normal;
+        private final Supplier<ShaderProgram> program;
+        private final ModelInstance model;
+        private final int light;
+        private final int overlay;
+        private final Color color;
+        private final Link defaultTexture;
+        private final TextureBlend textureBlend;
+
+        private PendingTextureAlphaTranslucent(Matrix4f position, Matrix3f normal, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend)
+        {
+            this.position = position;
+            this.normal = normal;
+            this.program = program;
+            this.model = model;
+            this.light = light;
+            this.overlay = overlay;
+            this.color = color;
+            this.defaultTexture = defaultTexture;
+            this.textureBlend = textureBlend;
+        }
+    }
+
+    /**
      * Photoshop-like Outer Glow Size: soft scaled additive shells so bloom has a larger seed.
      */
     private void renderGlowSizeShells(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
     {
         float intensity = glow.resolveIntensity(legacyGlow);
-        float size = glow.resolveSize();
+        float size = FormColorEffects.resolveBloomSizeFromIntensity(intensity, glow.resolveSize());
         float spread = glow.resolveSpread();
         int shells = FormColorEffects.resolveGlowSizeShells(size, spread);
 
-        if (shells <= 0)
+        if (shells <= 0 || mchorse.bbs_mod.utils.iris.FormGlowBloomPatch.shouldSkipGeometrySizeShells())
         {
             return;
         }
@@ -3391,15 +3665,26 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
 
             this.form.applyFormOpacity(color);
-            model.model.resetPose();
 
-            this.animator.applyActions(context.entity, model, context.getTransition());
-            model.model.applyPose(this.getPose());
+            boolean prepared = this.bodyPartsPreparedBeforeMesh;
 
-            context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
-            if (context.world != null)
+            if (!prepared)
             {
-                context.world.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+                model.model.resetPose();
+                this.animator.applyActions(context.entity, model, context.getTransition());
+                model.model.applyPose(this.getPose());
+
+                context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+
+                if (context.world != null)
+                {
+                    context.world.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
+                }
+            }
+            else
+            {
+                /* prepareBodyPartMatrices already posed + Y-flipped the stacks. */
+                this.bodyPartsPreparedBeforeMesh = false;
             }
 
             if (texture != null)
@@ -3462,12 +3747,57 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             context.world.push();
         }
 
+        /* Eyes sit *inside* the head cube; glasses only punched holes in the overlay. Without a
+         * depth bias, the inner head still wins and the socket shows empty. Units-only offset
+         * avoids the grazing-angle blowup that hid eyebrows when factor-based offset was used
+         * on the glass pass. World occlusion stays (depth test on). */
+        boolean liftUnderGlass = this.pendingTextureAlphaTranslucent != null;
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+
+        if (liftUnderGlass)
+        {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+            GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            /* Units-only: beat the inner head without a grazing-angle blowup. Glass uses a
+             * slightly stronger pull so lenses still composite over the eyes. */
+            GL11.glPolygonOffset(0F, -48F);
+            RenderSystem.disableCull();
+        }
+
         try
         {
             this.renderBodyPartLayers(context, parts);
         }
         finally
         {
+            if (liftUnderGlass)
+            {
+                RenderSystem.depthMask(savedDepthMask);
+                GL11.glPolygonOffset(0F, 0F);
+
+                if (savedPolygonOffsetFill)
+                {
+                    GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+                }
+                else
+                {
+                    GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+                }
+
+                if (cullWasEnabled)
+                {
+                    RenderSystem.enableCull();
+                }
+                else
+                {
+                    RenderSystem.disableCull();
+                }
+            }
+
             this.bones.clear();
             context.stack.pop();
             if (context.world != null)

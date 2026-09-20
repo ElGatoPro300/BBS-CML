@@ -113,6 +113,27 @@ public class ActionPlayback
         return this.fade;
     }
 
+    public void setFade(int fade)
+    {
+        this.fade = Math.max(0, fade);
+    }
+
+    public Fade getFadeMode()
+    {
+        return this.fading;
+    }
+
+    public void startFade(int fade, Fade mode)
+    {
+        this.fade = Math.max(0, fade);
+        this.fading = mode == null ? Fade.FINISHED : mode;
+
+        if (this.fade <= 0 && this.fading != Fade.FINISHED)
+        {
+            this.fading = Fade.FINISHED;
+        }
+    }
+
     /**
      * Calculate fade factor with given partial ticks
      *

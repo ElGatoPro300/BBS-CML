@@ -334,7 +334,7 @@ public class UIFilmController extends UIElement
             return null;
         }
 
-        int index = this.panel.getData().replays.getList().indexOf(replay);
+        int index = CollectionUtils.getIndex(this.panel.getData().replays.getList(), replay);
 
         return this.getEntities().get(index);
     }
@@ -785,7 +785,7 @@ public class UIFilmController extends UIElement
             MinecraftClient.getInstance().setScreen(null);
 
             Replay replay = this.panel.replayEditor.getReplay();
-            int index = this.panel.getData().replays.getList().indexOf(replay);
+            int index = CollectionUtils.getIndex(this.panel.getData().replays.getList(), replay);
 
             if (index >= 0)
             {
@@ -1502,7 +1502,7 @@ public class UIFilmController extends UIElement
             BaseValue.edit(replay.keyframes, (keyframes) ->
             {
                 List<Replay> replays = this.panel.getData().replays.getList();
-                int index = replays.indexOf(replay);
+                int index = CollectionUtils.getIndex(replays, replay);
 
                 keyframes.record(this.getTick(), this.getCurrentEntity(), groups);
                 RecorderMobCapture.recordMountKeyframes(replays, index, keyframes, this.getCurrentEntity(), this.getTick());
@@ -2172,7 +2172,7 @@ public class UIFilmController extends UIElement
 
             currentIndex = currentReplay == null || this.panel.getData() == null
                 ? -1
-                : this.panel.getData().replays.getList().indexOf(currentReplay);
+                : CollectionUtils.getIndex(this.panel.getData().replays.getList(), currentReplay);
         }
 
         this.ensureStencilFramebuffer(pickArea);

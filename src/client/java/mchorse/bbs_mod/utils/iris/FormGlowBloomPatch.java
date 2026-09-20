@@ -63,7 +63,8 @@ public final class FormGlowBloomPatch
     public static void set(float intensityValue, float sizeValue, float spreadValue)
     {
         intensity = Math.max(0F, intensityValue);
-        size = sizeValue;
+        /* Size=0 + high Intensity still needs bloom radius for Iris composites. */
+        size = mchorse.bbs_mod.forms.renderers.utils.FormColorEffects.resolveBloomSizeFromIntensity(intensity, sizeValue);
         spread = Math.max(0F, Math.min(1F, spreadValue));
 
         if (intensity > 0.001F)
@@ -183,7 +184,7 @@ public final class FormGlowBloomPatch
      */
     public static boolean shouldSkipGeometrySizeShells()
     {
-        return false;
+        return isPackPatched();
     }
 
     public static boolean shouldSkipAlbedoBrighten()
@@ -355,20 +356,21 @@ public final class FormGlowBloomPatch
                 + "#define " + HELPER_GUARD + "\n"
                 + "float " + APPLY + "(){\n"
                 + " if(" + U_INTENSITY + "<=0.001) return 0.0;\n"
-                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.05);\n"
+                + " float soft=" + U_INTENSITY + ";\n"
                 + " float sizeM=clamp(" + U_SIZE + ",-4.0,12.0);\n"
                 + " float spreadM=clamp(" + U_SPREAD + ",0.0,1.0);\n"
-                + " /* Strong emission seed so Complementary bloom atlas sees the form. */\n"
-                + " return soft*(1.35+max(sizeM,0.0)*0.55)*(0.9+spreadM*0.35);\n"
+                + " /* Strong emission seed — Intensity keeps scaling (no early soft-cap). */\n"
+                + " return soft*(1.6+max(sizeM,0.0)*0.55)*(0.9+spreadM*0.35);\n"
                 + "}\n"
                 + "vec3 " + AFTER_LIGHT + "(vec3 rgb){\n"
                 + " if(" + U_INTENSITY + "<=0.001) return rgb;\n"
-                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.05);\n"
+                + " float soft=" + U_INTENSITY + ";\n"
                 + " float sizeM=clamp(" + U_SIZE + ",-4.0,12.0);\n"
                 + " float spreadM=clamp(" + U_SPREAD + ",0.0,1.0);\n"
-                + " rgb += rgb*soft*(0.2+max(sizeM,0.0)*0.18);\n"
-                + " float choke=mix(0.88,1.35,spreadM);\n"
-                + " return mix(rgb, rgb*choke, soft*mix(0.3,0.65,spreadM));\n"
+                + " float liftAmt=clamp(soft/(2.0+soft*0.15),0.0,1.0);\n"
+                + " rgb += rgb*soft*(0.25+max(sizeM,0.0)*0.18);\n"
+                + " float choke=mix(0.95,1.4,spreadM);\n"
+                + " return mix(rgb, rgb*choke, liftAmt);\n"
                 + "}\n"
                 + "#endif\n";
 
@@ -529,7 +531,7 @@ public final class FormGlowBloomPatch
         String mixTo =
             "float bbsBloomAmt = 0.2 * BLOOM_STRENGTH;\n"
                 + "\tif (max(" + U_INTENSITY + ", 0.0) > 0.001) {\n"
-                + "\t bbsBloomAmt *= 1.0 + clamp(" + U_INTENSITY + ", 0.0, 24.0) * 0.14 + max(clamp(" + U_SIZE + ", -8.0, 16.0), 0.0) * 0.45;\n"
+                + "\t bbsBloomAmt *= 1.0 + clamp(" + U_INTENSITY + ", 0.0, 64.0) * 0.45 + max(clamp(" + U_SIZE + ", -8.0, 16.0), 0.0) * 0.5;\n"
                 + "\t bbsBloomAmt *= mix(1.55, 0.5, clamp(" + U_SPREAD + ", 0.0, 1.0));\n"
                 + "\t}\n"
                 + "\tcolor = mix(color, blur, bbsBloomAmt); /* BBS_GLOW_BSL_STRENGTH */";
@@ -559,7 +561,7 @@ public final class FormGlowBloomPatch
 
         String strengthTo =
             "float bloomStrength = BLOOM_STRENGTH + 0.2 * darknessFactor;\n"
-                + "        bloomStrength *= (1.0 + clamp(" + U_INTENSITY + ", 0.0, 24.0) * 0.12 + max(clamp(" + U_SIZE + ", -8.0, 16.0), 0.0) * 0.5);\n"
+                + "        bloomStrength *= (1.0 + clamp(" + U_INTENSITY + ", 0.0, 64.0) * 0.45 + max(clamp(" + U_SIZE + ", -8.0, 16.0), 0.0) * 0.5);\n"
                 + "        bloomStrength *= mix(1.55, 0.55, clamp(" + U_SPREAD + ", 0.0, 1.0)); /* BBS_GLOW_STRENGTH */";
 
         return source.replace(strengthFrom, strengthTo);

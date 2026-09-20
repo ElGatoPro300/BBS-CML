@@ -133,7 +133,7 @@ public class FilmEditorController extends BaseFilmController
         if (entity == this.controller.getControlled() && this.controller.isRecording() && this.controller.panel.getRunner().isRunning())
         {
             List<Replay> replays = this.film.replays.getList();
-            int index = replays.indexOf(replay);
+            int index = CollectionUtils.getIndex(replays, replay);
             int cursor = this.controller.panel.getCursor();
 
             MobCemPoseCapture.syncReplay(replay);

@@ -10,17 +10,17 @@ public final class BBSFeatures
      * Form Look At / Inverse Kinematics: film timeline tracks, form General sections,
      * and property pick menus. Set {@code true} to restore the unfinished UI.
      */
-    public static final boolean FORM_IK_LOOK_AT_UI = false;
+    public static final boolean FORM_IK_LOOK_AT_UI = true;
 
     /**
      * Model editor IK panel and Geometry "Add IK Locator" action.
      */
-    public static final boolean MODEL_IK_UI = false;
+    public static final boolean MODEL_IK_UI = true;
 
     /**
      * Model editor procedural "Look at limb" / Gecko look-at section.
      */
-    public static final boolean MODEL_PROCEDURAL_LOOK_AT_UI = false;
+    public static final boolean MODEL_PROCEDURAL_LOOK_AT_UI = true;
 
     private BBSFeatures()
     {}

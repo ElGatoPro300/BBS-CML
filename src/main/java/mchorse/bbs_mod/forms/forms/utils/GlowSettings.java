@@ -36,7 +36,7 @@ public class GlowSettings
 
     public GlowSettings()
     {
-        this(0F, 0F);
+        this(0F, 1F);
     }
 
     public GlowSettings(float intensity, float radius)
