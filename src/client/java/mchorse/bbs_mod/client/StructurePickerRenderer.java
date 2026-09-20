@@ -29,7 +29,7 @@ import java.util.Set;
 
 /**
  * Structure picker world overlay: yellow selection volumes that respect depth
- * (occluded by terrain), plus visual corner handles on cube selections.
+ * (occluded by terrain), plus visual corner handles on volume selections.
  */
 public class StructurePickerRenderer
 {
@@ -117,6 +117,7 @@ public class StructurePickerRenderer
 
     private static void renderCornerGizmos(MatrixStack stack, Vec3d camera)
     {
+        /* BLOCK is paint-style (many tiny cells); corner handles stay on AABB volume modes. */
         if (StructurePickerClient.getMode() == StructurePickerMode.BLOCK)
         {
             return;
@@ -124,17 +125,23 @@ public class StructurePickerRenderer
 
         for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
         {
-            if (region.mode() == StructurePickerMode.CUBE)
+            if (region.mode() != StructurePickerMode.BLOCK)
             {
-                StructurePickerRenderer.renderCubeCorners(stack, region.first(), region.second(), camera);
+                StructurePickerRenderer.renderSelectionCorners(stack, region.first(), region.second(), region.mode(), camera);
             }
         }
 
         if (StructurePickerClient.hasInProgress()
-            && StructurePickerClient.getMode() == StructurePickerMode.CUBE
+            && StructurePickerClient.getMode() != StructurePickerMode.BLOCK
             && !StructurePickerClient.isSubtractMode())
         {
-            StructurePickerRenderer.renderCubeCorners(stack, StructurePickerClient.getFirstCorner(), StructurePickerClient.getSecondCorner(), camera);
+            StructurePickerRenderer.renderSelectionCorners(
+                stack,
+                StructurePickerClient.getFirstCorner(),
+                StructurePickerClient.getSecondCorner(),
+                StructurePickerClient.getMode(),
+                camera
+            );
         }
     }
 
@@ -220,10 +227,11 @@ public class StructurePickerRenderer
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
-    private static void renderCubeCorners(MatrixStack stack, BlockPos first, BlockPos second, Vec3d camera)
+    private static void renderSelectionCorners(MatrixStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Vec3d camera)
     {
-        BlockPos min = StructurePickerSelection.min(first, second);
-        BlockPos max = StructurePickerSelection.max(first, second);
+        BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
+        BlockPos min = StructurePickerSelection.min(first, adjusted);
+        BlockPos max = StructurePickerSelection.max(first, adjusted);
         float pulse = 0.85F + 0.15F * (0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() * 0.004D));
         float hMin = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, min.getX(), min.getY(), min.getZ());
         float hMax = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, max.getX() + 1, max.getY() + 1, max.getZ() + 1);
