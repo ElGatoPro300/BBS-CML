@@ -13,7 +13,6 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
 import mchorse.bbs_mod.client.StructurePickerClient;
-import mchorse.bbs_mod.client.StructurePickerRenderer;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
@@ -834,8 +833,6 @@ public class BBSModClient implements ClientModInitializer
             /* Fancy: primary soft flush after clouds. Fabulous: leftovers on main FB. */
             ShaderOpacityPatch.onAfterVanillaClouds();
 
-            /* After clouds / translucents / model blocks so selection+gizmos stay on top. */
-            StructurePickerRenderer.render(context);
             Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())
