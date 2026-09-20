@@ -256,8 +256,6 @@ public class BBSSettings
     public static ValueFloat shaderShadowOpacity;
     public static ValueBoolean shaderShadowDither;
     public static ValueBoolean lodShaderReloadFix;
-    public static ValueBoolean irisFormFluidPatch;
-    public static ValueBoolean irisFormGlowBloomPatch;
 
     public static ValueBoolean audioWaveformVisible;
     public static ValueInt audioWaveformDensity;
@@ -901,8 +899,6 @@ public class BBSSettings
         shaderShadowOpacity = builder.getFloat("shader_shadow_opacity", 1F, 0F, 1F);
         shaderShadowDither = builder.getBoolean("shader_shadow_dither", true);
         lodShaderReloadFix = builder.getBoolean("lod_shader_reload_fix", true);
-        irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
-        irisFormGlowBloomPatch = builder.getBoolean("iris_form_glow_bloom_patch", true);
 
         builder.category("fluid_simulation");
         fluidRealisticModelInteraction = builder.getBoolean("realistic_model_interaction", false);
