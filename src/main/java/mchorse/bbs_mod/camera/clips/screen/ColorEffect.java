@@ -2,6 +2,8 @@ package mchorse.bbs_mod.camera.clips.screen;
 
 public class ColorEffect
 {
+    public int renderOrder;
+
     public boolean hasOverlay;
     public int overlayColor;
 
@@ -58,6 +60,7 @@ public class ColorEffect
 
     public void reset()
     {
+        this.renderOrder = 0;
         this.hasOverlay = false;
         this.hasVignette = false;
         this.hasGrade = false;

@@ -53,7 +53,7 @@ public class UIOrbitCamera implements IUIElement
 
         Area area = this.viewportArea.get();
 
-        return area != null && area.isInside(context);
+        return area == null || area.isInside(context);
     }
 
     @Override
@@ -100,6 +100,17 @@ public class UIOrbitCamera implements IUIElement
     {
         if (!this.control)
         {
+            this.orbit.cache(context.mouseX, context.mouseY);
+
+            return;
+        }
+
+        /* Opening a form palette / modal overlay stops key events, so WASD velocity would
+         * otherwise keep applying until a release is seen. Freeze and clear control. */
+        if (context.hasOverlayPanel() || context.hasFormPaletteOpen())
+        {
+            this.orbit.reset();
+            this.orbit.release();
             this.orbit.cache(context.mouseX, context.mouseY);
 
             return;

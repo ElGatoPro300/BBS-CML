@@ -6,8 +6,6 @@ import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.caffeinemc.mods.sodium.api.vertex.attributes.common.ColorAttribute;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,10 +21,7 @@ public class ColorAttributeMixin
         if (GlowEmissionVertexConsumer.emissionColor != null)
         {
             Colors.COLOR.set(Colors.fromAbgr(color));
-            float vertexAlpha = Colors.COLOR.a;
-
-            Colors.COLOR.copy(GlowEmissionVertexConsumer.emissionColor);
-            Colors.COLOR.a *= vertexAlpha;
+            Colors.COLOR.mul(GlowEmissionVertexConsumer.emissionColor);
 
             return Colors.toAbgr(Colors.COLOR.getARGBColor());
         }
@@ -34,10 +29,9 @@ public class ColorAttributeMixin
         if (BlockPaintOverlayVertexConsumer.paintOverlayColor != null)
         {
             Colors.COLOR.set(Colors.fromAbgr(color));
-            float vertexAlpha = Colors.COLOR.a;
+            float outA = Colors.COLOR.a * BlockPaintOverlayVertexConsumer.paintOverlayColor.a;
 
-            Colors.COLOR.copy(BlockPaintOverlayVertexConsumer.paintOverlayColor);
-            Colors.COLOR.a *= vertexAlpha;
+            Colors.COLOR.set(BlockPaintOverlayVertexConsumer.paintOverlayColor.r, BlockPaintOverlayVertexConsumer.paintOverlayColor.g, BlockPaintOverlayVertexConsumer.paintOverlayColor.b, outA);
 
             return Colors.toAbgr(Colors.COLOR.getARGBColor());
         }

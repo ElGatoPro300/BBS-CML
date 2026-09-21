@@ -47,6 +47,7 @@ public class GrainClip extends CameraClip
 
             this.effect.strength = str * factor;
             this.effect.size = Math.max(0.25F, px);
+            this.effect.renderOrder = context.applied;
 
             getEffects(context).add(this.effect);
         }

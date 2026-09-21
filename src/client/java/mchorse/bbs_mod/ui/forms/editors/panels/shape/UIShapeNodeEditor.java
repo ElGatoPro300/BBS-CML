@@ -35,7 +35,6 @@ import mchorse.bbs_mod.forms.forms.shape.nodes.VectorMathNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.VoronoiNode;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -57,18 +56,10 @@ import mchorse.bbs_mod.ui.utils.presets.UICopyPasteController;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-
-import org.joml.Matrix4f;
 import org.joml.Vector2f;
 
 import org.lwjgl.glfw.GLFW;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -806,7 +797,7 @@ public class UIShapeNodeEditor extends UIElement
                 attrMenu.action(Icons.GEAR, IKey.raw(attr.name()), () -> an.attribute = attr);
             }
 
-            menu.action(Icons.GEAR, IKey.raw("Attribute: " + an.attribute.name()), Colors.INACTIVE,
+            menu.action(Icons.GEAR, UIKeys.SHAPES_ATTRIBUTE.format(an.attribute.name()), Colors.INACTIVE,
                 () -> context.replaceContextMenu(attrMenu.create()));
         }
 

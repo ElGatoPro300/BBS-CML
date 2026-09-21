@@ -23,21 +23,26 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
+        return this.fromData(data, BBSMod.getRegistryManager());
+    }
+
+    public ItemStack fromData(BaseType data, RegistryWrapper.WrapperLookup registries)
+    {
         if (data == null)
         {
             return ItemStack.EMPTY;
         }
 
         NbtElement nbt = DataStorageUtils.toNbt(data);
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        RegistryWrapper.WrapperLookup lookup = registries != null ? registries : BBSMod.getRegistryManager();
 
-        if (registries == null)
+        if (lookup == null)
         {
             /* Without RegistryOps, enchanted components cannot be restored safely. */
             return ItemStack.EMPTY;
         }
 
-        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, lookup);
         Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
 
         if (decoded.isPresent())
@@ -48,7 +53,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         /* Legacy / partially corrupted entries still often decode via fromNbt. */
         if (nbt instanceof NbtCompound compound)
         {
-            return ItemStack.fromNbtOrEmpty(registries, compound);
+            return ItemStack.fromNbtOrEmpty(lookup, compound);
         }
 
         return ItemStack.EMPTY;
@@ -57,21 +62,26 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public BaseType toData(ItemStack value)
     {
+        return this.toData(value, BBSMod.getRegistryManager());
+    }
+
+    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
+    {
         if (value == null || value.isEmpty())
         {
             return new MapType();
         }
 
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        RegistryWrapper.WrapperLookup lookup = registries != null ? registries : BBSMod.getRegistryManager();
 
-        if (registries == null)
+        if (lookup == null)
         {
             /* Never encode with plain NbtOps — it drops enchantment components on
              * 1.20.5+ and corrupts actor equipment keyframes on sync/save/undo. */
             return new MapType();
         }
 
-        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, lookup);
         Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(new MapType());

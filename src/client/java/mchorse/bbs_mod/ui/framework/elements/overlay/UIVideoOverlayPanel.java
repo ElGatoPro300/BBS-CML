@@ -23,6 +23,8 @@ import mchorse.bbs_mod.video.VideoLikeManager;
 
 import com.mojang.logging.LogUtils;
 
+import org.slf4j.Logger;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,8 +35,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
 
 public class UIVideoOverlayPanel extends UIStringOverlayPanel
 {
@@ -359,8 +359,8 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
     {
         UIUtils.pickOpenFile(
             UIKeys.OVERLAYS_VIDEOS_ADD_EXTERNAL_TITLE.get(),
-            "*.mp4;*.mov;*.mkv;*.avi;*.webm",
-            new String[] {"mp4", "mov", "mkv", "avi", "webm"},
+            "*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.m4v;*.ts;*.wmv;*.ogv;*.3gp;*.gif;*.webp;*.png;*.svg",
+            new String[] {"mp4", "mov", "mkv", "avi", "webm", "flv", "m4v", "ts", "wmv", "ogv", "3gp", "gif", "webp", "png", "svg"},
             this::importVideoIntoBbs
         );
     }
@@ -679,7 +679,21 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
     {
         String lower = name.toLowerCase();
 
-        return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".mkv") || lower.endsWith(".avi") || lower.endsWith(".webm");
+        return lower.endsWith(".mp4")
+            || lower.endsWith(".mov")
+            || lower.endsWith(".mkv")
+            || lower.endsWith(".avi")
+            || lower.endsWith(".webm")
+            || lower.endsWith(".flv")
+            || lower.endsWith(".m4v")
+            || lower.endsWith(".ts")
+            || lower.endsWith(".wmv")
+            || lower.endsWith(".ogv")
+            || lower.endsWith(".3gp")
+            || lower.endsWith(".gif")
+            || lower.endsWith(".webp")
+            || lower.endsWith(".png")
+            || lower.endsWith(".svg");
     }
 
     @Override

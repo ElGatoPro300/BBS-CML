@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Scroll;
+import mchorse.bbs_mod.ui.utils.ScrollDirection;
 import mchorse.bbs_mod.ui.utils.resizers.AutomaticResizer;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Interpolations;
@@ -337,8 +338,10 @@ public class UIAnimatedCollapseShell extends UIElement
             }
         }
 
-        /* Outer shells follow nested Transform height both up and down. */
-        if (this.open && !this.animating)
+        /* Outer shells follow nested Transform height both up and down.
+         * Also follow while open after settle: wrapping toggles grow on first
+         * render and would otherwise stay clipped once the shell unregisters. */
+        if (this.open)
         {
             if (this.remeasureQueued)
             {
@@ -361,17 +364,15 @@ public class UIAnimatedCollapseShell extends UIElement
         {
             this.detachIfClosed();
         }
-        else if (this.animating || this.hasNestedActiveShell())
+        else if (this.open || this.animating || this.hasNestedActiveShell())
         {
+            /* Stay active while open so followLiveContentHeight can catch post-measure
+             * growth (e.g. wrapping toggles) instead of permanently clipping the body. */
             this.registerActive();
-        }
-        else if (this.open)
-        {
-            this.unregisterActive();
         }
         else
         {
-            this.registerActive();
+            this.unregisterActive();
         }
     }
 
@@ -527,7 +528,7 @@ public class UIAnimatedCollapseShell extends UIElement
 
         if (scroll != null)
         {
-            if (shrinkPx > 0)
+            if (scroll.direction == ScrollDirection.VERTICAL && shrinkPx > 0)
             {
                 /* Keep lower widgets from snapping when max-scroll shrinks. */
                 scroll.setScroll(scrollBefore - shrinkPx);

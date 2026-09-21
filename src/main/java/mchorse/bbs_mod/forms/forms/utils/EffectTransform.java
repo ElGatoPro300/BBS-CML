@@ -6,8 +6,9 @@ import mchorse.bbs_mod.data.types.MapType;
 import java.util.Objects;
 
 /**
- * Local transform for spatial paint masks. Offset moves the effect volume,
- * scale sizes it, rotation tilts it, and {@link #shape} picks box / circle / triangle.
+ * Local transform for spatial paint / color / glow masks. Offset moves the effect
+ * volume, scale sizes it, rotation tilts it, pivot is the local rotation center,
+ * and {@link #shape} picks box / circle / triangle.
  */
 public class EffectTransform
 {
@@ -22,6 +23,9 @@ public class EffectTransform
     public float rotateX;
     public float rotateY;
     public float rotateZ;
+    public float pivotX;
+    public float pivotY;
+    public float pivotZ;
     public PaintMaskShape shape = PaintMaskShape.BOX;
 
     public EffectTransform()
@@ -40,6 +44,9 @@ public class EffectTransform
         copy.rotateX = this.rotateX;
         copy.rotateY = this.rotateY;
         copy.rotateZ = this.rotateZ;
+        copy.pivotX = this.pivotX;
+        copy.pivotY = this.pivotY;
+        copy.pivotZ = this.pivotZ;
         copy.shape = this.shape;
 
         return copy;
@@ -60,7 +67,10 @@ public class EffectTransform
             || Math.abs(this.scaleZ - 1F) > EPSILON
             || Math.abs(this.rotateX) > EPSILON
             || Math.abs(this.rotateY) > EPSILON
-            || Math.abs(this.rotateZ) > EPSILON;
+            || Math.abs(this.rotateZ) > EPSILON
+            || Math.abs(this.pivotX) > EPSILON
+            || Math.abs(this.pivotY) > EPSILON
+            || Math.abs(this.pivotZ) > EPSILON;
     }
 
     public void fromData(BaseType data)
@@ -79,6 +89,9 @@ public class EffectTransform
         this.rotateX = map.getFloat("rotateX");
         this.rotateY = map.getFloat("rotateY");
         this.rotateZ = map.getFloat("rotateZ");
+        this.pivotX = map.getFloat("pivotX");
+        this.pivotY = map.getFloat("pivotY");
+        this.pivotZ = map.getFloat("pivotZ");
         this.shape = map.has("shape") ? PaintMaskShape.fromName(map.getString("shape")) : PaintMaskShape.BOX;
     }
 
@@ -95,6 +108,9 @@ public class EffectTransform
         map.putFloat("rotateX", this.rotateX);
         map.putFloat("rotateY", this.rotateY);
         map.putFloat("rotateZ", this.rotateZ);
+        map.putFloat("pivotX", this.pivotX);
+        map.putFloat("pivotY", this.pivotY);
+        map.putFloat("pivotZ", this.pivotZ);
         map.putString("shape", this.shape.name());
 
         return map;
@@ -122,12 +138,15 @@ public class EffectTransform
             && Float.compare(this.rotateX, that.rotateX) == 0
             && Float.compare(this.rotateY, that.rotateY) == 0
             && Float.compare(this.rotateZ, that.rotateZ) == 0
+            && Float.compare(this.pivotX, that.pivotX) == 0
+            && Float.compare(this.pivotY, that.pivotY) == 0
+            && Float.compare(this.pivotZ, that.pivotZ) == 0
             && this.shape == that.shape;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.offsetX, this.offsetY, this.offsetZ, this.scaleX, this.scaleY, this.scaleZ, this.rotateX, this.rotateY, this.rotateZ, this.shape);
+        return Objects.hash(this.offsetX, this.offsetY, this.offsetZ, this.scaleX, this.scaleY, this.scaleZ, this.rotateX, this.rotateY, this.rotateZ, this.pivotX, this.pivotY, this.pivotZ, this.shape);
     }
 }

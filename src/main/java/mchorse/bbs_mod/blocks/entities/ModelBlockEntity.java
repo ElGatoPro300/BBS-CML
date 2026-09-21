@@ -8,10 +8,11 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.ModelBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
-import mchorse.bbs_mod.forms.forms.BillboardForm;
+import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
-import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -155,6 +156,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
+        ModelBlockSolidCollisions.updateRegistration(blockEntity);
         if (!world.isClient)
         {
             int target = blockEntity.properties.getLightLevel();
@@ -174,6 +176,18 @@ public class ModelBlockEntity extends BlockEntity
                 }
 
                 target = level;
+            }
+            else if (form instanceof BlockForm blockForm)
+            {
+                StructureLightSettings sl = blockForm.structureLight.get();
+                boolean enabled = (sl != null) ? sl.enabled : blockForm.emitLight.get();
+                int intensity = (sl != null) ? sl.intensity : blockForm.lightIntensity.get();
+                BlockState formState = blockForm.blockState.get();
+
+                if (enabled && formState != null && formState.getLuminance() > 0)
+                {
+                    target = Math.max(0, Math.min(15, Math.min(formState.getLuminance(), intensity)));
+                }
             }
 
             if (target != blockEntity.lastLightLevel)
@@ -208,9 +222,26 @@ public class ModelBlockEntity extends BlockEntity
     {
         super.writeNbt(nbt, registryLookup);
 
-        MapType data = this.properties.toData();
+        /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
+         * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registryLookup != null && prev != registryLookup)
+        {
+            BBSMod.setRegistryManager(registryLookup);
+        }
 
-        DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        try
+        {
+            MapType data = this.properties.toData(registryLookup);
+            DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        }
+        finally
+        {
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
     }
 
     @Override
@@ -222,7 +253,23 @@ public class ModelBlockEntity extends BlockEntity
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType);
+            WrapperLookup prev = BBSMod.getRegistryManager();
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(registryLookup);
+            }
+
+            try
+            {
+                this.properties.fromData(mapType, registryLookup);
+            }
+            finally
+            {
+                if (registryLookup != null && prev != registryLookup)
+                {
+                    BBSMod.setRegistryManager(prev);
+                }
+            }
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
         if (this.world != null && !this.world.isClient)
@@ -244,15 +291,34 @@ public class ModelBlockEntity extends BlockEntity
 
     public void updateForm(MapType data, World world)
     {
-        this.properties.fromData(data);
+        WrapperLookup registries = world != null ? world.getRegistryManager() : null;
+
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registries != null && prev != registries)
+        {
+            BBSMod.setRegistryManager(registries);
+        }
+
+        try
+        {
+            this.properties.fromData(data, registries);
+        }
+        finally
+        {
+            if (registries != null && prev != registries)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
 
         BlockPos pos = this.getPos();
         BlockState blockState = world.getBlockState(pos);
         int level = this.properties.getLightLevel();
         BlockState newState = blockState.with(ModelBlock.LIGHT_LEVEL, level);
 
+        this.markDirty();
         world.markDirty(pos);
-        mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions.updateRegistration(this);
+        ModelBlockSolidCollisions.updateRegistration(this);
 
         if (blockState != newState)
         {
@@ -267,7 +333,7 @@ public class ModelBlockEntity extends BlockEntity
     @Override
     public void markRemoved()
     {
-        mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions.unregister(this);
+        ModelBlockSolidCollisions.unregister(this);
         super.markRemoved();
     }
 }

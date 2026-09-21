@@ -87,7 +87,7 @@ public class ValueViewportToolbar extends BaseValue implements IIconToolbarValue
     @Override
     public boolean canHide(String id)
     {
-        return !HIDE_OVERLAYS.equals(id);
+        return DEFAULT_ORDER.contains(id);
     }
 
     @Override

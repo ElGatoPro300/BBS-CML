@@ -95,9 +95,16 @@ public class Keyframe <T> extends BaseValueGroup
 
     public void setDuration(float duration)
     {
-        this.preNotify();
+        this.setDuration(duration, true);
+    }
+
+    public void setDuration(float duration, boolean dirty)
+    {
+        if (dirty) this.preNotify();
+
         this.duration = Math.max(0, duration);
-        this.postNotify();
+
+        if (dirty) this.postNotify();
     }
 
     public boolean isBend()

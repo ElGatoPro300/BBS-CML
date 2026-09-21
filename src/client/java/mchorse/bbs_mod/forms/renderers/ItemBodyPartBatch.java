@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -11,15 +12,13 @@ import mchorse.bbs_mod.forms.forms.ItemForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.world.ClientWorld;
@@ -248,12 +247,7 @@ public final class ItemBodyPartBatch
 
     private static void applyLighting(ItemForm item, FormRenderingContext context)
     {
-        float lf = 1F - MathUtils.clamp(item.lighting.get(), 0F, 1F);
-        int u = context.light & '\uffff';
-        int v = context.light >> 16 & '\uffff';
-
-        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
-        context.light = u | v << 16;
+        context.light = FormLightingRender.apply(context.light, item.lightingSettings, item.lighting.get());
     }
 
     private static boolean hasOverlayBodyParts(List<BodyPart> parts)
@@ -281,6 +275,11 @@ public final class ItemBodyPartBatch
             float glowIntensity = glowSettings.resolveIntensity(item.glowingColor.get());
 
             if (glowIntensity > 0F && !glowSettings.resolvePaintOnly())
+            {
+                return true;
+            }
+
+            if (BBSRendering.needsIrisNoshadingOpacityDeferral(item.color.get().a, item.noshadingOpacity.get()))
             {
                 return true;
             }

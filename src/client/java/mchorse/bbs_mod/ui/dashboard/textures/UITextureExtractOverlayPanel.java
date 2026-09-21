@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.dashboard.textures;
 
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
@@ -16,12 +17,17 @@ public class UITextureExtractOverlayPanel extends UIOverlayPanel
     public UITrackpad frameStepX;
     public UITrackpad frameStepY;
     public UIButton extract;
+    public UIScrollView scroll;
 
     public UITextureExtractOverlayPanel(Link link, Pixels pixels)
     {
         super(UIKeys.TEXTURES_EXTRACT_FRAMES_TITLE);
 
         this.title.tooltip(UIKeys.TEXTURES_EXTRACT_FRAMES_TOOLTIP);
+
+        this.scroll = UI.scrollView(5, 6);
+        this.scroll.full(this.content);
+        this.content.add(this.scroll);
 
         this.frames = new UITrackpad(null);
         this.frames.limit(1).integer().setValue(1);
@@ -45,10 +51,9 @@ public class UITextureExtractOverlayPanel extends UIOverlayPanel
             this.close();
         });
 
-        this.content.column(5).vertical().stretch().padding(6);
-        this.content.add(UI.label(UIKeys.TEXTURES_EXTRACT_FRAMES_FRAMES), this.frames);
-        this.content.add(UI.label(UIKeys.TEXTURES_EXTRACT_FRAMES_RESOLUTION).marginTop(6), this.frameWidth, this.frameHeight);
-        this.content.add(UI.label(UIKeys.TEXTURES_EXTRACT_FRAMES_STEP).marginTop(6), this.frameStepX, this.frameStepY);
-        this.content.add(this.extract.marginTop(6));
+        this.scroll.add(UI.label(UIKeys.TEXTURES_EXTRACT_FRAMES_FRAMES), this.frames);
+        this.scroll.add(UI.label(UIKeys.TEXTURES_EXTRACT_FRAMES_RESOLUTION).marginTop(6), this.frameWidth, this.frameHeight);
+        this.scroll.add(UI.label(UIKeys.TEXTURES_EXTRACT_FRAMES_STEP).marginTop(6), this.frameStepX, this.frameStepY);
+        this.scroll.add(this.extract.marginTop(6));
     }
 }

@@ -161,9 +161,14 @@ public class UIKeyframeSheet
 
     public void setDuration(float duration)
     {
+        this.setDuration(duration, true);
+    }
+
+    public void setDuration(float duration, boolean dirty)
+    {
         for (Keyframe keyframe : this.selection.getSelected())
         {
-            keyframe.setDuration(duration);
+            keyframe.setDuration(duration, dirty);
         }
     }
 

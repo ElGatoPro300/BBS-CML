@@ -4,7 +4,6 @@ import mchorse.bbs_mod.camera.clips.modifiers.DollyZoomClip;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.utils.UI;
 
 public class UIDollyZoomClip extends UIClip<DollyZoomClip>
 {
@@ -29,7 +28,7 @@ public class UIDollyZoomClip extends UIClip<DollyZoomClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:dolly_zoom")), this.focus).marginTop(12));
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:dolly_zoom"), this.focus));
     }
 
     @Override

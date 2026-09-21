@@ -178,6 +178,11 @@ vec3 bbsHsl2Rgb(vec3 hsl)
     );
 }
 
+vec3 bbsPreserveLitShadow(vec3 inputRgb, vec3 gradedRgb)
+{
+    return gradedRgb;
+}
+
 vec3 bbsApplyFormColorGrade(vec3 rgb, vec3 rootPos)
 {
     if (abs(FormColorGrade.x) < 0.001 && abs(FormColorGrade.y) < 0.001 && abs(FormColorGrade.z) < 0.001 && abs(FormColorGrade.w) < 0.001)
@@ -206,8 +211,10 @@ vec3 bbsApplyFormColorGrade(vec3 rgb, vec3 rootPos)
     if (abs(FormColorGrade.w) >= 0.001)
     {
         float mask = bbsPaintEffectMask(rootPos, GradeSaturationInverse, GradeSaturationActive, GradeSaturationHalf, GradeSaturationBottomAnchored, GradeSaturationShape);
-        float luma = dot(outRgb, vec3(0.2126, 0.7152, 0.0722));
-        vec3 next = mix(vec3(luma), outRgb, 1.0 + FormColorGrade.w);
+        vec3 hsl = bbsRgb2Hsl(clamp(outRgb, 0.0, 1.0));
+
+        hsl.y = clamp(hsl.y * (1.0 + FormColorGrade.w), 0.0, 1.0);
+        vec3 next = bbsHsl2Rgb(hsl);
 
         outRgb = mix(outRgb, next, mask);
     }

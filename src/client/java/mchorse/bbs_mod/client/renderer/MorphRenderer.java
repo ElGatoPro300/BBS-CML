@@ -64,20 +64,31 @@ public class MorphRenderer
 
         if (morph != null && morph.getForm() != null)
         {
+            /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
+             * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
+             * so other spectators / F5 see the normal semi-transparent head. */
+            if (player.isSpectator())
+            {
+                return false;
+            }
+
             if (canRender(playerForm))
             {
                 RenderSystem.enableDepthTest();
 
-                /* InventoryScreen.drawEntity already set GUI diffuse lighting for the vanilla
-                 * player — override only there so forms match that preview. In the world, use
-                 * the same level lights as model blocks / editor previews. */
-                if (BBSRendering.isRenderingWorld())
+                boolean worldPass = BBSRendering.isRenderingWorld();
+
+                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
+                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
+                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
+                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
+                if (worldPass)
                 {
                     BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
-                    DiffuseLighting.enableGuiDepthLighting();
+                    DiffuseLighting.method_34742();
                 }
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
@@ -86,9 +97,17 @@ public class MorphRenderer
                 matrixStack.push();
                 matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
+                FormRenderingContext morphContext = new FormRenderingContext()
                     .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+                if (!worldPass)
+                {
+                    morphContext.inUI();
+                }
+
+                FormUtilsClient.render(morph.getForm(), morphContext);
 
                 if (morph.entity.getFireTicks() > 0)
                 {
@@ -105,10 +124,18 @@ public class MorphRenderer
 
                 matrixStack.pop();
 
-                BBSRendering.restoreWorldRenderState();
-                /* Prior morph pipeline left depth disabled after the form draw; keep that so
-                 * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
-                RenderSystem.disableDepthTest();
+                if (worldPass)
+                {
+                    BBSRendering.restoreWorldRenderState();
+                }
+                else
+                {
+                    /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
+                     * re-enables lightmap/overlay left disabled by form mesh draws without
+                     * touching diffuse lights (already set to GUI 3D above). */
+                    DiffuseLighting.enableGuiDepthLighting();
+                    BBSRendering.restoreWorldRenderState();
+                }
             }
 
             return true;
@@ -187,7 +214,6 @@ public class MorphRenderer
             matrixStack.pop();
 
             BBSRendering.restoreWorldRenderState();
-            RenderSystem.disableDepthTest();
 
             return true;
         }

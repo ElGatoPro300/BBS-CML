@@ -9,6 +9,7 @@
         "CameraMixin",
         "GameRendererMixin",
         "MouseMixin",
+        "MouseAccessor",
         "EntityRendererDispatcherInvoker",
         "EntityAccessor",
         "PlayerEntityRendererMixin",
@@ -21,6 +22,9 @@
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",
         "LivingEntityRendererMixin",
+        "VillagerClothingFeatureRendererMixin",
+        "ArmorFeatureRendererMixin",
+        "HeldItemRendererMixin",
         "iris.SystemTimeUniformsTimerMixin",
         "InGameHudMixin",
         "KeyboardMixin",
@@ -53,11 +57,13 @@
         "iris.ShadowRendererMixin",
         "iris.ShadowMatricesMixin",
         "iris.CelestialUniformsMixin",
+        "iris.HandRendererMixin",
         "audio.SoundEngineMixin",
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
         "ModelPartMixin",
-        "YggdrasilServicesKeyInfoMixin"
+        "YggdrasilServicesKeyInfoMixin",
+        "lambdynlights.LambDynLightsSettingsScreenMixin"
     ],
     "injectors": {
         "defaultRequire": 1

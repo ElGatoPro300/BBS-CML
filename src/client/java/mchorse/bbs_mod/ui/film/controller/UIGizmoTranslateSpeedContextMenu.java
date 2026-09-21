@@ -25,7 +25,7 @@ public class UIGizmoTranslateSpeedContextMenu extends UIContextMenu
         this.speed.setValue(BBSSettings.gizmoTranslateSpeed.get());
 
         this.column = UI.column(5, 10,
-            UI.label(UIKeys.FILM_GIZMO_TRANSLATE_SPEED),
+            UI.label(UIKeys.FILM_GIZMO_TRANSLATE_SPEED).wrapping(),
             this.speed
         );
         this.column.relative(this).w(140);
@@ -43,8 +43,6 @@ public class UIGizmoTranslateSpeedContextMenu extends UIContextMenu
     @Override
     public void setMouse(UIContext context)
     {
-        this.xy(context.mouseX(), context.mouseY())
-            .wh(this.column.area.w, this.column.area.h)
-            .bounds(context.menu.overlay, 5);
+        this.sizeToColumn(this.column, context);
     }
 }

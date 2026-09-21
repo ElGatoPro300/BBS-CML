@@ -8,8 +8,6 @@ import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
-import mchorse.bbs_mod.ui.utils.Area;
-import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.Axis;
@@ -25,7 +23,6 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
@@ -617,7 +614,7 @@ public class Gizmo
 
     public void deferRender(Matrix4f matrix, boolean stencil, StencilMap stencilMap)
     {
-        this.deferredGizmos.add(new DeferredGizmo(new Matrix4f(matrix), stencil, stencilMap));
+        this.deferredGizmos.add(new DeferredGizmo(GizmoMatrixUtils.normalizeBasis(new Matrix4f(matrix)), stencil, stencilMap));
     }
 
     /**
@@ -632,7 +629,7 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        this.lastGizmoMatrix.set(GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix())));
         GizmoMatrixUtils.applyViewCaptureAlignment(this.lastGizmoMatrix, this.activeOrientation);
         this.hasGizmoMatrix = true;
     }
@@ -941,7 +938,7 @@ public class Gizmo
 
     private float resolveThickness(boolean stencil)
     {
-        float thickness = BBSSettings.axesThickness == null ? 1F : BBSSettings.axesThickness.get();
+        float thickness = BBSSettings.axesThickness == null ? 1.2F : BBSSettings.axesThickness.get();
         boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
 
         if (!constantSize)
@@ -959,6 +956,15 @@ public class Gizmo
 
     private void updateFlipSigns(float camX, float camY, float camZ)
     {
+        if (!this.shouldFlipAxesTowardCamera())
+        {
+            this.lastSx = 1F;
+            this.lastSy = 1F;
+            this.lastSz = 1F;
+
+            return;
+        }
+
         if (this.index == -1)
         {
             this.lastSx = camX >= 0 ? 1F : -1F;
@@ -976,7 +982,10 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
+        this.lastGizmoMatrix.set(normalized);
         this.hasGizmoMatrix = true;
 
         float scale = this.computeScale(stack);
@@ -1040,7 +1049,10 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
+        this.lastGizmoMatrix.set(normalized);
         this.hasGizmoMatrix = true;
 
         float scale = this.computeScale(stack);
@@ -1059,6 +1071,11 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
+        /* Iris leaves a stale terrain ModelView; verts already include the full transform.
+         * Do NOT bake BBSRendering.camera here for non-Iris: preview editors / form pickers /
+         * model-block stencil already carry their orbit (or composed) view in the stack.
+         * Multiplying the world frustum camera on top mis-picks handles. Film's empty
+         * camera-relative stack sets ModelView in UIFilmController instead. */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();
@@ -1526,6 +1543,8 @@ public class Gizmo
     /**
      * Draws an XYZ rotation ring: camera-facing 180° arc by default, or a full 360° circle
      * when {@link BBSSettings#gizmoFullRotationRings} is enabled. Visual and pick thickness match.
+     * When {@link BBSSettings#gizmoFlipAxes} is off, half-rings stay fixed (no camera reorient),
+     * matching translate/scale handles that stay on +X/+Y/+Z.
      */
     private void drawAxisRotationRing(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float ringThickness, float[] color, boolean stencil)
     {
@@ -1536,9 +1555,16 @@ public class Gizmo
             return;
         }
 
-        float startDeg = this.cameraFacingRingStartDeg(axis);
+        float startDeg = this.shouldFlipAxesTowardCamera()
+            ? this.cameraFacingRingStartDeg(axis)
+            : 0F;
 
         Draw.arc3D(builder, stack, axis, radius, ringThickness, color[0], color[1], color[2], startDeg, 180F, stencil);
+    }
+
+    private boolean shouldFlipAxesTowardCamera()
+    {
+        return BBSSettings.gizmoFlipAxes == null || BBSSettings.gizmoFlipAxes.get();
     }
 
     /**

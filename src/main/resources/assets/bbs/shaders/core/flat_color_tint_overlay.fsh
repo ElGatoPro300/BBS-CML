@@ -1,5 +1,7 @@
 #version 150
 
+#moj_import <fog.glsl>
+
 uniform sampler2D Sampler0;
 
 uniform mat4 ColorEffectInverse;
@@ -9,7 +11,11 @@ uniform float ColorMaskFalloff;
 uniform float ColorMaskBottomAnchored;
 uniform float ColorMaskShape;
 uniform vec4 FormColorTint;
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
 
+in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
@@ -125,7 +131,15 @@ void main()
      * before, leaving a fully saturated / “opaque” mask on a soft base). Keep src alpha at
      * 1 so DST_ALPHA multiply does not rewrite the base pass opacity. */
     float opacity = clamp(FormColorTint.a, 0.0, 1.0);
-    float strength = cmask * opacity;
+    /* Scale mask strength by glyph coverage so bold / AA fringes do not pick up
+     * partial tint at transform boundaries (multiply blend would pink-bleed otherwise). */
+    float strength = cmask * opacity * tex.a;
+    /* DST_COLOR multiply on an already-fogged base: fade tint toward identity (white)
+     * with distance fog so masks do not recolor FogColor into a saturated silhouette. */
+    float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+
+    strength *= 1.0 - fogValue * FogColor.a;
+
     vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
 
     fragColor = vec4(tintRgb, 1.0);

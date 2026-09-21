@@ -103,14 +103,19 @@ public class Clips extends ValueGroup
      */
     public int calculateDuration()
     {
-        int max = 0;
+        double max = 0D;
 
         for (Clip clip : this.clips)
         {
-            max = Math.max(max, (int) Math.ceil(clip.tick.get() + clip.duration.get()));
+            double end = (double) clip.tick.get() + (double) clip.duration.get();
+
+            if (end > max)
+            {
+                max = end;
+            }
         }
 
-        return max;
+        return max > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.ceil(max);
     }
 
     public Clip get(int index)
@@ -153,7 +158,7 @@ public class Clips extends ValueGroup
 
     public List<Clip> getClips(int tick)
     {
-        return this.getClips(tick, Integer.MAX_VALUE);
+        return this.getClips((float) tick, Integer.MAX_VALUE);
     }
 
     public List<Clip> getClips(int tick, int maxLayer)
@@ -221,7 +226,7 @@ public class Clips extends ValueGroup
     /**
      * Get index of a given clip.
      *
-     * @return index of a clip in the thing
+     * Returns -1 if given clip is not present in this clips property.
      */
     public int getIndex(Clip clip)
     {

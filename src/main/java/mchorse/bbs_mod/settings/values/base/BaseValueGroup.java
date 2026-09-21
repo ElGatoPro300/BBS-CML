@@ -17,16 +17,27 @@ public abstract class BaseValueGroup extends BaseValue
 
     public BaseValue getRecursively(DataPath path)
     {
+        BaseValue value = this.getRecursivelyOrNull(path);
+
+        if (value == null)
+        {
+            throw new IllegalStateException("Property by path " + path + " can't be found!");
+        }
+
+        return value;
+    }
+
+    /**
+     * Same walk as {@link #getRecursively(DataPath)} but returns {@code null} instead of throwing
+     * when the path is missing (e.g. dynamic FormProperties channels removed by cleanUp/fromData).
+     */
+    public BaseValue getRecursivelyOrNull(DataPath path)
+    {
         BaseValue value = this.get(path.size() <= 0 ? "" : path.strings.get(0));
 
         if (value == null && !path.strings.isEmpty())
         {
             value = this.searchRecursively(path);
-        }
-
-        if (value == null)
-        {
-            throw new IllegalStateException("Property by path " + path + " can't be found!");
         }
 
         return value;

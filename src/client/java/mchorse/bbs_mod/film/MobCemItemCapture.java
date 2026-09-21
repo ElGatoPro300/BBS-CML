@@ -68,11 +68,11 @@ public class MobCemItemCapture
 
         BaseValue.edit(replay.keyframes, (keyframes) ->
         {
-            keyframes.usingItem.insert(tick, stats.usingItem ? 1D : 0D);
-            keyframes.itemUseTime.insert(tick, (double) stats.itemUseElapsed);
-            keyframes.activeHand.insert(tick, stats.activeHand == Hand.OFF_HAND ? 1D : 0D);
-            keyframes.mainHand.insert(tick, stats.mainHand.copy());
-            keyframes.offHand.insert(tick, stats.offHand.copy());
+            keyframes.usingItem.insertIfChanged(tick, stats.usingItem ? 1D : 0D);
+            keyframes.itemUseTime.insertIfChanged(tick, (double) stats.itemUseElapsed);
+            keyframes.activeHand.insertIfChanged(tick, stats.activeHand == Hand.OFF_HAND ? 1D : 0D);
+            keyframes.mainHand.insertIfChanged(tick, stats.mainHand.copy());
+            keyframes.offHand.insertIfChanged(tick, stats.offHand.copy());
         });
 
         lastRecordedStats.put(replay, copyStats(stats));

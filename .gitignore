@@ -52,9 +52,11 @@ open-source/
 
 translation_workspace/
 
-#cursor rules
-.cursor/rules/PROJECT-STRUCTURE.mdc
+#cursor plans
 .cursor/plans/shortcut-interaction-mode.plan.md
+
+# accidental / local Distant Horizons source clone (not part of BBS)
+dh_repo/
 
 # local shader/debug scratch (never commit)
 .tmp_bsl/

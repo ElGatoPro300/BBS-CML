@@ -14,8 +14,6 @@ import java.util.Objects;
 public class ActionsConfig implements IMapSerializable
 {
     private static final String GECKO_JS_DATA_KEY = "gecko_animations_js";
-    private static Map<String, ActionConfig> a = new HashMap<>();
-    private static Map<String, ActionConfig> b = new HashMap<>();
 
     public Map<String, ActionConfig> actions = new HashMap<>();
     public GeckoAnimationsConfig geckoAnimations = new GeckoAnimationsConfig();
@@ -49,16 +47,13 @@ public class ActionsConfig implements IMapSerializable
         if (obj instanceof ActionsConfig)
         {
             ActionsConfig config = (ActionsConfig) obj;
+            Map<String, ActionConfig> left = new HashMap<>(this.actions);
+            Map<String, ActionConfig> right = new HashMap<>(config.actions);
 
-            a.clear();
-            a.putAll(this.actions);
-            b.clear();
-            b.putAll(config.actions);
+            removeDefaultActions(left);
+            removeDefaultActions(right);
 
-            removeDefaultActions(a);
-            removeDefaultActions(b);
-
-            return a.equals(b)
+            return left.equals(right)
                 && this.geckoAnimations.equals(config.geckoAnimations)
                 && Objects.equals(this.geckoAnimationsJavascript, config.geckoAnimationsJavascript);
         }

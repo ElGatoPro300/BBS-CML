@@ -11,8 +11,6 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
@@ -33,7 +31,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.presets.UIDataContextMenu;
@@ -111,9 +108,22 @@ public class UIPoseEditor extends UIElement
     private UIIcon invertLiveMirrorZButton;
     private UIIcon showOnlyMarkedButton;
     private String currentBone;
+    /**
+     * When true, pose footer shows Color extras (paint / glow / grade) and noshading.
+     * Used for ModelForm pose and model Parts ({@code ModelConfig.parts}); both store the
+     * same per-bone {@link PoseTransform} appearance fields.
+     */
+    private final boolean formAppearanceExtras;
 
     public UIPoseEditor()
     {
+        this(true);
+    }
+
+    public UIPoseEditor(boolean formAppearanceExtras)
+    {
+        this.formAppearanceExtras = formAppearanceExtras;
+
         this.extra = new UIElement();
         this.extra.column().vertical().stretch();
 
@@ -625,7 +635,7 @@ public class UIPoseEditor extends UIElement
                 if (this.onChange != null) this.onChange.run();
             });
         });
-        this.noShading = new UIToggle(UIKeys.FILM_REPLAY_OPACITY_NO_SHADING, (b) ->
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, (b) ->
         {
             String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
 
@@ -1343,7 +1353,7 @@ public class UIPoseEditor extends UIElement
 
     /**
      * Bone appearance controls above the transform grid:
-     * section label, bone texture, color + lighting, Glow, Paint, Color grade.
+     * section label, bone texture, color + lighting; Color extras (glow/paint/grade) when enabled.
      */
     public UIElement createPoseFooter()
     {
@@ -1359,12 +1369,16 @@ public class UIPoseEditor extends UIElement
 
         /* Color+icon cluster shares the row with Lighting; grid opens full-width below. */
         footer.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
-        footer.add(this.noShading);
-        footer.add(UIFormColorLayout.createExtraSection(
-            this.glowSection,
-            this.paintSection,
-            this.colorAdjustments.marginTop(4)
-        ).marginTop(4));
+
+        if (this.formAppearanceExtras)
+        {
+            footer.add(this.noShading);
+            footer.add(UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                this.paintSection,
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4));
+        }
 
         return footer;
     }

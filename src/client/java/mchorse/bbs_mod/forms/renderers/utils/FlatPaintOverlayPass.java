@@ -22,19 +22,25 @@ public class FlatPaintOverlayPass
     /**
      * Camera-facing quads have ~0 depth slope, so only {@code units} separates the overlay.
      * Far away, float depth precision needs a larger units bias than near-camera draws.
+     * <p>
+     * {@code factor} must stay {@code 0} for Iris world paint: OpenGL offset is
+     * {@code factor * maxDepthSlope + r * units}. Edge-on / grazing faces have huge slope, so
+     * a negative factor pulls paint toward the camera and lets it punch through walls from
+     * thin viewing angles. Units alone avoid that while still clearing self z-fight on facing
+     * surfaces.
      */
-    public static final float POLYGON_OFFSET_FACTOR = -1F;
-    public static final float POLYGON_OFFSET_UNITS = -32F;
+    public static final float POLYGON_OFFSET_FACTOR = 0F;
+    public static final float POLYGON_OFFSET_UNITS = -64F;
 
     /** Default bias — clears the camera-facing base face when close / angled. */
     public static final float DEFAULT_FACTOR = -2F;
     public static final float DEFAULT_UNITS = -4F;
     /**
-     * Stronger than deferred billboard base ({@code -1.5/-1.5}). Paint flushes after the Iris
-     * base redraw; the factor term dominates at distance and must clearly beat the base offset.
+     * Iris deferred billboard paint (flush after pack composite). Factor stays 0 — same
+     * wall punch-through rule as {@link #POLYGON_OFFSET_FACTOR}; units carry the self bias.
      */
-    public static final float DEFERRED_BILLBOARD_FACTOR = -4F;
-    public static final float DEFERRED_BILLBOARD_UNITS = -8F;
+    public static final float DEFERRED_BILLBOARD_FACTOR = 0F;
+    public static final float DEFERRED_BILLBOARD_UNITS = -64F;
 
 
     private FlatPaintOverlayPass()

@@ -234,6 +234,23 @@ public class FormUtils
         return visiblePath.substring(0, slash + 1) + "render";
     }
 
+    public static String getVisiblePropertyPath(String renderPath)
+    {
+        if (renderPath == null || renderPath.isEmpty())
+        {
+            return "visible";
+        }
+
+        int slash = renderPath.lastIndexOf(PATH_SEPARATOR);
+
+        if (slash == -1)
+        {
+            return "visible";
+        }
+
+        return renderPath.substring(0, slash + 1) + "visible";
+    }
+
     public static void addPairedRenderPropertyPaths(Iterable<String> propertyPaths, Collection<String> target)
     {
         List<String> paired = new ArrayList<>();

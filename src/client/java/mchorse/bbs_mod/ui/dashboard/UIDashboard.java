@@ -11,7 +11,6 @@ import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
 import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.ui.UISettingsOverlayPanel;
@@ -51,7 +50,6 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.Perspective;
@@ -104,14 +102,7 @@ public class UIDashboard extends UIBaseMenu
             {
                 this.orbit.setFovRoll(panel.supportsRollFOVControl());
 
-                if (BBSSettings.editorOrbitRestrictToViewport.get())
-                {
-                    this.orbitUI.setViewportArea(panel::getFlightViewportArea);
-                }
-                else
-                {
-                    this.orbitUI.setViewportArea(null);
-                }
+                this.orbitUI.setViewportArea(() -> BBSSettings.editorOrbitRestrictToViewport.get() ? panel.getFlightViewportArea() : null);
             }
             else
             {
@@ -142,7 +133,7 @@ public class UIDashboard extends UIBaseMenu
         this.getRoot().add(this.orbitKeysUI);
         this.getRoot().add(this.chalkboard);
 
-        if (!BBSSettings.welcomePanelAcceptedBeta1.get())
+        if (!BBSSettings.welcomePanelSeen21.get())
         {
             UIWelcomePanel welcome = new UIWelcomePanel();
             welcome.full(this.getRoot());
@@ -152,7 +143,7 @@ public class UIDashboard extends UIBaseMenu
         /* Register keys */
         IKey category = UIKeys.DASHBOARD_CATEGORY;
 
-        this.main.keys().register(Keys.CYCLE_PANELS, this::cyclePanels).category(category);
+        this.main.keys().register(Keys.CYCLE_PANELS, this::cyclePanels).allowShift().category(category);
         this.overlay.keys().register(Keys.TOGGLE_VISIBILITY, () ->
         {
             if (this.panels.panel.canToggleVisibility())

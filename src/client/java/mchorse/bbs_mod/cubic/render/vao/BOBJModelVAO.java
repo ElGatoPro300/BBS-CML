@@ -8,12 +8,13 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.CubicRenderer;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
@@ -55,7 +56,9 @@ public class BOBJModelVAO
 
     private final Map<Integer, Link> fullOverrides = new HashMap<>();
     private final Map<Integer, Float> partialOverrides = new HashMap<>();
+    private final Set<Integer> colorOverrideBones = new HashSet<>();
     private final Set<Integer> overridden = new HashSet<>();
+    private final Color scratchDrawColor = new Color();
 
     public BOBJModelVAO(BOBJLoader.CompiledData data, BOBJArmature armature)
     {
@@ -72,6 +75,8 @@ public class BOBJModelVAO
      */
     protected void initBuffers()
     {
+        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
         this.vao = GL30.glGenVertexArrays();
 
         GL30.glBindVertexArray(this.vao);
@@ -116,7 +121,7 @@ public class BOBJModelVAO
         GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, 0);
-        GL30.glBindVertexArray(0);
+        GL30.glBindVertexArray(previousVAO);
     }
 
     /**
@@ -367,6 +372,99 @@ public class BOBJModelVAO
         }
     }
 
+    protected void collectBoneOverrides()
+    {
+        this.fullOverrides.clear();
+        this.partialOverrides.clear();
+        this.colorOverrideBones.clear();
+        this.overridden.clear();
+
+        for (BOBJBone bone : this.armature.orderedBones)
+        {
+            if (bone.texture != null)
+            {
+                float blend = bone.textureBlend;
+
+                if (blend >= 1F)
+                {
+                    this.fullOverrides.put(bone.index, bone.texture);
+                }
+                else if (blend > 0F)
+                {
+                    this.partialOverrides.put(bone.index, blend);
+                }
+            }
+
+            if (BobjBoneDrawEffects.hasCustomColorEffects(bone))
+            {
+                this.colorOverrideBones.add(bone.index);
+            }
+        }
+
+        this.overridden.addAll(this.fullOverrides.keySet());
+        this.overridden.addAll(this.partialOverrides.keySet());
+        this.overridden.addAll(this.colorOverrideBones);
+    }
+
+    protected void drawBoneOverride(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture, BOBJBone bone)
+    {
+        Link fullTexture = this.fullOverrides.get(bone.index);
+        Float blend = this.partialOverrides.get(bone.index);
+        boolean hasColor = this.colorOverrideBones.contains(bone.index);
+
+        if (fullTexture != null)
+        {
+            this.bindDrawTexture(fullTexture);
+            ModelVAORenderer.clearTextureBlend();
+        }
+        else if (blend != null)
+        {
+            if (defaultTexture != null)
+            {
+                this.bindDrawTexture(defaultTexture);
+            }
+
+            ModelVAORenderer.setTextureBlend(bone.texture, blend);
+        }
+        else if (defaultTexture != null)
+        {
+            this.bindDrawTexture(defaultTexture);
+            ModelVAORenderer.clearTextureBlend();
+        }
+
+        float drawR = r;
+        float drawG = g;
+        float drawB = b;
+        float drawA = a;
+        int drawLight = light;
+
+        if (hasColor)
+        {
+            BobjBoneDrawEffects.applyGroupUniforms(bone);
+            BobjBoneDrawEffects.computeDrawColor(bone, r, g, b, a, this.scratchDrawColor);
+            drawR = this.scratchDrawColor.r;
+            drawG = this.scratchDrawColor.g;
+            drawB = this.scratchDrawColor.b;
+            drawA = this.scratchDrawColor.a;
+            drawLight = BobjBoneDrawEffects.computeDrawLight(bone, light, null);
+        }
+
+        try
+        {
+            this.rebindShaderSamplers(shader, stack, drawR, drawG, drawB, drawA, drawLight, overlay);
+            this.drawTriangles((boneIndex) -> boneIndex == bone.index);
+        }
+        finally
+        {
+            ModelVAORenderer.clearTextureBlend();
+
+            if (hasColor)
+            {
+                BobjBoneDrawEffects.restoreGroupUniforms();
+            }
+        }
+    }
+
     /**
      * BBS {@link ShaderProgram#bind()} snapshots Sampler* from {@link RenderSystem} at
      * {@link ModelVAORenderer#setupUniforms}. Skin must be bound before that — binding after
@@ -412,6 +510,7 @@ public class BOBJModelVAO
 
         RenderSystem.setShader(() -> shader);
         shader.bind();
+        ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
         FormGlowBloomPatch.uploadToCurrentProgram();
 
@@ -437,68 +536,24 @@ public class BOBJModelVAO
 
         if (stencilMap == null)
         {
-            this.fullOverrides.clear();
-            this.partialOverrides.clear();
+            this.collectBoneOverrides();
 
-            for (BOBJBone bone : this.armature.orderedBones)
-            {
-                if (bone.texture != null)
-                {
-                    float blend = bone.textureBlend;
-
-                    if (blend >= 1F)
-                    {
-                        this.fullOverrides.put(bone.index, bone.texture);
-                    }
-                    else if (blend > 0F)
-                    {
-                        this.partialOverrides.put(bone.index, blend);
-                    }
-                }
-            }
-
-            if (this.fullOverrides.isEmpty() && this.partialOverrides.isEmpty())
+            if (this.overridden.isEmpty())
             {
                 GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
             }
             else
             {
-                this.overridden.clear();
-                this.overridden.addAll(this.fullOverrides.keySet());
-                this.overridden.addAll(this.partialOverrides.keySet());
-
                 this.drawTriangles((bone) -> bone < 0 || !this.overridden.contains(bone));
 
                 for (BOBJBone bone : this.armature.orderedBones)
                 {
-                    Float blend = this.partialOverrides.get(bone.index);
-
-                    if (blend != null)
+                    if (!this.overridden.contains(bone.index))
                     {
-                        if (defaultTexture != null)
-                        {
-                            this.bindDrawTexture(defaultTexture);
-                        }
-
-                        ModelVAORenderer.setTextureBlend(bone.texture, blend);
-
-                        try
-                        {
-                            this.rebindShaderSamplers(shader, stack, r, g, b, a, light, overlay);
-                            this.drawTriangles((boneIndex) -> boneIndex == bone.index);
-                        }
-                        finally
-                        {
-                            ModelVAORenderer.clearTextureBlend();
-                        }
+                        continue;
                     }
-                }
 
-                for (Map.Entry<Integer, Link> entry : this.fullOverrides.entrySet())
-                {
-                    this.bindDrawTexture(entry.getValue());
-                    this.rebindShaderSamplers(shader, stack, r, g, b, a, light, overlay);
-                    this.drawTriangles((bone) -> bone == entry.getKey());
+                    this.drawBoneOverride(shader, stack, r, g, b, a, light, overlay, defaultTexture, bone);
                 }
             }
         }
@@ -519,6 +574,12 @@ public class BOBJModelVAO
         shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+
+        /* ELEMENT_ARRAY_BUFFER binding is VAO state; binding it with VAO 0 raises
+         * GL_INVALID_OPERATION ("Array object is not active") under OpenGL debug. */
+        if (currentVAO != 0)
+        {
+            GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+        }
     }
 }

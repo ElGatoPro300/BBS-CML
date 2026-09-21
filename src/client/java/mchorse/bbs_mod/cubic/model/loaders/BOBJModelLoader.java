@@ -143,7 +143,8 @@ public class BOBJModelLoader implements IModelLoader
 
             if (id.startsWith("emoticons/"))
             {
-                this.appendDefaultAnimations(instance, models.provider, models.parser);
+                this.ensureDefaultAnimations(models.provider, models.parser);
+                this.mergeDefaultAnimationsInto(instance);
             }
 
             /* Emoticons mesh files ship without clips; shared actions.bobj must be present. */
@@ -211,14 +212,28 @@ public class BOBJModelLoader implements IModelLoader
         return null;
     }
 
-    private void appendDefaultAnimations(ModelInstance instance, AssetProvider provider, MolangParser parser)
+    /**
+     * Shared Emoticons clip library ({@code actions.bobj} + {@code emotes/*.bobj}).
+     * Retries when a previous attempt left an empty cache (slow disks / low-memory IO).
+     */
+    public void ensureDefaultAnimations(AssetProvider provider, MolangParser parser)
     {
-        if (this.defaultAnimations == null)
+        if (this.defaultAnimations != null && !this.defaultAnimations.animations.isEmpty())
         {
-            this.loadDefaultAnimations(provider, parser);
+            return;
         }
 
-        if (this.defaultAnimations == null)
+        this.loadDefaultAnimations(provider, parser);
+    }
+
+    private void applyDefaultAnimations(ModelInstance instance)
+    {
+        this.mergeDefaultAnimationsInto(instance);
+    }
+
+    public void mergeDefaultAnimationsInto(ModelInstance instance)
+    {
+        if (instance == null || instance.animations == null || this.defaultAnimations == null)
         {
             return;
         }
@@ -270,14 +285,16 @@ public class BOBJModelLoader implements IModelLoader
             }
         }
 
-        if (loaded.animations.isEmpty())
+        /* Only cache a successful library. An empty cache would permanently starve
+         * every emoticons/* model on the next load (common on flaky low-end IO). */
+        if (!loaded.animations.isEmpty())
         {
-            System.err.println("Emoticons default animations are empty — actions.bobj missing or unreadable!");
-            this.defaultAnimations = null;
+            this.defaultAnimations = loaded;
         }
         else
         {
-            this.defaultAnimations = loaded;
+            this.defaultAnimations = null;
+            System.err.println("Emoticons default animation library is empty; will retry on next load.");
         }
     }
 

@@ -89,19 +89,33 @@ public class RecentAssetsTracker
             return true;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client != null && client.getLevelStorage() != null)
+        try
         {
-            for (LevelStorage.LevelSave save : client.getLevelStorage().getLevelList().levels())
-            {
-                String root = save.getRootPath();
+            MinecraftClient client = MinecraftClient.getInstance();
 
-                if (id.equals(root) || id.startsWith(root + "/"))
+            if (client != null && client.getLevelStorage() != null)
+            {
+                LevelStorage.LevelList levelList = client.getLevelStorage().getLevelList();
+
+                if (levelList != null && levelList.levels() != null)
                 {
-                    return true;
+                    for (LevelStorage.LevelSave save : levelList.levels())
+                    {
+                        if (save != null)
+                        {
+                            String root = save.getRootPath();
+
+                            if (root != null && (id.equals(root) || id.startsWith(root + "/")))
+                            {
+                                return true;
+                            }
+                        }
+                    }
                 }
             }
+        }
+        catch (Throwable ignored)
+        {
         }
 
         return false;
@@ -144,40 +158,43 @@ public class RecentAssetsTracker
 
     public static void load()
     {
-        File file = getFile();
-
-        if (!file.exists())
+        try
         {
-            return;
-        }
+            File file = getFile();
 
-        try (InputStream stream = new FileInputStream(file))
-        {
-            BaseType type = DataStorage.readFromStream(stream);
-
-            if (type != null && type.isList())
+            if (file == null || !file.exists())
             {
-                RECENT.clear();
-                for (BaseType entry : type.asList())
-                {
-                    if (entry.isMap())
-                    {
-                        MapType map = entry.asMap();
-                        String typeId = map.getString("type");
-                        String id = map.getString("id");
+                return;
+            }
 
-                        ContentType contentType = ContentType.fromId(typeId);
-                        if (contentType != null && !RecentAssetsTracker.shouldExcludeFromRecent(contentType, id))
+            try (InputStream stream = new FileInputStream(file))
+            {
+                BaseType type = DataStorage.readFromStream(stream);
+
+                if (type != null && type.isList())
+                {
+                    RECENT.clear();
+                    for (BaseType entry : type.asList())
+                    {
+                        if (entry.isMap())
                         {
-                            RECENT.add(new Entry(contentType, id));
+                            MapType map = entry.asMap();
+                            String typeId = map.getString("type");
+                            String id = map.getString("id");
+
+                            ContentType contentType = ContentType.fromId(typeId);
+                            if (contentType != null && !RecentAssetsTracker.shouldExcludeFromRecent(contentType, id))
+                            {
+                                RECENT.add(new Entry(contentType, id));
+                            }
                         }
                     }
                 }
-            }
 
-            RecentAssetsTracker.save();
+                RecentAssetsTracker.save();
+            }
         }
-        catch (Exception e)
+        catch (Throwable e)
         {
             e.printStackTrace();
         }
@@ -185,27 +202,38 @@ public class RecentAssetsTracker
 
     public static void save()
     {
-        File file = getFile();
-
-        if (file.getParentFile() != null)
+        try
         {
-            file.getParentFile().mkdirs();
-        }
-        ListType list = new ListType();
+            File file = getFile();
 
-        for (Entry entry : RECENT)
-        {
-            MapType map = new MapType();
-            map.putString("type", entry.type.getId());
-            map.putString("id", entry.id);
-            list.add(map);
-        }
+            if (file == null)
+            {
+                return;
+            }
 
-        try (OutputStream stream = new FileOutputStream(file))
-        {
-            DataStorage.writeToStream(stream, list);
+            if (file.getParentFile() != null)
+            {
+                file.getParentFile().mkdirs();
+            }
+            ListType list = new ListType();
+
+            for (Entry entry : RECENT)
+            {
+                if (entry != null && entry.type != null && entry.id != null)
+                {
+                    MapType map = new MapType();
+                    map.putString("type", entry.type.getId());
+                    map.putString("id", entry.id);
+                    list.add(map);
+                }
+            }
+
+            try (OutputStream stream = new FileOutputStream(file))
+            {
+                DataStorage.writeToStream(stream, list);
+            }
         }
-        catch (Exception e)
+        catch (Throwable e)
         {
             e.printStackTrace();
         }

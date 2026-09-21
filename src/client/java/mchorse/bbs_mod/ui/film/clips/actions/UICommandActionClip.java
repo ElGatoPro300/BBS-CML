@@ -6,9 +6,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextarea;
-import mchorse.bbs_mod.ui.framework.elements.input.text.undo.TextEditUndo;
 import mchorse.bbs_mod.ui.framework.elements.input.text.utils.TextLine;
-import mchorse.bbs_mod.ui.utils.UI;
 
 public class UICommandActionClip extends UIActionClip<CommandActionClip>
 {
@@ -49,7 +47,7 @@ public class UICommandActionClip extends UIActionClip<CommandActionClip>
     protected void registerPanels()
     {
         super.registerPanels();
-        this.panels.add(UI.label(UIKeys.ACTIONS_COMMAND_COMMAND).marginTop(12), this.command);
+        this.panels.add(this.section(UIKeys.ACTIONS_COMMAND_COMMAND, this.command));
     }
 
     @Override

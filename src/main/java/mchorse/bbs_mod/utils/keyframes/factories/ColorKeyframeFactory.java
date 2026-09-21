@@ -19,6 +19,11 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
      * Still read once for migration into traditional {@code color.a}; no longer written.
      */
     public static final String BLEND_A = "blend_a";
+    /**
+     * Unclamped alpha channel (pose limb paint intensity can be negative). ARGB bytes cannot
+     * store values outside {@code [0, 1]}.
+     */
+    public static final String FLOAT_A = "a";
 
     private Color i = new Color();
 
@@ -53,6 +58,12 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
                 {
                     color.a = argbA;
                 }
+            }
+
+            /* Pose paint / any Color.a that cannot fit in an ARGB byte. */
+            if (map.has(FLOAT_A))
+            {
+                color.a = map.getFloat(FLOAT_A);
             }
 
             if (map.has("transform"))
@@ -93,44 +104,61 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
     @Override
     public BaseType toData(Color value)
     {
-        /* Always write a Map with blend_a so save_as_compatible flattening can keep
-         * Color Grade / Blend intensity / transforms in value_bbs (never bare Int alone). */
-        MapType map = new MapType();
+        boolean outOfByteAlpha = value.a < 0F || value.a > 1F;
 
-        map.putInt("color", value.getARGBColor());
-        map.putFloat(BLEND_A, value.a);
-
-        if (value.hasActiveTransform())
+        if (value.needsMapSerialization() || outOfByteAlpha)
         {
-            map.put("transform", value.transform.toData());
+            MapType map = new MapType();
+
+            if (outOfByteAlpha)
+            {
+                int r = (int) (MathUtils.clamp(value.r, 0F, 1F) * 255F);
+                int g = (int) (MathUtils.clamp(value.g, 0F, 1F) * 255F);
+                int b = (int) (MathUtils.clamp(value.b, 0F, 1F) * 255F);
+
+                /* Opaque RGB placeholder — real intensity is FLOAT_A (may be negative). */
+                map.putInt("color", 0xFF000000 | (r << 16) | (g << 8) | b);
+                map.putFloat(FLOAT_A, value.a);
+            }
+            else
+            {
+                map.putInt("color", value.getARGBColor());
+            }
+
+            if (value.hasActiveTransform())
+            {
+                map.put("transform", value.transform.toData());
+            }
+
+            if (Math.abs(value.brightness) > ColorAdjustments.EPSILON)
+            {
+                map.putFloat("brightness", value.brightness);
+            }
+
+            if (Math.abs(value.contrast) > ColorAdjustments.EPSILON)
+            {
+                map.putFloat("contrast", value.contrast);
+            }
+
+            if (Math.abs(value.hue) > ColorAdjustments.EPSILON)
+            {
+                map.putFloat("hue", value.hue);
+            }
+
+            if (Math.abs(value.saturation) > ColorAdjustments.EPSILON)
+            {
+                map.putFloat("saturation", value.saturation);
+            }
+
+            this.writeTransform(map, "brightnessTransform", value.brightnessTransform);
+            this.writeTransform(map, "contrastTransform", value.contrastTransform);
+            this.writeTransform(map, "hueTransform", value.hueTransform);
+            this.writeTransform(map, "saturationTransform", value.saturationTransform);
+
+            return map;
         }
 
-        if (Math.abs(value.brightness) > ColorAdjustments.EPSILON)
-        {
-            map.putFloat("brightness", value.brightness);
-        }
-
-        if (Math.abs(value.contrast) > ColorAdjustments.EPSILON)
-        {
-            map.putFloat("contrast", value.contrast);
-        }
-
-        if (Math.abs(value.hue) > ColorAdjustments.EPSILON)
-        {
-            map.putFloat("hue", value.hue);
-        }
-
-        if (Math.abs(value.saturation) > ColorAdjustments.EPSILON)
-        {
-            map.putFloat("saturation", value.saturation);
-        }
-
-        this.writeTransform(map, "brightnessTransform", value.brightnessTransform);
-        this.writeTransform(map, "contrastTransform", value.contrastTransform);
-        this.writeTransform(map, "hueTransform", value.hueTransform);
-        this.writeTransform(map, "saturationTransform", value.saturationTransform);
-
-        return map;
+        return new IntType(value.getARGBColor());
     }
 
     @Override

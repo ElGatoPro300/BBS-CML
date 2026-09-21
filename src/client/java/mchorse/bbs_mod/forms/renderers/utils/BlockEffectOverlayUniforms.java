@@ -30,9 +30,21 @@ public final class BlockEffectOverlayUniforms
     private static final Vector3f paintMaskHalf = new Vector3f(0.5F, 0.5F, 0.5F);
     private static final Matrix4f colorEffectInverse = new Matrix4f();
     private static final Vector3f colorMaskHalf = new Vector3f(0.5F, 0.5F, 0.5F);
+    /** When non-null, {@link #resolveOverlayMaskHalf} uses {@link EffectTransformMath#resolveBlockVisualMaskHalfExtents}. */
+    private static Vector3f blockVisualMaskSize = null;
 
     private BlockEffectOverlayUniforms()
     {}
+
+    public static void setBlockVisualMaskSize(Vector3f size)
+    {
+        blockVisualMaskSize = size;
+    }
+
+    public static void clearBlockVisualMaskSize()
+    {
+        blockVisualMaskSize = null;
+    }
 
     public static boolean hasPaintOverlayShader()
     {
@@ -66,7 +78,7 @@ public final class BlockEffectOverlayUniforms
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase)
     {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, null, null, null);
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, true);
     }
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, PaintSettings paint, Color legacyPaint, Color formColor)
@@ -76,8 +88,39 @@ public final class BlockEffectOverlayUniforms
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, PaintSettings paint, Color legacyPaint, Color formColor)
     {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, true, false, paint, legacyPaint, formColor);
+    }
+
+    private static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas)
+    {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, bindBlockAtlas, false);
+    }
+
+    /**
+     * @param multiplyDarken when true, DST_COLOR darken for negative paint/glow masks (ModelForm parity).
+     */
+    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas, boolean multiplyDarken)
+    {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, bindBlockAtlas, multiplyDarken, null, null, null);
+    }
+
+    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, boolean bindBlockAtlas, boolean multiplyDarken, PaintSettings paint, Color legacyPaint, Color formColor)
+    {
         RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        if (multiplyDarken)
+        {
+            RenderSystem.blendFuncSeparate(
+                GlStateManager.SrcFactor.DST_COLOR,
+                GlStateManager.DstFactor.ZERO,
+                GlStateManager.SrcFactor.DST_ALPHA,
+                GlStateManager.DstFactor.ZERO
+            );
+        }
+        else
+        {
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
@@ -87,9 +130,90 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha, paint, legacyPaint, formColor);
+            bindPaintMultiplyDarken(program, multiplyDarken);
         }
 
-        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        if (bindBlockAtlas)
+        {
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    private static void bindPaintMultiplyDarken(ShaderProgram shader, boolean multiplyDarken)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        GlUniform uniform = shader.getUniform("PaintMultiplyDarken");
+
+        if (uniform != null)
+        {
+            uniform.set(multiplyDarken ? 1F : 0F);
+        }
+    }
+
+    public static void configureGlowOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale)
+    {
+        configureGlowOverlayRenderStateInternal(rootInverse, transform, bottomAnchored, maskHalfBase, glowScale, true);
+    }
+
+    private static void configureGlowOverlayRenderStateInternal(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale, boolean bindBlockAtlas)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaint(program, transform, bottomAnchored, maskHalfBase);
+
+            GlUniform scaleUniform = program.getUniform("GlowScale");
+
+            if (scaleUniform != null)
+            {
+                scaleUniform.set(glowScale);
+            }
+        }
+
+        if (bindBlockAtlas)
+        {
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    public static void configureGlowOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float sizeX, float sizeY, float sizeZ, float glowScale)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
+
+            GlUniform scaleUniform = program.getUniform("GlowScale");
+
+            if (scaleUniform != null)
+            {
+                scaleUniform.set(glowScale);
+            }
+>>>>>>> origin/master
+        }
+
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
@@ -98,8 +222,26 @@ public final class BlockEffectOverlayUniforms
      */
     public static void configurePaintOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float sizeX, float sizeY, float sizeZ)
     {
+        configurePaintOverlayRenderStateStructure(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, sizeX, sizeY, sizeZ, false);
+    }
+
+    public static void configurePaintOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float sizeX, float sizeY, float sizeZ, boolean multiplyDarken)
+    {
         RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        if (multiplyDarken)
+        {
+            RenderSystem.blendFuncSeparate(
+                GlStateManager.SrcFactor.DST_COLOR,
+                GlStateManager.DstFactor.ZERO,
+                GlStateManager.SrcFactor.DST_ALPHA,
+                GlStateManager.DstFactor.ZERO
+            );
+        }
+        else
+        {
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
@@ -109,6 +251,7 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha, null, null, null);
+            bindPaintMultiplyDarken(program, multiplyDarken);
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
@@ -132,7 +275,16 @@ public final class BlockEffectOverlayUniforms
 
     public static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource)
     {
-        configureColorTintOverlayRenderState(rootInverse, transform, bottomAnchored, formColor, maskHalfBase, gradeSource, false, 1F, 1F, 1F);
+        configureColorTintOverlayRenderState(rootInverse, transform, bottomAnchored, formColor, maskHalfBase, gradeSource, false, 1F, 1F, 1F, true);
+    }
+
+    /**
+     * Signs / chests / beds use entity atlases — keep each draw call's bound texture instead of
+     * forcing {@link PlayerScreenHandler#BLOCK_ATLAS_TEXTURE}.
+     */
+    public static void configureColorTintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource)
+    {
+        configureColorTintOverlayRenderState(rootInverse, transform, bottomAnchored, formColor, maskHalfBase, gradeSource, false, 1F, 1F, 1F, false);
     }
 
     /**
@@ -140,10 +292,10 @@ public final class BlockEffectOverlayUniforms
      */
     public static void configureColorTintOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, Color gradeSource, float sizeX, float sizeY, float sizeZ)
     {
-        configureColorTintOverlayRenderState(rootInverse, transform, bottomAnchored, formColor, 0.5F, gradeSource, true, sizeX, sizeY, sizeZ);
+        configureColorTintOverlayRenderState(rootInverse, transform, bottomAnchored, formColor, 0.5F, gradeSource, true, sizeX, sizeY, sizeZ, true);
     }
 
-    private static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource, boolean structureSized, float sizeX, float sizeY, float sizeZ)
+    private static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource, boolean structureSized, float sizeX, float sizeY, float sizeZ, boolean bindBlockAtlas)
     {
         boolean wantGrade = gradeSource != null && gradeSource.hasColorAdjustments();
         boolean gradeActive = wantGrade && ModelVAORenderer.captureGradeSceneColor();
@@ -195,8 +347,27 @@ public final class BlockEffectOverlayUniforms
             }
         }
 
-        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        if (bindBlockAtlas)
+        {
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        }
+
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    public static void configurePaintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
+    {
+        configurePaintOverlayRenderStateEntityVisual(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, false);
+    }
+
+    public static void configurePaintOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, boolean multiplyDarken)
+    {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, false, multiplyDarken);
+    }
+
+    public static void configureGlowOverlayRenderStateEntityVisual(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale)
+    {
+        configureGlowOverlayRenderStateInternal(rootInverse, transform, bottomAnchored, maskHalfBase, glowScale, false);
     }
 
     public static void bindFormColorGrade(ShaderProgram shader, Color gradeSource)
@@ -308,6 +479,13 @@ public final class BlockEffectOverlayUniforms
 
     private static void resolveOverlayMaskHalf(EffectTransform transform, Vector3f dest, boolean bottomAnchored, float maskHalfBase, boolean structureSized, float sizeX, float sizeY, float sizeZ)
     {
+        if (blockVisualMaskSize != null)
+        {
+            EffectTransformMath.resolveBlockVisualMaskHalfExtents(transform, dest, blockVisualMaskSize.x, blockVisualMaskSize.y, blockVisualMaskSize.z);
+
+            return;
+        }
+
         if (structureSized)
         {
             EffectTransformMath.resolveStructureMaskHalfExtents(transform, dest, sizeX, sizeY, sizeZ);
@@ -371,6 +549,34 @@ public final class BlockEffectOverlayUniforms
             RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
+            uploadFlatOverlayFog(program, rootInverse);
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    public static void configureFlatGlowOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, float glowScale)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
+
+            GlUniform scaleUniform = program.getUniform("GlowScale");
+
+            if (scaleUniform != null)
+            {
+                scaleUniform.set(glowScale);
+            }
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -472,9 +678,25 @@ public final class BlockEffectOverlayUniforms
             return;
         }
 
+        boolean blockVisual = blockVisualMaskSize != null;
         boolean active = EffectTransformMath.isTransformActive(transform);
 
-        if (active)
+        if (blockVisual)
+        {
+            /* Neutral scale (1,1,1): inactive → shader mask 1.0 (full sign coverage). Active scale
+             * uses block-sized half extents (see resolveBlockFormMaskSize) so 1 → 0.99 stays smooth. */
+            if (active)
+            {
+                EffectTransformMath.buildInverseMatrix(transform, paintEffectInverse);
+            }
+            else
+            {
+                paintEffectInverse.identity();
+            }
+
+            resolveOverlayMaskHalf(transform, paintMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
+        }
+        else if (active)
         {
             EffectTransformMath.buildInverseMatrix(transform, paintEffectInverse);
             resolveOverlayMaskHalf(transform, paintMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
@@ -575,9 +797,25 @@ public final class BlockEffectOverlayUniforms
             return;
         }
 
+        boolean blockVisual = blockVisualMaskSize != null;
         boolean active = EffectTransformMath.isTransformActive(transform);
 
-        if (active)
+        if (blockVisual)
+        {
+            /* Neutral scale (1,1,1): inactive → shader mask 1.0 (full sign coverage). Active scale
+             * uses block-sized half extents (see resolveBlockFormMaskSize) so 1 → 0.99 stays smooth. */
+            if (active)
+            {
+                EffectTransformMath.buildInverseMatrix(transform, colorEffectInverse);
+            }
+            else
+            {
+                colorEffectInverse.identity();
+            }
+
+            resolveOverlayMaskHalf(transform, colorMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
+        }
+        else if (active)
         {
             EffectTransformMath.buildInverseMatrix(transform, colorEffectInverse);
             resolveOverlayMaskHalf(transform, colorMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
@@ -652,9 +890,31 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    private static void uploadFlatOverlayFog(ShaderProgram program, Matrix4f rootInverse)
+    {
+        Matrix4f baked = null;
+
+        if (rootInverse != null)
+        {
+            baked = new Matrix4f(rootInverse);
+
+            if (Math.abs(baked.determinant()) > 1.0E-8F)
+            {
+                baked.invert();
+            }
+            else
+            {
+                baked.identity();
+            }
+        }
+
+        ModelVAORenderer.uploadCpuBakedVertexFog(program, baked);
     }
 
     public static void bindColorEffectPrecomputed(ShaderProgram shader, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)

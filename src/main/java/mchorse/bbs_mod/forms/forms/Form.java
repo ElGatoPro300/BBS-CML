@@ -9,11 +9,14 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.forms.states.AnimationStates;
@@ -42,6 +45,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
 
 import java.util.ArrayList;
@@ -54,7 +58,7 @@ public abstract class Form extends ValueGroup
     public final ValueBoolean render = new ValueBoolean("render", true);
     public final ValueBoolean animatable = new ValueBoolean("animatable", true);
     public final ValueString trackName = new ValueString("track_name", "");
-    public final ValueFloat lighting = new ValueFloat("lighting", 1F);
+    public final ValueFloat lighting = new ValueFloat("lighting", 0F);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
@@ -78,6 +82,15 @@ public abstract class Form extends ValueGroup
     /* FS-style additive glow: glowingColor is RGB only; glowSettings controls brightness and spread */
     public final ValueColor glowingColor = new ValueColor("glowing_color", new Color().set(1F, 1F, 1F, 1F));
     public final ValueGlowSettings glowSettings = new ValueGlowSettings("glow", new GlowSettings());
+
+    /** Silhouette outline settings — a screen-space outline traced around the outer visible
+     * edge of the whole rendered form (see {@code FormOutlineRenderer} on the client). */
+    public final ValueBoolean outline = new ValueBoolean("outline", false);
+    public final ValueColor outlineColor = new ValueColor("outline_color", new Color().set(1F, 0.85F, 0F, 1F));
+    public final ValueFloat outlineThickness = new ValueFloat("outline_thickness", 2F);
+    public final ValueBoolean outlineRainbow = new ValueBoolean("outline_rainbow", false);
+    public final ValueFloat outlineRainbowSpeed = new ValueFloat("outline_rainbow_speed", 1F);
+    public final ValueFloat outlineRainbowScale = new ValueFloat("outline_rainbow_scale", 1F);
 
     /* Illusions: purely visual duplicates of this form that spread away from it in
      * the picked directions (no extra entities, so they're cheap to render) */
@@ -118,7 +131,7 @@ public abstract class Form extends ValueGroup
     /* Morphing properties */
     public final ValueFloat hp = new ValueFloat("hp", 20F);
     public final ValueFloat speed = new ValueFloat("movement_speed", 0.1F);
-    public final ValueFloat stepHeight = new ValueFloat("step_height", 0.5F);
+    public final ValueFloat stepHeight = new ValueFloat("step_height", 0.6F);
     /**
      * Default actor-mode film invulnerability when the replay {@code invulnerable}
      * keyframe track is empty. Keyframes on that track override this.
@@ -141,6 +154,12 @@ public abstract class Form extends ValueGroup
 
     /** Runtime texture crossfade between illusion keyframes with bend enabled. */
     public transient TextureBlend illusionTextureBlend;
+
+    /**
+     * Film lighting-track override. When non-null, renderers use this instead of only
+     * {@link #lighting} (supports fixed absolute light levels).
+     */
+    public transient LightingSettings lightingSettings;
 
     private final List<StatePlayer> statePlayers = new ArrayList<>();
 
@@ -189,6 +208,12 @@ public abstract class Form extends ValueGroup
         this.add(this.paintSettings);
         this.add(this.glowingColor);
         this.add(this.glowSettings);
+        this.add(this.outline);
+        this.add(this.outlineColor);
+        this.add(this.outlineThickness);
+        this.add(this.outlineRainbow);
+        this.add(this.outlineRainbowSpeed);
+        this.add(this.outlineRainbowScale);
 
         this.add(this.illusion);
         this.add(this.illusionOverlay);
@@ -362,7 +387,17 @@ public abstract class Form extends ValueGroup
             entity.setHealth(hp);
         }
         if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* if (stepHeight != 0.5F) entity.setStepHeight(stepHeight); */
+        /* setStepHeight() was removed in 1.20.5+; step-up is GENERIC_STEP_HEIGHT now.
+         * Default matches vanilla living/player step height (0.6). */
+        if (stepHeight != 0.6F)
+        {
+            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+
+            if (step != null)
+            {
+                step.setBaseValue(stepHeight);
+            }
+        }
     }
 
     public void onDemorph(LivingEntity entity)
@@ -370,7 +405,14 @@ public abstract class Form extends ValueGroup
         entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
         entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
-        /* entity.setStepHeight(0.5F); */
+
+        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+
+        if (step != null)
+        {
+            /* Vanilla player / living default step height. */
+            step.setBaseValue(0.6D);
+        }
     }
 
     /* ID and display name */
@@ -538,6 +580,17 @@ public abstract class Form extends ValueGroup
 
         if (data instanceof MapType map)
         {
+            /* Legacy lighting was world-influence (1=natural, 0/neg=full bright). */
+            if (!map.getBool("lighting_v2") && map.has("lighting"))
+            {
+                BaseType lightingData = map.get("lighting");
+
+                if (lightingData != null && lightingData.isNumeric())
+                {
+                    this.lighting.set(FormLighting.legacyToBrightness(lightingData.asNumeric().floatValue()));
+                }
+            }
+
             if (map.has("glow"))
             {
                 MapType glowMap = map.getMap("glow");
@@ -642,15 +695,8 @@ public abstract class Form extends ValueGroup
             color.a = opacityA;
             valueColor.set(color);
         }
-        else if (!colorHadBlendA && color.a <= 0.001F)
-        {
-            /* Legacy tint-off default would be invisible under traditional alpha. */
-            color.r = 1F;
-            color.g = 1F;
-            color.b = 1F;
-            color.a = 1F;
-            valueColor.set(color);
-        }
+        /* Do not rewrite color.a≈0 → opaque when there is no legacy "opacity" / blend_a
+         * marker: modern films use color.a as intentional opacity (including full fade). */
     }
 
     private static boolean colorDataHasBlendA(BaseType colorData)
@@ -1034,6 +1080,21 @@ public abstract class Form extends ValueGroup
         {
             BBSMod.getForms().appendId(this, map);
             map.remove("opacity");
+
+            /* ShapeForm replaces lighting with a boolean; only rewrite form float lighting. */
+            if (this.get("lighting") instanceof ValueFloat valueFloat)
+            {
+                if (BBSSettings.isSaveAsCompatible())
+                {
+                    /* Older builds expect world-influence lighting and ignore lighting_v2. */
+                    map.putFloat("lighting", FormLighting.brightnessToLegacy(valueFloat.get()));
+                    map.remove("lighting_v2");
+                }
+                else
+                {
+                    map.putBool("lighting_v2", true);
+                }
+            }
         }
 
         return data;

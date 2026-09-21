@@ -4,11 +4,11 @@ import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.forms.forms.utils.ParticleSettings;
-import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -25,7 +25,6 @@ import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
@@ -41,7 +40,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.brigadier.StringReader;
 
 import java.util.ArrayList;
@@ -61,10 +59,10 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     private static class TrackedParticle
     {
         public Particle particle;
-        public mchorse.bbs_mod.utils.colors.Color startColor;
-        public mchorse.bbs_mod.utils.colors.Color endColor;
+        public Color startColor;
+        public Color endColor;
 
-        public TrackedParticle(Particle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
+        public TrackedParticle(Particle particle, Color startColor, Color endColor)
         {
             this.particle = particle;
             this.startColor = startColor.copy();
@@ -100,11 +98,17 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     {
         super.render3D(context);
 
+        /* Illusion re-draws must not overwrite the primary form pose used for spawning. */
+        if (context.trailInstance != 0)
+        {
+            return;
+        }
+
         Matrix4f positionMatrix;
 
         if (context.type == FormRenderType.PREVIEW)
         {
-            net.minecraft.client.render.Camera realCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+            Camera realCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
 
             positionMatrix = new Matrix4f().rotation(realCamera.getRotation());
             positionMatrix.mul(context.stack.peek().getPositionMatrix());
@@ -206,6 +210,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     float colorB = -1F;
                     float colorA = 1F;
 
+                    boolean hasExplicitArgColor = false;
+
                     if (!args.isEmpty())
                     {
                         try
@@ -217,6 +223,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                                 colorR = Float.parseFloat(split[0]);
                                 colorG = Float.parseFloat(split[1]);
                                 colorB = Float.parseFloat(split[2]);
+                                hasExplicitArgColor = true;
 
                                 if (split.length >= 4)
                                 {
@@ -228,11 +235,18 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         {}
                     }
 
-                    mchorse.bbs_mod.utils.colors.Color color1 = this.form.color.get();
-                    mchorse.bbs_mod.utils.colors.Color color2 = this.form.color2.get();
+                    Color color1 = this.form.color.get();
+                    Color color2 = this.form.color2.get();
                     int colorMode = this.form.colorMode.get();
 
-                    if (colorR < 0F && color1 != null)
+                    boolean isEffect = path.contains("effect");
+                    boolean isDust = path.contains("dust");
+                    boolean hasCustomRgb = colorMode != 0
+                        || hasExplicitArgColor
+                        || (color1 != null && (color1.r != 1F || color1.g != 1F || color1.b != 1F));
+                    boolean hasCustomAlpha = (color1 != null && color1.a != 1F) || (hasExplicitArgColor && colorA != 1F);
+
+                    if (colorR < 0F && color1 != null && (hasCustomRgb || hasCustomAlpha || isEffect || isDust))
                     {
                         colorR = color1.r;
                         colorG = color1.g;
@@ -244,9 +258,17 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (colorR >= 0F)
                     {
-                        if (path.contains("effect"))
+                        if (isEffect)
                         {
-                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
+                            /* Entity-effect particles carry no colour parameter on 1.20.1
+                             * (EntityEffectParticleEffect is 1.21.4+) — the colour rides in
+                             * the spawn velocity instead, which spawnParticle already packs.
+                             * Keep the resolved type so ambient_entity_effect stays itself. */
+                            if (type instanceof ParticleEffect simple)
+                            {
+                                effect = simple;
+                            }
+
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))
@@ -256,7 +278,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
-                        else if (path.contains("dust"))
+                        else if (isDust)
                         {
                             float scale = colorA > 0F ? colorA : 1F;
 
@@ -291,7 +313,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                                 {
                                     try
                                     {
-                                        Identifier id = Identifier.tryParse(args);
+                                        Identifier id = Identifier.tryParse(args.contains(":") ? args : "minecraft:" + args);
 
                                         if (id != null)
                                         {
@@ -321,86 +343,30 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         }
                     }
 
-                    for (int i = 0; i < count; i++)
+                    List<FormIllusionRenderer.EmissionSite> sites = FormIllusionRenderer.collectEmissionSites(this.form, entity);
+                    boolean distribute = FormIllusionRenderer.shouldDistributeParticles(this.form) && sites.size() > 1;
+                    Matrix3f siteRot = new Matrix3f();
+                    Vector3f siteForward = new Vector3f();
+                    Vector3f siteOrigin = new Vector3f();
+
+                    if (distribute)
                     {
-                        float velocityX = this.vel.x * velocity;
-                        float velocityY = this.vel.y * velocity;
-                        float velocityZ = this.vel.z * velocity;
-                        float sh = MathUtils.toRad(this.form.scatteringYaw.get()) * (float) (Math.random() - 0.5D);
-                        float sv = MathUtils.toRad(this.form.scatteringPitch.get()) * (float) (Math.random() - 0.5D);
-
-                        m.identity()
-                            .rotateY(sh)
-                            .rotateX(sv)
-                            .transform(v.set(velocityX, velocityY, velocityZ));
-
-                        float pR = colorR;
-                        float pG = colorG;
-                        float pB = colorB;
-                        float pA = colorA;
-
-                        if (colorMode == 2 && color1 != null && color2 != null)
+                        for (int i = 0; i < count; i++)
                         {
-                            float factor = (float) Math.random();
-
-                            pR = Lerps.lerp(color1.r, color2.r, factor);
-                            pG = Lerps.lerp(color1.g, color2.g, factor);
-                            pB = Lerps.lerp(color1.b, color2.b, factor);
-                            pA = Lerps.lerp(color1.a, color2.a, factor);
+                            this.resolveEmissionSite(sites.get(i % sites.size()), siteRot, siteForward, siteOrigin);
+                            this.spawnParticle(world, effect, path, velocity, colorR, colorG, colorB, colorA, color1, color2, colorMode, hasCustomRgb, hasCustomAlpha, siteRot, siteForward, siteOrigin, m, v, temp3f);
                         }
-
-                        if (pR >= 0F)
+                    }
+                    else
+                    {
+                        for (FormIllusionRenderer.EmissionSite site : sites)
                         {
-                            if (path.equals("note"))
+                            this.resolveEmissionSite(site, siteRot, siteForward, siteOrigin);
+
+                            for (int i = 0; i < count; i++)
                             {
-                                int ir = (int) Math.min(255F, Math.max(0F, pR * 255F));
-                                int ig = (int) Math.min(255F, Math.max(0F, pG * 255F));
-                                int ib = (int) Math.min(255F, Math.max(0F, pB * 255F));
-                                float[] hsb = java.awt.Color.RGBtoHSB(ir, ig, ib, null);
-
-                                v.x = hsb[0];
-                                v.y = 0F;
-                                v.z = 0F;
+                                this.spawnParticle(world, effect, path, velocity, colorR, colorG, colorB, colorA, color1, color2, colorMode, hasCustomRgb, hasCustomAlpha, siteRot, siteForward, siteOrigin, m, v, temp3f);
                             }
-                            else if (path.contains("effect") || path.equals("witch"))
-                            {
-                                v.x = pR;
-                                v.y = pG;
-                                v.z = pB;
-                            }
-                        }
-
-                        temp3f.set(
-                            (Math.random() * 2F - 1F) * this.form.offsetX.get(),
-                            (Math.random() * 2F - 1F) * this.form.offsetY.get(),
-                            (Math.random() * 2F - 1F) * this.form.offsetZ.get()
-                        );
-
-                        if (this.form.local.get())
-                        {
-                            this.rot.transform(temp3f);
-                        }
-
-                        double x = this.pos.x + temp3f.x;
-                        double y = this.pos.y + temp3f.y;
-                        double z = this.pos.z + temp3f.z;
-
-                        MinecraftClient mc = MinecraftClient.getInstance();
-                        Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
-
-                        if (particleObj != null && pR >= 0F)
-                        {
-                            particleObj.setColor(pR, pG, pB);
-                            particleObj.setAlpha(pA);
-
-                            if (colorMode == 1 && color1 != null && color2 != null)
-                            {
-                                this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
-                            }
-                        }
-                        else if (particleObj == null && world != null)
-                        {
-                            world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
                         }
                     }
 
@@ -409,6 +375,122 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             }
 
             this.tick -= 1;
+        }
+    }
+
+    private void resolveEmissionSite(FormIllusionRenderer.EmissionSite site, Matrix3f siteRot, Vector3f siteForward, Vector3f siteOrigin)
+    {
+        Matrix4f local = new Matrix4f().translation(site.localX, site.localY, site.localZ);
+
+        if (site.transform != null && !site.transform.isDefault())
+        {
+            local.mul(site.transform.createMatrix());
+        }
+
+        local.transformPosition(siteOrigin.set(0F, 0F, 0F));
+        this.rot.transform(siteOrigin);
+
+        siteRot.set(this.rot);
+
+        if (site.transform != null && !site.transform.isDefault())
+        {
+            Matrix3f extra = new Matrix3f();
+
+            site.transform.createMatrix().get3x3(extra);
+            siteRot.mul(extra);
+        }
+
+        siteForward.set(0F, 0F, 1F);
+        siteRot.transform(siteForward);
+    }
+
+    private void spawnParticle(World world, ParticleEffect effect, String path, float velocity, float colorR, float colorG, float colorB, float colorA, Color color1, Color color2, int colorMode, boolean hasCustomRgb, boolean hasCustomAlpha, Matrix3f siteRot, Vector3f siteForward, Vector3f siteOrigin, Matrix3f m, Vector3f v, Vector3f temp3f)
+    {
+        float velocityX = siteForward.x * velocity;
+        float velocityY = siteForward.y * velocity;
+        float velocityZ = siteForward.z * velocity;
+        float sh = MathUtils.toRad(this.form.scatteringYaw.get()) * (float) (Math.random() - 0.5D);
+        float sv = MathUtils.toRad(this.form.scatteringPitch.get()) * (float) (Math.random() - 0.5D);
+
+        m.identity()
+            .rotateY(sh)
+            .rotateX(sv)
+            .transform(v.set(velocityX, velocityY, velocityZ));
+
+        float pR = colorR;
+        float pG = colorG;
+        float pB = colorB;
+        float pA = colorA;
+
+        if (colorMode == 2 && color1 != null && color2 != null)
+        {
+            float factor = (float) Math.random();
+
+            pR = Lerps.lerp(color1.r, color2.r, factor);
+            pG = Lerps.lerp(color1.g, color2.g, factor);
+            pB = Lerps.lerp(color1.b, color2.b, factor);
+            pA = Lerps.lerp(color1.a, color2.a, factor);
+        }
+
+        if (pR >= 0F)
+        {
+            if (path.equals("note"))
+            {
+                int ir = (int) Math.min(255F, Math.max(0F, pR * 255F));
+                int ig = (int) Math.min(255F, Math.max(0F, pG * 255F));
+                int ib = (int) Math.min(255F, Math.max(0F, pB * 255F));
+                float[] hsb = java.awt.Color.RGBtoHSB(ir, ig, ib, null);
+
+                v.x = hsb[0];
+                v.y = 0F;
+                v.z = 0F;
+            }
+            else if (path.contains("effect") || path.equals("witch"))
+            {
+                v.x = pR;
+                v.y = pG;
+                v.z = pB;
+            }
+        }
+
+        temp3f.set(
+            (Math.random() * 2F - 1F) * this.form.offsetX.get(),
+            (Math.random() * 2F - 1F) * this.form.offsetY.get(),
+            (Math.random() * 2F - 1F) * this.form.offsetZ.get()
+        );
+
+        if (this.form.local.get())
+        {
+            siteRot.transform(temp3f);
+        }
+
+        double x = this.pos.x + siteOrigin.x + temp3f.x;
+        double y = this.pos.y + siteOrigin.y + temp3f.y;
+        double z = this.pos.z + siteOrigin.z + temp3f.z;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
+
+        if (particleObj != null)
+        {
+            if (hasCustomRgb && pR >= 0F)
+            {
+                particleObj.setColor(pR, pG, pB);
+            }
+
+            if (hasCustomAlpha && pA >= 0F)
+            {
+                particleObj.setAlpha(pA);
+            }
+
+            if (colorMode == 1 && color1 != null && color2 != null)
+            {
+                this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
+            }
+        }
+        else if (particleObj == null && world != null)
+        {
+            world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
         }
     }
 }

@@ -244,7 +244,12 @@ public class CubicCubeRenderer implements ICubicRenderer
         stack.peek().getPositionMatrix().transform(this.vertex);
 
         builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
+            .color(
+                MathUtils.clamp(this.r * group.color.r, 0F, 1F),
+                MathUtils.clamp(this.g * group.color.g, 0F, 1F),
+                MathUtils.clamp(this.b * group.color.b, 0F, 1F),
+                MathUtils.clamp(this.a * group.color.a, 0F, 1F)
+            )
             .texture(vertex.uv.x, vertex.uv.y)
             .overlay(this.overlay);
 
@@ -307,6 +312,15 @@ public class CubicCubeRenderer implements ICubicRenderer
     {
         if (group.paintColor.a != 0F)
         {
+            /* Negative intensity is baked into vertex tint on the main pass — never re-apply
+             * via PaintColor uniforms (would double under Iris overlay). */
+            if (group.paintColor.a < 0F)
+            {
+                return ModelVAORenderer.getBasePaintStrength() > 0F
+                    ? ModelVAORenderer.getBasePaintStrength()
+                    : 0F;
+            }
+
             return group.paintColor.a;
         }
 

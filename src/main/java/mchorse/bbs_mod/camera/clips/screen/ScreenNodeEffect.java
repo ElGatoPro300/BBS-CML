@@ -9,6 +9,8 @@ import java.util.List;
 /** Holds all screen-node effect parameters evaluated from a ScreenNodeGraph. */
 public class ScreenNodeEffect
 {
+    public int renderOrder;
+
     /* Color grade — from ScreenOutputNode */
     public float brightness;
     public float contrast;

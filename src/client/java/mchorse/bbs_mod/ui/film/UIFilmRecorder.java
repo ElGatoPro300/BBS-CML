@@ -29,7 +29,6 @@ import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.util.List;
-import java.util.Locale;
 
 public class UIFilmRecorder extends UIElement
 {

@@ -21,6 +21,7 @@ public class ModelCube implements IMapSerializable
     public Vector3f pivot = new Vector3f();
     public Vector3f rotate = new Vector3f();
     public float inflate;
+    public boolean visible = true;
 
     /* Texture mapping */
     public ModelUV front;
@@ -157,6 +158,11 @@ public class ModelCube implements IMapSerializable
 
         this.quads.clear();
 
+        if (!this.visible)
+        {
+            return;
+        }
+
         if (this.front != null)
         {
             Quad quad = this.front.createQuad();
@@ -247,6 +253,11 @@ public class ModelCube implements IMapSerializable
             data.putFloat("offset", this.inflate);
         }
 
+        if (!this.visible)
+        {
+            data.putBool("visible", false);
+        }
+
         if (this.rotate.x != 0 || this.rotate.y != 0 || this.rotate.z != 0)
         {
             data.put("rotate", DataStorageUtils.vector3fToData(this.rotate));
@@ -293,6 +304,11 @@ public class ModelCube implements IMapSerializable
             this.rotate.set(DataStorageUtils.vector3fFromData(data.getList("rotate")));
         }
 
+        if (data.has("visible"))
+        {
+            this.visible = data.getBool("visible");
+        }
+
         if (data.has("uvs"))
         {
             this.parseUV(data.get("uvs"));
@@ -333,6 +349,7 @@ public class ModelCube implements IMapSerializable
         cube.pivot.set(this.pivot);
         cube.rotate.set(this.rotate);
         cube.inflate = this.inflate;
+        cube.visible = this.visible;
 
         if (this.front != null) cube.front = this.front.copy();
         if (this.right != null) cube.right = this.right.copy();

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.settings.ui;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -53,8 +54,6 @@ import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
-import net.minecraft.client.MinecraftClient;
-
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -77,6 +76,15 @@ public class UIValueMap
             if (value == BBSSettings.modelEditorAltHoverMultipleColors)
             {
                 UIToggle toggle = UIValueFactory.booleanUINoLabel(value, (t) -> BBSModClient.applyModelEditorHoverLive());
+
+                toggle.w(18);
+
+                return Arrays.asList(UIValueFactory.column(toggle, value));
+            }
+
+            if (value == BBSSettings.linkUiScaleToGame)
+            {
+                UIToggle toggle = UIValueFactory.booleanUINoLabel(value, (t) -> BBSModClient.applyUIScaleLive());
 
                 toggle.w(18);
 
@@ -441,6 +449,48 @@ public class UIValueMap
                 return Arrays.asList(UIValueFactory.column(textbox, value), UI.row(4, browse, reset));
             }
 
+            if (value == BBSSettings.globalAssetsPath)
+            {
+                textbox.w(150);
+
+                UIButton browse = new UIButton(UIKeys.SETTINGS_FOLDER_BROWSE, (b) -> pickGlobalAssetsFolder(value, textbox));
+                UIButton sync = new UIButton(UIKeys.SETTINGS_FOLDER_SYNC, (b) ->
+                {
+                    String current = textbox.getText().trim();
+
+                    value.set(current);
+
+                    if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+                    {
+                        BBSModClient.reloadAllAssets();
+                        UIUtils.playClick(1.2F);
+                    }
+                });
+                UIButton open = new UIButton(UIKeys.SETTINGS_FOLDER_OPEN, (b) ->
+                {
+                    File dir = BBSMod.getAssetsFolder();
+
+                    UIUtils.openFolder(dir);
+                });
+                UIButton reset = new UIButton(UIKeys.SETTINGS_FOLDER_RESET, (b) ->
+                {
+                    value.set("");
+                    textbox.setText("");
+
+                    if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+                    {
+                        BBSModClient.reloadAllAssets();
+                    }
+                });
+
+                browse.tooltip(UIKeys.SETTINGS_FOLDER_BROWSE);
+                sync.tooltip(UIKeys.SETTINGS_FOLDER_SYNC);
+                open.tooltip(UIKeys.SETTINGS_FOLDER_OPEN);
+                reset.tooltip(UIKeys.SETTINGS_FOLDER_RESET);
+
+                return Arrays.asList(UIValueFactory.column(textbox, value), UI.row(4, browse, sync, open, reset));
+            }
+
             if (value == BBSSettings.videoEncoderPath && OS.CURRENT == OS.WINDOWS)
             {
                 textbox.context((menu) ->
@@ -538,8 +588,13 @@ public class UIValueMap
                 value.height.set(w);
             });
             swapResolution.tooltip(UIKeys.VIDEO_SETTINGS_SWAP_RESOLUTION);
+            swapResolution.w(20).h(20);
 
-            list.add(customColumn(UI.row(width, swapResolution, height), UIKeys.VIDEO_SETTINGS_RESOLUTION, IKey.raw("")));
+            /* Stack the label above the inputs so long translations still fit the default settings width. */
+            UIElement resolutionInputs = UI.row(4, 0, 20, width, swapResolution, height);
+
+            resolutionInputs.w(1F);
+            list.add(customColumn(resolutionInputs, UIKeys.VIDEO_SETTINGS_RESOLUTION, IKey.raw(""), true));
 
             UITrackpad frameRate = UIValueFactory.intUI(value.frameRate, null);
             frameRate.w(90);
@@ -582,10 +637,7 @@ public class UIValueMap
 
             editor.w(1F);
 
-            UILabel hint = UI.label(UIKeys.FILM_PREVIEW_VIEWPORT_TOOLBAR_HINT, 0).color(0x888888);
-            hint.relative(editor).w(1F);
-
-            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+            return Collections.singletonList(UIValueFactory.column(editor, value));
         });
 
         register(ValueGizmoToolbar.class, (value, ui) ->
@@ -594,10 +646,7 @@ public class UIValueMap
 
             editor.w(1F);
 
-            UILabel hint = UI.label(UIKeys.FILM_PREVIEW_GIZMO_TOOLBAR_HINT, 0).color(0x888888);
-            hint.relative(editor).w(1F);
-
-            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+            return Collections.singletonList(UIValueFactory.column(editor, value));
         });
 
         register(ValueFormEditorGizmoToolbar.class, (value, ui) ->
@@ -606,10 +655,7 @@ public class UIValueMap
 
             editor.w(1F);
 
-            UILabel hint = UI.label(UIKeys.FORMS_EDITOR_GIZMO_TOOLBAR_HINT, 0).color(0x888888);
-            hint.relative(editor).w(1F);
-
-            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+            return Collections.singletonList(UIValueFactory.column(editor, value));
         });
     }
 
@@ -626,7 +672,35 @@ public class UIValueMap
         }), 320, 240);
     }
 
+    private static void pickGlobalAssetsFolder(ValueString value, UITextbox textbox)
+    {
+        String defaultPath = value.get().trim();
+
+        if (defaultPath.isEmpty())
+        {
+            defaultPath = BBSMod.getAssetsFolder().getAbsolutePath();
+        }
+
+        String chosen = UIUtils.selectFolder(UIKeys.SETTINGS_FOLDER_BROWSE.get(), defaultPath);
+
+        if (chosen != null && !chosen.isEmpty())
+        {
+            value.set(chosen);
+            textbox.setText(chosen);
+
+            if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+            {
+                BBSModClient.reloadAllAssets();
+            }
+        }
+    }
+
     private static UIElement customColumn(UIElement control, IKey label, IKey tooltip)
+    {
+        return customColumn(control, label, tooltip, false);
+    }
+
+    private static UIElement customColumn(UIElement control, IKey label, IKey tooltip, boolean stack)
     {
         UIElement element = new UIElement();
         control.removeTooltip();
@@ -637,16 +711,24 @@ public class UIValueMap
             && !comment.startsWith("cml.settings.")
             && (BBSSettings.hideSettingDescriptions == null || !BBSSettings.hideSettingDescriptions.get());
 
-        if (hasComment)
+        if (hasComment || stack)
         {
             UILabel titleLabel = UI.label(label, 0).labelAnchor(0, 0.5F);
             titleLabel.relative(element).w(1F).h(11);
-            UIText desc = new UIText(tooltip)
-                .color(0xFF777788, true);
-            desc.relative(element).w(1F);
 
             element.column(3).vertical().padding(0).height(0);
-            element.add(titleLabel, desc.marginTop(1), control.marginTop(2));
+
+            if (hasComment)
+            {
+                UIText desc = new UIText(tooltip)
+                    .color(0xFF777788, true);
+                desc.relative(element).w(1F);
+                element.add(titleLabel, desc.marginTop(1), control.marginTop(2));
+            }
+            else
+            {
+                element.add(titleLabel, control.marginTop(2).w(1F));
+            }
         }
         else
         {

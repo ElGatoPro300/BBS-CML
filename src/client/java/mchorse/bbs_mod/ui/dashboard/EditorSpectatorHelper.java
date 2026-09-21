@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -12,8 +11,12 @@ import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.world.GameMode;
 
 /**
- * Silent Spectator only for Film and Model Block panels.
- * Any other panel (Morphing, Home, …) or leaving BBS restores the previous gamemode.
+ * Silent Spectator for the Film panel (noclip while editing).
+ * <p>
+ * Model Block is intentionally excluded: it already uses the orbit camera, and
+ * auto-spectator left the local player body invisible (armor/items still visible)
+ * when switching to Transformaciones / other world-backed panels.
+ * Leaving BBS or any non-film panel restores the previous gamemode.
  */
 public final class EditorSpectatorHelper
 {
@@ -37,7 +40,7 @@ public final class EditorSpectatorHelper
 
         UIDashboardPanel main = panel.getMainPanel();
 
-        return main instanceof UIFilmPanel || main instanceof UIModelBlockPanel;
+        return main instanceof UIFilmPanel;
     }
 
     public static void syncForPanel(UIDashboardPanel panel)
@@ -196,12 +199,10 @@ public final class EditorSpectatorHelper
         controlSuspended = false;
         savedMode = null;
 
-        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
-
-        if (interactions != null && interactions.getCurrentGameMode() != restoreTo)
-        {
-            applyGameMode(restoreTo);
-        }
+        /* Always re-assert on client + server. Skipping when the local interaction
+         * manager already matches restoreTo left the server (and entity invisible
+         * flag) stuck in spectator after leaving a spectator editor panel. */
+        applyGameMode(restoreTo);
     }
 
     /**

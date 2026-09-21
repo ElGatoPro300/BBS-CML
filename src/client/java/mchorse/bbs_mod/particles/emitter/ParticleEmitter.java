@@ -25,10 +25,8 @@ import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.world.World;
@@ -77,6 +75,12 @@ public class ParticleEmitter
     public int lifetime;
     public boolean playing = true;
     public boolean paused;
+
+    /**
+     * Multiplier applied to scheme spawn rate / instant particle counts (used when
+     * illusion foci distribute emission across several emitters).
+     */
+    public float spawnRateScale = 1F;
 
     public float random1 = (float) Math.random();
     public float random2 = (float) Math.random();

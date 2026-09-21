@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.film.clips;
 
 import mchorse.bbs_mod.camera.clips.screen.GrainClip;
-import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
@@ -9,7 +8,6 @@ import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
-import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.clips.Clips;
 
 public class UIGrainClip extends UIClip<GrainClip>
@@ -49,7 +47,7 @@ public class UIGrainClip extends UIClip<GrainClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.edit));
     }
 
     @Override

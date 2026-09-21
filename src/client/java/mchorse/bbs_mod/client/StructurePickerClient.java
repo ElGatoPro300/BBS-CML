@@ -2,10 +2,13 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.blocks.ModelBlock;
+import mchorse.bbs_mod.camera.Camera;
+import mchorse.bbs_mod.camera.OrbitCamera;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
-import mchorse.bbs_mod.forms.forms.StructureForm;
+import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.items.StructurePickerAxis;
 import mchorse.bbs_mod.items.StructurePickerBrushShape;
@@ -21,6 +24,7 @@ import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.joml.Matrices;
 
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -39,7 +43,14 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 
+import org.joml.Vector3d;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
+
 import org.lwjgl.glfw.GLFW;
+
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -142,7 +153,7 @@ public class StructurePickerClient
     private static boolean placementDragging;
     private static int placementDragOriginCoord;
     private static Runnable placementUiListener;
-    private static mchorse.bbs_mod.camera.OrbitCamera freecamOrbit;
+    private static OrbitCamera freecamOrbit;
     /** Structure path bound after Place and Select — Save overwrites this file. */
     private static String boundStructurePath;
 
@@ -389,7 +400,7 @@ public class StructurePickerClient
                 {
                     mc.execute(() ->
                     {
-                        mchorse.bbs_mod.forms.renderers.StructureFormRenderer.notifyStructureFileChanged();
+                        StructureFormRenderer.notifyStructureFileChanged();
                         StructurePickerClient.notifySelectionUi();
                     });
                 }
@@ -404,7 +415,7 @@ public class StructurePickerClient
                 mc.execute(() ->
                 {
                     StructurePickerClient.boundStructurePath = exported;
-                    mchorse.bbs_mod.forms.renderers.StructureFormRenderer.notifyStructureFileChanged();
+                    StructureFormRenderer.notifyStructureFileChanged();
                     StructurePickerClient.notifySelectionUi();
                 });
             }
@@ -416,7 +427,7 @@ public class StructurePickerClient
         StructurePickerClient.boundStructurePath = null;
     }
 
-    public static void setFreecamOrbit(mchorse.bbs_mod.camera.OrbitCamera orbit)
+    public static void setFreecamOrbit(OrbitCamera orbit)
     {
         StructurePickerClient.freecamOrbit = orbit;
     }
@@ -434,14 +445,14 @@ public class StructurePickerClient
     {
         if (StructurePickerClient.freecamOrbit != null && UIStructurePickerPanel.isOpened())
         {
-            org.joml.Vector3d pos = StructurePickerClient.freecamOrbit.position;
+            Vector3d pos = StructurePickerClient.freecamOrbit.position;
 
             return new Vec3d(pos.x, pos.y, pos.z);
         }
 
         if (UIStructurePickerPanel.isOpened())
         {
-            org.joml.Vector3d pos = BBSModClient.getCameraController().getPosition();
+            Vector3d pos = BBSModClient.getCameraController().getPosition();
 
             return new Vec3d(pos.x, pos.y, pos.z);
         }
@@ -458,15 +469,15 @@ public class StructurePickerClient
     {
         if (StructurePickerClient.freecamOrbit != null && UIStructurePickerPanel.isOpened())
         {
-            org.joml.Vector3f look = StructurePickerClient.freecamOrbit.getLook();
+            Vector3f look = StructurePickerClient.freecamOrbit.getLook();
 
             return new Vec3d(look.x, look.y, look.z);
         }
 
         if (UIStructurePickerPanel.isOpened())
         {
-            mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
-            org.joml.Vector3f look = mchorse.bbs_mod.utils.joml.Matrices.rotation(camera.rotation.x, mchorse.bbs_mod.utils.MathUtils.PI - camera.rotation.y);
+            Camera camera = BBSModClient.getCameraController().camera;
+            Vector3f look = Matrices.rotation(camera.rotation.x, MathUtils.PI - camera.rotation.y);
 
             return new Vec3d(look.x, look.y, look.z);
         }
@@ -523,7 +534,7 @@ public class StructurePickerClient
     {
         if (UIStructurePickerPanel.isOpened())
         {
-            mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
+            Camera camera = BBSModClient.getCameraController().camera;
 
             if (StructurePickerClient.freecamOrbit != null)
             {
@@ -541,7 +552,7 @@ public class StructurePickerClient
 
             if (width > 0 && height > 0)
             {
-                org.joml.Vector3f dir = camera.getMouseDirectionFov(
+                Vector3f dir = camera.getMouseDirectionFov(
                     (int) mc.mouse.getX(),
                     (int) mc.mouse.getY(),
                     0,
@@ -1552,7 +1563,7 @@ public class StructurePickerClient
         {
             MinecraftClient mc = MinecraftClient.getInstance();
 
-            if (mc.world != null && mc.world.getBlockState(hitResult.getBlockPos()).getBlock() instanceof mchorse.bbs_mod.blocks.ModelBlock)
+            if (mc.world != null && mc.world.getBlockState(hitResult.getBlockPos()).getBlock() instanceof ModelBlock)
             {
                 return ActionResult.PASS;
             }
@@ -2093,7 +2104,7 @@ public class StructurePickerClient
      */
     private static StructurePickerAxis pickAxisGizmoScreen(MinecraftClient mc, Vec3d gizmo, boolean positive, boolean arrowTips)
     {
-        mchorse.bbs_mod.camera.Camera camera = StructurePickerClient.syncPickCamera(mc);
+        Camera camera = StructurePickerClient.syncPickCamera(mc);
 
         if (camera == null)
         {
@@ -2149,9 +2160,9 @@ public class StructurePickerClient
         return best;
     }
 
-    private static mchorse.bbs_mod.camera.Camera syncPickCamera(MinecraftClient mc)
+    private static Camera syncPickCamera(MinecraftClient mc)
     {
-        mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
+        Camera camera = BBSModClient.getCameraController().camera;
 
         if (StructurePickerClient.freecamOrbit != null && UIStructurePickerPanel.isOpened())
         {
@@ -2167,10 +2178,10 @@ public class StructurePickerClient
         return camera;
     }
 
-    private static double[] projectWorldToScreen(mchorse.bbs_mod.camera.Camera camera, Vec3d world, int width, int height)
+    private static double[] projectWorldToScreen(Camera camera, Vec3d world, int width, int height)
     {
-        org.joml.Vector3f rel = camera.getRelative(world.x, world.y, world.z);
-        org.joml.Vector4f clip = new org.joml.Vector4f(rel.x, rel.y, rel.z, 1F);
+        Vector3f rel = camera.getRelative(world.x, world.y, world.z);
+        Vector4f clip = new Vector4f(rel.x, rel.y, rel.z, 1F);
 
         camera.view.transform(clip);
         camera.projection.transform(clip);
@@ -3952,7 +3963,7 @@ public class StructurePickerClient
 
         if (panel.replayEditor != null && panel.replayEditor.replays != null && panel.replayEditor.replays.replays != null)
         {
-            panel.replayEditor.replays.replays.refreshAfterExternalEdit();
+            panel.replayEditor.replays.replays.update();
         }
     }
 

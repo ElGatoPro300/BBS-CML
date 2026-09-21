@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.model;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.cubic.physics.SpringChainCompiler;
@@ -11,15 +12,18 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,6 +50,7 @@ public class UIModelPhysBonePanel extends UIElement
     private static final float DEFAULT_HIT_RADIUS = 0.1F;
 
     private final UIStringList boneList;
+    private final UIToggle debugToggle;
     private final UIScrollView detailScroll;
     private final UILabel noSelectionLabel;
     private final UILabel boneNameLabel;
@@ -99,9 +104,26 @@ public class UIModelPhysBonePanel extends UIElement
         });
         this.boneList.relative(this)
             .x(SIDE_MARGIN).y(26)
-            .w(LEFT_WIDTH).h(1F, -36);
+            .w(LEFT_WIDTH).h(1F, -60);
         this.boneList.background();
         this.boneList.scroll.scrollItemSize = 18;
+
+        /* Anchored to the PANEL, not to the bone list, so rebuilding the list cannot
+         * displace it. The switch is a settings value, not part of a rig, so it sits
+         * outside the per-chain fields and stays reachable with nothing selected. */
+        this.debugToggle = new UIToggle(UIKeys.MODELS_DEBUG_SHOW, (b) -> BBSSettings.physicsDebug.enabled.set(b.getValue()));
+        this.debugToggle.setValue(BBSSettings.physicsDebug.enabled.get());
+        this.debugToggle.tooltip(UIKeys.MODELS_PHYS_BONES_DEBUG_TOOLTIP);
+        this.debugToggle.context(() -> new UIDebugOverlayContextMenu(BBSSettings.physicsDebug));
+
+        UIIcon debugSettings = new UIIcon(Icons.GEAR, (b) -> this.getContext().replaceContextMenu(new UIDebugOverlayContextMenu(BBSSettings.physicsDebug)));
+
+        debugSettings.tooltip(UIKeys.MODELS_DEBUG_CONFIGURE);
+
+        UIElement debugRow = UI.row(this.debugToggle, debugSettings);
+
+        debugRow.relative(this).x(SIDE_MARGIN).y(1F, -30).w(LEFT_WIDTH).h(20);
+        this.add(debugRow);
 
         UILabel editorTitle = UI.label(UIKeys.MODELS_PHYS_BONES_EDITOR).background();
         editorTitle.relative(this)
@@ -127,7 +149,7 @@ public class UIModelPhysBonePanel extends UIElement
         fields.relative(this.detailScroll).w(1F);
         fields.column().stretch().vertical().height(20).padding(4);
 
-        fields.add(UI.label(IKey.raw("SPRING CHAIN")).background());
+        fields.add(UI.label(UIKeys.MODELS_PHYS_BONES_SPRING_CHAIN).background());
 
         this.activeToggle = new UIToggle(UIKeys.MODELS_PHYS_BONES_ENABLED, (b) -> this.onActiveChanged(b.getValue()));
         this.activeToggle.tooltip(UIKeys.MODELS_PHYS_BONES_ENABLED_TOOLTIP);
@@ -145,7 +167,18 @@ public class UIModelPhysBonePanel extends UIElement
                 }
             })
         );
-        this.endBoneButton.tooltip(UIKeys.MODELS_PHYS_BONES_CHAIN_END_TOOLTIP);
+        this.endBoneButton.tooltip(UIKeys.MODELS_PHYS_BONES_END_BONE_TOOLTIP);
+        this.endBoneButton.context((menu) -> menu.action(Icons.CLOSE, UIKeys.MODELS_PHYS_BONES_END_BONE_CLEAR, () ->
+        {
+            SpringChainData data = this.getSelectedData();
+
+            if (data != null)
+            {
+                data.endBone = "";
+                this.updateEndBoneLabel();
+                this.commitChanges();
+            }
+        }));
 
         this.pinTargetButton = new UIButton(UIKeys.MODELS_PHYS_BONES_ANCHOR_END, (b) ->
             this.openBonePicker((bone) ->
@@ -208,7 +241,7 @@ public class UIModelPhysBonePanel extends UIElement
         this.relaxStepsPad.integer();
         this.relaxStepsPad.tooltip(UIKeys.MODELS_PHYS_BONES_SOLVER_STEPS_TOOLTIP);
 
-        this.bodyRelativePullToggle = new UIToggle(IKey.raw("Body Relative Pull"), (b) ->
+        this.bodyRelativePullToggle = new UIToggle(UIKeys.MODELS_PHYS_BONES_BODY_RELATIVE_PULL, (b) ->
         {
             SpringChainData data = this.getOrCreateSelected();
 
@@ -291,19 +324,19 @@ public class UIModelPhysBonePanel extends UIElement
             this.activeToggle,
             UI.label(UIKeys.MODELS_PHYS_BONES_CHAIN_END), this.endBoneButton,
             UI.label(UIKeys.MODELS_PHYS_BONES_ANCHOR_END), this.pinTargetButton,
-            UI.label(IKey.raw("Pull Strength")), this.pullStrengthPad,
-            UI.label(IKey.raw("Drag")), this.dragPad,
-            UI.label(IKey.raw("Spring Return")), this.springReturnPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_PULL_STRENGTH), this.pullStrengthPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_DRAG), this.dragPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_SPRING_RETURN), this.springReturnPad,
             UI.label(UIKeys.MODELS_PHYS_BONES_SOLVER_STEPS), this.relaxStepsPad,
             this.bodyRelativePullToggle,
-            UI.label(IKey.raw("Pull Rotation (X / Y / Z)")),
+            UI.label(UIKeys.MODELS_PHYS_BONES_PULL_ROTATION),
             UI.row(this.pullRotXPad, this.pullRotYPad, this.pullRotZPad),
             this.hitDetectionToggle,
             UI.label(UIKeys.MODELS_PHYS_BONES_COLLISION_RADIUS), this.hitRadiusPad,
-            UI.label(IKey.raw("Influence")), this.influencePad
+            UI.label(UIKeys.MODELS_PHYS_BONES_INFLUENCE), this.influencePad
         );
 
-        fields.add(UI.label(IKey.raw("WIND")).background());
+        fields.add(UI.label(UIKeys.MODELS_PHYS_BONES_WIND).background());
 
         this.windPowerPad = this.buildPad((v) ->
         {
@@ -347,19 +380,19 @@ public class UIModelPhysBonePanel extends UIElement
             this.commitChanges();
         }, 0D, 10D, 0.05D, 0.01D, 0.25D);
 
-        this.windModelRelativeToggle = new UIToggle(IKey.raw("Model Relative"), (b) ->
+        this.windModelRelativeToggle = new UIToggle(UIKeys.MODELS_PHYS_BONES_WIND_MODEL_RELATIVE, (b) ->
         {
             this.wind.modelRelative = b.getValue();
             this.commitChanges();
         });
 
         fields.add(
-            UI.label(IKey.raw("Power")), this.windPowerPad,
-            UI.label(IKey.raw("Direction (X / Y / Z)")),
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_POWER), this.windPowerPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_DIRECTION),
             UI.row(this.windDirXPad, this.windDirYPad, this.windDirZPad),
-            UI.label(IKey.raw("Gustiness")), this.windGustinessPad,
-            UI.label(IKey.raw("Gust Speed")), this.windGustSpeedPad,
-            UI.label(IKey.raw("Gust Scale")), this.windGustScalePad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_GUSTINESS), this.windGustinessPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_GUST_SPEED), this.windGustSpeedPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_GUST_SCALE), this.windGustScalePad,
             this.windModelRelativeToggle
         );
 
@@ -467,7 +500,9 @@ public class UIModelPhysBonePanel extends UIElement
 
         if (data == null || data.endBone.isEmpty())
         {
-            this.endBoneButton.label = UIKeys.MODELS_PHYS_BONES_CHAIN_END;
+            /* Blank is a real setting, not a gap to fill: the chain runs to the deepest
+             * bone under the root. Say so rather than showing a bare prompt. */
+            this.endBoneButton.label = UIKeys.MODELS_PHYS_BONES_END_BONE_AUTO;
             return;
         }
 

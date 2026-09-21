@@ -1,15 +1,15 @@
 package mchorse.bbs_mod.ui.film.clips.modules;
 
-import mchorse.bbs_mod.camera.data.Angle;
 import mchorse.bbs_mod.camera.values.ValueAngle;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
-import mchorse.bbs_mod.ui.film.clips.UIClip;
 import mchorse.bbs_mod.ui.film.utils.UICameraUtils;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 
-public class UIAngleModule extends UIAbstractModule
+public class UIAngleModule extends UISection
 {
     public UITrackpad yaw;
     public UITrackpad pitch;
@@ -19,6 +19,8 @@ public class UIAngleModule extends UIAbstractModule
 
     public ValueAngle angle;
 
+    protected IUIClipsDelegate editor;
+
     public UIAngleModule(IUIClipsDelegate editor)
     {
         this(editor, false);
@@ -26,7 +28,14 @@ public class UIAngleModule extends UIAbstractModule
 
     public UIAngleModule(IUIClipsDelegate editor, boolean includeDistance)
     {
-        super(editor);
+        this(editor, UIKeys.CAMERA_PANELS_ANGLE, includeDistance);
+    }
+
+    public UIAngleModule(IUIClipsDelegate editor, IKey title, boolean includeDistance)
+    {
+        super(title);
+
+        this.editor = editor;
 
         this.yaw = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().yaw = v.floatValue()));
         this.yaw.tooltip(UIKeys.CAMERA_PANELS_YAW);
@@ -39,21 +48,16 @@ public class UIAngleModule extends UIAbstractModule
 
         this.fov = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().fov = v.floatValue()));
         this.fov.tooltip(UIKeys.CAMERA_PANELS_FOV);
-        
+
         if (includeDistance)
         {
             this.distance = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().distance = v.floatValue()));
             this.distance.tooltip(UIKeys.CAMERA_PANELS_DISTANCE);
-        }
-
-        this.column().vertical().stretch().height(20);
-        if (includeDistance)
-        {
-            this.add(UIClip.label(UIKeys.CAMERA_PANELS_ANGLE), this.yaw, this.pitch, this.roll, this.fov, this.distance);
+            this.fields.add(this.yaw, this.pitch, this.roll, this.fov, this.distance);
         }
         else
         {
-            this.add(UIClip.label(UIKeys.CAMERA_PANELS_ANGLE), this.yaw, this.pitch, this.roll, this.fov);
+            this.fields.add(this.yaw, this.pitch, this.roll, this.fov);
         }
     }
 

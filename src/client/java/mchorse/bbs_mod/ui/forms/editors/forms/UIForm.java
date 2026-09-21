@@ -21,7 +21,6 @@ import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
 import org.joml.Matrix4f;
@@ -41,7 +40,7 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
     {
         super(Direction.LEFT);
 
-        this.keys().register(Keys.FILM_CONTROLLER_CYCLE_EDITORS, this::cyclePanels);
+        this.keys().register(Keys.FILM_CONTROLLER_CYCLE_EDITORS, this::cyclePanels).allowShift();
     }
 
     @Override
@@ -132,6 +131,7 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
 
         matrix = matrix == null ? null : new Matrix4f(matrix);
         matrix = GizmoMatrixUtils.applyOrientationSpace(matrix, orientation);
+        matrix = GizmoMatrixUtils.normalizeBasis(matrix);
 
         return matrix == null ? Matrices.EMPTY_4F : matrix;
     }
@@ -182,7 +182,8 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
     @Override
     protected void renderBackground(UIContext context, int x, int y, int w, int h)
     {
-        context.batcher.box(x, y, x + w, y + h, Colors.A100);
+        context.batcher.box(x, y, x + w, y + h, 0xFF161719);
+        context.batcher.box(x + w - 1, y, x + w, y + h, 0xFF2A2B2F);
     }
 
     @Override

@@ -118,7 +118,6 @@ public class RenderTickCounterMixin
             this.heldFrames = 0;
         }
     }
-
     private static boolean syncExportActionsNow(VideoRecorder recorder, boolean highQuality)
     {
         MinecraftClient client = MinecraftClient.getInstance();

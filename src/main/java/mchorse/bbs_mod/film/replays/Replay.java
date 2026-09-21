@@ -3,6 +3,7 @@ package mchorse.bbs_mod.film.replays;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.actions.types.ActionClip;
+import mchorse.bbs_mod.actions.types.MobDeathActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.camera.data.Point;
 import mchorse.bbs_mod.camera.values.ValuePoint;
@@ -14,7 +15,6 @@ import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueForm;
@@ -171,11 +171,21 @@ public class Replay extends ValueGroup
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
     {
+        if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+        {
+            return;
+        }
+
         this.applyActionsCrossing(actor, fakePlayer, film, tick - 1F, tick);
     }
 
     public int applyActionsCrossing(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, float prevTime, float currTime)
     {
+        if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+        {
+            return 0;
+        }
+
         List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
         int fired = 0;
 
@@ -200,12 +210,18 @@ public class Replay extends ValueGroup
 
         SwipeActionClip.noteClientFilmTick(entity, tick);
 
+        boolean dead = entity != null && entity.getDeathTime() > 0;
         List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
 
         for (Clip clip : clips)
         {
             if (clip instanceof ActionClip actionClip && actionClip.isClient())
             {
+                if (dead && !(clip instanceof MobDeathActionClip))
+                {
+                    continue;
+                }
+
                 actionClip.applyClientCrossing(entity, film, this, prevTime, currTime);
             }
         }

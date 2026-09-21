@@ -14,7 +14,6 @@ import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.settings.values.ui.ValueVideoSettings;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
-import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -339,6 +338,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
             case "compatibility": return Icons.SAVE;
             case "audio": return Icons.SOUND;
             case "cdn": return Icons.USER;
+            case "storage": return Icons.FOLDER;
             default: return Icons.SETTINGS;
         }
     }
@@ -480,6 +480,51 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
                         {
                             videoSettings.width.set(3840);
                             videoSettings.height.set(2160);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_CINEMASCOPE_1080P, () ->
+                        {
+                            videoSettings.width.set(1920);
+                            videoSettings.height.set(804);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_CINEMASCOPE_1440P, () ->
+                        {
+                            videoSettings.width.set(2560);
+                            videoSettings.height.set(1072);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_CINEMASCOPE_4K, () ->
+                        {
+                            videoSettings.width.set(3840);
+                            videoSettings.height.set(1608);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_DCI_2K_SCOPE, () ->
+                        {
+                            videoSettings.width.set(2048);
+                            videoSettings.height.set(858);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_DCI_2K_FLAT, () ->
+                        {
+                            videoSettings.width.set(1998);
+                            videoSettings.height.set(1080);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_DCI_4K_SCOPE, () ->
+                        {
+                            videoSettings.width.set(4096);
+                            videoSettings.height.set(1716);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_DCI_4K_FLAT, () ->
+                        {
+                            videoSettings.width.set(3996);
+                            videoSettings.height.set(2160);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_ULTRAWIDE_1080P, () ->
+                        {
+                            videoSettings.width.set(2560);
+                            videoSettings.height.set(1080);
+                        });
+                        menu.action(Icons.FILM, UIKeys.VIDEO_SETTINGS_PRESETS_ULTRAWIDE_1440P, () ->
+                        {
+                            videoSettings.width.set(3440);
+                            videoSettings.height.set(1440);
                         });
                     });
                 });

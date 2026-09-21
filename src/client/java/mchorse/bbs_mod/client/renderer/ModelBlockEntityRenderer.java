@@ -24,8 +24,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-import mchorse.bbs_mod.utils.pose.Pose;
-import mchorse.bbs_mod.utils.pose.PoseTransform;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
@@ -62,6 +61,10 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     /**
      * Vanilla ground blob. Minecraft only exposes a single radius, so non-uniform size is
      * done by scaling the matrix (same idea as Iris caster scale in {@code BaseFilmController}).
+     *
+     * {@code x/y/z} is the entity sample point used for ground projection and height fade —
+     * keep {@code y} at feet / ground. Lift the drawn PNG with {@code ty} (and shift with
+     * {@code tx}/{@code tz}) so artistic Y offset floats the blob instead of washing it out.
      */
     public static void renderShadow(VertexConsumerProvider provider, MatrixStack matrices, float tickDelta, double x, double y, double z, float tx, float ty, float tz, float radiusX, float radiusZ, float opacity)
     {
@@ -169,6 +172,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             Camera camera = mc.gameRenderer.getCamera();
 
             RenderSystem.enableDepthTest();
+            BBSRendering.setupMatchingWorldDiffuseLighting();
 
             FormRenderingContext formContext = new FormRenderingContext()
                 .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), matrices, lightAbove, overlay, tickDelta)
@@ -178,11 +182,6 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             FormUtilsClient.render(form, formContext);
 
-            if (!formContext.isShadowPass)
-            {
-                RenderSystem.disableDepthTest();
-            }
-
             if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
             {
                 matrices.push();
@@ -191,12 +190,14 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
                 matrices.pop();
             }
 
-            matrices.pop();
-        }
+            /* ModelForm tears down lightmap; do not leave depth off — WorldRenderer may still
+             * flush buffered vanilla entity layers (enchanted armor) after block entities. */
+            if (!formContext.isShadowPass)
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
 
-        if (!BBSRendering.isIrisShadowPass())
-        {
-            RenderSystem.disableDepthTest();
+            matrices.pop();
         }
 
         if (mc.getDebugHud().shouldShowDebugHud())
@@ -386,7 +387,15 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         formContext.isShadowPass = true;
 
         RenderSystem.enableDepthTest();
-        FormUtilsClient.render(form, formContext);
+        ShaderOpacityPatch.beginShadowForm();
+        try
+        {
+            FormUtilsClient.render(form, formContext);
+        }
+        finally
+        {
+            ShaderOpacityPatch.endShadowForm();
+        }
         shadowStack.pop();
     }
 

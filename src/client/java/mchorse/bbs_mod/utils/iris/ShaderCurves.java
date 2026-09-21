@@ -56,7 +56,6 @@ public class ShaderCurves
 
     public static void finishLoading()
     {
-        ShaderOpacityPatch.ensureShadowOpacityVariable();
         ensureSunPathRotationVariable();
     }
 

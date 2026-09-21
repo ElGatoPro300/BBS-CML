@@ -49,7 +49,7 @@ public class ParticleComponentRateSteady extends ParticleComponentRate implement
     {
         if (emitter.playing && !emitter.paused)
         {
-            float spawnRate = (float) (this.spawnRate.get() / 20D);
+            float spawnRate = (float) (this.spawnRate.get() / 20D) * Math.max(0F, emitter.spawnRateScale);
             int max = (int) this.particles.get();
             int particles = (int) Math.floor(spawnRate);
 

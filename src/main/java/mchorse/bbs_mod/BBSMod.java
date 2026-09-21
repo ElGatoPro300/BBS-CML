@@ -5,6 +5,7 @@ import mchorse.bbs_mod.actions.ActionManager;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.DamageActionClip;
 import mchorse.bbs_mod.actions.types.MobDeathActionClip;
+import mchorse.bbs_mod.actions.types.ProjectileAttackActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
 import mchorse.bbs_mod.actions.types.blocks.CloseContainerActionClip;
@@ -94,6 +95,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.items.BlockPickerItem;
 import mchorse.bbs_mod.items.GunItem;
 import mchorse.bbs_mod.items.MobKillerItem;
@@ -151,10 +153,8 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundEvent;
@@ -175,7 +175,7 @@ import java.util.function.Consumer;
 public class BBSMod implements ModInitializer
 {
     public static final String MOD_ID = "bbs";
-    public static final String VERSION = "2.1-beta-1";
+    public static final String VERSION = "2.1";
     public static final boolean IS_CML = true;
 
     public static final EventBus events = new EventBus();
@@ -390,12 +390,22 @@ public class BBSMod implements ModInitializer
     }
 
     /**
-     * Assets folder within game's folder. It's used to store any assets that can
+     * Assets folder within game's folder or global folder. It's used to store any assets that can
      * be loaded by {@link #provider}.
      */
     public static File getAssetsFolder()
     {
-        ISourcePack sourcePack = getDynamicSourcePack().getSourcePack();
+        if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+        {
+            String custom = BBSSettings.globalAssetsPath != null ? BBSSettings.globalAssetsPath.get().trim() : "";
+
+            if (!custom.isEmpty())
+            {
+                return resolveAssetsFolder(new File(custom));
+            }
+        }
+
+        ISourcePack sourcePack = getDynamicSourcePack() != null ? getDynamicSourcePack().getSourcePack() : null;
 
         if (sourcePack instanceof ExternalAssetsSourcePack pack)
         {
@@ -448,6 +458,60 @@ public class BBSMod implements ModInitializer
         }
     }
 
+    public static File resolveAssetsFolder(File dir)
+    {
+        if (dir == null)
+        {
+            return assetsFolder;
+        }
+
+        File assetsSub = new File(dir, "assets");
+
+        if (dir.getName().equalsIgnoreCase("bbs") || assetsSub.isDirectory())
+        {
+            return assetsSub;
+        }
+
+        return dir;
+    }
+
+    public static void ensureAssetsStructure(File folder)
+    {
+        if (folder == null)
+        {
+            return;
+        }
+
+        folder.mkdirs();
+        new File(folder, "models").mkdirs();
+        new File(folder, "audio").mkdirs();
+        new File(folder, "particles").mkdirs();
+        new File(folder, "textures").mkdirs();
+        new File(folder, "structures").mkdirs();
+        new File(folder, "video").mkdirs();
+
+        File parent = folder.getParentFile();
+
+        if (parent != null && (parent.getName().equalsIgnoreCase("bbs") || new File(parent, "settings").exists()))
+        {
+            new File(parent, "settings/forms").mkdirs();
+            new File(parent, "data/films").mkdirs();
+        }
+    }
+
+    public static void updateAssetsSourcePack()
+    {
+        File folder = getAssetsFolder();
+
+        ensureAssetsStructure(folder);
+        originalSourcePack = new ExternalAssetsSourcePack(Link.ASSETS, folder).providesFiles();
+
+        if (dynamicSourcePack != null)
+        {
+            dynamicSourcePack.setMain(originalSourcePack);
+        }
+    }
+
     public static File getAudioFolder()
     {
         return getAssetsPath("audio");
@@ -469,12 +533,28 @@ public class BBSMod implements ModInitializer
      */
     public static File getSettingsFolder()
     {
+        if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+        {
+            String custom = BBSSettings.globalAssetsPath != null ? BBSSettings.globalAssetsPath.get().trim() : "";
+
+            if (!custom.isEmpty())
+            {
+                File customDir = new File(custom);
+                File settingsSub = new File(customDir, "settings");
+
+                if (customDir.getName().equalsIgnoreCase("bbs") || settingsSub.isDirectory())
+                {
+                    return settingsSub;
+                }
+            }
+        }
+
         return settingsFolder;
     }
 
     public static File getSettingsPath(String path)
     {
-        return new File(settingsFolder, path);
+        return new File(getSettingsFolder(), path);
     }
 
     public static File getExportFolder()
@@ -653,6 +733,7 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("use_block_item"), UseBlockItemActionClip.class, new ClipFactoryData(Icons.BUCKET, Colors.CYAN))
             .register(Link.bbs("drop_item"), ItemDropActionClip.class, new ClipFactoryData(Icons.ARROW_DOWN, Colors.DEEP_PINK))
             .register(Link.bbs("attack"), AttackActionClip.class, new ClipFactoryData(Icons.DROP, Colors.RED))
+            .register(Link.bbs("projectile_attack"), ProjectileAttackActionClip.class, new ClipFactoryData(Icons.ARROW_DOWN, Colors.RED))
             .register(Link.bbs("damage"), DamageActionClip.class, new ClipFactoryData(Icons.SKULL, Colors.CURSOR))
             .register(Link.bbs("mob_death"), MobDeathActionClip.class, new ClipFactoryData(Icons.SKULL, Colors.RED))
             .register(Link.bbs("swipe"), SwipeActionClip.class, new ClipFactoryData(Icons.LIMB, Colors.ORANGE));
@@ -670,6 +751,12 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("eye"), EyeClip.class, new ClipFactoryData(Icons.VISIBLE, 0x111111));
 
         setupConfig(Icons.PROCESSOR, "bbs", new File(settingsFolder, "bbs.json"), BBSSettings::register);
+
+        if (BBSSettings.globalAssetsEnabled != null && BBSSettings.globalAssetsEnabled.get())
+        {
+            updateAssetsSourcePack();
+            settings.reload();
+        }
 
         events.post(new RegisterSettingsEvent());
 

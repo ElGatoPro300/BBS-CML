@@ -5,10 +5,13 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
-import net.minecraft.client.MinecraftClient;
+import net.fabricmc.loader.api.FabricLoader;
 
-import net.irisshaders.iris.gl.blending.AlphaTest;
-import net.irisshaders.iris.gl.blending.AlphaTestFunction;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gl.WindowFramebuffer;
+
+import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
@@ -23,7 +26,11 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -32,13 +39,14 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-
 /**
- * Runtime soft-opacity queue (Complementary / BSL patch optional).
- * Soft opacity draws after translucent terrain with depth writes — fluids stay, limbs do
- * not X-ray — whether or not the pack patch is active. Near-opaque stays on the live path
- * for pack lighting.
+ * Runtime soft-opacity queue. Soft forms draw after translucent terrain with depth writes
+ * (fluids stay, limbs do not X-ray). Pack GLSL / shaders.properties are left vanilla —
+ * Complementary light shafts sample the same shadow map those patches used to rewrite.
+ * <p>
+ * Fabulous (no shaders): soft flushes into the translucent FB before combine so soft remains
+ * visible. Soft limbs viewed through soft billboards can look washed — accepted limitation;
+ * see {@code docs/SOFT_OPACITY_FABULOUS.md}.
  */
 public class ShaderOpacityPatch
 {
@@ -50,18 +58,12 @@ public class ShaderOpacityPatch
     private static final Pattern LITERAL_POINT_ONE_COMPARE = Pattern.compile(
         "\\b([A-Za-z_][\\w.]*)\\.a\\s*<\\s*0\\.1\\b"
     );
-
-    private static final String[] ALPHA_TEST_PASSES = {
-        "gbuffers_entities",
-        "gbuffers_entities_translucent",
-        "gbuffers_block",
-        "gbuffers_block_translucent",
-        /* Billboard/shape deferred draws use position_tex_color → Iris basic/textured. */
-        "gbuffers_basic",
-        "gbuffers_textured",
-        "gbuffers_textured_lit"
-    };
-
+    private static final Pattern PHOTON_TEX_ALPHA_DISCARD = Pattern.compile(
+        "if\\s*\\(\\s*base_color\\.a\\s*<\\s*0\\.1\\s*\\)\\s*\\{\\s*discard\\s*;\\s*\\}"
+    );
+    private static final Pattern BLISS_SHADOW_FRAGDATA = Pattern.compile(
+        "gl_FragData\\[0]\\s*=\\s*vec4\\(\\s*texture2D\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*\\)\\.rgb\\s*\\*\\s*color\\.rgb\\s*,\\s*texture2DLod\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*,\\s*0\\s*\\)\\.a\\s*\\)\\s*;"
+    );
     private static final List<PostDeferredEntry> postDeferredForms = new ArrayList<>();
     private static boolean postDeferredPhase;
     private static boolean flushingPostDeferred;
@@ -70,6 +72,13 @@ public class ShaderOpacityPatch
     private static boolean suppressLiveDepthWrite;
 
     private static String loadingPackName = "";
+
+    /**
+     * Opaque Iris depth snapshotted at {@code beginTranslucents} (before AAA Particles can
+     * blit a cleared main-FB depth over the live pipeline). Used by paint overlays at frame end.
+     */
+    private static Framebuffer paintOpaqueDepthStash;
+    private static boolean paintOpaqueDepthStashValid;
 
     private static final class PostDeferredEntry
     {
@@ -121,7 +130,8 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * Global Iris translucency pipeline (post-deferred queue + generic Iris property patches).
+     * Settings toggle for the Iris opacity-fix path. Pack GLSL is no longer rewritten
+     * ({@link #shouldApplyPackGlslPatches}); soft forms use the post-deferred queue either way.
      */
     public static boolean isActive()
     {
@@ -142,19 +152,13 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * Pack-specific GLSL string rewrites (shadow caster dither, shadow opacity scaling).
-     * Only Complementary / BSL source layouts are known; other packs skip these.
+     * Pack GLSL / shaders.properties rewrites. Always off: Complementary 5.8 light shafts
+     * share shadowtex with lighting, and the old wrap / alpha-test / separateEntityDraws
+     * patches leaked god rays through solid terrain.
      */
     public static boolean shouldApplyPackGlslPatches()
     {
-        if (!isActive())
-        {
-            return false;
-        }
-
-        String pack = resolvePackName();
-
-        return isComplementaryPack(pack) || isBslPack(pack);
+        return false;
     }
 
     private static String resolvePackName()
@@ -166,7 +170,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }
@@ -174,11 +178,6 @@ public class ShaderOpacityPatch
         {
             return "";
         }
-    }
-
-    public static boolean isFlushingPostDeferred()
-    {
-        return flushingPostDeferred;
     }
 
     public static void setForceLiveDepthWrite(boolean force)
@@ -193,17 +192,6 @@ public class ShaderOpacityPatch
 
     public static void reassertPostDeferredDepthState()
     {
-        /* Mid-alpha skin pass (glasses): must not write depth or body-parts under those
-         * pixels fail the depth test. Wins over forceLiveDepthWrite. */
-        if (ModelVAORenderer.getAlphaPass() > 1.5F)
-        {
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(false);
-
-            return;
-        }
-
         if (flushingPostDeferred)
         {
             reassertPostDeferredDepthState(flushingDepthWrite);
@@ -235,6 +223,33 @@ public class ShaderOpacityPatch
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(depthWrite);
+    }
+
+    /**
+     * Override {@link #flushingDepthWrite} mid-entry. Required for soft color-then-stamp:
+     * {@code ModelVAORenderer.render} calls {@link #reassertPostDeferredDepthState()} with no
+     * args and would otherwise restore the queue entry's depthWrite (undoing a local
+     * {@code depthMask(false)}).
+     */
+    public static void setFlushingDepthWrite(boolean depthWrite)
+    {
+        if (!flushingPostDeferred)
+        {
+            return;
+        }
+
+        flushingDepthWrite = depthWrite;
+        reassertPostDeferredDepthState(depthWrite);
+    }
+
+    /**
+     * True while {@link #flushPostDeferredForms} is iterating queue entries.
+     * Soft Block/Structure must not tear down lightmap/overlay here — later soft limbs in the
+     * same flush still need them (player-position sort makes contamination look angle-independent).
+     */
+    public static boolean isFlushingPostDeferred()
+    {
+        return flushingPostDeferred;
     }
 
     /**
@@ -375,15 +390,25 @@ public class ShaderOpacityPatch
          * Paint/blend/grade overlays stay queued until onWorldRenderEnd — Iris composites after
          * translucent terrain would overwrite an early color-tint multiply. */
         postDeferredPhase = true;
+        /* Iris has just copied opaque depth into depthtex1. Stash it before AAA Particles
+         * (Fabric + shaders) pastes a cleared main-FB depth onto the bound FBO before hand. */
+        stashIrisOpaqueDepthForPaint();
     }
 
     /**
      * After translucent terrain (water/lava/portals).
      * <p>
      * Iris: flush soft forms here (pack clouds are already composited on that path).
-     * Vanilla: do <em>not</em> flush yet — Fabric draws vanilla clouds after this event;
-     * flushing with depth write here hides clouds behind soft actors. Hold until
-     * {@link #onAfterVanillaClouds()} ({@code WorldRenderEvents.LAST}).
+     * Vanilla Fancy: do <em>not</em> flush yet — wait until {@link #onAfterVanillaClouds()} so
+     * soft depth does not erase clouds.
+     * Vanilla Fabulous: flush into the translucent framebuffer <em>before</em> the translucency
+     * combine; drawing soft only at LAST often never appears on Fabulous.
+     * <p>
+     * <b>Known limitation (accepted):</b> Fabulous without shaders can wash / over-brighten soft
+     * limbs seen through soft billboards. Fancy composites soft over final main color; Fabulous
+     * layer combine is not equivalent. Moving soft to main/{@code LAST} or the entity FB fixes
+     * wash partially but regresses occlusion or soft-vs-soft — see
+     * {@code docs/SOFT_OPACITY_FABULOUS.md}. Do not re-shuffle Fabulous flush targets casually.
      */
     public static void onAfterTranslucentTerrain()
     {
@@ -399,12 +424,18 @@ public class ShaderOpacityPatch
         /* Vanilla: form fluids while world depth is still the live scene (before clouds / LAST). */
         FormFluidShaderPatch.flushVanillaFluids();
         postDeferredPhase = true;
+
+        if (MinecraftClient.isFabulousGraphicsOrBetter())
+        {
+            bindVanillaSoftFlushTarget(true);
+            flushPostDeferredForms(null);
+        }
     }
 
     /**
-     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}). Soft forms kept from
-     * {@link #onAfterTranslucentTerrain()} draw here so depth writes no longer erase clouds.
-     * Iris already flushed earlier — this is a no-op safety net when the queue is empty.
+     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}).
+     * Fancy: primary soft flush (after clouds). Fabulous: leftovers onto the main target
+     * (main soft already flushed before Fabulous combine). Iris: no-op.
      */
     public static void onAfterVanillaClouds()
     {
@@ -413,7 +444,39 @@ public class ShaderOpacityPatch
             return;
         }
 
+        bindVanillaSoftFlushTarget(false);
         flushPostDeferredForms(null);
+    }
+
+    /**
+     * @param fabulousTranslucentPass {@code true} = Fabulous translucent FB before combine;
+     *                                {@code false} = visible main framebuffer.
+     */
+    private static void bindVanillaSoftFlushTarget(boolean fabulousTranslucentPass)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc == null)
+        {
+            return;
+        }
+
+        if (fabulousTranslucentPass && mc.worldRenderer != null)
+        {
+            Framebuffer translucent = mc.worldRenderer.getTranslucentFramebuffer();
+
+            if (translucent != null)
+            {
+                translucent.beginWrite(false);
+
+                return;
+            }
+        }
+
+        if (mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
     }
 
     public static void onWorldRenderBegin()
@@ -423,6 +486,7 @@ public class ShaderOpacityPatch
         flushingPostDeferred = false;
         FormFluidShaderPatch.clearFrameQueue();
         FormGlowBloomPatch.beginFrame();
+        paintOpaqueDepthStashValid = false;
     }
 
     public static void onWorldRenderEnd()
@@ -504,6 +568,293 @@ public class ShaderOpacityPatch
     }
 
     /**
+     * Restores terrain-accurate depth on the paint overlay target before paint / grade / tint
+     * flushes ({@code depthMask false}, {@code depthTest LEQUAL}). Iris deferred packs and AAA
+     * Particles depth capture/paste can leave the visible framebuffer's depth stale or empty.
+     * <p>
+     * With Iris shaders + AAA Particles (Fabric): AAA captures depth at {@code LevelRenderer}
+     * return from the bound DRAW FBO (often the composited main FB with cleared/useless depth),
+     * then {@code pasteToCurrentDepthFrom} before hand — wiping occlusion for later paint.
+     * Prefer the opaque depth stash from {@code beginTranslucents} over a live Iris query.
+     */
+    public static void syncPaintOverlayDepth()
+    {
+        BBSRendering.ensurePaintOverlayTargetFramebuffer();
+
+        try
+        {
+            if (BBSRendering.isIrisShadersEnabled())
+            {
+                syncIrisDepthToPaintTarget();
+            }
+            else
+            {
+                syncVanillaPaintOverlayDepth();
+            }
+        }
+        catch (Throwable ignored)
+        {
+            /* Iris API drift or optional mod reflection — still attempt overlays. */
+        }
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+    }
+
+    private static int resolvePaintOverlayDepthAttachment()
+    {
+        Framebuffer framebuffer = BBSRendering.getPaintOverlaySourceFramebuffer();
+
+        return framebuffer != null ? framebuffer.getDepthAttachment() : 0;
+    }
+
+    private static void copyDepthTextureToPaintTarget(int sourceDepth, int width, int height)
+    {
+        int targetDepth = resolvePaintOverlayDepthAttachment();
+
+        if (sourceDepth <= 0 || targetDepth <= 0 || sourceDepth == targetDepth || width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        DepthCopyStrategy.fastest(false)
+            .copy(null, sourceDepth, null, targetDepth, width, height);
+    }
+
+    private static void stashIrisOpaqueDepthForPaint()
+    {
+        paintOpaqueDepthStashValid = false;
+
+        try
+        {
+            WorldRenderingPipeline pipeline =
+                Iris.getPipelineManager().getPipelineNullable();
+
+            if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
+            {
+                return;
+            }
+
+            IrisRenderingPipelineAccessor access = (IrisRenderingPipelineAccessor) irisPipeline;
+            RenderTargets targets = access.bbs$renderTargets();
+
+            if (targets == null)
+            {
+                return;
+            }
+
+            int width = targets.getCurrentWidth();
+            int height = targets.getCurrentHeight();
+            int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+
+            if (width <= 0 || height <= 0 || opaqueDepth <= 0)
+            {
+                Framebuffer paint = BBSRendering.getPaintOverlaySourceFramebuffer();
+
+                if (paint != null)
+                {
+                    width = paint.textureWidth;
+                    height = paint.textureHeight;
+                }
+            }
+
+            if (width <= 0 || height <= 0 || opaqueDepth <= 0)
+            {
+                return;
+            }
+
+            ensurePaintOpaqueDepthStash(width, height);
+            DepthCopyStrategy.fastest(false)
+                .copy(null, opaqueDepth, null, paintOpaqueDepthStash.getDepthAttachment(), width, height);
+            paintOpaqueDepthStashValid = paintOpaqueDepthStash.getDepthAttachment() > 0;
+        }
+        catch (Throwable ignored)
+        {
+            paintOpaqueDepthStashValid = false;
+        }
+    }
+
+    private static void ensurePaintOpaqueDepthStash(int width, int height)
+    {
+        if (paintOpaqueDepthStash == null)
+        {
+            paintOpaqueDepthStash = new WindowFramebuffer(width, height);
+        }
+        else if (paintOpaqueDepthStash.textureWidth != width || paintOpaqueDepthStash.textureHeight != height)
+        {
+            paintOpaqueDepthStash.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
+        }
+    }
+
+    private static void syncIrisDepthToPaintTarget()
+    {
+        Framebuffer paintTarget = BBSRendering.getPaintOverlaySourceFramebuffer();
+        int paintWidth = paintTarget != null ? paintTarget.textureWidth : 0;
+        int paintHeight = paintTarget != null ? paintTarget.textureHeight : 0;
+
+        /* Prefer the beginTranslucents stash — survives AAA's pre-hand depth paste. */
+        if (paintOpaqueDepthStashValid && paintOpaqueDepthStash != null)
+        {
+            int stashDepth = paintOpaqueDepthStash.getDepthAttachment();
+            int width = paintOpaqueDepthStash.textureWidth;
+            int height = paintOpaqueDepthStash.textureHeight;
+
+            if (paintWidth > 0 && paintHeight > 0)
+            {
+                width = paintWidth;
+                height = paintHeight;
+            }
+
+            copyDepthTextureToPaintTarget(stashDepth, width, height);
+            blitFramebufferDepth(paintOpaqueDepthStash, paintTarget);
+
+            return;
+        }
+
+        WorldRenderingPipeline pipeline =
+            Iris.getPipelineManager().getPipelineNullable();
+
+        if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
+        {
+            return;
+        }
+
+        IrisRenderingPipelineAccessor access = (IrisRenderingPipelineAccessor) irisPipeline;
+        RenderTargets targets = access.bbs$renderTargets();
+
+        if (targets == null)
+        {
+            return;
+        }
+
+        int width = targets.getCurrentWidth();
+        int height = targets.getCurrentHeight();
+        int liveDepth = targets.getDepthTexture();
+        int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+
+        if ((width <= 0 || height <= 0) && paintWidth > 0 && paintHeight > 0)
+        {
+            width = paintWidth;
+            height = paintHeight;
+        }
+
+        int depthToCopy = liveDepth > 0 ? liveDepth : opaqueDepth;
+
+        if (depthToCopy > 0)
+        {
+            copyDepthTextureToPaintTarget(depthToCopy, width, height);
+        }
+    }
+
+    /**
+     * AAA-style depth blit between Minecraft framebuffers (restores READ/DRAW bindings).
+     * Used when Iris {@link DepthCopyStrategy} alone is not enough after AAA's own blit.
+     */
+    private static void blitFramebufferDepth(Framebuffer source, Framebuffer target)
+    {
+        if (source == null || target == null || source == target)
+        {
+            return;
+        }
+
+        int sourceDepth = source.getDepthAttachment();
+        int targetDepth = target.getDepthAttachment();
+
+        if (sourceDepth <= 0 || targetDepth <= 0 || sourceDepth == targetDepth)
+        {
+            return;
+        }
+
+        int readBackup = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int drawBackup = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+
+        try
+        {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, target.fbo);
+            GL30.glBlitFramebuffer(
+                0, 0, source.textureWidth, source.textureHeight,
+                0, 0, target.textureWidth, target.textureHeight,
+                GL11.GL_DEPTH_BUFFER_BIT,
+                GL11.GL_NEAREST
+            );
+        }
+        finally
+        {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readBackup);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawBackup);
+        }
+    }
+
+    private static void syncVanillaPaintOverlayDepth()
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc == null)
+        {
+            return;
+        }
+
+        if (FabricLoader.getInstance().isModLoaded("aaa_particles"))
+        {
+            pasteAAAParticlesCapturedWorldDepth();
+        }
+
+        Framebuffer paintTarget = BBSRendering.getPaintOverlaySourceFramebuffer();
+        Framebuffer mainTarget = mc.getFramebuffer();
+
+        if (paintTarget == null || mainTarget == null)
+        {
+            return;
+        }
+
+        int paintDepth = paintTarget.getDepthAttachment();
+        int mainDepth = mainTarget.getDepthAttachment();
+
+        if (paintDepth > 0 && mainDepth > 0 && paintDepth != mainDepth)
+        {
+            copyDepthTextureToPaintTarget(mainDepth, mainTarget.textureWidth, mainTarget.textureHeight);
+        }
+    }
+
+    /**
+     * AAA Particles defers Effekseer draws and {@code pasteToCurrentDepthFrom} its captured depth
+     * mid-frame; hand/particle depth writes afterward can desync the buffer paint overlays test
+     * against. Re-paste the world snapshot onto the paint target before overlay flush.
+     */
+    private static void pasteAAAParticlesCapturedWorldDepth()
+    {
+        try
+        {
+            Class<?> captureClass = Class.forName("mod.chloeprime.aaaparticles.client.internal.RenderStateCapture");
+            Field capturedField = captureClass.getField("CAPTURED_WORLD_DEPTH_BUFFER");
+            Object capturedBuffer = capturedField.get(null);
+
+            if (capturedBuffer == null)
+            {
+                return;
+            }
+
+            Class<?> renderUtilClass = Class.forName("mod.chloeprime.aaaparticles.client.render.RenderUtil");
+
+            for (Method method : renderUtilClass.getMethods())
+            {
+                if (!method.getName().equals("pasteToCurrentDepthFrom") || method.getParameterCount() != 1)
+                {
+                    continue;
+                }
+
+                method.invoke(null, capturedBuffer);
+
+                return;
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+    }
+
+    /**
      * Complementary/BSL deferred can leave the live depth buffer unusable for occlusion. Iris
      * snapshots opaque depth into {@code depthtex1} at {@code beginTranslucents}; copy it back
      * so translucent BBS forms depth-test against models/terrain in front (render depth).
@@ -518,7 +869,7 @@ public class ShaderOpacityPatch
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
 
             WorldRenderingPipeline pipeline =
-                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+                Iris.getPipelineManager().getPipelineNullable();
 
             if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
             {
@@ -601,7 +952,28 @@ public class ShaderOpacityPatch
                 ModelVAORenderer.endDeferredTranslucentModelPass();
             }
 
+            /* Isolate entries: soft Block/Structure can leave lightmap off, additive blend,
+             * or colorMask false — that darkens soft limbs drawn later in the same flush. */
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(savedDepthMask);
+
+            if (flushingPostDeferred)
+            {
+                MinecraftClient mc = MinecraftClient.getInstance();
+
+                if (mc != null && mc.gameRenderer != null)
+                {
+                    mc.gameRenderer.getLightmapTextureManager().enable();
+                    mc.gameRenderer.getOverlayTexture().setupOverlayColor();
+                }
+
+                flushingDepthWrite = entry.depthWrite;
+                reassertPostDeferredDepthState(entry.depthWrite);
+            }
+
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
             if (touchedModelView)
@@ -614,64 +986,36 @@ public class ShaderOpacityPatch
 
     public static String patchPropertiesContents(String contents)
     {
-        if (!isActive() || contents == null)
-        {
-            return contents;
-        }
-
-        if (contents.contains("separateEntityDraws"))
-        {
-            return contents.replaceAll("(?m)^\\s*separateEntityDraws\\s*=.*$", "separateEntityDraws=true");
-        }
-
-        return "separateEntityDraws=true\n" + contents;
+        /* Pack shaders.properties stay vanilla. Forcing separateEntityDraws and rewriting
+         * GLSL/alpha tests is what the opacity-fix toggle used to do, and it leaks
+         * Complementary light shafts through solid terrain. Soft forms already use the
+         * post-deferred queue without mutating the pack. */
+        return contents;
     }
 
     public static void applyAlphaTestOverrides(ShaderProperties properties)
     {
-        if (!isActive() || properties == null)
-        {
-            return;
-        }
-
-        Object2ObjectMap<String, AlphaTest> map = properties.getAlphaTestOverrides();
-        AlphaTest low = new AlphaTest(AlphaTestFunction.GREATER, LOW_ALPHA_TEST_REF);
-
-        for (String pass : ALPHA_TEST_PASSES)
-        {
-            map.put(pass, low);
-        }
+        /* No-op: hardware alphaTest GREATER 0.0001 on gbuffers was part of the VL leak. */
     }
 
     public static void applySeparateEntityDraws(Consumer<OptionalBoolean> setter)
     {
-        if (!isActive() || setter == null)
-        {
-            return;
-        }
-
-        setter.accept(OptionalBoolean.TRUE);
+        /* No-op: Complementary does not set separateEntityDraws. */
     }
 
     public static String processSource(String source)
     {
-        if (source == null || source.isEmpty())
+        if (!isActive() || source == null || source.isEmpty())
         {
             return source;
         }
 
-        /* Always (any pack): mid-alpha skin/glass split for BBS VAO draws under Iris. */
-        String patched = patchTextureAlphaDepthPass(source);
-
-        if (!isActive() || patched.isEmpty())
-        {
-            return patched;
-        }
+        String patched = source;
 
         /* Shadow casters: skip alpha-test rewrites (those hole foliage/terrain shadows), but
          * keep vertex-alpha dither so per-actor Opacity / shadow_opacity can fade ground
          * shadows on otherwise binary Iris shadow maps. */
-        if (isShadowCasterSource(patched))
+        if (isShadowCasterSource(source))
         {
             return processShadowOpacity(processShadowCasterAlpha(patchComplementaryOpaqueBlockShadow(patched)));
         }
@@ -683,93 +1027,301 @@ public class ShaderOpacityPatch
         return processShadowOpacity(patched);
     }
 
-    private static final String TEX_ALPHA_U = "BbsTexAlphaPass";
-    private static final String TEX_ALPHA_GUARD = "BBS_TEX_ALPHA_DEPTH_PASS";
-    private static final Pattern TEX_ALBEDO_ASSIGN = Pattern.compile(
-        "\\b(vec4\\s+)(\\w+)(\\s*=\\s*texture(?:2D)?\\s*\\(\\s*(?:tex|texture)\\s*,[^;]+;)"
-    );
-
-    /**
-     * Injects {@code BbsTexAlphaPass} into entity/block gbuffer fragments so Iris live draws
-     * can discard mid-alpha texels on pass 1 and draw only glass on pass 2 (no depth write).
-     */
-    private static String patchTextureAlphaDepthPass(String source)
+    public static void beginShadowForm()
     {
-        if (source.contains(TEX_ALPHA_GUARD) || isShadowCasterSource(source))
+        uploadShadowFormUniform(1F);
+    }
+
+    public static void endShadowForm()
+    {
+        uploadShadowFormUniform(0F);
+    }
+
+    public static void uploadShadowFormUniform()
+    {
+        if (BBSRendering.isIrisShadowPass())
+        {
+            uploadShadowFormUniform(1F);
+        }
+    }
+
+    public static void uploadShadowFormUniform(float value)
+    {
+        int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+
+        if (program > 0)
+        {
+            int location = GL20.glGetUniformLocation(program, "bbs_is_shadow_form");
+
+            if (location >= 0)
+            {
+                GL20.glUniform1f(location, value);
+            }
+        }
+    }
+
+    private static String insertShadowUniform(String source)
+    {
+        if (source.contains("bbs_is_shadow_form"))
         {
             return source;
         }
-
-        boolean looksLikeFragment = source.contains("gl_FragData")
-            || source.contains("FRAGMENT_SHADER")
-            || source.contains("layout(location = 0) out")
-            || source.contains("colortex0Out");
-
-        if (!looksLikeFragment)
-        {
-            return source;
-        }
-
-        if (source.contains("GBUFFERS_TERRAIN") || source.contains("GBUFFERS_WATER")
-            || source.contains("GBUFFERS_SKY") || source.contains("GBUFFERS_CLOUDS")
-            || source.contains("GBUFFERS_WEATHER"))
-        {
-            return source;
-        }
-
-        boolean entityOrBlock = source.contains("GBUFFERS_ENTITIES")
-            || source.contains("GBUFFERS_BLOCK")
-            || source.contains("entityColor")
-            || source.contains("currentRenderedItemId")
-            || (source.contains("DoLighting") && source.contains("entityId"));
-
-        if (!entityOrBlock)
-        {
-            return source;
-        }
-
-        String helpers =
-            "uniform float " + TEX_ALPHA_U + ";\n"
-                + "#ifndef " + TEX_ALPHA_GUARD + "\n"
-                + "#define " + TEX_ALPHA_GUARD + "\n"
-                + "vec4 bbsApplyTexAlphaPass(vec4 c){\n"
-                + " if(" + TEX_ALPHA_U + ">0.5&&" + TEX_ALPHA_U + "<1.5){if(c.a<0.9) discard;}\n"
-                + " else if(" + TEX_ALPHA_U + ">1.5){if(c.a<0.1||c.a>=0.9) discard;}\n"
-                + " return c;\n"
-                + "}\n"
-                + "#endif\n";
 
         int version = source.indexOf("#version");
 
-        if (version >= 0)
+        if (version < 0)
         {
-            int nextNewLine = source.indexOf('\n', version);
-
-            if (nextNewLine >= 0)
-            {
-                source = source.substring(0, nextNewLine + 1) + helpers + source.substring(nextNewLine + 1);
-            }
-            else
-            {
-                source = helpers + source;
-            }
-        }
-        else
-        {
-            source = helpers + source;
+            return "uniform float bbs_is_shadow_form;\n" + source;
         }
 
-        Matcher albedo = TEX_ALBEDO_ASSIGN.matcher(source);
+        int nextNewLine = source.indexOf('\n', version);
 
-        if (albedo.find())
+        if (nextNewLine < 0)
         {
-            String var = albedo.group(2);
-            String replacement = albedo.group(1) + var + albedo.group(3) + "\n" + var + " = bbsApplyTexAlphaPass(" + var + ");";
+            return source + "\nuniform float bbs_is_shadow_form;\n";
+        }
 
-            source = source.substring(0, albedo.start()) + replacement + source.substring(albedo.end());
+        return source.substring(0, nextNewLine + 1) + "uniform float bbs_is_shadow_form;\n" + source.substring(nextNewLine + 1);
+    }
+
+    /**
+     * Experimental: apply ordered Bayer 4x4 dither discard exclusively on entity fragments
+     * (bbs_is_shadow_form > 0.5) when shader_shadow_dither setting is enabled by the user.
+     */
+    public static String processShadowCasterAlpha(String source)
+    {
+        if (source == null || source.isEmpty() || source.contains("BBS_SHADOW_CASTER_DITHER"))
+        {
+            return source;
+        }
+
+        /* Complementary shadow.glsl: only inject when bbs_is_shadow_form > 0.5 */
+        if (source.contains("DoNaturalShadowCalculation"))
+        {
+            String dither =
+                "/* BBS_SHADOW_CASTER_DITHER */\n"
+                    + "    if (bbs_is_shadow_form > 0.5 && glColor.a < 0.999) {\n"
+                    + "        const float bbsBayer4x4[16] = float[16](\n"
+                    + "            0.0625, 0.5625, 0.1875, 0.6875,\n"
+                    + "            0.8125, 0.3125, 0.9375, 0.4375,\n"
+                    + "            0.2500, 0.7500, 0.1250, 0.6250,\n"
+                    + "            1.0000, 0.5000, 0.8750, 0.3750\n"
+                    + "        );\n"
+                    + "        ivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+                    + "        if (glColor.a < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+                    + "    }\n";
+
+            String patched = insertShadowUniform(source);
+
+            if (patched.contains("gl_FragData[0] = color1;"))
+            {
+                return patched.replace(
+                    "gl_FragData[0] = color1;",
+                    dither + "    gl_FragData[0] = color1;"
+                );
+            }
+
+            if (patched.contains("shadowColor = color1;"))
+            {
+                return patched.replace(
+                    "shadowColor = color1;",
+                    dither + "    shadowColor = color1;"
+                );
+            }
+        }
+
+        /* BSL shadow.glsl: only inject when bbs_is_shadow_form > 0.5 */
+        if (source.contains("float premult = float(mat > 0.98") && source.contains("gl_FragData[0] = albedo;"))
+        {
+            String dither =
+                "\t/* BBS_SHADOW_CASTER_DITHER */\n"
+                    + "\tif (bbs_is_shadow_form > 0.5 && color.a < 0.999) {\n"
+                    + "\t\tconst float bbsBayer4x4[16] = float[16](\n"
+                    + "\t\t\t0.0625, 0.5625, 0.1875, 0.6875,\n"
+                    + "\t\t\t0.8125, 0.3125, 0.9375, 0.4375,\n"
+                    + "\t\t\t0.2500, 0.7500, 0.1250, 0.6250,\n"
+                    + "\t\t\t1.0000, 0.5000, 0.8750, 0.3750\n"
+                    + "\t\t);\n"
+                    + "\t\tivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+                    + "\t\tif (color.a < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+                    + "\t}\n";
+
+            String patched = insertShadowUniform(source);
+
+            return patched.replace(
+                "\tgl_FragData[0] = albedo;",
+                dither + "\tgl_FragData[0] = albedo;"
+            );
+        }
+
+        /* Photon: vertex only passes tint.rgb — forward gl_Color.a for FS dither. */
+        if (isPhotonShadowVertex(source))
+        {
+            return patchPhotonShadowVertex(source);
+        }
+
+        if (isPhotonShadowFragment(source))
+        {
+            return patchPhotonShadowFragment(source);
+        }
+
+        /* Bliss: native Stochastic_Transparent_Shadows uses texture alpha; soft forms need color.a. */
+        if (isBlissShadowFragment(source))
+        {
+            return patchBlissShadowFragment(source);
         }
 
         return source;
+    }
+
+    private static String buildShadowDitherBlock(String alphaExpr, String indent)
+    {
+        return indent + "/* BBS_SHADOW_CASTER_DITHER */\n"
+            + indent + "if (bbs_is_shadow_form > 0.5 && " + alphaExpr + " < 0.999) {\n"
+            + indent + "    const float bbsBayer4x4[16] = float[16](\n"
+            + indent + "        0.0625, 0.5625, 0.1875, 0.6875,\n"
+            + indent + "        0.8125, 0.3125, 0.9375, 0.4375,\n"
+            + indent + "        0.2500, 0.7500, 0.1250, 0.6250,\n"
+            + indent + "        1.0000, 0.5000, 0.8750, 0.3750\n"
+            + indent + "    );\n"
+            + indent + "    ivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+            + indent + "    if (" + alphaExpr + " < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+            + indent + "}\n";
+    }
+
+    private static boolean isPhotonShadowVertex(String source)
+    {
+        return source.contains("flat out vec3 tint")
+            && source.contains("tint = gl_Color.rgb")
+            && (source.contains("distort_shadow_space") || source.contains("shadow_clip_pos") || source.contains("material_mask"));
+    }
+
+    private static boolean isPhotonShadowFragment(String source)
+    {
+        return source.contains("shadowcolor0_out")
+            && source.contains("flat in vec3 tint")
+            && source.contains("base_color.a");
+    }
+
+    private static boolean isBlissShadowFragment(String source)
+    {
+        return source.contains("Stochastic_Transparent_Shadows")
+            && source.contains("blueNoise")
+            && source.contains("texture2DLod")
+            && source.contains("gl_FragData[0]");
+    }
+
+    private static String patchPhotonShadowVertex(String source)
+    {
+        String patched = source;
+
+        if (!patched.contains("bbs_gl_color_a"))
+        {
+            if (patched.contains("flat out vec3 tint;"))
+            {
+                patched = patched.replace(
+                    "flat out vec3 tint;",
+                    "flat out vec3 tint;\nflat out float bbs_gl_color_a;"
+                );
+            }
+            else
+            {
+                return source;
+            }
+        }
+
+        if (!patched.contains("bbs_gl_color_a = gl_Color.a"))
+        {
+            if (patched.contains("tint = gl_Color.rgb;"))
+            {
+                patched = patched.replace(
+                    "tint = gl_Color.rgb;",
+                    "tint = gl_Color.rgb;\n\tbbs_gl_color_a = gl_Color.a;"
+                );
+            }
+            else
+            {
+                return source;
+            }
+        }
+
+        return patched;
+    }
+
+    private static String patchPhotonShadowFragment(String source)
+    {
+        String patched = insertShadowUniform(source);
+
+        if (!patched.contains("flat in float bbs_gl_color_a"))
+        {
+            if (patched.contains("flat in vec3 tint;"))
+            {
+                patched = patched.replace(
+                    "flat in vec3 tint;",
+                    "flat in vec3 tint;\nflat in float bbs_gl_color_a;"
+                );
+            }
+            else
+            {
+                return source;
+            }
+        }
+
+        String dither = buildShadowDitherBlock("bbs_gl_color_a", "\t");
+        Matcher matcher = PHOTON_TEX_ALPHA_DISCARD.matcher(patched);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        StringBuffer buffer = new StringBuffer();
+
+        matcher.reset();
+
+        while (matcher.find())
+        {
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(matcher.group() + "\n" + dither));
+        }
+
+        matcher.appendTail(buffer);
+
+        return buffer.toString();
+    }
+
+    private static String patchBlissShadowFragment(String source)
+    {
+        Matcher matcher = BLISS_SHADOW_FRAGDATA.matcher(source);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        /* Soft BBS casters: Bayer on vertex color.a (form opacity). Disable native texture
+         * stochastic so cutout leaves do not fade twice (tex dither + form dither). Keep a
+         * hard tex-alpha cutout so leaf holes stay empty. */
+        String cutout = "\tif (bbs_is_shadow_form > 0.5 && texture2DLod(tex, texcoord.xy, 0).a < 0.1) discard;\n";
+        String dither = cutout + buildShadowDitherBlock("color.a", "\t");
+        String patched = insertShadowUniform(source);
+
+        patched = patched.replace(
+            "if (Stochastic_Transparent_Shadows)",
+            "if (Stochastic_Transparent_Shadows && bbs_is_shadow_form < 0.5)"
+        );
+        patched = patched.replace(
+            "if(Stochastic_Transparent_Shadows)",
+            "if(Stochastic_Transparent_Shadows && bbs_is_shadow_form < 0.5)"
+        );
+
+        matcher = BLISS_SHADOW_FRAGDATA.matcher(patched);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        return patched.substring(0, matcher.start()) + dither + matcher.group() + patched.substring(matcher.end());
     }
 
     public static boolean isShadowCasterSourcePublic(String source)
@@ -784,7 +1336,9 @@ public class ShaderOpacityPatch
             || source.contains("float premult = float(mat > 0.98")
             || source.contains("BBS_SHADOW_CASTER_DITHER")
             || (source.contains("gl_FragData[0] = color1; // Shadow Color")
-                && source.contains("gl_FragData[1] = color2; // Light Shaft Color"));
+                && source.contains("gl_FragData[1] = color2; // Light Shaft Color"))
+            || isPhotonShadowFragment(source)
+            || isBlissShadowFragment(source);
     }
 
     /**
@@ -878,80 +1432,7 @@ public class ShaderOpacityPatch
         return out.toString();
     }
 
-    /**
-     * Complementary/BSL shadow map programs: dither-discard by <b>vertex color alpha only</b>
-     * so form Opacity and replay shadow_opacity fade per-actor ground shadows linearly
-     * (coverage ≈ alpha). Does not multiply texture alpha (that made leaves/grass holey).
-     * Fully opaque casters ({@code a >= 0.999}) never dither — solids stay solid.
-     */
-    public static String processShadowCasterAlpha(String source)
-    {
-        if (!isActive() || source == null || source.isEmpty())
-        {
-            return source;
-        }
 
-        if (source.contains("BBS_SHADOW_CASTER_DITHER"))
-        {
-            return source;
-        }
-
-        String ditherBody =
-            "{\n"
-                + "        float bbsCasterAlpha = glColor.a;\n"
-                + "        if (bbsCasterAlpha < 0.999){\n"
-                + "            float bbsShadowDither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n"
-                + "            if (bbsShadowDither > bbsCasterAlpha) discard;\n"
-                + "        }\n"
-                + "    }\n";
-
-        /* Complementary (legacy DRAWBUFFERS comment) */
-        if (source.contains("DoNaturalShadowCalculation") && source.contains("gl_FragData[0] = color1;"))
-        {
-            String dither = "/* BBS_SHADOW_CASTER_DITHER */\n    " + ditherBody;
-
-            if (source.contains("    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color"))
-            {
-                return source.replace(
-                    "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color",
-                    dither + "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color"
-                );
-            }
-        }
-
-        /* Complementary Reimagined / Unbound r5+ (no DRAWBUFFERS comment in shadow.glsl) */
-        if (source.contains("Natural Shadow Color Calculation")
-            && source.contains("gl_FragData[0] = color1; // Shadow Color"))
-        {
-            String dither = "/* BBS_SHADOW_CASTER_DITHER */\n " + ditherBody;
-
-            return source.replace(
-                " gl_FragData[0] = color1; // Shadow Color",
-                " " + dither + " gl_FragData[0] = color1; // Shadow Color"
-            );
-        }
-
-        /* BSL shadow.glsl */
-        if (source.contains("float premult = float(mat > 0.98") && source.contains("gl_FragData[0] = albedo;"))
-        {
-            String dither =
-                "\t/* BBS_SHADOW_CASTER_DITHER */\n"
-                    + "\t{\n"
-                    + "\t\tfloat bbsCasterAlpha = color.a;\n"
-                    + "\t\tif (bbsCasterAlpha < 0.999){\n"
-                    + "\t\t\tfloat bbsShadowDither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n"
-                    + "\t\t\tif (bbsShadowDither > bbsCasterAlpha) discard;\n"
-                    + "\t\t}\n"
-                    + "\t}\n";
-
-            if (source.contains("\tgl_FragData[0] = albedo;"))
-            {
-                return source.replace("\tgl_FragData[0] = albedo;", dither + "\tgl_FragData[0] = albedo;");
-            }
-        }
-
-        return source;
-    }
 
     /**
      * Injects {@code bbs_shader_shadow_opacity} into Complementary/BSL shaders that sample
@@ -1068,10 +1549,6 @@ public class ShaderOpacityPatch
         return source.substring(0, nextNewLine + 1) + helpers + source.substring(nextNewLine + 1);
     }
 
-    /**
-     * Wraps {@code func(shadowtexN...)} calls with {@code bbsApplyShadowOpacity(...)} so pack
-     * lighting still runs, but shadow darkness scales with the BBS uniform / curve.
-     */
     private static String wrapShadowTextureCalls(String source, String functionName)
     {
         String marker = "bbsApplyShadowOpacity(";

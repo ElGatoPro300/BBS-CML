@@ -17,10 +17,10 @@ import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.math.MatrixStack;
@@ -49,6 +49,10 @@ public class ModelVAORenderer
 {
     private static final Matrix3f IDENTITY_NORMAL = new Matrix3f();
     private static final Matrix4f IDENTITY_MODEL_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_FOG_MAT = new Matrix4f();
+    private static final Matrix4f SCRATCH_INV_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_COMPOSED = new Matrix4f();
 
     /* FS-style paint overlay uniform state (rgb + strength). Set by form renderers before a draw and reset after.
      * "base" holds the whole-form paint; "current" is what the uniform uses and can be overridden per model group (bone). */
@@ -93,6 +97,82 @@ public class ModelVAORenderer
     private static boolean colorGradeOverlayPass;
     /* Captured-matrix redraw after Iris (or immediate low-opacity bypass) — not the paint-overlay shader branch. */
     private static boolean deferredTranslucentPass;
+    /* Silhouette outline pass post-Iris composite (runs FormOutlineRenderer without paintPass). */
+    private static boolean outlineOverlayPass;
+
+    /**
+     * Fog state at enqueue time for soft / deferred mesh redraws. After Iris composite (and often
+     * by vanilla LAST) {@link RenderSystem} fog is collapsed — without this snapshot soft forms
+     * either skip fog or wash to FogColor.
+     * <p>
+     * {@code modelViewInverse} is the inverse of {@link RenderSystem#getModelViewMatrix()} at
+     * enqueue. Soft BBS draws bake that same ModelView into the MatrixStack
+     * ({@code capturePaintOverlayRootMatrix}); FogMat must strip with this matrix — not
+     * {@code Camera.getRotation()} — or cylindrical fog drifts with yaw/pitch when ModelView was
+     * identity (stack already camera-relative) or when the quaternion disagrees with the pose matrix.
+     */
+    public static final class DeferredFogSnapshot
+    {
+        private final float fogStart;
+        private final float fogEnd;
+        private final float fogColorR;
+        private final float fogColorG;
+        private final float fogColorB;
+        private final float fogColorA;
+        private final int fogShape;
+        private final Matrix4f modelViewInverse;
+
+        private DeferredFogSnapshot(float fogStart, float fogEnd, float fogColorR, float fogColorG, float fogColorB, float fogColorA, int fogShape, Matrix4f modelViewInverse)
+        {
+            this.fogStart = fogStart;
+            this.fogEnd = fogEnd;
+            this.fogColorR = fogColorR;
+            this.fogColorG = fogColorG;
+            this.fogColorB = fogColorB;
+            this.fogColorA = fogColorA;
+            this.fogShape = fogShape;
+            this.modelViewInverse = modelViewInverse;
+        }
+    }
+
+    private static DeferredFogSnapshot activeDeferredFog;
+
+    public static DeferredFogSnapshot captureCurrentFog()
+    {
+        float[] fogColor = RenderSystem.getShaderFogColor();
+        Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
+        if (Math.abs(modelViewInverse.determinant()) > 1.0E-8F)
+        {
+            modelViewInverse.invert();
+        }
+        else
+        {
+            modelViewInverse.identity();
+        }
+
+        return new DeferredFogSnapshot(
+            RenderSystem.getShaderFogStart(),
+            RenderSystem.getShaderFogEnd(),
+            fogColor[0],
+            fogColor[1],
+            fogColor[2],
+            fogColor[3],
+            RenderSystem.getShaderFogShape().getId(),
+            modelViewInverse
+        );
+    }
+
+    public static void pushDeferredFog(DeferredFogSnapshot snapshot)
+    {
+        activeDeferredFog = snapshot;
+    }
+
+    public static void popDeferredFog()
+    {
+        activeDeferredFog = null;
+    }
 
     private static final Matrix4f formRootInverse = new Matrix4f();
     private static final Matrix4f paintEffectInverse = new Matrix4f();
@@ -242,11 +322,13 @@ public class ModelVAORenderer
         private final boolean colorTint;
         private final boolean colorGrade;
         private final boolean vanillaComposite;
+        private final boolean outline;
         private final boolean depthWrite;
         private final boolean depthTest;
+        private final DeferredFogSnapshot fog;
         private final Runnable draw;
 
-        private PaintOverlayEntry(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
+        private PaintOverlayEntry(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean outline, boolean depthWrite, boolean depthTest, DeferredFogSnapshot fog, Runnable draw)
         {
             this.projection = projection;
             this.modelView = modelView;
@@ -255,8 +337,10 @@ public class ModelVAORenderer
             this.colorTint = colorTint;
             this.colorGrade = colorGrade;
             this.vanillaComposite = vanillaComposite;
+            this.outline = outline;
             this.depthWrite = depthWrite;
             this.depthTest = depthTest;
+            this.fog = fog;
             this.draw = draw;
         }
     }
@@ -341,6 +425,11 @@ public class ModelVAORenderer
 
     private static void enqueuePaintOverlay(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
     {
+        enqueuePaintOverlay(projection, modelView, synced, fullModel, colorTint, colorGrade, vanillaComposite, false, depthWrite, depthTest, draw);
+    }
+
+    private static void enqueuePaintOverlay(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean outline, boolean depthWrite, boolean depthTest, Runnable draw)
+    {
 
         /* Shadow-pass matrices are light-space (Iris and IRLights bake). Flushing them on the
          * color buffer draws tint/paint ghosts at wrong NDC (screen-edge masks when a light
@@ -358,8 +447,10 @@ public class ModelVAORenderer
             colorTint,
             colorGrade,
             vanillaComposite,
+            outline,
             depthWrite,
             depthTest,
+            fullModel ? captureCurrentFog() : null,
             draw
         );
 
@@ -468,6 +559,10 @@ public class ModelVAORenderer
             {
                 beginVanillaPostCompositePass();
             }
+            else if (entry.outline)
+            {
+                beginOutlineOverlayPass();
+            }
             else
             {
                 beginPaintOverlayPass(entry.synced);
@@ -475,10 +570,20 @@ public class ModelVAORenderer
 
             try
             {
+                if (entry.fog != null)
+                {
+                    pushDeferredFog(entry.fog);
+                }
+
                 entry.draw.run();
             }
             finally
             {
+                if (entry.fog != null)
+                {
+                    popDeferredFog();
+                }
+
                 if (entry.fullModel)
                 {
                     endDeferredTranslucentModelPass();
@@ -494,6 +599,10 @@ public class ModelVAORenderer
                 else if (entry.vanillaComposite)
                 {
                     endVanillaPostCompositePass();
+                }
+                else if (entry.outline)
+                {
+                    endOutlineOverlayPass();
                 }
                 else
                 {
@@ -574,6 +683,27 @@ public class ModelVAORenderer
     }
 
     /**
+     * Queues an outline overlay for {@link #flushPaintOverlayQueue()} at the end of the
+     * world frame after Iris compositing.
+     */
+    public static void submitOutlineOverlay(Matrix4f projection, Matrix4f modelView, Runnable draw)
+    {
+        enqueuePaintOverlay(
+            projection,
+            modelView,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            true,
+            true,
+            draw
+        );
+    }
+
+    /**
      * Queues a paint/glow overlay for {@link #flushPaintOverlayQueue()} at the end of the
      * world frame.
      */
@@ -624,10 +754,17 @@ public class ModelVAORenderer
                 }
             }
 
-            if (needsSceneCapture)
+            if (restoreFramebuffer)
+            {
+                ShaderOpacityPatch.syncPaintOverlayDepth();
+            }
+            else if (needsSceneCapture)
             {
                 BBSRendering.ensurePaintOverlayTargetFramebuffer();
+            }
 
+            if (needsSceneCapture)
+            {
                 if (!captureGradeSceneColor())
                 {
                     /* Keep Iris-lit mesh; skip broken regrade rather than painting black. */
@@ -636,8 +773,30 @@ public class ModelVAORenderer
             }
 
             /* Paint/glow overlays first, then full soft-model redraws (Opacity "No shading"
-             * path) so translucency composites over painted actors behind the soft form. */
-            paintOverlayQueue.sort((a, b) -> Boolean.compare(a.fullModel, b.fullModel));
+             * path) so translucency composites over painted actors behind the soft form.
+             * Ensure color tint runs before paint overlays so paint covers the primary tint.
+             * Outline overlays run after models so the silhouette traces all composited geometry. */
+            paintOverlayQueue.sort((a, b) ->
+            {
+                int cmp = Boolean.compare(a.fullModel, b.fullModel);
+
+                if (cmp != 0)
+                {
+                    return cmp;
+                }
+
+                if (a.colorTint != b.colorTint)
+                {
+                    return a.colorTint ? -1 : 1;
+                }
+
+                if (a.outline != b.outline)
+                {
+                    return a.outline ? 1 : -1;
+                }
+
+                return 0;
+            });
 
             for (PaintOverlayEntry entry : paintOverlayQueue)
             {
@@ -683,9 +842,13 @@ public class ModelVAORenderer
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
 
+        /* Match the no-shader model path: paint both front and back faces (eye sockets,
+         * hollow heads, etc.). Iris often leaves cull enabled; keeping it would skip interiors. */
+        RenderSystem.disableCull();
+
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        /* Flat / extruded / billboard overlays need a large units bias — factor alone is not
-         * enough for near-zero depth slope at distance (see FlatPaintOverlayPass). */
+        /* Units-only bias: a negative factor punches edge-on paint through terrain under Iris
+         * (slope-scaled offset). Facing quads need a large units value at distance. */
         GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
     }
 
@@ -845,7 +1008,7 @@ public class ModelVAORenderer
      */
     public static boolean captureGradeSceneColor()
     {
-        net.minecraft.client.gl.Framebuffer source = BBSRendering.getPaintOverlaySourceFramebuffer();
+        Framebuffer source = BBSRendering.getPaintOverlaySourceFramebuffer();
 
         if (source == null)
         {
@@ -1030,6 +1193,25 @@ public class ModelVAORenderer
         }
     }
 
+    public static void beginOutlineOverlayPass()
+    {
+        outlineOverlayPass = true;
+        paintOverlayPass = false;
+        paintOverlaySynced = false;
+        colorTintOverlayPass = false;
+        colorGradeOverlayPass = false;
+    }
+
+    public static void endOutlineOverlayPass()
+    {
+        outlineOverlayPass = false;
+    }
+
+    public static boolean isOutlineOverlayPass()
+    {
+        return outlineOverlayPass;
+    }
+
     public static boolean isPaintOverlayPass()
     {
         return paintOverlayPass;
@@ -1052,7 +1234,7 @@ public class ModelVAORenderer
 
     private static boolean usesCapturedModelView()
     {
-        return paintOverlayPass || deferredTranslucentPass || colorTintOverlayPass || colorGradeOverlayPass;
+        return paintOverlayPass || deferredTranslucentPass || colorTintOverlayPass || colorGradeOverlayPass || outlineOverlayPass;
     }
 
     /**
@@ -1082,6 +1264,21 @@ public class ModelVAORenderer
     public static boolean isPaintPass()
     {
         return paintPass;
+    }
+
+    public static boolean isGlowEffectActive()
+    {
+        return glowEffectActive;
+    }
+
+    public static boolean isPaintEffectActive()
+    {
+        return paintEffectActive;
+    }
+
+    public static boolean isColorEffectActive()
+    {
+        return colorEffectActive;
     }
 
     public static float getBasePaintR()
@@ -1760,13 +1957,18 @@ public class ModelVAORenderer
         RenderSystem.setShader(() -> shader);
         shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
+        ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
         FormGlowBloomPatch.uploadToCurrentProgram();
         modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
         shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+
+        if (currentVAO != 0)
+        {
+            GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+        }
     }
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
@@ -1782,7 +1984,7 @@ public class ModelVAORenderer
         }
 
 
-        setupUniforms(stack, shader, false);
+        setupUniforms(stack, shader, false, null);
     }
 
     /**
@@ -1793,15 +1995,20 @@ public class ModelVAORenderer
      */
     public static void setupUniformsCpuPretransformed(ShaderProgram shader)
     {
+        setupUniformsCpuPretransformed(shader, null);
+    }
+
+    public static void setupUniformsCpuPretransformed(ShaderProgram shader, Matrix4f rootInverse)
+    {
         if (shader == null)
         {
             return;
         }
 
-        setupUniforms(null, shader, true);
+        setupUniforms(null, shader, true, rootInverse);
     }
 
-    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed, Matrix4f rootInverse)
     {
         if (shader == null)
         {
@@ -1837,6 +2044,8 @@ public class ModelVAORenderer
                 ModelVAORenderer.setModelViewUniform(stack, shader);
             }
         }
+
+        ModelVAORenderer.uploadFogMatUniform(stack, shader, cpuPretransformed);
 
         /* NormalMat is present by default in Iris' shaders, but when there is no Iris,
          * the BBS mod's model.json shader is being used instead that provides NormalMat
@@ -1918,7 +2127,14 @@ public class ModelVAORenderer
 
         if (formRootInverseUniform != null)
         {
-            formRootInverseUniform.set(overlayFormRootInverse());
+            if (cpuPretransformed && rootInverse != null)
+            {
+                formRootInverseUniform.set(rootInverse);
+            }
+            else
+            {
+                formRootInverseUniform.set(overlayFormRootInverse());
+            }
         }
 
         GlUniform paintEffectInverseUniform = shader.getUniform("PaintEffectInverse");
@@ -2066,11 +2282,11 @@ public class ModelVAORenderer
             colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
         }
 
-        /* After Iris composite, RenderSystem fog is often collapsed (FogEnd≈1) or left as
-         * dense atmospheric fog — linear_fog then replaces the whole mesh with FogColor
-         * (featureless sky-tinted silhouette, texture gone). Captured-matrix redraws already
-         * sit on the final image; skip fog so low-opacity / render-depth fades keep albedo. */
-        if (usesCapturedModelView())
+        /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
+         * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
+         * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
+         * current RenderSystem fog. Offscreen framebuffer draws also skip fog. */
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass || BBSRendering.isRenderingOffscreen())
         {
             if (shader.fogStart != null)
             {
@@ -2090,6 +2306,28 @@ public class ModelVAORenderer
             if (shader.fogShape != null)
             {
                 shader.fogShape.set(0);
+            }
+        }
+        else if (activeDeferredFog != null)
+        {
+            if (shader.fogStart != null)
+            {
+                shader.fogStart.set(activeDeferredFog.fogStart);
+            }
+
+            if (shader.fogEnd != null)
+            {
+                shader.fogEnd.set(activeDeferredFog.fogEnd);
+            }
+
+            if (shader.fogColor != null)
+            {
+                shader.fogColor.set(activeDeferredFog.fogColorR, activeDeferredFog.fogColorG, activeDeferredFog.fogColorB, activeDeferredFog.fogColorA);
+            }
+
+            if (shader.fogShape != null)
+            {
+                shader.fogShape.set(activeDeferredFog.fogShape);
             }
         }
         else
@@ -2133,21 +2371,201 @@ public class ModelVAORenderer
         RenderSystem.setupShaderLights(shader);
     }
 
+    private static float viewOriginLengthSq(Matrix4f view)
+    {
+        float x = view.m30();
+        float y = view.m31();
+        float z = view.m32();
+
+        return x * x + y * y + z * z;
+    }
+
+    /**
+     * Fog uniforms for overlays that bake {@code bakedModelMatrix} into vertex {@code Position}
+     * (flat color-tint / paint on labels & billboards). {@code FogMat} maps those positions
+     * back to camera-relative Y-up for cylindrical fog — identity when the bake was already
+     * camera-relative, inverse-view when the bake included view rotation.
+     */
+    public static void uploadCpuBakedVertexFog(ShaderProgram shader, Matrix4f bakedModelMatrix)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        if (shader.fogStart != null)
+        {
+            shader.fogStart.set(RenderSystem.getShaderFogStart());
+        }
+
+        if (shader.fogEnd != null)
+        {
+            shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+        }
+
+        if (shader.fogColor != null)
+        {
+            shader.fogColor.set(RenderSystem.getShaderFogColor());
+        }
+
+        if (shader.fogShape != null)
+        {
+            shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
+        }
+
+        GlUniform fogMatUniform = shader.getUniform("FogMat");
+
+        if (fogMatUniform == null)
+        {
+            return;
+        }
+
+        if (bakedModelMatrix == null)
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        if (BBSRendering.isRenderingWorld())
+        {
+            float bakedDist = viewOriginLengthSq(bakedModelMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Bake already included view — Position is view-space; strip for fog. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                fogMatUniform.set(SCRATCH_INV_VIEW);
+            }
+            else
+            {
+                /* Bake was camera-relative — Position is already Y-up cam-rel. */
+                fogMatUniform.set(IDENTITY_MODEL_VIEW);
+            }
+        }
+        else
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+        }
+    }
+
+    /**
+     * Camera-relative model matrix for fog — same space vanilla bakes into entity
+     * {@code Position} and terrain {@code Position + ChunkOffset} (Y-up, no view rotation).
+     */
+    private static void uploadFogMatUniform(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    {
+        GlUniform fogMatUniform = shader.getUniform("FogMat");
+
+        if (fogMatUniform == null)
+        {
+            return;
+        }
+
+        if (cpuPretransformed || stack == null)
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass || BBSRendering.isRenderingOffscreen())
+        {
+            /* Fog disabled for these passes — FogMat unused. */
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+
+        if (deferredTranslucentPass)
+        {
+            /* Soft / deferred BBS path: stack is capturePaintOverlayRootMatrix = MV_enqueue × camRel
+             * (or camRel alone when MV was identity). Strip with the enqueue-time MV inverse from
+             * DeferredFogSnapshot so FogMat stays camera-relative Y-up at every yaw/pitch. */
+            if (activeDeferredFog != null)
+            {
+                SCRATCH_FOG_MAT.set(activeDeferredFog.modelViewInverse).mul(stackMatrix);
+            }
+            else
+            {
+                /* No snapshot — assume stack is already camera-relative (do not use Camera quaternion). */
+                SCRATCH_FOG_MAT.set(stackMatrix);
+            }
+
+            fogMatUniform.set(SCRATCH_FOG_MAT);
+
+            return;
+        }
+
+        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
+        {
+            float bakedDist = viewOriginLengthSq(stackMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(stackMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Stack already includes view (AFTER_ENTITIES) — strip rotation for fog only. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(stackMatrix);
+            }
+            else
+            {
+                /* Stack is camera-relative entity transform — same as WorldRenderer entity MatrixStack. */
+                SCRATCH_FOG_MAT.set(stackMatrix);
+            }
+        }
+        else if (BBSRendering.isRenderingWorld())
+        {
+            /* Iris world pass: best-effort strip view from composed model-view. */
+            SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
+            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+            SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
+        }
+        else
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        fogMatUniform.set(SCRATCH_FOG_MAT);
+    }
+
     private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
     {
-        Matrix4f modelView;
-
         if (usesCapturedModelView())
         {
             /* Overlay/deferred stack already carries the full terrain + entity transform captured
              * at enqueue; RenderSystem model-view is identity during these draws. */
-            modelView = new Matrix4f(stack.peek().getPositionMatrix());
-        }
-        else
-        {
-            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            shader.modelViewMat.set(stack.peek().getPositionMatrix());
+
+            return;
         }
 
-        shader.modelViewMat.set(modelView);
+        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+
+        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
+        {
+            float bakedDist = viewOriginLengthSq(stackMatrix);
+
+            SCRATCH_MODEL_VIEW.set(BBSRendering.camera).mul(stackMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_MODEL_VIEW) < bakedDist * 0.49F)
+            {
+                SCRATCH_MODEL_VIEW.set(stackMatrix);
+            }
+
+            shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
+
+            return;
+        }
+
+        SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
+        shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
     }
 }

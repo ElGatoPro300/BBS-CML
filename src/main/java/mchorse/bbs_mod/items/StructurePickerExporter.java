@@ -27,6 +27,7 @@ import net.minecraft.util.math.Vec3i;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -556,7 +557,7 @@ public class StructurePickerExporter
                 return NbtIo.readCompressed(file.toPath(), NbtSizeTracker.ofUnlimitedBytes());
             }
 
-            try (java.io.InputStream stream = BBSMod.getProvider().getAsset(link))
+            try (InputStream stream = BBSMod.getProvider().getAsset(link))
             {
                 if (stream == null)
                 {

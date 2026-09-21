@@ -90,7 +90,7 @@ public class UIModelConstraintsPanel extends UIElement
         this.boneNameLabel = UI.label(IKey.raw("-"));
         this.boneNameLabel.relative(editorTitle).y(1F, 4).w(1F).h(12);
 
-        this.noSelectionLabel = UI.label(IKey.raw("Select a bone to edit joint limits."));
+        this.noSelectionLabel = UI.label(UIKeys.MODELS_CONSTRAINTS_NO_SELECTION);
         this.noSelectionLabel.relative(this)
             .x(1F, -RIGHT_WIDTH - SIDE_MARGIN)
             .y(38)
@@ -106,7 +106,7 @@ public class UIModelConstraintsPanel extends UIElement
         fields.relative(this.detailScroll).w(1F);
         fields.column().stretch().vertical().height(20).padding(4);
 
-        this.activeToggle = new UIToggle(IKey.raw("Active"), (b) -> this.onActiveChanged(b.getValue()));
+        this.activeToggle = new UIToggle(UIKeys.MODELS_CONSTRAINTS_ACTIVE, (b) -> this.onActiveChanged(b.getValue()));
 
         this.minXPad = this.buildPad((v) -> this.updateLimit((d) -> d.minX = v.floatValue()), -180D, 180D);
         this.minYPad = this.buildPad((v) -> this.updateLimit((d) -> d.minY = v.floatValue()), -180D, 180D);
@@ -120,9 +120,9 @@ public class UIModelConstraintsPanel extends UIElement
 
         fields.add(
             this.activeToggle,
-            UI.label(IKey.raw("Min X / Y / Z")),
+            UI.label(UIKeys.MODELS_CONSTRAINTS_MIN),
             UI.row(this.minXPad, this.minYPad, this.minZPad),
-            UI.label(IKey.raw("Max X / Y / Z")),
+            UI.label(UIKeys.MODELS_CONSTRAINTS_MAX),
             UI.row(this.maxXPad, this.maxYPad, this.maxZPad),
             this.applyChildrenButton
         );

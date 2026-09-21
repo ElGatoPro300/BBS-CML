@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.utils.gizmo;
 
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -160,7 +159,7 @@ public final class GizmoRayFrame
         };
     }
 
-    private static boolean fillViewSpaceMouseRay(Matrix4f projection, int mouseX, int mouseY, int vx, int vy, int vw, int vh, Vector3d rayOrigin, Vector3f rayDirection)
+    public static boolean fillViewSpaceMouseRay(Matrix4f projection, int mouseX, int mouseY, int vx, int vy, int vw, int vh, Vector3d rayOrigin, Vector3f rayDirection)
     {
         mouseX -= vx;
         mouseY -= vy;

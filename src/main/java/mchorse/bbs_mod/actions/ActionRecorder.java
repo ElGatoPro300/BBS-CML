@@ -101,7 +101,7 @@ public class ActionRecorder
             {
                 AttackActionClip clip = new AttackActionClip();
 
-                clip.damage.set(2F);
+                clip.damage.set(AttackDamage.fromAttacker(player, null));
                 this.add(clip);
             }
         }

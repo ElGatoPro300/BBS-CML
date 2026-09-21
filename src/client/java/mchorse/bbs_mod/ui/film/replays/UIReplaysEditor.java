@@ -19,7 +19,6 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.ModelTrackIds;
@@ -36,7 +35,6 @@ import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.math.molang.expressions.MolangExpression;
 import mchorse.bbs_mod.resources.Link;
@@ -49,7 +47,6 @@ import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
 import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPreview;
-import mchorse.bbs_mod.ui.film.clips.renderer.IUIClipRenderer;
 import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIAnimationToPoseOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIKeyframeSheetFilterOverlayPanel;
@@ -81,8 +78,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisible
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeGraph;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.UIKeyframeDopeSheet;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.Scale;
@@ -118,11 +113,8 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.world.World;
 
-import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
-
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -227,6 +219,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("paint", Colors.INACTIVE);
         COLORS.put("paint_overlay", lighterTrackShade(Colors.INACTIVE));
         COLORS.put("glow", Colors.YELLOW);
+        COLORS.put("shake", 0x159e64);
         COLORS.put("color_grade", Colors.PINK);
         COLORS.put("lighting", Colors.YELLOW);
         COLORS.put("look_at", 0x007f70);
@@ -305,6 +298,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("paint_color", Icons.BUCKET);
         ICONS.put("paint", Icons.BUCKET);
         ICONS.put("glow", Icons.LIGHT);
+        ICONS.put("shake", Icons.EXCHANGE);
         ICONS.put("color_grade", Icons.FAVORITE);
         ICONS.put("lighting", Icons.LIGHT);
         ICONS.put("look_at", Icons.VISIBLE);
@@ -716,10 +710,26 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     {
         Icon icon = getIcon(key);
 
-        if (icon != null)
+        if ((icon == null || icon == Icons.NONE) && key.indexOf(':') != -1)
         {
-            sheet.icon(icon);
+            String subKey = key.substring(key.indexOf(':') + 1);
+
+            icon = getIcon(subKey);
+
+            if (icon == null || icon == Icons.NONE)
+            {
+                String parentKey = key.substring(0, key.indexOf(':'));
+
+                icon = getIcon(parentKey);
+            }
         }
+
+        if (icon == null || icon == Icons.NONE)
+        {
+            icon = Icons.PROPERTIES;
+        }
+
+        sheet.icon(icon);
 
         return sheet;
     }
@@ -873,7 +883,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         context.batcher.clip(area, context);
 
-        /* First pass: Render selected clip background */
+        /* Selected clip: a color wash on the keyframe ruler, not a replica of the clip bar. */
         for (Clip clip : camera.get())
         {
             if (clip == selectedClip && !(clip instanceof AudioClip))
@@ -881,23 +891,21 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 float offset = clip.tick.get() - clipOffset;
                 int x1 = (int) scale.to(offset);
                 int x2 = (int) scale.to(offset + clip.duration.get());
-                int y = keyframes.area.y + 15;
-                int h = 20;
 
                 if (x2 > keyframes.area.x && x1 < keyframes.area.ex())
                 {
                     ClipFactoryData data = camera.getFactory().getData(clip);
                     int color = data.color;
-                    int primary = BBSSettings.primaryColor.get();
+                    int rulerBottom = keyframes.area.y + 16;
+                    int top = Colors.setA(color, 0.5F);
+                    int mid = Colors.setA(color, 0.16F);
+                    int fade = Colors.setA(color, 0F);
 
-                    context.batcher.dropShadow(x1 + 2, y + 2, x2 - 2, y + h - 2, 8, Colors.A75 + primary, primary);
-                    context.batcher.box(x1, y, x2, y + h, color | Colors.A100);
-                    context.batcher.outline(x1, y, x2, y + h, Colors.WHITE);
+                    x1 = Math.max(x1, area.x);
+                    x2 = Math.min(x2, area.ex());
 
-                    if (x2 - x1 > 20)
-                    {
-                        context.batcher.icon(data.icon, Colors.mulA(Colors.mulRGB(Colors.WHITE, 0.75F), 0.5F), x2 - 2, y + h / 2, 1F, 0.5F);
-                    }
+                    context.batcher.gradientVBox(x1, keyframes.area.y, x2, rulerBottom, top, mid);
+                    context.batcher.gradientVBox(x1, rulerBottom, x2, keyframes.area.ey(), mid, fade);
 
                     renderedOnce = true;
                 }
@@ -1453,9 +1461,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     /**
      * Expand collapsed nested-form track groups so bone picks on body parts can
      * reach that form's pose sheet. Does <b>not</b> expand the pose/limb group
-     * itself — limb sheets stay hidden until the user opens pose (default), so
-     * picking a bone selects the nearest pose keyframe instead of inserting a
-     * provisional limb keyframe.
+     * itself — limb sheets stay hidden until the user opens pose (default). With
+     * an empty pose track, bone picks insert a provisional keyframe on the main
+     * pose sheet instead of expanding limbs.
      */
     private void ensureTracksVisibleForFormBone(Form form, String bone)
     {
@@ -2897,13 +2905,82 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     public void updateChannelsList()
     {
+        this.updateChannelsList(false);
+    }
+
+    /**
+     * @param preserveKeyframeSelection when true, restore sheet / keyframe / limb after
+     *                                  rebuild (Actor toggle). Other rebuilds keep the
+     *                                  previous clear-selection behavior.
+     */
+    public void updateChannelsList(boolean preserveKeyframeSelection)
+    {
+        String keepActiveTab = null;
+
+        if (preserveKeyframeSelection && this.filmPanel != null)
+        {
+            keepActiveTab = this.captureActiveTabForChannelsRebuild();
+            this.filmPanel.beginSuppressLinkedPropertiesTabFocus();
+        }
+
+        try
+        {
+            this.rebuildChannelsList(preserveKeyframeSelection);
+        }
+        finally
+        {
+            if (preserveKeyframeSelection && this.filmPanel != null)
+            {
+                this.filmPanel.endSuppressLinkedPropertiesTabFocus();
+
+                if (keepActiveTab != null)
+                {
+                    this.filmPanel.focusPanelTab(keepActiveTab);
+                }
+            }
+        }
+    }
+
+    /**
+     * Prefer the tab group shared by Properties / Replays / General so Actor toggle
+     * cannot leave the user on Propiedades generales after a keyframe remount.
+     */
+    private String captureActiveTabForChannelsRebuild()
+    {
+        String propertiesId = this.filmPanel.shouldRedirectProperties() ? "unifiedEditArea" : "editArea";
+        String active = this.filmPanel.getActiveTabPanelId(propertiesId);
+
+        if (active != null)
+        {
+            return active;
+        }
+
+        active = this.filmPanel.getActiveTabPanelId("replaysPanel");
+
+        if (active != null)
+        {
+            return active;
+        }
+
+        return this.filmPanel.getActiveTabPanelId("replaysPropertiesPanel");
+    }
+
+    private void rebuildChannelsList(boolean preserveKeyframeSelection)
+    {
         UIKeyframes lastEditor = null;
         TimelineInteractionSnapshot interactionSnapshot = null;
+        KeyframeEditorSelectionSnapshot selectionSnapshot = null;
 
         if (this.keyframeEditor != null)
         {
             lastEditor = this.keyframeEditor.view;
             interactionSnapshot = TimelineInteractionSnapshot.capture(lastEditor);
+
+            if (preserveKeyframeSelection)
+            {
+                selectionSnapshot = KeyframeEditorSelectionSnapshot.capture(this.keyframeEditor);
+            }
+
             this.keyframeEditor.removeFromParent();
         }
 
@@ -3781,9 +3858,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (!sheets.isEmpty())
         {
-            /* Rebuilding the editor drops selection; remove untouched provisional
-             * limb keyframes first or they become permanent after collapse/reopen. */
-            this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+            /* Rebuilding drops UI selection. Untouched provisional (ghost) keyframes are
+             * normally removed here so they do not become permanent after collapse/reopen.
+             * Actor toggle preserves selection — keep the ghost so restore can re-select it. */
+            if (!preserveKeyframeSelection)
+            {
+                this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+            }
+
             this.lastPickedKeyframe = null;
             this.keyframeEditor = new UIKeyframeEditor((consumer) ->
             {
@@ -3801,8 +3883,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 keyframes.setPresetsPreview(new UIReplayPresetPreview(this::getReplay));
 
                 return keyframes;
-            }).target(this.filmPanel.editArea);
+            }).target(this.filmPanel.getReplayKeyframePropertiesHost());
             this.keyframeEditor.setUndoId("replay_keyframe_editor");
+            /* Retarget after rebuild in case layout redirect (unified vs editArea) changed. */
+            this.filmPanel.updateTargets();
 
             /* Reset */
             if (lastEditor != null)
@@ -3914,6 +3998,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 interactionSnapshot.restore(this.keyframeEditor.view);
             }
+
+            if (selectionSnapshot != null && !selectionSnapshot.isEmpty())
+            {
+                this.restoreKeyframeSelection(selectionSnapshot);
+            }
         }
 
         this.resize();
@@ -3926,6 +4015,65 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (this.keyframeEditor != null && lastEditor == null)
         {
             this.keyframeEditor.view.resetView();
+        }
+    }
+
+    /**
+     * Re-select sheet / keyframe / limb after {@link #updateChannelsList(boolean)}.
+     * Prefers the same keyframe instance when it survived provisional cleanup.
+     */
+    private void restoreKeyframeSelection(KeyframeEditorSelectionSnapshot snapshot)
+    {
+        if (this.keyframeEditor == null || snapshot == null || snapshot.isEmpty())
+        {
+            return;
+        }
+
+        IUIKeyframeGraph graph = this.keyframeEditor.view.getGraph();
+        UIKeyframeSheet sheet = graph.getSheet(snapshot.getSheetId());
+
+        if (sheet == null)
+        {
+            return;
+        }
+
+        String bone = snapshot.getBone();
+        Keyframe keyframe = snapshot.findKeyframe(sheet);
+
+        if (keyframe != null)
+        {
+            graph.selectKeyframe(keyframe);
+            this.applyRestoredBoneSelection(bone);
+
+            return;
+        }
+
+        /* Untouched provisional limb keyframes are removed during rebuild — re-pick
+         * the limb on the same sheet without inserting a permanent keyframe. */
+        if (bone != null && !bone.isEmpty())
+        {
+            this.pickProperty(bone, sheet, false);
+        }
+    }
+
+    private void applyRestoredBoneSelection(String bone)
+    {
+        if (bone == null || bone.isEmpty() || this.keyframeEditor == null)
+        {
+            return;
+        }
+
+        if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+        {
+            poseFactory.poseEditor.selectBone(bone);
+        }
+        else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
+        {
+            lookAtFactory.lookAtEditor.selectBone(bone);
+        }
+        else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+        {
+            ikFactory.ikEditor.selectBone(bone);
         }
     }
 
@@ -5149,8 +5297,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
         }
 
-        /* Redirección al sheet anclado si el hueso seleccionado está anclado y no hay override */
-        /* Redirección a la pista de limb track si existe */
+        /* Limb track only when pose is already expanded (limbs visible). */
         if (bone != null && !bone.isEmpty())
         {
             String limbTrackId = key + ":" + bone;
@@ -5214,6 +5361,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         Keyframe provisionalKeyframe = this.ensureAutomaticLimbKeyframe(sheet, bone, tick);
+
+        if (provisionalKeyframe == null)
+        {
+            provisionalKeyframe = this.ensureAutomaticPoseKeyframe(sheet, bone, tick);
+        }
 
         KeyframeSegment segment = sheet.channel.find(tick);
         Keyframe closest = null;
@@ -5289,23 +5441,38 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         return property.equals("pose") || property.startsWith("pose_overlay");
     }
 
+    /** Main pose / pose_overlay tracks and their {@code pose:bone} limb channels. */
+    private boolean isProvisionalPoseChannelId(String id)
+    {
+        if (id == null || id.isEmpty())
+        {
+            return false;
+        }
+
+        int colon = id.indexOf(':');
+        String propertyId = colon == -1 ? id : id.substring(0, colon);
+
+        return this.isPoseTrackId(propertyId);
+    }
+
+    private boolean isProvisionalAutomaticKeyframe(Keyframe keyframe, String channelId)
+    {
+        if (keyframe == null || keyframe.getColor() == null)
+        {
+            return false;
+        }
+
+        if (keyframe.getColor().a >= 0.99F)
+        {
+            return false;
+        }
+
+        return this.isProvisionalPoseChannelId(channelId);
+    }
+
     private boolean isProvisionalAutomaticKeyframe(Keyframe keyframe, UIKeyframeSheet sheet)
     {
-        if (keyframe == null || sheet == null || keyframe.getColor() == null)
-        {
-            return false;
-        }
-
-        int colon = sheet.id.indexOf(':');
-
-        if (colon == -1)
-        {
-            return false;
-        }
-
-        String propertyId = sheet.id.substring(0, colon);
-
-        return this.isPoseTrackId(propertyId) && keyframe.getColor().a < 0.99F;
+        return sheet != null && this.isProvisionalAutomaticKeyframe(keyframe, sheet.id);
     }
 
     private void cleanupUntouchedAutomaticKeyframe(Keyframe previous, Keyframe current)
@@ -5329,6 +5496,93 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
     }
 
+    /**
+     * Drop untouched auto-inserted pose/limb previews so they are never written to disk.
+     * Semi-transparent color is the provisional marker; serialization stores RGB only and
+     * reloads opaque, which made previews look like confirmed keyframes after reopen.
+     * <p>
+     * Only call when leaving the film context (close / switch film). Running this during
+     * periodic autosave removed the live channel from {@link FormProperties} via
+     * {@code cleanUp()} while timeline sheets still referenced it, so later pose edits
+     * mutated an orphaned channel and the form stopped updating until world reload.
+     */
+    public void discardUntouchedAutomaticKeyframes()
+    {
+        if (this.film == null)
+        {
+            return;
+        }
+
+        boolean removed = false;
+
+        for (Replay replay : this.film.replays.getList())
+        {
+            removed |= this.discardUntouchedAutomaticKeyframes(replay);
+        }
+
+        this.lastPickedKeyframe = null;
+
+        if (removed && this.keyframeEditor != null)
+        {
+            for (UIKeyframeSheet sheet : this.keyframeEditor.view.getGraph().getSheets())
+            {
+                sheet.selection.clear();
+            }
+
+            this.keyframeEditor.view.getGraph().pickKeyframe(null);
+        }
+    }
+
+    private boolean discardUntouchedAutomaticKeyframes(Replay replay)
+    {
+        if (replay == null)
+        {
+            return false;
+        }
+
+        boolean removed = false;
+        List<Keyframe> pending = new ArrayList<>();
+
+        for (KeyframeChannel<?> channel : replay.properties.properties.values())
+        {
+            if (!this.isProvisionalPoseChannelId(channel.getId()))
+            {
+                continue;
+            }
+
+            pending.clear();
+
+            for (Object entry : channel.getList())
+            {
+                Keyframe keyframe = (Keyframe) entry;
+
+                if (this.isProvisionalAutomaticKeyframe(keyframe, channel.getId()))
+                {
+                    pending.add(keyframe);
+                }
+            }
+
+            for (Keyframe keyframe : pending)
+            {
+                removed |= channel.removeSilently(keyframe);
+            }
+        }
+
+        /* Skip cleanUp while this replay's sheets are still mounted — removing an empty
+         * channel from the map orphans the sheet's KeyframeChannel reference. */
+        if (removed && !(this.keyframeEditor != null && this.replay == replay))
+        {
+            replay.properties.cleanUp();
+        }
+
+        return removed;
+    }
+
+    /**
+     * When the pose group is already expanded, bone picks use {@code pose:bone}
+     * limb sheets. Insert a transparent Transform keyframe at the playhead so the
+     * property panel can open; first edit promotes it, leaving it untouched removes it.
+     */
     private Keyframe ensureAutomaticLimbKeyframe(UIKeyframeSheet sheet, String bone, int tick)
     {
         if (sheet == null || !BBSSettings.autoKeyframes.get())
@@ -5402,6 +5656,51 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         return keyframe;
     }
 
+    /**
+     * When the pose group is collapsed (limb sheets hidden) and the main pose
+     * track has no keyframes yet, insert a transparent Pose keyframe so limb
+     * picks can open the pose property panel without expanding limbs.
+     */
+    private Keyframe ensureAutomaticPoseKeyframe(UIKeyframeSheet sheet, String bone, int tick)
+    {
+        if (sheet == null || !BBSSettings.autoKeyframes.get())
+        {
+            return null;
+        }
+
+        if (bone == null || bone.isEmpty())
+        {
+            return null;
+        }
+
+        if (sheet.id.indexOf(':') != -1 || !this.isPoseTrackId(sheet.id))
+        {
+            return null;
+        }
+
+        if (!sheet.channel.isEmpty())
+        {
+            return null;
+        }
+
+        Object poseValue = sheet.channel.getFactory().createEmpty();
+
+        if (sheet.property != null && sheet.property.get() instanceof Pose formPose)
+        {
+            poseValue = sheet.channel.getFactory().copy(formPose);
+        }
+
+        int index = sheet.channel.insert(tick, poseValue);
+        Keyframe keyframe = (Keyframe) sheet.channel.get(index);
+
+        if (keyframe != null)
+        {
+            keyframe.setColor(Color.rgba(Colors.setA(sheet.color, 0.35F)));
+        }
+
+        return keyframe;
+    }
+
     public boolean clickViewport(UIContext context, Area area)
     {
         if (this.filmPanel.isFlying())
@@ -5426,6 +5725,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (context.mouseButton == 0 && this.gizmoController.tryStartHandleDrag(context, editableTransform))
         {
+            /* Gizmo drag advances from UIPropTransform.render(); show the linked
+             * Properties tab so that widget is mounted/visible while dragging. */
+            this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+
             return true;
         }
 
@@ -5501,12 +5804,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 Replay replay = replays.get(stencilIndex);
 
-                if (!this.isVisible())
-                {
-                    this.filmPanel.showPanel(this);
-                }
-
                 this.setReplay(replay, true, true);
+                this.filmPanel.focusAfterAltReplayPick();
 
                 return true;
             }
@@ -5574,6 +5873,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     public void close()
     {
+        this.discardUntouchedAutomaticKeyframes();
+
         if (this.film != null)
         {
             lastFilm = this.film.getId();
@@ -5662,6 +5963,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             this.keyframeEditor.view.getGraph().clearSelection();
             this.keyframeEditor.view.getGraph().pickSelected();
+        }
+    }
+
+    /**
+     * Hide the keyframe properties form without clearing dope-sheet selection.
+     */
+    public void hideKeyframeProperties()
+    {
+        if (this.keyframeEditor != null)
+        {
+            this.keyframeEditor.hidePropertiesPanel();
         }
     }
 }

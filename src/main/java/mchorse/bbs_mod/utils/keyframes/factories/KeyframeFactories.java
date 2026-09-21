@@ -13,6 +13,10 @@ public class KeyframeFactories
     public static final BooleanKeyframeFactory BOOLEAN = new BooleanKeyframeFactory();
     public static final StringKeyframeFactory STRING = new StringKeyframeFactory();
     public static final FloatKeyframeFactory FLOAT = new FloatKeyframeFactory();
+    /** @deprecated Prefer {@link #LIGHTING_SETTINGS}; kept for loading brightness-only saves. */
+    @Deprecated
+    public static final FloatKeyframeFactory LIGHTING_BRIGHTNESS = new FloatKeyframeFactory();
+    public static final LightingSettingsKeyframeFactory LIGHTING_SETTINGS = new LightingSettingsKeyframeFactory();
     public static final DoubleKeyframeFactory DOUBLE = new DoubleKeyframeFactory();
     public static final IntegerKeyframeFactory INTEGER = new IntegerKeyframeFactory();
     public static final LinkKeyframeFactory LINK = new LinkKeyframeFactory();
@@ -50,6 +54,8 @@ public class KeyframeFactories
         FACTORIES.put("boolean", BOOLEAN);
         FACTORIES.put("string", STRING);
         FACTORIES.put("float", FLOAT);
+        FACTORIES.put("lighting_brightness", LIGHTING_BRIGHTNESS);
+        FACTORIES.put("lighting_settings", LIGHTING_SETTINGS);
         FACTORIES.put("double", DOUBLE);
         FACTORIES.put("integer", INTEGER);
         FACTORIES.put("link", LINK);

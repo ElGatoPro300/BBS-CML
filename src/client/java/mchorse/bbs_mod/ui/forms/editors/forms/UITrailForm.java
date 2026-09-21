@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.forms;
 
 import mchorse.bbs_mod.forms.forms.TrailForm;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.panels.UITrailFormPanel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;

@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.home;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -21,6 +20,7 @@ import mchorse.bbs_mod.ui.framework.elements.navigation.UIControlBar;
 import mchorse.bbs_mod.ui.framework.elements.navigation.UIIconTabButton;
 import mchorse.bbs_mod.ui.model.UIModelPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
+import mchorse.bbs_mod.ui.particles.UIParticleStatusIcons;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
 import mchorse.bbs_mod.ui.utils.UIUtils;
@@ -54,6 +54,7 @@ public class UIDocumentTabsBar extends UIControlBar
 
     private final UIDashboard dashboard;
     private UIFilmStatusIcons filmStatusIcons;
+    private UIParticleStatusIcons particleStatusIcons;
     private final UIScrollView tabsScroll;
     private final UIElement tabs;
     private final List<DocumentTab> documentTabs = new ArrayList<>();
@@ -101,28 +102,72 @@ public class UIDocumentTabsBar extends UIControlBar
             this.add(icons);
         }
 
-        this.layoutFilmStatusIcons();
+        this.layoutStatusIcons();
+    }
+
+    public void attachParticleStatusIcons(UIParticleStatusIcons icons)
+    {
+        if (this.particleStatusIcons != null && this.particleStatusIcons != icons)
+        {
+            this.particleStatusIcons.removeFromParent();
+        }
+
+        this.particleStatusIcons = icons;
+
+        if (icons != null && icons.getParent() != this)
+        {
+            icons.removeFromParent();
+            this.add(icons);
+        }
+
+        this.layoutStatusIcons();
     }
 
     public void layoutFilmStatusIcons()
     {
-        boolean show = false;
+        this.layoutStatusIcons();
+    }
+
+    public void layoutStatusIcons()
+    {
+        boolean showFilm = false;
+        boolean showParticle = false;
 
         if (this.filmStatusIcons != null && this.dashboard.panels.panel instanceof UIFilmPanel film)
         {
-            show = film.getData() != null && !film.isShowingHomePage();
+            showFilm = film.getData() != null && !film.isShowingHomePage();
+        }
+        else if (this.particleStatusIcons != null && this.dashboard.panels.panel instanceof UIParticleSchemePanel particle)
+        {
+            showParticle = particle.getData() != null && !particle.isShowingHomePage();
         }
 
         int reserve = 0;
 
         if (this.filmStatusIcons != null)
         {
-            this.filmStatusIcons.setVisible(show);
-            reserve = show ? this.filmStatusIcons.getBarWidth() : 0;
+            this.filmStatusIcons.setVisible(showFilm);
 
-            int x = this.area.ex() - reserve - RIGHT_PADDING;
+            if (showFilm)
+            {
+                reserve = this.filmStatusIcons.getBarWidth();
+                int x = this.area.ex() - reserve - RIGHT_PADDING;
 
-            this.filmStatusIcons.layoutInTabBar(x, this.area.y, this.area.h);
+                this.filmStatusIcons.layoutInTabBar(x, this.area.y, this.area.h);
+            }
+        }
+
+        if (this.particleStatusIcons != null)
+        {
+            this.particleStatusIcons.setVisible(showParticle);
+
+            if (showParticle)
+            {
+                reserve = UIParticleStatusIcons.WIDTH;
+                int x = this.area.ex() - reserve - RIGHT_PADDING;
+
+                this.particleStatusIcons.layoutInTabBar(x, this.area.y, this.area.h);
+            }
         }
 
         this.tabsScroll.getFlex().w.offset = -(reserve + TABS_RIGHT_MARGIN);
@@ -174,6 +219,12 @@ public class UIDocumentTabsBar extends UIControlBar
         {
             this.remove(this.filmStatusIcons);
             this.add(this.filmStatusIcons);
+        }
+
+        if (this.particleStatusIcons != null && this.particleStatusIcons.getParent() == this)
+        {
+            this.remove(this.particleStatusIcons);
+            this.add(this.particleStatusIcons);
         }
 
         this.updateTabDragPoll(context);
@@ -1054,6 +1105,8 @@ public class UIDocumentTabsBar extends UIControlBar
         if (index < 0 || index >= this.documentTabs.size()) return;
 
         DocumentTab removed = this.documentTabs.get(index);
+        boolean closedFilmTab = !removed.isHome && removed.type == ContentType.FILMS;
+        String closedFilmTabId = removed.id;
 
         /* Single-tab case: convert to Home rather than disappearing */
         if (this.documentTabs.size() == 1 && !removed.isHome)
@@ -1062,6 +1115,11 @@ public class UIDocumentTabsBar extends UIControlBar
             removed.type = null;
             removed.id = null;
             this.activate(0);
+
+            if (closedFilmTab)
+            {
+                this.notifyFilmTabClosed(closedFilmTabId);
+            }
 
             return;
         }
@@ -1077,6 +1135,21 @@ public class UIDocumentTabsBar extends UIControlBar
 
         this.activeTab = -1;
         this.activate(newActive);
+
+        if (closedFilmTab)
+        {
+            this.notifyFilmTabClosed(closedFilmTabId);
+        }
+    }
+
+    private void notifyFilmTabClosed(String closedTabId)
+    {
+        UIFilmPanel panel = this.dashboard.getPanel(UIFilmPanel.class);
+
+        if (panel != null)
+        {
+            panel.onDocumentFilmTabClosed(closedTabId);
+        }
     }
 
     private UIDashboardPanel resolvePanel(DocumentTab tab)
@@ -1126,7 +1199,10 @@ public class UIDocumentTabsBar extends UIControlBar
         {
             UIFilmPanel panel = this.dashboard.getPanel(UIFilmPanel.class);
 
-            if (panel != null && !panel.isFilmTabLoaded(tab.id))
+            if (panel != null
+                && (!panel.isFilmTabLoaded(tab.id)
+                    || panel.getData() == null
+                    || !tab.id.equals(panel.getData().getId())))
             {
                 panel.openFilmTab(tab.id);
             }

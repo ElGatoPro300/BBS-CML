@@ -3,6 +3,7 @@ package mchorse.bbs_mod.client.renderer.item;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -15,7 +16,6 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
@@ -25,8 +25,6 @@ import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
-
-import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -79,23 +77,36 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
+                try
                 {
-                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(a, b);
+                    int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    FormRenderingContext context = new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false));
+
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        context.inUI();
+                    }
+                    else
+                    {
+                        context.camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+                    }
+
+                    FormUtilsClient.render(form, context);
                 }
-
-                FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (mode == ModelTransformationMode.GUI)
+                finally
                 {
-                    DiffuseLighting.disableGuiDepthLighting();
-                }
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        BBSRendering.restoreAfterGuiItemForm();
+                    }
+                    else
+                    {
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    }
 
-                RenderSystem.disableDepthTest();
+                    RenderSystem.disableDepthTest();
+                }
 
                 matrices.pop();
             }

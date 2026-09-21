@@ -7,7 +7,6 @@ import mchorse.bbs_mod.utils.MathUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 public class ValueEditorLayout extends BaseValue
 {

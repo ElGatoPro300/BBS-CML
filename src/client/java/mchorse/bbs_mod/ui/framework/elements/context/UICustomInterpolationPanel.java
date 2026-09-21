@@ -2,35 +2,22 @@ package mchorse.bbs_mod.ui.framework.elements.context;
 
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.graphics.window.Window;
-import mchorse.bbs_mod.l10n.L10n;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.ui.framework.elements.context.UIInterpolationContextMenu;
-import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UICustomInterpolationKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.UIKeyframeGraph;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
-import mchorse.bbs_mod.ui.utils.InterpolationUtils;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.context.ContextAction;
-import mchorse.bbs_mod.ui.utils.icons.Icon;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.CustomInterpolation;
 import mchorse.bbs_mod.utils.interps.CustomInterpolationManager;
 import mchorse.bbs_mod.utils.interps.IInterp;
-import mchorse.bbs_mod.utils.interps.InterpContext;
 import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.interps.easings.EasingArgs;
@@ -42,7 +29,6 @@ import mchorse.bbs_mod.utils.undo.UndoManager;
 
 import org.lwjgl.glfw.GLFW;
 
-import java.util.Map;
 import java.util.function.Consumer;
 
 public class UICustomInterpolationPanel extends UIOverlayPanel
@@ -54,6 +40,7 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
     public UIButton useBase;
     public UICustomInterpolationKeyframes keyframes;
     public UIButton save;
+    public UIScrollView sidebar;
 
     private CustomInterpolation interpolation;
     private boolean firstResize = true;
@@ -66,6 +53,7 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
     {
         super(UIKeys.INTERPOLATIONS_CUSTOM_TITLE);
 
+        this.minSize(320, 200);
         this.interpolation = new CustomInterpolation("custom");
         this.undoManager = new UndoManager<>(50);
 
@@ -108,12 +96,12 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
         this.save = new UIButton(UIKeys.INTERPOLATIONS_CUSTOM_SAVE, (b) -> this.saveInterpolation());
 
         UILabel label = UI.label(UIKeys.INTERPOLATIONS_CUSTOM_NAME).color(Colors.WHITE, true);
-        UIElement sidebar = UI.column(5, 10, label, this.name, this.continuous, this.samples, this.clamp, this.useBase, this.save);
+        this.sidebar = UI.scrollView(5, 10, label, this.name, this.continuous, this.samples, this.clamp, this.useBase, this.save);
 
-        sidebar.relative(this.content).x(1F).y(0).w(140).h(1F).anchorX(1F);
+        this.sidebar.relative(this.content).x(1F).y(0).w(140).h(1F).anchorX(1F);
         this.keyframes.relative(this.content).x(0).y(0).w(1F, -140).h(1F);
 
-        this.content.add(sidebar, this.keyframes);
+        this.content.add(this.sidebar, this.keyframes);
         
         this.lastState = new MapType();
         this.lastState.put("channel", channel.toData());

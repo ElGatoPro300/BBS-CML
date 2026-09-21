@@ -14,8 +14,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
-import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -67,7 +65,9 @@ public class UIModelPartsSection extends UIModelSection
         });
         
         /* Drag signs come from UIModelEditorRenderer.prepareGizmoDrag. Do not enable the legacy
-         * setModel() path — it permanently forces X/Z ring invert and fights that prepare. */
+         * setModel() path — it permanently forces X/Z ring invert and fights that prepare.
+         * Bone Color extras (paint/glow/grade/noshading) live on ModelConfig.parts — same
+         * PoseTransform path as tint + color masks, applied via ModelFormRenderer.getPose(). */
         this.poseEditor = new UIPoseEditor()
         {
             @Override

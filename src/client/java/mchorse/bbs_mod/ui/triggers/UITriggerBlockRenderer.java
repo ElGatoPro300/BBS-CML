@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.triggers;
 
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
-import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
 public class UITriggerBlockRenderer extends UIModelRenderer

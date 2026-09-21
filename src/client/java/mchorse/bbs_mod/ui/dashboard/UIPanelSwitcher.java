@@ -1,10 +1,8 @@
 package mchorse.bbs_mod.ui.dashboard;
 
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;

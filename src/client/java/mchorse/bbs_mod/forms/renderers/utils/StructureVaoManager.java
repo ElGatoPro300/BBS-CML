@@ -26,7 +26,8 @@ public class StructureVaoManager
         public IModelVAO picking;
     }
 
-    private static final int VAO_CACHE_VERSION = 3;
+    /* v4: translucent blocks excluded from main VAO (drawn as a live layer like animated/biome). */
+    private static final int VAO_CACHE_VERSION = 4;
     private static final Map<String, VaoHolder> VAO_CACHE = new HashMap<>();
     private static final int LIGHTING_REVISION = 5;
     private static int cachedLightingRevision = -1;

@@ -5,8 +5,10 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.StringUtils;
@@ -17,7 +19,6 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LimbAnimator;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -27,6 +28,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.packet.s2c.play.ItemPickupAnimationS2CPacket;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -34,6 +36,8 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -66,6 +70,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private float lastHitboxWidth = Float.NaN;
     private float lastHitboxHeight = Float.NaN;
     private float lastHitboxSneakMultiplier = Float.NaN;
+    private float lastHitboxEyeHeight = Float.NaN;
     private boolean lastSneaking;
 
     /**
@@ -88,6 +93,13 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * {@code BBSSettings.editorActorPauseAnimations}).
      */
     private boolean pauseNaturalAnimations;
+
+    /**
+     * Live player velocity while actor-control snaps this body each tick with physics
+     * velocity cleared (avoids ice drift). Applied only around {@link Form#update} so
+     * emoticons/procedural jump+fall still see {@code |vy| > 0.2}. Cleared after the update.
+     */
+    private Vec3d animationVelocityHint;
 
     /**
      * Cached deterministic limb phase for timeline-paused scrubbing.
@@ -113,6 +125,18 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private boolean runtimeInventoryInitialized;
     private final Set<UUID> pickedUpEntityIds = new HashSet<>();
 
+    /**
+     * Ground-blob shadow from the owning replay (toggle / size / opacity / offset).
+     * Applied by {@code ActorEntityRenderer}; defaults match a normal entity blob.
+     */
+    private boolean filmShadowEnabled = true;
+    private float filmShadowOpacity = 1F;
+    private float filmShadowRadiusX = 0.5F;
+    private float filmShadowRadiusZ = 0.5F;
+    private float filmShadowOffsetX;
+    private float filmShadowOffsetY;
+    private float filmShadowOffsetZ;
+
     public ActorEntity(EntityType<? extends LivingEntity> entityType, World world)
     {
         super(entityType, world);
@@ -128,6 +152,22 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.currentTick = tick;
         this.initializeRuntimeInventory();
         this.syncNameTag(replay);
+        this.syncShadow(replay, tick);
+    }
+
+    public Film getFilm()
+    {
+        return this.film;
+    }
+
+    public Replay getReplay()
+    {
+        return this.replay;
+    }
+
+    public int getCurrentTick()
+    {
+        return this.currentTick;
     }
 
     /**
@@ -149,6 +189,128 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.setCustomName(Text.literal(StringUtils.processColoredText(nameTag)));
             this.setCustomNameVisible(true);
         }
+    }
+
+    /**
+     * Mirror {@link Replay#shadow} (+ size / opacity / offset) onto this entity so
+     * {@code ActorEntityRenderer} can draw the same ground blob as stub replays.
+     * Does not affect movement or pose.
+     */
+    public void syncShadow(Replay replay, float tick)
+    {
+        if (replay == null)
+        {
+            this.filmShadowEnabled = true;
+            this.filmShadowOpacity = 1F;
+            this.filmShadowRadiusX = 0.5F;
+            this.filmShadowRadiusZ = 0.5F;
+            this.filmShadowOffsetX = 0F;
+            this.filmShadowOffsetY = 0F;
+            this.filmShadowOffsetZ = 0F;
+
+            return;
+        }
+
+        this.filmShadowEnabled = replay.shadow.get();
+        this.filmShadowOpacity = Math.max(0F, Math.min(1F, replay.shadowOpacity.get()));
+        this.filmShadowRadiusX = Math.max(0F, replay.shadowSize.get());
+        this.filmShadowRadiusZ = Math.max(0F, replay.shadowSizeZ.get());
+        this.filmShadowOffsetX = replay.shadowOffsetX.get();
+        this.filmShadowOffsetY = replay.shadowOffsetY.get();
+        this.filmShadowOffsetZ = replay.shadowOffsetZ.get();
+
+        if (!replay.keyframes.shadowSize.isEmpty())
+        {
+            ShadowSettings size = replay.keyframes.shadowSize.interpolate(tick);
+
+            if (size != null)
+            {
+                this.filmShadowRadiusX = Math.max(0F, size.widthX);
+                this.filmShadowRadiusZ = Math.max(0F, size.widthZ);
+                this.filmShadowOffsetX = size.offsetX;
+                this.filmShadowOffsetY = size.offsetY;
+                this.filmShadowOffsetZ = size.offsetZ;
+            }
+        }
+
+        if (!replay.keyframes.shadowOpacity.isEmpty())
+        {
+            Double opacity = replay.keyframes.shadowOpacity.interpolate(tick);
+
+            if (opacity != null)
+            {
+                this.filmShadowOpacity = Math.max(0F, Math.min(1F, opacity.floatValue()));
+            }
+        }
+    }
+
+    /**
+     * Prefer client-resolved settings (includes the same path as stub film shadows).
+     */
+    public void syncShadow(boolean enabled, ShadowSettings settings)
+    {
+        this.filmShadowEnabled = enabled;
+
+        if (settings == null)
+        {
+            this.filmShadowOpacity = enabled ? 1F : 0F;
+            this.filmShadowRadiusX = enabled ? 0.5F : 0F;
+            this.filmShadowRadiusZ = enabled ? 0.5F : 0F;
+            this.filmShadowOffsetX = 0F;
+            this.filmShadowOffsetY = 0F;
+            this.filmShadowOffsetZ = 0F;
+
+            return;
+        }
+
+        this.filmShadowOpacity = Math.max(0F, Math.min(1F, settings.opacity));
+        this.filmShadowRadiusX = Math.max(0F, settings.widthX);
+        this.filmShadowRadiusZ = Math.max(0F, settings.widthZ);
+        this.filmShadowOffsetX = settings.offsetX;
+        this.filmShadowOffsetY = settings.offsetY;
+        this.filmShadowOffsetZ = settings.offsetZ;
+    }
+
+    public boolean isFilmShadowEnabled()
+    {
+        return this.filmShadowEnabled;
+    }
+
+    public float getFilmShadowOpacity()
+    {
+        return this.filmShadowOpacity;
+    }
+
+    public float getFilmShadowRadiusX()
+    {
+        return this.filmShadowRadiusX;
+    }
+
+    public float getFilmShadowRadiusZ()
+    {
+        return this.filmShadowRadiusZ;
+    }
+
+    public float getFilmShadowOffsetX()
+    {
+        return this.filmShadowOffsetX;
+    }
+
+    public float getFilmShadowOffsetY()
+    {
+        return this.filmShadowOffsetY;
+    }
+
+    public float getFilmShadowOffsetZ()
+    {
+        return this.filmShadowOffsetZ;
+    }
+
+    public boolean shouldRenderFilmGroundShadow()
+    {
+        return this.filmShadowEnabled
+            && this.filmShadowOpacity > 0.001F
+            && (this.filmShadowRadiusX > 0F || this.filmShadowRadiusZ > 0F);
     }
     
     /**
@@ -207,10 +369,19 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     /**
+     * Hint for form animators while physics velocity is forced to zero (actor-control).
+     * Consumed on the next {@link #tick()} around {@link Form#update}.
+     */
+    public void setAnimationVelocityHint(Vec3d velocity)
+    {
+        this.animationVelocityHint = velocity;
+    }
+
+    /**
      * Lock limb swing to the walk phase implied by keyframe motion up to {@code tick}.
      * Same pose every time you scrub to that tick (no accumulating jitter).
      */
-    public void applyTimelineLimbPhase(mchorse.bbs_mod.film.replays.ReplayKeyframes keyframes, int tick, boolean mounted)
+    public void applyTimelineLimbPhase(ReplayKeyframes keyframes, int tick, boolean mounted)
     {
         if (!(this.limbAnimator instanceof LimbAnimatorAccessor limb))
         {
@@ -333,7 +504,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     /**
      * One natural walk/form step for timeline scrub: limb swing from horizontal
-     * delta (same formula as {@link mchorse.bbs_mod.forms.entities.StubEntity#update})
+     * delta (same formula as {@link StubEntity#update})
      * plus one form animator tick.
      */
     public void advanceNaturalMotionStep(double fromX, double fromZ, double toX, double toZ)
@@ -483,7 +654,13 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     @Override
     public void tick()
     {
-        if (this.pauseNaturalAnimations)
+        this.clearStaleCombatDeathIfAlive();
+
+        /* Timeline freeze must not stall vanilla death: otherwise corpses never
+         * finish deathTime removal and leave permanent shadow/nametag ghosts. */
+        boolean dying = this.isDead() || this.getHealth() <= 0F || this.deathTime > 0;
+
+        if (this.pauseNaturalAnimations && !dying)
         {
             /* Hold limbs / emoticon clocks; still allow swipe hand-swing progress. */
             this.tickHandSwing();
@@ -497,19 +674,66 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             return;
         }
 
+        /* Poof burst on the last living death tick — same timing as MobDeathActionClip. */
+        if (this.getWorld().isClient() && dying && this.deathTime == 19)
+        {
+            this.spawnDeathBurstParticles();
+        }
+
         super.tick();
 
         this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        if (this.form != null)
+        Vec3d animationVelocity = this.animationVelocityHint;
+
+        this.animationVelocityHint = null;
+
+        if (animationVelocity != null)
         {
-            this.form.update(this.entity);
+            this.setVelocity(animationVelocity);
+        }
+
+        try
+        {
+            if (this.form != null && !dying)
+            {
+                this.form.update(this.entity);
+            }
+        }
+        finally
+        {
+            if (animationVelocity != null)
+            {
+                /* Keep physics velocity cleared; next client sync snaps position again. */
+                this.setVelocity(0D, 0D, 0D);
+            }
         }
 
         if (!this.getWorld().isClient())
         {
             this.tickItemPickup();
+        }
+    }
+
+    private void spawnDeathBurstParticles()
+    {
+        Random random = this.getWorld().getRandom();
+        double x = this.getX();
+        double y = this.getY() + this.getEyeHeight(this.getPose()) * 0.5D;
+        double z = this.getZ();
+        float width = 0.6F;
+
+        for (int i = 0; i < 20; i++)
+        {
+            double offsetX = (random.nextDouble() - 0.5D) * width;
+            double offsetY = random.nextDouble() * 0.5D;
+            double offsetZ = (random.nextDouble() - 0.5D) * width;
+            double velocityX = random.nextGaussian() * 0.02D;
+            double velocityY = random.nextGaussian() * 0.02D;
+            double velocityZ = random.nextGaussian() * 0.02D;
+
+            this.getWorld().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 
@@ -621,18 +845,21 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         float width = this.form.hitboxWidth.get();
         float height = this.form.hitboxHeight.get();
         float sneakMultiplier = this.form.hitboxSneakMultiplier.get();
+        float eyeHeight = this.form.hitboxEyeHeight.get();
 
         if (enabled != this.lastHitboxEnabled
             || sneaking != this.lastSneaking
             || width != this.lastHitboxWidth
             || height != this.lastHitboxHeight
-            || sneakMultiplier != this.lastHitboxSneakMultiplier)
+            || sneakMultiplier != this.lastHitboxSneakMultiplier
+            || eyeHeight != this.lastHitboxEyeHeight)
         {
             this.lastHitboxEnabled = enabled;
             this.lastSneaking = sneaking;
             this.lastHitboxWidth = width;
             this.lastHitboxHeight = height;
             this.lastHitboxSneakMultiplier = sneakMultiplier;
+            this.lastHitboxEyeHeight = eyeHeight;
 
             this.calculateDimensions();
         }
@@ -647,16 +874,31 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (currentForm != null && currentForm.hitbox.get())
         {
             float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
-
-            return dimensions.fixed()
+            float eyeHeight = currentForm.hitboxEyeHeight.get() * height;
+            EntityDimensions shaped = dimensions.fixed()
                 ? EntityDimensions.fixed(currentForm.hitboxWidth.get(), height)
                 : EntityDimensions.changing(currentForm.hitboxWidth.get(), height);
+
+            return shaped.withEyeHeight(eyeHeight);
         }
 
         return dimensions;
     }
 
 
+
+    @Override
+    public void takeKnockback(double strength, double x, double z)
+    {
+        /* Film actors are pose-driven by keyframes; vanilla hit knockback causes
+         * a visible hop on lethal hits. */
+        if (this.replay != null)
+        {
+            return;
+        }
+
+        super.takeKnockback(strength, x, z);
+    }
 
     @Override
     public void onDeath(DamageSource damageSource)
@@ -763,6 +1005,26 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void setKeyframeHurtActive(boolean active)
     {
         this.keyframeHurtActive = active;
+    }
+
+    /**
+     * {@code deathTime} is not a synced field. After {@code ActionPlayer.goTo} restores HP
+     * on scrub, the client can keep a leftover death tip / red corpse flash. Only clear when
+     * {@code deathTime} is still &gt; 0 while already alive — do not touch live {@code hurtTime}
+     * damage flash.
+     */
+    public void clearStaleCombatDeathIfAlive()
+    {
+        if (this.deathTime <= 0 || this.getHealth() <= 0F || this.isDead())
+        {
+            return;
+        }
+
+        this.deathTime = 0;
+        this.hurtTime = 0;
+        this.maxHurtTime = 0;
+        this.keyframeHurtActive = false;
+        this.pendingHurtAnimation = false;
     }
 
     private void setLimbSwingSpeed(float speed)

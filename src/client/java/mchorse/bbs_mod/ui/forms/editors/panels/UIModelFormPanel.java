@@ -17,6 +17,7 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIModelPoseEditor;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
@@ -50,6 +51,15 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
     public UIElement glowSection;
 
+    public UIToggle outline;
+    public UIColor outlineColor;
+    public UITrackpad outlineThickness;
+    public UIToggle outlineRainbow;
+    public UITrackpad outlineRainbowSpeed;
+    public UITrackpad outlineRainbowScale;
+    public UIElement rainbowRow;
+    public UIElement outlineSection;
+
     public UIModelPoseEditor poseEditor;
     public UIShapeKeys shapeKeys;
     public UITrackpad pbrNormalIntensity;
@@ -58,6 +68,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
     public UIButton pickModel;
     public UIButton pick;
+    public UIToggle toggleSolidHitbox;
 
     public UIModelFormPanel(UIForm editor)
     {
@@ -94,6 +105,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             Color value = Color.rgba(c);
 
             color.set(value.r, value.g, value.b, value.a);
+            this.form.color.setRuntimeValue(null);
             this.form.color.set(color);
         }).withAlpha();
         this.color.direction(Direction.LEFT);
@@ -209,6 +221,51 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             this.form.glowingColor.set(legacy);
         });
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+
+        this.outline = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_OUTLINE, (b) -> this.form.outline.set(b.getValue()));
+        this.outline.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_TOOLTIP);
+        this.outlineColor = new UIColor((c) ->
+        {
+            Color copy = this.form.outlineColor.get().copy();
+            Color value = new Color().set(c);
+
+            copy.r = value.r;
+            copy.g = value.g;
+            copy.b = value.b;
+            this.form.outlineColor.set(copy);
+        });
+        this.outlineColor.direction(Direction.LEFT);
+        this.outlineColor.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_COLOR_TOOLTIP);
+        this.outlineThickness = new UITrackpad((value) -> this.form.outlineThickness.set(value.floatValue()));
+        this.outlineThickness.limit(0D, 32D).increment(0.5D).values(1D, 2D, 4D);
+        this.outlineThickness.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_THICKNESS_TOOLTIP);
+
+        this.outlineRainbow = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW, (b) ->
+        {
+            this.form.outlineRainbow.set(b.getValue());
+            this.rainbowRow.setVisible(b.getValue());
+            this.options.resize();
+        });
+        this.outlineRainbow.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_TOOLTIP);
+
+        this.outlineRainbowSpeed = new UITrackpad((value) -> this.form.outlineRainbowSpeed.set(value.floatValue()));
+        this.outlineRainbowSpeed.limit(-20D, 20D).increment(0.1D).values(0.5D, 1D, 2D);
+        this.outlineRainbowSpeed.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_SPEED_TOOLTIP);
+
+        this.outlineRainbowScale = new UITrackpad((value) -> this.form.outlineRainbowScale.set(value.floatValue()));
+        this.outlineRainbowScale.limit(0.05D, 10D).increment(0.1D).values(0.5D, 1D, 2D);
+        this.outlineRainbowScale.tooltip(UIKeys.FORMS_EDITORS_MODEL_OUTLINE_RAINBOW_SCALE_TOOLTIP);
+
+        this.rainbowRow = UI.row(this.outlineRainbowSpeed, this.outlineRainbowScale);
+
+        this.outlineSection = UI.column(
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITORS_MODEL_OUTLINE),
+            this.outline,
+            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
+            this.outlineRainbow,
+            this.rainbowRow
+        );
+
         this.poseEditor = new UIModelPoseEditor();
         this.poseEditor.setDefaultTextureSupplier(() ->
         {
@@ -257,26 +314,43 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_MODEL_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
         this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_MODEL_HITBOX_TOOLTIP);
 
-        this.options.add(this.pickModel);
+        UIElement modelContent = UI.column(5, 0, this.pickModel);
         if (BBSSettings.pickLimbTexture.get())
         {
-            this.options.add(this.pick);
+            modelContent.add(this.pick);
         }
         if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
         {
-            this.options.add(this.pbrNormalIntensity, this.pbrSpecularIntensity);
+            modelContent.add(UI.row(this.pbrNormalIntensity, this.pbrSpecularIntensity));
         }
+        modelContent.add(this.toggleSolidHitbox);
 
-        this.options.add(
-            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+        UISection modelSection = new UISection(UIKeys.MODELS_TITLE, modelContent);
+
+        UIElement shadingContent = UI.column(5, 0,
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
             UIFormColorLayout.createExtraSection(
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
-            ).marginTop(4),
-            this.toggleSolidHitbox,
-            this.poseEditor
+            ).marginTop(4)
+        );
+        UISection shadingSection = new UISection(UIKeys.FORMS_EDITORS_COLORS_AND_GLOW, shadingContent);
+
+        UISection outlineSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
+            this.outline,
+            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
+            this.outlineRainbow,
+            this.rainbowRow
+        );
+
+        UISection poseSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_POSE, this.poseEditor);
+
+        this.options.add(
+            modelSection,
+            shadingSection.marginTop(4),
+            outlineSection.marginTop(4),
+            poseSection.marginTop(4)
         );
     }
 
@@ -362,6 +436,8 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         Color formColor = form.color.get();
 
         this.colorTransform.setEffectTransform(formColor.transform == null ? new EffectTransform() : formColor.transform);
+        this.colorAdjustments.syncFromForm();
+        this.toggleSolidHitbox.setValue(form.solidHitbox.get());
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();
 
@@ -381,6 +457,14 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             : (form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
 
         this.glowTransform.setEffectTransform(glowTransform);
+
+        this.outline.setValue(form.outline.get());
+        this.outlineColor.setColor(form.outlineColor.get().getRGBColor());
+        this.outlineThickness.setValue(form.outlineThickness.get());
+        this.outlineRainbow.setValue(form.outlineRainbow.get());
+        this.outlineRainbowSpeed.setValue(form.outlineRainbowSpeed.get());
+        this.outlineRainbowScale.setValue(form.outlineRainbowScale.get());
+        this.rainbowRow.setVisible(form.outlineRainbow.get());
 
         this.shapeKeys.removeFromParent();
 

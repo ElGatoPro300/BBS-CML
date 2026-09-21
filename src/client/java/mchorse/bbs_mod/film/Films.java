@@ -8,6 +8,7 @@ import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
@@ -308,6 +309,7 @@ public class Films
             {
                 next.shutdown();
                 it.remove();
+                ItemUseRenderState.releaseLocalPlayerUse();
 
                 return next.film;
             }
@@ -343,6 +345,7 @@ public class Films
             if (film.hasFinished())
             {
                 film.shutdown();
+                ItemUseRenderState.releaseLocalPlayerUse();
             }
 
             return film.hasFinished();
@@ -356,9 +359,18 @@ public class Films
 
     public void updateEndWorld()
     {
+        boolean wasDriving = ItemUseRenderState.isDrivingLocalPlayerUse();
+
+        ItemUseRenderState.beginEndWorldUpdate();
+
         for (BaseFilmController controller : this.controllers)
         {
             controller.updateEndWorld();
+        }
+
+        if (wasDriving && !ItemUseRenderState.isDrivingLocalPlayerUse())
+        {
+            ItemUseRenderState.releaseLocalPlayerUse();
         }
     }
 

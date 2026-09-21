@@ -20,7 +20,7 @@ public class UIActionList extends UIList<ContextAction>
         super(callback);
     }
 
-    private int getItemHeight(ContextAction action)
+    public int getItemHeight(ContextAction action)
     {
         if (action instanceof ContextCategoryAction)
         {
@@ -29,7 +29,7 @@ public class UIActionList extends UIList<ContextAction>
         return action instanceof ContextSeparatorAction ? SEPARATOR_HEIGHT : this.scroll.scrollItemSize;
     }
 
-    private int getIndexAt(int mouseY)
+    public int getIndexAt(int mouseY)
     {
         int y = this.area.y - (int) this.scroll.getScroll();
 

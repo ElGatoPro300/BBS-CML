@@ -38,8 +38,7 @@ public class UIShakeClip extends UIClip<ShakeClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:shake")), UI.row(5, 0, 20, this.shake, this.shakeAmount)).marginTop(12));
-        this.panels.add(this.active);
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:shake"), UI.row(5, 0, 20, this.shake, this.shakeAmount)), this.active);
     }
 
     @Override

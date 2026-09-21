@@ -23,7 +23,12 @@ public class UIFramebufferFormPanel extends UIFormPanel<FramebufferForm>
         this.scale = new UITrackpad((v) -> this.form.scale.set(v.floatValue()));
         this.scale.tooltip(UIKeys.TRANSFORMS_SCALE);
 
-        this.options.add(UI.label(UIKeys.VIDEO_SETTINGS_RESOLUTION), this.width, this.height, this.scale);
+        this.options.add(
+            UI.label(UIKeys.VIDEO_SETTINGS_RESOLUTION),
+            UI.row(this.width, this.height),
+            UI.label(UIKeys.TRANSFORMS_SCALE),
+            this.scale
+        );
     }
 
     @Override

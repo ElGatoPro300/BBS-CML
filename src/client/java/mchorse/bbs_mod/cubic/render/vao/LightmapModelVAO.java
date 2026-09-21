@@ -4,7 +4,6 @@ import mchorse.bbs_mod.client.BBSRendering;
 
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -113,6 +112,7 @@ public class LightmapModelVAO implements IModelVAO
         }
 
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
+        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 
         GL30.glBindVertexArray(this.vao);
 
@@ -149,6 +149,6 @@ public class LightmapModelVAO implements IModelVAO
         }
 
         GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
-        GL30.glBindVertexArray(0);
+        GL30.glBindVertexArray(previousVAO);
     }
 }

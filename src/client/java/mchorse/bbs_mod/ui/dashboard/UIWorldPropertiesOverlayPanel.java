@@ -43,6 +43,7 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
     private UIToggle pauseWeather;
     private UIToggle mobSpawning;
     private UIButton killMobs;
+    private UIToggle overrideGamma;
     private UITrackpad gamma;
     private UIToggle nightVision;
 
@@ -138,9 +139,21 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
         UIElement mobsContent = UI.column(5, 0, this.mobSpawning, this.killMobs);
 
-        this.gamma = new UITrackpad((v) -> WorldPropertiesHelper.setGammaPercent(v));
+        this.overrideGamma = new UIToggle(UIKeys.WORLD_GAMMA_OVERRIDE, WorldPropertiesHelper.isGammaOverrideEnabled(), (b) ->
+        {
+            WorldPropertiesHelper.setGammaOverrideEnabled(b.getValue());
+            this.gamma.setEnabled(b.getValue());
+        });
+
+        this.gamma = new UITrackpad((v) ->
+        {
+            this.overrideGamma.setValue(true);
+            this.gamma.setEnabled(true);
+            WorldPropertiesHelper.setGammaPercent(v);
+        });
         this.gamma.limit(0D, 1500D, true).increment(50D).values(10D, 1D, 100D);
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
+        this.gamma.setEnabled(WorldPropertiesHelper.isGammaOverrideEnabled());
 
         UIButton gammaNormal = new UIButton(UIKeys.WORLD_GAMMA_NORMAL, (b) -> this.setGamma(100D));
         UIButton gammaSemi = new UIButton(UIKeys.WORLD_GAMMA_SEMI, (b) -> this.setGamma(750D));
@@ -150,7 +163,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
             WorldPropertiesHelper.setNightVision(b.getValue()));
 
         UIElement gammaContent = UI.column(5, 0,
-            UI.label(UIKeys.WORLD_GAMMA_LABEL),
+            this.overrideGamma,
+            UI.label(UIKeys.WORLD_GAMMA_LABEL).marginTop(4),
             this.gamma,
             UI.row(4, gammaNormal, gammaSemi, gammaFull),
             this.nightVision
@@ -188,6 +202,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
         this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true));
         this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true));
         this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true));
+        this.overrideGamma.setValue(WorldPropertiesHelper.isGammaOverrideEnabled());
+        this.gamma.setEnabled(WorldPropertiesHelper.isGammaOverrideEnabled());
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
         this.nightVision.setValue(WorldPropertiesHelper.hasNightVision());
         this.sunPathRotation.setValue(WorldPropertiesHelper.getSunPathRotation());
@@ -195,6 +211,8 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
     private void setGamma(double percent)
     {
+        this.overrideGamma.setValue(true);
+        this.gamma.setEnabled(true);
         this.gamma.setValue(percent);
         WorldPropertiesHelper.setGammaPercent(percent);
     }

@@ -78,6 +78,28 @@ public class MatrixStackUtils
     }
 
     /**
+     * Allocation-free {@link #getInverseViewRotationMatrix()} into {@code dest}.
+     */
+    public static void loadInverseViewRotationMatrix4(Matrix4f dest)
+    {
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+
+        dest.rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+
+        CameraController controller = BBSModClient.getCameraController();
+
+        if (controller.getCurrent() != null)
+        {
+            float rollDeg = controller.getRoll();
+
+            if (Math.abs(rollDeg) > 1.0E-4F)
+            {
+                dest.rotateZ(-MathUtils.toRad(rollDeg));
+            }
+        }
+    }
+
+    /**
      * View rotation matrix paired with {@link #getInverseViewRotationMatrix()}.
      */
     public static Matrix4f getViewRotationMatrix()
@@ -143,6 +165,26 @@ public class MatrixStackUtils
 
         mvStack.popMatrix();
         RenderSystem.applyModelViewMatrix();
+    }
+
+    /**
+     * Pop leaked {@link MatrixStack} entries until {@code parent} is on top again.
+     * Vanilla {@code ModelPart.render} has no try/finally; a throw after {@code push}
+     * otherwise trips WorldRenderer "Pose stack not empty".
+     */
+    public static void popUntil(MatrixStack stack, MatrixStack.Entry parent)
+    {
+        if (stack == null || parent == null)
+        {
+            return;
+        }
+
+        int guard = 32;
+
+        while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
+        {
+            stack.pop();
+        }
     }
 
     public static void applyTransform(MatrixStack stack, Transform transform)

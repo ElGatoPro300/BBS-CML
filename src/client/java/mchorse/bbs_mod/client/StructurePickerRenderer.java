@@ -27,11 +27,9 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-
-import java.util.List;
-
 import com.mojang.blaze3d.systems.RenderSystem;
-
+import org.lwjgl.opengl.GL11;
+import java.util.List;
 public class StructurePickerRenderer
 {
     private static final float CORNER_HANDLE = 0.28F;
@@ -96,7 +94,7 @@ public class StructurePickerRenderer
         RenderSystem.disableCull();
         RenderSystem.enableDepthTest();
         RenderSystem.depthMask(false);
-        RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_LEQUAL);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         if (showPlacement)
@@ -110,7 +108,7 @@ public class StructurePickerRenderer
         }
 
         RenderSystem.disableDepthTest();
-        RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         if (showPlacement)
@@ -124,7 +122,7 @@ public class StructurePickerRenderer
 
         stack.pop();
 
-        RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_LEQUAL);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
@@ -519,7 +517,7 @@ public class StructurePickerRenderer
         RenderSystem.disableCull();
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
-        RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         MatrixStack stack = context.matrixStack();
@@ -530,7 +528,7 @@ public class StructurePickerRenderer
         Draw.renderBox(stack, pos.getX(), pos.getY(), pos.getZ(), 1D, 1D, 1D, 0F, 0.5F, 1F, alpha);
         stack.pop();
 
-        RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_LEQUAL);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();

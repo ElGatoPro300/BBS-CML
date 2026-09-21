@@ -192,19 +192,10 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_LETTERBOX_COLOR), this.color).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.SCREEN_PANELS_LETTERBOX_TILT),
-            this.rotation,
-            this.zoom,
-            this.width,
-            this.height
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET),
-            UI.row(this.offsetX, this.offsetY)
-        ).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.useKeyframes, this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_LETTERBOX_COLOR, this.color));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_LETTERBOX_TILT, this.rotation, this.zoom, this.width, this.height));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET, UI.row(this.offsetX, this.offsetY)));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 
     @Override

@@ -38,9 +38,8 @@ public class UIBreakBlockActionClip extends UIActionClip<BreakBlockActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_POSITION).marginTop(12));
-        this.panels.add(UI.row(this.x, this.y, this.z));
-        this.panels.add(UI.label(UIKeys.ACTIONS_BLOCK_PROGRESS).marginTop(12), this.progress);
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_POSITION, UI.row(this.x, this.y, this.z)));
+        this.panels.add(this.section(UIKeys.ACTIONS_BLOCK_PROGRESS, this.progress));
     }
 
     @Override

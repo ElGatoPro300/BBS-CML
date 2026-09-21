@@ -5,7 +5,6 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.utils.UI;
 
 public class UIScreenNodeClip extends UIClip<ScreenNodeClip>
 {
@@ -39,7 +38,7 @@ public class UIScreenNodeClip extends UIClip<ScreenNodeClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_NODE_GRAPH), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_NODE_GRAPH, this.edit));
     }
 
     @Override

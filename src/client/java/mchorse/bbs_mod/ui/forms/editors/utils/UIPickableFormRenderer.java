@@ -1,20 +1,18 @@
 package mchorse.bbs_mod.ui.forms.editors.utils;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
-import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
-import mchorse.bbs_mod.ui.forms.editors.UIForms;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -22,11 +20,11 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoRayFrame;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoSurface;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Pair;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -51,6 +49,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
     private final Matrix4f lastGizmoMatrix = new Matrix4f();
+    private final Matrix4f unscaledGizmoMatrix = new Matrix4f();
     private boolean hasGizmoMatrix;
 
     private final GizmoController gizmoController = new GizmoController(this);
@@ -195,11 +194,15 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
         this.formEditor.preFormRender(context, this.form);
 
+        IEntity previewEntity = this.target == null ? this.entity : this.target;
+        int previewLight = BBSRendering.resolveEntityBlockLight(
+            previewEntity, LightmapTextureManager.pack(15, 15));
+
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.target == null ? this.entity : this.target, context.batcher.getContext().getMatrices(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, previewEntity, context.batcher.getContext().getMatrices(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer()
-            .equipment(false);
+            .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
 
         boolean renderMesh = this.shouldRenderFormMesh();
 
@@ -252,6 +255,11 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             {
                 MatrixStackUtils.multiply(stack, matrix);
             }
+
+            this.unscaledGizmoMatrix.set(stack.peek().getPositionMatrix());
+
+            Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+            stack.peek().getPositionMatrix().set(normalized);
 
             if (Gizmo.isInteractive())
             {
@@ -310,8 +318,13 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             MatrixStackUtils.multiply(stack, matrix);
         }
 
+        this.unscaledGizmoMatrix.set(stack.peek().getPositionMatrix());
+
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
         /* Full drawn MV so drag matches film (view-space rays ↔ view-space gizmo). */
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        this.lastGizmoMatrix.set(normalized);
 
         /* Draw axes */
         if (UIBaseMenu.renderAxes)
@@ -369,7 +382,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
                 this.camera,
                 this.area,
-                () -> this.hasGizmoMatrix ? this.lastGizmoMatrix : null
+                () -> this.hasGizmoMatrix ? this.unscaledGizmoMatrix : null
             ));
 
             return;
@@ -393,7 +406,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
             this.camera,
             this.area,
-            () -> this.hasGizmoMatrix ? this.lastGizmoMatrix : null
+            () -> this.hasGizmoMatrix ? this.unscaledGizmoMatrix : null
         ));
     }
 
@@ -416,17 +429,15 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     {
         super.update();
 
-        if (this.update && this.target != null)
-        {
-            this.form.update(this.entity);
-
-            FormRenderer renderer = FormUtilsClient.getRenderer(this.form);
-
-            if (renderer instanceof ITickable tickable)
-            {
-                tickable.tick(this.entity);
-            }
-        }
+        /* Do not call form.update() here when model-block editing set a target.
+         * That path shares the live Form with ModelBlockEntity, which already ticks it
+         * each world tick (panel canPause=false). A second form.update() here ran
+         * ParticleForm emitters at ~2x (~3–4x before the extra ITickable.tick was removed).
+         * Vanilla particles looked closer to correct because MC ages them once per world
+         * tick; custom emitters age on every form.update().
+         *
+         * Other editors leave target null and rely on Morph / film / owning systems for
+         * shared forms — ticking here would double those clocks too. */
     }
 
     @Override

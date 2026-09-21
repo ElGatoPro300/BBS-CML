@@ -45,12 +45,19 @@ public abstract class BaseValueBasic <T> extends BaseValue
     {
         this.preNotify(flag);
         this.value = value;
+        this.runtimeValue = null;
         this.postNotify(flag);
     }
 
     public void setRuntimeValue(T value)
     {
         this.runtimeValue = value;
+    }
+
+    public void setDirect(T value)
+    {
+        this.value = value;
+        this.runtimeValue = null;
     }
 
     @Override

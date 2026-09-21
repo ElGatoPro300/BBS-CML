@@ -9,7 +9,6 @@ import mchorse.bbs_mod.camera.clips.overwrite.PathClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.Inventory;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -37,10 +36,8 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
-import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3d;
 import org.joml.Vector4f;
@@ -463,6 +460,10 @@ public class Recorder extends WorldFilmController
         this.tick = tick;
         this.countdown = TimeUtils.toTick(BBSSettings.recordingCountdown.get());
         this.initialTick = tick;
+
+        /* WorldFilmController creates stubs in super() before this tick is set.
+         * Rebuild once so other replays start recording from the same playhead. */
+        this.createEntities();
     }
 
     public boolean hasNotStarted()

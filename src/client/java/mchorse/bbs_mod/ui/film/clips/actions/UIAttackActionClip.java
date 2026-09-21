@@ -4,7 +4,6 @@ import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.utils.UI;
 
 public class UIAttackActionClip extends UIActionClip<AttackActionClip>
 {
@@ -29,7 +28,7 @@ public class UIAttackActionClip extends UIActionClip<AttackActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_ATTACK_DAMAGE).marginTop(12), this.damage);
+        this.panels.add(this.section(UIKeys.ACTIONS_ATTACK_DAMAGE, this.damage));
     }
 
     @Override

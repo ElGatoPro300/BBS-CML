@@ -9,8 +9,6 @@ import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import org.joml.Vector4f;
-
 /**
  * StructureForm
  *
@@ -87,6 +85,9 @@ public class StructureForm extends Form
         /* Nueva pista unificada de keyframes y ocultar pista booleana suelta */
         this.emitLight.invisible();
         this.lightIntensity.invisible();
+
+        this.solidHitbox.invisible();
+        this.add(this.solidHitbox);
     }
 
     @Override

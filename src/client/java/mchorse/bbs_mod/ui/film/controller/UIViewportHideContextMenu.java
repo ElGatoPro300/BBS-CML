@@ -28,7 +28,7 @@ public class UIViewportHideContextMenu extends UIContextMenu
         hideCameraPreview.w(1F);
 
         this.column = UI.column(5, 8,
-            UI.label(UIKeys.FILM_HIDE_MENU_TITLE),
+            UI.label(UIKeys.FILM_HIDE_MENU_TITLE).wrapping(),
             hideAll,
             hideCameraPreview
         );
@@ -47,8 +47,6 @@ public class UIViewportHideContextMenu extends UIContextMenu
     @Override
     public void setMouse(UIContext context)
     {
-        this.xy(context.mouseX(), context.mouseY())
-            .wh(this.column.area.w, this.column.area.h)
-            .bounds(context.menu.overlay, 5);
+        this.sizeToColumn(this.column, context);
     }
 }

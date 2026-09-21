@@ -1,0 +1,59 @@
+# Rendering / Iris compatibility
+
+When implementing renderers, follow these rules for Iris/shaders compatibility.
+
+## 1. Shadow pass check
+
+Avoid rendering 2D elements or complex transparency during shadow passes.
+
+```java
+if (BBSSettings.isIrisShadowPass()) return;
+```
+
+## 2. State management
+
+Always push/pop the matrix stack and restore render state.
+
+```java
+RenderSystem.enableBlend();
+// ... draw ...
+RenderSystem.disableBlend();
+```
+
+## 3. Shader attributes
+
+Check `BBSRendering.isIrisShadersEnabled()` before using custom vertex attributes (e.g. tangents) that might crash vanilla shaders.
+
+## 4. World vs GUI rendering
+
+Use `BBSRendering.isRenderingWorld()` to distinguish world vs GUI, and adjust lighting (GUI typically needs fake lighting).
+
+## Actor Mode note
+
+For actor replays, stub bodies must not cast a second shadow — see `docs/architecture/actor-mode.md` (`ShadowRendererMixin`).
+
+## 5. Film replay lighting isolation (ModelForm / NeoForge)
+
+Film stub renders sort by **camera distance** (far → near) for translucency. ModelForm draws enable/disable the lightmap and can leave diffuse / Sampler2 / `shaderColor` dirty. On **Fabric** that leak is often invisible; on **NeoForge via Sinytra Connector** the next ModelForm can pick up slightly wrong lighting. Moving the camera or another replay changes draw order, so the “bad” lighting can jump between actors (rotation alone usually does not).
+
+**Why it did not show up in ~2.0:** films iterated replays in map order (no distance sort), and ModelForm’s lightmap/equipment path was much thinner — less dirty state and no camera-driven reorder.
+
+**Mitigation (keep Fabric visuals unchanged):**
+
+1. **Stubs (non-actor):** in `BaseFilmController#render`, when not an Iris shadow pass, call `BBSRendering.prepareVanillaEntityLighting()` before each replay. Call `BBSRendering.restoreWorldRenderState()` after each replay **only when Iris shaders are off**. Under Iris (especially NeoForge/Connector), a full mid-pass restore can desync gbuffer / FBO bindings (empty film viewport color, screen-fixed depth silhouettes). Still re-arm lighting once after the loop.
+2. **Actors (`ActorEntity`):** stub bodies are skipped (`physicalActor` / `BaseFilmController#renderEntity` returns early when `replay.actor`). The visible body is drawn by `ActorEntityRenderer` in the vanilla entity pass — **outside** the film stub lighting loop. That renderer must call `prepareVanillaEntityLighting()` before `FormUtilsClient.render` (same shadow-pass skip), or Actor Mode reintroduces the NeoForge contamination after toggling Actor on. It already restores world render state after the form draw.
+
+Do **not** “fix” lighting by changing packed world light sampling or `LightingSettings` semantics unless the bug is actually a track/migration issue.
+
+Related pause/HUD darkness (model-block in hotbar, blur sky/leaves on NeoForge): same GL-state family. Prefer `restoreAfterGuiItemForm` (re-enable lightmap) plus `prepareMenuBackgroundState` before `GameRenderer.renderBlur` and `prepareWorldPresentState` at world-begin — ported from the 1.21.4 pause-black fix. Do not rely on Fabric-only tolerance.
+
+### 5.1 Film viewport FBO + Iris (NeoForge)
+
+The film 3D preview uses `customSize` + `toggleFramebuffer` (offscreen) and `WindowMixin` size spoofing. `prepareWorldPresentState()` must **not** call `ensureMainFramebuffer()` / `beginWrite` while `customSize` is active: that ping-pongs client FB → offscreen at every `renderWorld` HEAD and can leave Iris on NeoForge drawing into the wrong targets (world/forms invisible, godrays/fog still visible, stale silhouettes). Outside the film viewport (`!customSize`), keep the full present-state path for pause freeze.
+
+## Related
+
+* Forms: `docs/architecture/forms.md`
+* ModelForm pipeline: `docs/architecture/model-form.md`
+* Replays / film stubs: `docs/architecture/replays.md`
+* Opacity / limb docs under `docs/` (`LIMB_TRANSPARENCY.md`, `SOFT_OPACITY_*.md`, …)

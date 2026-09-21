@@ -17,7 +17,9 @@ import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -30,7 +32,6 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -172,6 +173,22 @@ public class ProceduralAnimator implements IAnimator
         float velocityForwardSpeed = ((float) entityVelocity.x * forwardX + (float) entityVelocity.z * forwardZ) * 20F;
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
+        /* Film-driven entities: gate swing/gecko soft-fill on real prev→pos displacement.
+         * - ActorEntity: ActionPlayer lookahead velocity creates a one-frame void
+         *   (velocity says walking, LimbAnimator still idle); filling from velocity
+         *   caused idle→walk microsnaps.
+         * - StubEntity: ReplayKeyframes.apply() can still write vX/vZ (or leftover
+         *   velocity) while XYZ is frozen after truncating position keys — soft-fill
+         *   then synthesizes ghost arm/leg swing. Actors already used displacement
+         *   only; stubs must match so stationary replays stay idle. */
+        boolean filmDriven = target instanceof StubEntity
+            || (target instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity);
+
+        if (filmDriven)
+        {
+            horizontalSpeed = displacementHorizontalSpeed;
+            forwardSpeed = displacementForwardSpeed;
+        }
 
         if (target.isRiding() || target.isSitting())
         {
@@ -291,7 +308,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -333,7 +350,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -379,7 +396,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = (float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
@@ -402,7 +419,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = -(float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
@@ -413,6 +430,11 @@ public class ProceduralAnimator implements IAnimator
                         }
                     }
                 }
+            }
+
+            if (!riding && leftArm != null && rightArm != null)
+            {
+                ProceduralItemUsePoses.applyModel(target, leftArm, rightArm, main, offhand, pitch, yaw, transition);
             }
 
             if (!riding && handSwingProgress > 0F && leftArm != null && rightArm != null)
@@ -528,7 +550,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -570,7 +592,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -612,7 +634,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
@@ -635,7 +657,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = -MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
@@ -646,6 +668,11 @@ public class ProceduralAnimator implements IAnimator
                         }
                     }
                 }
+            }
+
+            if (!riding && bobjLeftArm != null && bobjRightArm != null)
+            {
+                ProceduralItemUsePoses.applyBobj(target, bobjLeftArm, bobjRightArm, main, offhand, pitch, yaw, transition);
             }
 
             if (!riding && handSwingProgress > 0F && bobjLeftArm != null && bobjRightArm != null)

@@ -1,9 +1,10 @@
 package mchorse.bbs_mod.ui.framework;
 
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbar;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
-import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.elements.IFocusedUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IViewport;
@@ -167,13 +168,19 @@ public abstract class UIBaseMenu
             IFocusedUIElement previouslyFocused = this.context.activeElement;
             IUIElement element = this.root.mouseClicked(this.context);
 
-            /* Clicking anywhere outside the focused text field leaves typing mode. */
-            if (previouslyFocused != null
-                && this.context.activeElement == previouslyFocused
-                && previouslyFocused instanceof UIElement
-                && !((UIElement) previouslyFocused).area.isInside(mouseX, mouseY))
+            if (previouslyFocused != null && this.context.activeElement == previouslyFocused)
             {
-                this.context.unfocus();
+                boolean clickedFocused = false;
+
+                if (element instanceof UIElement clickedElement && previouslyFocused instanceof UIElement focusedElement)
+                {
+                    clickedFocused = clickedElement == focusedElement || focusedElement.isDescendant(clickedElement);
+                }
+
+                if (!clickedFocused)
+                {
+                    this.context.unfocus();
+                }
             }
 
             this.context.popViewport();
@@ -368,6 +375,11 @@ public abstract class UIBaseMenu
         }
 
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
+
+        if (HdrModCompat.isHdrPresentationActive())
+        {
+            BBSRendering.prepareGuiAfterWorldPresent();
+        }
 
         this.context.resetMatrix();
         this.context.setMouse(mouseX, mouseY);

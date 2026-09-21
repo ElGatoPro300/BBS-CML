@@ -3,7 +3,9 @@ package mchorse.bbs_mod.ui.framework.elements.context;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
+import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import org.lwjgl.glfw.GLFW;
@@ -25,6 +27,31 @@ public abstract class UIContextMenu extends UIElement
      * In this method for subclasses, you should setup the resizer
      */
     public abstract void setMouse(UIContext context);
+
+    /**
+     * Size this popup to {@code column} after wrapping labels and toggles so
+     * long translations wrap instead of truncating with an ellipsis.
+     */
+    protected void sizeToColumn(UIElement column, UIContext context)
+    {
+        column.resize();
+
+        for (UILabel label : column.getChildren(UILabel.class))
+        {
+            label.wrapToWidth();
+        }
+
+        for (UIToggle toggle : column.getChildren(UIToggle.class))
+        {
+            toggle.wrapToWidth();
+        }
+
+        column.resize();
+
+        this.xy(context.mouseX(), context.mouseY())
+            .wh(column.area.w, column.area.h)
+            .bounds(context.menu.overlay, 5);
+    }
 
     /**
      * Instantly detach (skips close animation). Used when replacing with another menu.
