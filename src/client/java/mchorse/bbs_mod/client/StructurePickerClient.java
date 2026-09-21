@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -39,6 +40,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -48,11 +50,12 @@ import java.util.function.Consumer;
 public class StructurePickerClient
 {
     private static final int PLANE_LOCK_MOUSE_THRESHOLD_SQ = 16;
-    private static final double REACH_MULTIPLIER = 4D;
-    private static final double MIN_PICKER_REACH = 128D;
 
     private static StructurePickerMode mode = StructurePickerMode.CUBE;
     private static final List<Region> regions = new ArrayList<>();
+    private static final Set<Integer> selectedRegionIndices = new HashSet<>();
+    private static int activeRegionIndex = -1;
+    private static int hoveredRegionIndex = -1;
     private static BlockPos firstCorner;
     private static BlockPos secondCorner;
     private static StructurePickerPlane selectionPlane;
@@ -64,7 +67,7 @@ public class StructurePickerClient
     private static boolean rightMouseDown;
     private static boolean leftMouseDown;
     /** True only after LMB went down away from corner/scale handles. */
-    private static boolean leftClearArmed;
+    private static boolean leftSelectArmed;
     private static double planeMouseX;
     private static double planeMouseY;
     private static StructurePickerAxis planeHorizontalAxis;
@@ -74,6 +77,11 @@ public class StructurePickerClient
     private static Direction triangleFacing;
     private static boolean undoKeyDown;
     private static boolean redoKeyDown;
+    /** Snapshot of regions at the start of an RMB paint stroke (BLOCK / SAME / BRUSH). */
+    private static List<Region> paintStrokeBefore;
+    private static boolean paintStrokeDirty;
+    /** Snapshot of regions at the start of a scale-gizmo drag. */
+    private static List<Region> scaleStrokeBefore;
     private static int sameBlockLimit = 100;
     private static int brushRadius = 2;
     private static int brushDepth = 1;
@@ -278,6 +286,40 @@ public class StructurePickerClient
         return StructurePickerClient.regions;
     }
 
+    public static int getActiveRegionIndex()
+    {
+        return StructurePickerClient.activeRegionIndex;
+    }
+
+    public static int getHoveredRegionIndex()
+    {
+        return StructurePickerClient.hoveredRegionIndex;
+    }
+
+    public static boolean isRegionSelected(int index)
+    {
+        return StructurePickerClient.selectedRegionIndices.contains(index);
+    }
+
+    public static boolean hasRegionSelection()
+    {
+        return !StructurePickerClient.selectedRegionIndices.isEmpty();
+    }
+
+    /**
+     * Marks a region selected and active (for gizmos). Does not clear other selections.
+     */
+    public static void activateAndSelectRegion(int index)
+    {
+        if (index < 0 || index >= StructurePickerClient.regions.size())
+        {
+            return;
+        }
+
+        StructurePickerClient.selectedRegionIndices.add(index);
+        StructurePickerClient.activeRegionIndex = index;
+    }
+
     public static BlockPos getFirstCorner()
     {
         return StructurePickerClient.firstCorner;
@@ -300,7 +342,7 @@ public class StructurePickerClient
 
     public static boolean hasBlockSelection()
     {
-        return StructurePickerClient.mode.isSingleClick() && !StructurePickerClient.regions.isEmpty();
+        return StructurePickerClient.mode.isPaintMode() && !StructurePickerClient.regions.isEmpty();
     }
 
     public static Set<BlockPos> getAllRegionBlocks()
@@ -318,11 +360,25 @@ public class StructurePickerClient
     private static void setRegionsFromBlocks(Set<BlockPos> blocks)
     {
         StructurePickerClient.regions.clear();
+        StructurePickerClient.selectedRegionIndices.clear();
+        StructurePickerClient.activeRegionIndex = -1;
 
         for (StructurePickerRegionMerger.MergedRegion merged : StructurePickerRegionMerger.merge(blocks))
         {
             StructurePickerClient.regions.add(new Region(merged.min(), merged.max(), merged.mode()));
         }
+
+        for (int i = 0; i < StructurePickerClient.regions.size(); i++)
+        {
+            StructurePickerClient.selectedRegionIndices.add(i);
+        }
+
+        if (!StructurePickerClient.regions.isEmpty())
+        {
+            StructurePickerClient.activeRegionIndex = StructurePickerClient.regions.size() - 1;
+        }
+
+        StructurePickerScaleGizmo.clear();
     }
 
     public static boolean isActive()
@@ -351,6 +407,7 @@ public class StructurePickerClient
 
     public static void openPanel()
     {
+        StructurePickerClient.endPaintStroke();
         StructurePickerClient.finalizeInProgress();
         UIStructurePickerPanel.open();
     }
@@ -362,8 +419,7 @@ public class StructurePickerClient
             return ActionResult.PASS;
         }
 
-        StructurePickerClient.clearSelection();
-
+        /* Cancel vanilla break; region select / erase is handled in tick(). */
         return ActionResult.SUCCESS;
     }
 
@@ -389,34 +445,27 @@ public class StructurePickerClient
 
         if (UIStructurePickerPanel.isOpened() || mc.currentScreen != null || !StructurePickerClient.isActive())
         {
-            StructurePickerClient.leftClearArmed = false;
+            StructurePickerClient.leftSelectArmed = false;
+            StructurePickerClient.hoveredRegionIndex = -1;
+            StructurePickerClient.endPaintStroke();
 
             return;
         }
 
-        if (mc.player.isSneaking())
-        {
-            if (released)
-            {
-                StructurePickerClient.openPanel();
-            }
-
-            StructurePickerClient.leftClearArmed = false;
-
-            return;
-        }
+        /* Shift (sneak) is used for multi-select — do not clear hover or bail out early. */
+        StructurePickerClient.hoveredRegionIndex = StructurePickerClient.findClosestRegionHit(mc);
 
         if (StructurePickerScaleGizmo.hasScalableSelection())
         {
             StructurePickerScaleGizmo.ensure();
         }
 
-        if (leftPressed)
+        if (leftPressed && !rightDown)
         {
             if (StructurePickerScaleGizmo.isOverSelectionInteractable(mc))
             {
-                /* Corner / scale gizmo owns LMB — never clear or start a new region. */
-                StructurePickerClient.leftClearArmed = false;
+                /* Corner / scale gizmo owns LMB — never select-body or erase. */
+                StructurePickerClient.leftSelectArmed = false;
 
                 if (StructurePickerScaleGizmo.isOverSelectionCorner(mc))
                 {
@@ -425,22 +474,23 @@ public class StructurePickerClient
             }
             else
             {
-                StructurePickerClient.leftClearArmed = true;
+                StructurePickerClient.leftSelectArmed = true;
             }
         }
 
         if (leftReleased)
         {
-            boolean shouldClear = StructurePickerClient.leftClearArmed
+            boolean shouldHandleSelect = StructurePickerClient.leftSelectArmed
+                && !rightDown
                 && !StructurePickerScaleGizmo.isDragging()
                 && !StructurePickerScaleGizmo.isOverSelectionInteractable(mc);
 
-            StructurePickerClient.leftClearArmed = false;
+            StructurePickerClient.leftSelectArmed = false;
             StructurePickerScaleGizmo.tick(mc, leftPressed, leftReleased, leftDown);
 
-            if (shouldClear)
+            if (shouldHandleSelect)
             {
-                StructurePickerClient.clearSelection();
+                StructurePickerClient.handleLeftClickSelect(mc);
 
                 return;
             }
@@ -450,15 +500,27 @@ public class StructurePickerClient
             StructurePickerScaleGizmo.tick(mc, leftPressed, leftReleased, leftDown);
         }
 
-        if (StructurePickerClient.mode.isSingleClick())
+        if (StructurePickerClient.mode.isPaintMode())
         {
             if (rightDown)
             {
+                StructurePickerClient.beginPaintStroke();
                 StructurePickerClient.updateBlockPaint(mc);
             }
             else if (released)
             {
+                StructurePickerClient.endPaintStroke();
                 StructurePickerClient.lastPaintedBlock = null;
+            }
+
+            return;
+        }
+
+        if (StructurePickerClient.mode.isEraseMode())
+        {
+            if (rightDown)
+            {
+                StructurePickerClient.updateErasePaint(mc);
             }
 
             return;
@@ -476,7 +538,15 @@ public class StructurePickerClient
 
         if (released)
         {
-            StructurePickerClient.handleClick(mc);
+            /* Sneak+RMB opens the panel when not mid-draw (Shift multi-select stays usable). */
+            if (mc.player.isSneaking() && !StructurePickerClient.hasInProgress())
+            {
+                StructurePickerClient.openPanel();
+            }
+            else
+            {
+                StructurePickerClient.handleClick(mc);
+            }
         }
     }
 
@@ -544,10 +614,16 @@ public class StructurePickerClient
         }
 
         double distance = (planeY - eye.y) / look.y;
+        double reach = StructurePickerClient.getPickerReach(mc);
 
         if (distance < 0D)
         {
             return null;
+        }
+
+        if (distance > reach)
+        {
+            distance = reach;
         }
 
         Vec3d hit = eye.add(look.multiply(distance));
@@ -559,6 +635,7 @@ public class StructurePickerClient
     {
         Vec3d eye = mc.player.getEyePos();
         Vec3d dir = mc.player.getRotationVec(1.0F);
+        double reach = StructurePickerClient.getPickerReach(mc);
 
         if (lockedHorizontal == StructurePickerAxis.X)
         {
@@ -574,6 +651,11 @@ public class StructurePickerClient
                 return null;
             }
 
+            if (distance > reach)
+            {
+                distance = reach;
+            }
+
             return BlockPos.ofFloored(eye.add(dir.multiply(distance)));
         }
 
@@ -587,6 +669,11 @@ public class StructurePickerClient
         if (distance < 0D)
         {
             return null;
+        }
+
+        if (distance > reach)
+        {
+            distance = reach;
         }
 
         return BlockPos.ofFloored(eye.add(dir.multiply(distance)));
@@ -777,6 +864,25 @@ public class StructurePickerClient
         StructurePickerClient.lastPaintedBlock = hovered.toImmutable();
     }
 
+    /**
+     * Erase mode: while RMB is held, delete each hovered volume region under the crosshair
+     * (one region per tick) so sweeping across areas clears many selections comfortably.
+     */
+    private static void updateErasePaint(MinecraftClient mc)
+    {
+        int hitIndex = StructurePickerClient.hoveredRegionIndex;
+
+        if (hitIndex < 0)
+        {
+            hitIndex = StructurePickerClient.findClosestRegionHit(mc);
+        }
+
+        if (hitIndex >= 0)
+        {
+            StructurePickerClient.deleteRegionAt(hitIndex);
+        }
+    }
+
     private static void applyBlockPaint(BlockPos pos)
     {
         if (StructurePickerClient.mode == StructurePickerMode.SAME)
@@ -880,6 +986,7 @@ public class StructurePickerClient
         if (addedAny)
         {
             StructurePickerClient.setRegionsFromBlocks(blocks);
+            StructurePickerClient.markPaintStrokeDirty();
         }
     }
 
@@ -899,6 +1006,7 @@ public class StructurePickerClient
         if (removedAny)
         {
             StructurePickerClient.setRegionsFromBlocks(blocks);
+            StructurePickerClient.markPaintStrokeDirty();
         }
     }
 
@@ -996,6 +1104,184 @@ public class StructurePickerClient
         }
     }
 
+    private static void handleLeftClickSelect(MinecraftClient mc)
+    {
+        if (StructurePickerClient.hasInProgress())
+        {
+            return;
+        }
+
+        int hitIndex = StructurePickerClient.findClosestRegionHit(mc);
+
+        if (hitIndex >= 0)
+        {
+            if (Window.isShiftPressed())
+            {
+                if (StructurePickerClient.selectedRegionIndices.contains(hitIndex))
+                {
+                    StructurePickerClient.selectedRegionIndices.remove(hitIndex);
+
+                    if (StructurePickerClient.activeRegionIndex == hitIndex)
+                    {
+                        StructurePickerClient.activeRegionIndex = StructurePickerClient.pickFallbackActiveIndex();
+                    }
+                }
+                else
+                {
+                    StructurePickerClient.selectedRegionIndices.add(hitIndex);
+                    StructurePickerClient.activeRegionIndex = hitIndex;
+                }
+            }
+            else
+            {
+                StructurePickerClient.selectedRegionIndices.clear();
+                StructurePickerClient.selectedRegionIndices.add(hitIndex);
+                StructurePickerClient.activeRegionIndex = hitIndex;
+            }
+
+            StructurePickerScaleGizmo.ensure();
+
+            return;
+        }
+
+        /* LMB on air / miss */
+        if (!Window.isShiftPressed() && StructurePickerClient.hasRegionSelection())
+        {
+            StructurePickerClient.selectedRegionIndices.clear();
+            StructurePickerClient.activeRegionIndex = -1;
+            StructurePickerScaleGizmo.clear();
+        }
+    }
+
+    private static int pickFallbackActiveIndex()
+    {
+        int best = -1;
+
+        for (Integer index : StructurePickerClient.selectedRegionIndices)
+        {
+            if (index != null && index > best)
+            {
+                best = index;
+            }
+        }
+
+        return best;
+    }
+
+    private static void deleteRegionAt(int index)
+    {
+        if (index < 0 || index >= StructurePickerClient.regions.size())
+        {
+            return;
+        }
+
+        List<Region> before = StructurePickerClient.copyRegions();
+
+        StructurePickerClient.regions.remove(index);
+
+        Set<Integer> nextSelected = new HashSet<>();
+
+        for (Integer selected : StructurePickerClient.selectedRegionIndices)
+        {
+            if (selected == null || selected == index)
+            {
+                continue;
+            }
+
+            nextSelected.add(selected > index ? selected - 1 : selected);
+        }
+
+        StructurePickerClient.selectedRegionIndices.clear();
+        StructurePickerClient.selectedRegionIndices.addAll(nextSelected);
+
+        if (StructurePickerClient.activeRegionIndex == index)
+        {
+            StructurePickerClient.activeRegionIndex = StructurePickerClient.pickFallbackActiveIndex();
+        }
+        else if (StructurePickerClient.activeRegionIndex > index)
+        {
+            StructurePickerClient.activeRegionIndex -= 1;
+        }
+
+        if (StructurePickerClient.hoveredRegionIndex == index)
+        {
+            StructurePickerClient.hoveredRegionIndex = -1;
+        }
+        else if (StructurePickerClient.hoveredRegionIndex > index)
+        {
+            StructurePickerClient.hoveredRegionIndex -= 1;
+        }
+
+        StructurePickerScaleGizmo.ensure();
+        StructurePickerHistory.push(new RegionsChangeEntry(before, StructurePickerClient.copyRegions()));
+    }
+
+    private static int findClosestRegionHit(MinecraftClient mc)
+    {
+        if (mc.player == null || StructurePickerClient.regions.isEmpty())
+        {
+            return -1;
+        }
+
+        Vec3d eye = mc.player.getEyePos();
+        Vec3d look = mc.player.getRotationVec(1.0F);
+        double lookLen = look.length();
+
+        if (lookLen < 1.0E-6D)
+        {
+            return -1;
+        }
+
+        Vec3d dir = look.multiply(1.0D / lookLen);
+        double reach = StructurePickerClient.getPickerReach(mc);
+        double bestDist = Double.MAX_VALUE;
+        int bestIndex = -1;
+
+        for (int i = 0; i < StructurePickerClient.regions.size(); i++)
+        {
+            Region region = StructurePickerClient.regions.get(i);
+            BlockPos adjusted = StructurePickerSelection.adjustSecond(region.first(), region.second(), region.mode());
+            BlockPos min = StructurePickerSelection.min(region.first(), adjusted);
+            BlockPos max = StructurePickerSelection.max(region.first(), adjusted);
+            Double hitDist = StructurePickerClient.rayAabbDistance(eye, dir, reach, min, max);
+
+            if (hitDist != null && hitDist < bestDist)
+            {
+                bestDist = hitDist;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    private static Double rayAabbDistance(Vec3d eye, Vec3d dir, double reach, BlockPos min, BlockPos max)
+    {
+        Box box = new Box(
+            min.getX(),
+            min.getY(),
+            min.getZ(),
+            max.getX() + 1D,
+            max.getY() + 1D,
+            max.getZ() + 1D
+        );
+
+        if (box.contains(eye))
+        {
+            return 0D;
+        }
+
+        Vec3d end = eye.add(dir.multiply(reach));
+        Optional<Vec3d> hit = box.raycast(eye, end);
+
+        if (hit.isEmpty())
+        {
+            return null;
+        }
+
+        return eye.distanceTo(hit.get());
+    }
+
     private static void beginPlaneSelection(MinecraftClient mc, BlockPos hovered)
     {
         StructurePickerClient.firstCorner = hovered.toImmutable();
@@ -1071,29 +1357,47 @@ public class StructurePickerClient
 
     private static void commitRegion()
     {
-        if (StructurePickerClient.hasInProgress())
+        if (!StructurePickerClient.hasInProgress())
         {
-            if (StructurePickerClient.subtractMode)
-            {
-                StructurePickerClient.applySubtract(StructurePickerClient.firstCorner, StructurePickerClient.secondCorner, StructurePickerClient.mode);
-            }
-            else
-            {
-                StructurePickerClient.regions.add(new Region(
-                    StructurePickerClient.firstCorner,
-                    StructurePickerClient.secondCorner,
-                    StructurePickerClient.mode,
-                    StructurePickerClient.triangleFacing
-                ));
+            StructurePickerClient.clearInProgress();
 
-                if (StructurePickerScaleGizmo.isScalableMode(StructurePickerClient.mode))
-                {
-                    StructurePickerScaleGizmo.ensure();
-                }
+            return;
+        }
+
+        List<Region> before = StructurePickerClient.copyRegions();
+
+        if (StructurePickerClient.subtractMode)
+        {
+            StructurePickerClient.applySubtract(StructurePickerClient.firstCorner, StructurePickerClient.secondCorner, StructurePickerClient.mode);
+        }
+        else
+        {
+            StructurePickerClient.regions.add(new Region(
+                StructurePickerClient.firstCorner,
+                StructurePickerClient.secondCorner,
+                StructurePickerClient.mode,
+                StructurePickerClient.triangleFacing
+            ));
+
+            int index = StructurePickerClient.regions.size() - 1;
+
+            StructurePickerClient.selectedRegionIndices.add(index);
+            StructurePickerClient.activeRegionIndex = index;
+
+            if (StructurePickerScaleGizmo.isScalableMode(StructurePickerClient.mode))
+            {
+                StructurePickerScaleGizmo.ensure();
             }
         }
 
         StructurePickerClient.clearInProgress();
+
+        List<Region> after = StructurePickerClient.copyRegions();
+
+        if (!before.equals(after))
+        {
+            StructurePickerHistory.push(new RegionsChangeEntry(before, after));
+        }
     }
 
     private static void applySubtract(BlockPos first, BlockPos second, StructurePickerMode mode)
@@ -1125,6 +1429,7 @@ public class StructurePickerClient
         StructurePickerClient.regions.clear();
 
         StructurePickerClient.setRegionsFromBlocks(remaining);
+        StructurePickerClient.markPaintStrokeDirty();
     }
 
     private static void finalizeInProgress()
@@ -1154,7 +1459,12 @@ public class StructurePickerClient
 
     public static void clearSelection()
     {
+        StructurePickerClient.discardPaintStroke();
+        StructurePickerClient.scaleStrokeBefore = null;
         StructurePickerClient.regions.clear();
+        StructurePickerClient.selectedRegionIndices.clear();
+        StructurePickerClient.activeRegionIndex = -1;
+        StructurePickerClient.hoveredRegionIndex = -1;
         StructurePickerClient.lastPaintedBlock = null;
         StructurePickerClient.clearBrushPreviewCache();
         StructurePickerClient.clearInProgress();
@@ -1191,6 +1501,79 @@ public class StructurePickerClient
         return copy;
     }
 
+    private static void beginPaintStroke()
+    {
+        if (StructurePickerClient.paintStrokeBefore != null)
+        {
+            return;
+        }
+
+        StructurePickerClient.paintStrokeBefore = StructurePickerClient.copyRegions();
+        StructurePickerClient.paintStrokeDirty = false;
+    }
+
+    private static void markPaintStrokeDirty()
+    {
+        if (StructurePickerClient.paintStrokeBefore != null)
+        {
+            StructurePickerClient.paintStrokeDirty = true;
+        }
+    }
+
+    private static void endPaintStroke()
+    {
+        if (StructurePickerClient.paintStrokeBefore == null)
+        {
+            return;
+        }
+
+        if (StructurePickerClient.paintStrokeDirty)
+        {
+            List<Region> after = StructurePickerClient.copyRegions();
+
+            if (!StructurePickerClient.paintStrokeBefore.equals(after))
+            {
+                StructurePickerHistory.push(new RegionsChangeEntry(StructurePickerClient.paintStrokeBefore, after));
+            }
+        }
+
+        StructurePickerClient.discardPaintStroke();
+    }
+
+    private static void discardPaintStroke()
+    {
+        StructurePickerClient.paintStrokeBefore = null;
+        StructurePickerClient.paintStrokeDirty = false;
+    }
+
+    /**
+     * Called by {@link StructurePickerScaleGizmo} when an axis drag starts.
+     */
+    static void beginScaleStroke()
+    {
+        StructurePickerClient.scaleStrokeBefore = StructurePickerClient.copyRegions();
+    }
+
+    /**
+     * Called by {@link StructurePickerScaleGizmo} when an axis drag ends.
+     */
+    static void endScaleStroke()
+    {
+        if (StructurePickerClient.scaleStrokeBefore == null)
+        {
+            return;
+        }
+
+        List<Region> after = StructurePickerClient.copyRegions();
+
+        if (!StructurePickerClient.scaleStrokeBefore.equals(after))
+        {
+            StructurePickerHistory.push(new RegionsChangeEntry(StructurePickerClient.scaleStrokeBefore, after));
+        }
+
+        StructurePickerClient.scaleStrokeBefore = null;
+    }
+
     public static void restoreRegions(List<Region> regions)
     {
         StructurePickerClient.clearSelection();
@@ -1201,6 +1584,14 @@ public class StructurePickerClient
         }
 
         StructurePickerClient.regions.addAll(regions);
+
+        for (int i = 0; i < StructurePickerClient.regions.size(); i++)
+        {
+            StructurePickerClient.selectedRegionIndices.add(i);
+        }
+
+        StructurePickerClient.activeRegionIndex = StructurePickerClient.regions.size() - 1;
+        StructurePickerScaleGizmo.ensure();
     }
 
     private static void tickUndoRedoKeys()
@@ -1505,7 +1896,7 @@ public class StructurePickerClient
 
         if (!StructurePickerClient.hasInProgress())
         {
-            if (StructurePickerClient.mode.isSingleClick() && StructurePickerClient.hasBlockSelection())
+            if (StructurePickerClient.mode.isPaintMode() && StructurePickerClient.hasBlockSelection())
             {
                 Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
                 BlockPos blockMin = null;
@@ -1555,7 +1946,12 @@ public class StructurePickerClient
             return mc.player.getBlockInteractionRange();
         }
 
-        return Math.max(mc.player.getBlockInteractionRange() * REACH_MULTIPLIER, MIN_PICKER_REACH);
+        if (Window.isCtrlPressed())
+        {
+            return BBSSettings.structurePickerReachExtended.get();
+        }
+
+        return BBSSettings.structurePickerReach.get();
     }
 
     private static double getAirClickReach(MinecraftClient mc)
@@ -1700,6 +2096,30 @@ public class StructurePickerClient
         if (panel.replayEditor != null && panel.replayEditor.replays != null && panel.replayEditor.replays.replays != null)
         {
             panel.replayEditor.replays.replays.update();
+        }
+    }
+
+    private static final class RegionsChangeEntry implements StructurePickerHistory.Entry
+    {
+        private final List<Region> before;
+        private final List<Region> after;
+
+        private RegionsChangeEntry(List<Region> before, List<Region> after)
+        {
+            this.before = before;
+            this.after = after;
+        }
+
+        @Override
+        public void undo()
+        {
+            StructurePickerClient.restoreRegions(this.before);
+        }
+
+        @Override
+        public void redo()
+        {
+            StructurePickerClient.restoreRegions(this.after);
         }
     }
 

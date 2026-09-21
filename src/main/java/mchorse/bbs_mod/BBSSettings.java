@@ -216,6 +216,9 @@ public class BBSSettings
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
 
+    public static ValueInt structurePickerReach;
+    public static ValueInt structurePickerReachExtended;
+
     public static ValueBoolean renderAllModelBlocks;
     public static ValueBoolean clickModelBlocks;
     public static ValueBoolean modelBlockCategoriesPanelEnabled;
@@ -865,6 +868,10 @@ public class BBSSettings
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
         recordingCameraPreviewFutureCount = builder.getInt("camera_preview_future_count", 3, 1, 8);
+
+        builder.category("structure_picker");
+        structurePickerReach = builder.getInt("reach", 50, 1, 300);
+        structurePickerReachExtended = builder.getInt("reach_extended", 200, 1, 300);
 
         builder.category("model_blocks");
         renderAllModelBlocks = builder.getBoolean("render_all", true);

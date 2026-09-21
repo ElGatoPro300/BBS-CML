@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Structure picker world overlay: yellow selection volumes that respect depth
- * (occluded by terrain), plus visual corner handles and CUBE scale gizmos.
+ * Structure picker world overlay: selection volumes that respect depth
+ * (occluded by terrain), plus visual corner handles and scale gizmos.
  */
 public class StructurePickerRenderer
 {
@@ -83,7 +83,7 @@ public class StructurePickerRenderer
 
         Set<BlockPos> blockPositions = new LinkedHashSet<>();
 
-        if (StructurePickerClient.getMode().isSingleClick())
+        if (StructurePickerClient.getMode().isPaintMode())
         {
             blockPositions.addAll(StructurePickerClient.getAllRegionBlocks());
 
@@ -94,9 +94,14 @@ public class StructurePickerRenderer
         }
         else
         {
-            for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
+            List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
+
+            for (int i = 0; i < regions.size(); i++)
             {
-                StructurePickerRenderer.renderRegionBox(stack, region.first(), region.second(), region.mode(), region.triangleFacing(), 1F, 1F, 0F);
+                StructurePickerClient.Region region = regions.get(i);
+                float[] color = StructurePickerRenderer.resolveRegionColor(i);
+
+                StructurePickerRenderer.renderRegionBox(stack, region.first(), region.second(), region.mode(), region.triangleFacing(), color[0], color[1], color[2]);
             }
         }
 
@@ -134,22 +139,53 @@ public class StructurePickerRenderer
         RenderSystem.disableBlend();
     }
 
+    private static float[] resolveRegionColor(int regionIndex)
+    {
+        boolean selected = StructurePickerClient.isRegionSelected(regionIndex);
+        boolean hovered = StructurePickerClient.getHoveredRegionIndex() == regionIndex;
+        float r = 1F;
+        float g = 1F;
+        float b = selected ? 0F : 1F;
+
+        if (hovered)
+        {
+            if (StructurePickerClient.getMode().isEraseMode())
+            {
+                r = r * 0.4F + 1F * 0.6F;
+                g = g * 0.4F + 0.2F * 0.6F;
+                b = b * 0.4F + 0.2F * 0.6F;
+            }
+            else
+            {
+                /* Soft yellow tint while looking at a region. */
+                r = 1F;
+                g = 1F;
+                b = selected ? 0.12F : 0.45F;
+            }
+        }
+
+        return new float[] {r, g, b};
+    }
+
     private static void renderCornerGizmos(MatrixStack stack, Vec3d camera)
     {
-        /* BLOCK/SAME are paint-style (many tiny cells); corner handles stay on AABB volume modes. */
-        if (StructurePickerClient.getMode().isSingleClick())
+        /* BLOCK/SAME/BRUSH are paint-style; corner handles stay on AABB volume modes. */
+        if (StructurePickerClient.getMode().isPaintMode() || StructurePickerClient.getMode().isEraseMode())
         {
             return;
         }
 
-        for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
-        {
-            if (region.mode().isSingleClick())
-            {
-                continue;
-            }
+        int activeIndex = StructurePickerClient.getActiveRegionIndex();
+        List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
 
-            StructurePickerRenderer.renderSelectionCorners(stack, region.first(), region.second(), region.mode(), camera);
+        if (activeIndex >= 0 && activeIndex < regions.size())
+        {
+            StructurePickerClient.Region region = regions.get(activeIndex);
+
+            if (StructurePickerScaleGizmo.isScalableMode(region.mode()))
+            {
+                StructurePickerRenderer.renderSelectionCorners(stack, region.first(), region.second(), region.mode(), camera);
+            }
         }
 
         if (StructurePickerClient.hasInProgress()

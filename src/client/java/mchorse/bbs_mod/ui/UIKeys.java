@@ -1199,6 +1199,7 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_MODE_CYLINDER = L10n.lang("bbs.ui.items.structure_picker.mode.cylinder");
     public static final IKey STRUCTURE_PICKER_MODE_SAME = L10n.lang("bbs.ui.items.structure_picker.mode.same");
     public static final IKey STRUCTURE_PICKER_MODE_BRUSH = L10n.lang("bbs.ui.items.structure_picker.mode.brush");
+    public static final IKey STRUCTURE_PICKER_MODE_ERASE = L10n.lang("bbs.ui.items.structure_picker.mode.erase");
     public static final IKey STRUCTURE_PICKER_SAME_LIMIT = L10n.lang("bbs.ui.items.structure_picker.same_limit");
     public static final IKey STRUCTURE_PICKER_BRUSH_SHAPE = L10n.lang("bbs.ui.items.structure_picker.brush_shape");
     public static final IKey STRUCTURE_PICKER_BRUSH_SPHERE = L10n.lang("bbs.ui.items.structure_picker.brush_sphere");
@@ -1227,7 +1228,8 @@ public class UIKeys
         STRUCTURE_PICKER_MODE_CONE,
         STRUCTURE_PICKER_MODE_CYLINDER,
         STRUCTURE_PICKER_MODE_SAME,
-        STRUCTURE_PICKER_MODE_BRUSH
+        STRUCTURE_PICKER_MODE_BRUSH,
+        STRUCTURE_PICKER_MODE_ERASE
     };
     public static final IKey GENERAL_EXPORT = L10n.lang("bbs.ui.export");
     public static final IKey GENERAL_FFMPEG_ERROR_DESCRIPTION = L10n.lang("bbs.ui.ffmpeg.error-description");

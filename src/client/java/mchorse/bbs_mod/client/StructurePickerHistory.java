@@ -4,7 +4,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * Undo/redo stack for Structure Picker panel actions (break, remove, import, place).
+ * Undo/redo stack for Structure Picker actions (paint strokes, erase, scale,
+ * break, remove, import, place).
  */
 public class StructurePickerHistory
 {

@@ -245,8 +245,8 @@ public class UIOverlay extends UIElement
 
         if (size != null)
         {
-            flex.w.offset = size.x;
-            flex.h.offset = size.y;
+            flex.w.offset = Math.max(size.x, panel.getMinWidth());
+            flex.h.offset = Math.max(size.y, panel.getMinHeight());
         }
 
         overlay.full(context.menu.overlay);

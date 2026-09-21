@@ -133,7 +133,7 @@ public final class StructurePickerScaleGizmo
     }
 
     /**
-     * Keep a scale gizmo on a scalable volume region so handles stay available.
+     * Keep a scale gizmo on the client's active scalable region (no auto-pick of latest).
      */
     public static void ensure()
     {
@@ -146,24 +146,23 @@ public final class StructurePickerScaleGizmo
             return;
         }
 
-        if (StructurePickerScaleGizmo.resizeGizmoActive
-            && StructurePickerScaleGizmo.resizeRegionIndex >= 0
-            && StructurePickerScaleGizmo.resizeRegionIndex < regions.size()
-            && StructurePickerScaleGizmo.isScalableMode(regions.get(StructurePickerScaleGizmo.resizeRegionIndex).mode()))
-        {
-            StructurePickerScaleGizmo.syncScaleCornersFromRegion();
+        int activeIndex = StructurePickerClient.getActiveRegionIndex();
 
-            return;
-        }
-
-        for (int i = regions.size() - 1; i >= 0; i--)
+        if (activeIndex >= 0
+            && activeIndex < regions.size()
+            && StructurePickerScaleGizmo.isScalableMode(regions.get(activeIndex).mode()))
         {
-            if (StructurePickerScaleGizmo.isScalableMode(regions.get(i).mode()))
+            if (StructurePickerScaleGizmo.resizeGizmoActive
+                && StructurePickerScaleGizmo.resizeRegionIndex == activeIndex)
             {
-                StructurePickerScaleGizmo.activateRegionScale(i, true);
+                StructurePickerScaleGizmo.syncScaleCornersFromRegion();
 
                 return;
             }
+
+            StructurePickerScaleGizmo.activateRegionScale(activeIndex, true);
+
+            return;
         }
 
         StructurePickerScaleGizmo.clear();
@@ -181,11 +180,11 @@ public final class StructurePickerScaleGizmo
     }
 
     /**
-     * True when the look ray hits a corner cube or scale-axis gizmo of any scalable region.
+     * True when the look ray hits a corner cube or scale-axis gizmo of the active region.
      */
     public static boolean isOverSelectionInteractable(MinecraftClient mc)
     {
-        if (!StructurePickerScaleGizmo.hasScalableSelection())
+        if (!StructurePickerScaleGizmo.hasScalableSelection() || !StructurePickerScaleGizmo.isActive())
         {
             return false;
         }
@@ -195,14 +194,9 @@ public final class StructurePickerScaleGizmo
             return true;
         }
 
-        if (StructurePickerScaleGizmo.isActive())
-        {
-            StructurePickerScaleGizmo.syncScaleCornersFromRegion();
+        StructurePickerScaleGizmo.syncScaleCornersFromRegion();
 
-            return StructurePickerScaleGizmo.pickAxisGizmo(mc) != null;
-        }
-
-        return false;
+        return StructurePickerScaleGizmo.pickAxisGizmo(mc) != null;
     }
 
     public static boolean isOverSelectionCorner(MinecraftClient mc)
@@ -226,6 +220,7 @@ public final class StructurePickerScaleGizmo
         StructurePickerScaleGizmo.resizeAnchorIsMax = hit.isMax();
         StructurePickerScaleGizmo.resizeDragAxis = null;
         StructurePickerScaleGizmo.resizeDragging = false;
+        StructurePickerClient.activateAndSelectRegion(hit.regionIndex());
 
         return true;
     }
@@ -251,8 +246,15 @@ public final class StructurePickerScaleGizmo
 
         if (leftReleased)
         {
+            boolean wasDragging = StructurePickerScaleGizmo.resizeDragging;
+
             StructurePickerScaleGizmo.resizeDragging = false;
             StructurePickerScaleGizmo.resizeDragAxis = null;
+
+            if (wasDragging)
+            {
+                StructurePickerClient.endScaleStroke();
+            }
 
             return;
         }
@@ -337,62 +339,64 @@ public final class StructurePickerScaleGizmo
             return null;
         }
 
-        Vec3d eye = StructurePickerScaleGizmo.getViewEye(mc);
-        Vec3d look = StructurePickerScaleGizmo.getViewLook(mc);
-        double bestDist = Double.MAX_VALUE;
-        CornerHit best = null;
+        int activeIndex = StructurePickerClient.getActiveRegionIndex();
         List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
 
-        for (int regionIndex = 0; regionIndex < regions.size(); regionIndex++)
+        if (activeIndex < 0 || activeIndex >= regions.size())
         {
-            StructurePickerClient.Region region = regions.get(regionIndex);
+            return null;
+        }
 
-            if (!StructurePickerScaleGizmo.isScalableMode(region.mode()))
-            {
-                continue;
-            }
+        StructurePickerClient.Region region = regions.get(activeIndex);
 
-            BlockPos adjusted = StructurePickerSelection.adjustSecond(region.first(), region.second(), region.mode());
-            BlockPos min = StructurePickerSelection.min(region.first(), adjusted);
-            BlockPos max = StructurePickerSelection.max(region.first(), adjusted);
-            Vec3d minCorner = new Vec3d(min.getX(), min.getY(), min.getZ());
-            Vec3d maxCorner = new Vec3d(max.getX() + 1, max.getY() + 1, max.getZ() + 1);
-            float scaleMin = StructurePickerScaleGizmo.getHandleVisualScale(minCorner.x, minCorner.y, minCorner.z);
-            float scaleMax = StructurePickerScaleGizmo.getHandleVisualScale(maxCorner.x, maxCorner.y, maxCorner.z);
-            double radiusMin;
-            double radiusMax;
+        if (!StructurePickerScaleGizmo.isScalableMode(region.mode()))
+        {
+            return null;
+        }
 
-            if (enlarged)
-            {
-                radiusMin = Math.max(
-                    StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMin * 1.18F, StructurePickerScaleGizmo.CORNER_PICK_PAD),
-                    StructurePickerScaleGizmo.screenSpacePickRadius(mc, eye, minCorner, StructurePickerScaleGizmo.CORNER_PICK_MIN_PIXELS)
-                );
-                radiusMax = Math.max(
-                    StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMax * 1.18F, StructurePickerScaleGizmo.CORNER_PICK_PAD),
-                    StructurePickerScaleGizmo.screenSpacePickRadius(mc, eye, maxCorner, StructurePickerScaleGizmo.CORNER_PICK_MIN_PIXELS)
-                );
-            }
-            else
-            {
-                radiusMin = StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMin * 1.18F, StructurePickerScaleGizmo.GIZMO_PICK_PAD);
-                radiusMax = StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMax * 1.18F, StructurePickerScaleGizmo.GIZMO_PICK_PAD);
-            }
+        Vec3d eye = StructurePickerScaleGizmo.getViewEye(mc);
+        Vec3d look = StructurePickerScaleGizmo.getViewLook(mc);
+        BlockPos adjusted = StructurePickerSelection.adjustSecond(region.first(), region.second(), region.mode());
+        BlockPos min = StructurePickerSelection.min(region.first(), adjusted);
+        BlockPos max = StructurePickerSelection.max(region.first(), adjusted);
+        Vec3d minCorner = new Vec3d(min.getX(), min.getY(), min.getZ());
+        Vec3d maxCorner = new Vec3d(max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        float scaleMin = StructurePickerScaleGizmo.getHandleVisualScale(minCorner.x, minCorner.y, minCorner.z);
+        float scaleMax = StructurePickerScaleGizmo.getHandleVisualScale(maxCorner.x, maxCorner.y, maxCorner.z);
+        double radiusMin;
+        double radiusMax;
 
-            double distMin = StructurePickerScaleGizmo.distanceRayToPoint(eye, look, minCorner);
-            double distMax = StructurePickerScaleGizmo.distanceRayToPoint(eye, look, maxCorner);
+        if (enlarged)
+        {
+            radiusMin = Math.max(
+                StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMin * 1.18F, StructurePickerScaleGizmo.CORNER_PICK_PAD),
+                StructurePickerScaleGizmo.screenSpacePickRadius(mc, eye, minCorner, StructurePickerScaleGizmo.CORNER_PICK_MIN_PIXELS)
+            );
+            radiusMax = Math.max(
+                StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMax * 1.18F, StructurePickerScaleGizmo.CORNER_PICK_PAD),
+                StructurePickerScaleGizmo.screenSpacePickRadius(mc, eye, maxCorner, StructurePickerScaleGizmo.CORNER_PICK_MIN_PIXELS)
+            );
+        }
+        else
+        {
+            radiusMin = StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMin * 1.18F, StructurePickerScaleGizmo.GIZMO_PICK_PAD);
+            radiusMax = StructurePickerScaleGizmo.visualPickRadius(StructurePickerScaleGizmo.CORNER_HANDLE * scaleMax * 1.18F, StructurePickerScaleGizmo.GIZMO_PICK_PAD);
+        }
 
-            if (distMin < radiusMin && distMin < bestDist)
-            {
-                bestDist = distMin;
-                best = new CornerHit(regionIndex, min, max, false);
-            }
+        double distMin = StructurePickerScaleGizmo.distanceRayToPoint(eye, look, minCorner);
+        double distMax = StructurePickerScaleGizmo.distanceRayToPoint(eye, look, maxCorner);
+        CornerHit best = null;
+        double bestDist = Double.MAX_VALUE;
 
-            if (distMax < radiusMax && distMax < bestDist)
-            {
-                bestDist = distMax;
-                best = new CornerHit(regionIndex, min, max, true);
-            }
+        if (distMin < radiusMin && distMin < bestDist)
+        {
+            bestDist = distMin;
+            best = new CornerHit(activeIndex, min, max, false);
+        }
+
+        if (distMax < radiusMax && distMax < bestDist)
+        {
+            best = new CornerHit(activeIndex, min, max, true);
         }
 
         return best;
@@ -435,6 +439,7 @@ public final class StructurePickerScaleGizmo
 
     private static void beginSelectionScaleDrag(MinecraftClient mc, StructurePickerAxis axis)
     {
+        StructurePickerClient.beginScaleStroke();
         StructurePickerScaleGizmo.resizeDragAxis = axis;
         StructurePickerScaleGizmo.resizeDragging = true;
 

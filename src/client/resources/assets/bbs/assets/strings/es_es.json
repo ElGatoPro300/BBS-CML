@@ -2107,6 +2107,7 @@
     "bbs.ui.items.structure_picker.interacting": "Interactuando con %s bloques (%sx%s=%s)",
     "bbs.ui.items.structure_picker.mode.block": "Bloque",
     "bbs.ui.items.structure_picker.mode.brush": "Pincel",
+    "bbs.ui.items.structure_picker.mode.erase": "Borrar",
     "bbs.ui.items.structure_picker.mode.circle": "Círculo",
     "bbs.ui.items.structure_picker.mode.cone": "Cono",
     "bbs.ui.items.structure_picker.mode.cube": "Cubo",

@@ -174,7 +174,7 @@ public class StructurePickerSelection
             case CONE -> StructurePickerSelection.inCone(min, max, x, y, z);
             case SPHERE -> StructurePickerSelection.inSphere(min, max, x, y, z);
             case CYLINDER -> StructurePickerSelection.inCircle(min, max, x, z);
-            case BLOCK, SAME, BRUSH -> x == min.getX() && y == min.getY() && z == min.getZ();
+            case BLOCK, SAME, BRUSH, ERASE -> x == min.getX() && y == min.getY() && z == min.getZ();
         };
     }
 

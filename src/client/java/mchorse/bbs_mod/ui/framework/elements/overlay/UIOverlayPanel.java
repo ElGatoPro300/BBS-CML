@@ -95,6 +95,16 @@ public class UIOverlayPanel extends UIElement
         return this;
     }
 
+    public int getMinWidth()
+    {
+        return this.minWidth;
+    }
+
+    public int getMinHeight()
+    {
+        return this.minHeight;
+    }
+
     public UIOverlayPanel resizeMargin(int margin)
     {
         this.resizeMargin = Math.max(6, margin);
@@ -165,8 +175,8 @@ public class UIOverlayPanel extends UIElement
             }
 
             this.resizing = true;
-            this.resizeMinWidth = Math.min(this.minWidth, this.area.w);
-            this.resizeMinHeight = Math.min(this.minHeight, this.area.h);
+            this.resizeMinWidth = this.minWidth;
+            this.resizeMinHeight = this.minHeight;
             this.lastX = context.mouseX;
             this.lastY = context.mouseY;
 
