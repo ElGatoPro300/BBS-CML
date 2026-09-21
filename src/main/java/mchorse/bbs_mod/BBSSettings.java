@@ -872,6 +872,7 @@ public class BBSSettings
         builder.category("structure_picker");
         structurePickerReach = builder.getInt("reach", 50, 1, 300);
         structurePickerReachExtended = builder.getInt("reach_extended", 200, 1, 300);
+        builder.getCategory().invisible();
 
         builder.category("model_blocks");
         renderAllModelBlocks = builder.getBoolean("render_all", true);

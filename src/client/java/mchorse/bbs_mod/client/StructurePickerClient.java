@@ -15,6 +15,7 @@ import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerPlane;
 import mchorse.bbs_mod.items.StructurePickerRegionMerger;
 import mchorse.bbs_mod.items.StructurePickerSelection;
+import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -72,11 +73,13 @@ public class StructurePickerClient
     private static double planeMouseY;
     private static StructurePickerAxis planeHorizontalAxis;
     private static boolean clickOnAir;
+    private static boolean applyToSelectedOnly = true;
     private static BlockHitResult lastRaycastHit;
     private static BlockPos lastPaintedBlock;
     private static Direction triangleFacing;
     private static boolean undoKeyDown;
     private static boolean redoKeyDown;
+    private static boolean planeCycleKeyDown;
     /** Snapshot of regions at the start of an RMB paint stroke (BLOCK / SAME / BRUSH). */
     private static List<Region> paintStrokeBefore;
     private static boolean paintStrokeDirty;
@@ -87,7 +90,6 @@ public class StructurePickerClient
     private static int brushDepth = 1;
     private static StructurePickerBrushShape brushShape = StructurePickerBrushShape.SPHERE;
     private static BlockPos brushPreviewHover;
-    private static Direction brushPreviewFace;
     private static int brushPreviewRadius = Integer.MIN_VALUE;
     private static int brushPreviewDepth = Integer.MIN_VALUE;
     private static StructurePickerBrushShape brushPreviewShape;
@@ -135,6 +137,29 @@ public class StructurePickerClient
     public static void setClickOnAir(boolean clickOnAir)
     {
         StructurePickerClient.clickOnAir = clickOnAir;
+    }
+
+    public static boolean isApplyToSelectedOnly()
+    {
+        return StructurePickerClient.applyToSelectedOnly;
+    }
+
+    public static void setApplyToSelectedOnly(boolean applyToSelectedOnly)
+    {
+        StructurePickerClient.applyToSelectedOnly = applyToSelectedOnly;
+    }
+
+    /**
+     * True when Import / Remove / Break can run under the current apply-scope setting.
+     */
+    public static boolean canApplyScopedActions()
+    {
+        if (StructurePickerClient.applyToSelectedOnly)
+        {
+            return StructurePickerClient.hasRegionSelection();
+        }
+
+        return !StructurePickerClient.regions.isEmpty() || StructurePickerClient.hasInProgress();
     }
 
     public static int getSameBlockLimit()
@@ -222,13 +247,11 @@ public class StructurePickerClient
             return List.of();
         }
 
-        Direction face = StructurePickerClient.getBrushFace();
         int radius = StructurePickerClient.getBrushRadius();
         int depth = StructurePickerClient.getBrushDepth();
         StructurePickerBrushShape shape = StructurePickerClient.getBrushShape();
 
         if (hovered.equals(StructurePickerClient.brushPreviewHover)
-            && face == StructurePickerClient.brushPreviewFace
             && radius == StructurePickerClient.brushPreviewRadius
             && depth == StructurePickerClient.brushPreviewDepth
             && shape == StructurePickerClient.brushPreviewShape)
@@ -236,18 +259,16 @@ public class StructurePickerClient
             return StructurePickerClient.brushPreviewRegions;
         }
 
-        List<BlockPos> blocks = StructurePickerSelection.collectBrushSurface(
+        List<BlockPos> blocks = StructurePickerSelection.collectBrushVolume(
             mc.world,
             hovered,
             shape,
             radius,
-            depth,
-            face
+            depth
         );
         List<StructurePickerRegionMerger.MergedRegion> merged = StructurePickerRegionMerger.merge(blocks);
 
         StructurePickerClient.brushPreviewHover = hovered.toImmutable();
-        StructurePickerClient.brushPreviewFace = face;
         StructurePickerClient.brushPreviewRadius = radius;
         StructurePickerClient.brushPreviewDepth = depth;
         StructurePickerClient.brushPreviewShape = shape;
@@ -259,21 +280,10 @@ public class StructurePickerClient
     private static void clearBrushPreviewCache()
     {
         StructurePickerClient.brushPreviewHover = null;
-        StructurePickerClient.brushPreviewFace = null;
         StructurePickerClient.brushPreviewRadius = Integer.MIN_VALUE;
         StructurePickerClient.brushPreviewDepth = Integer.MIN_VALUE;
         StructurePickerClient.brushPreviewShape = null;
         StructurePickerClient.brushPreviewRegions = List.of();
-    }
-
-    private static Direction getBrushFace()
-    {
-        if (StructurePickerClient.lastRaycastHit != null)
-        {
-            return StructurePickerClient.lastRaycastHit.getSide();
-        }
-
-        return Direction.UP;
     }
 
     public static Direction getTriangleFacing()
@@ -426,6 +436,7 @@ public class StructurePickerClient
     public static void tick(MinecraftClient mc)
     {
         StructurePickerClient.tickUndoRedoKeys();
+        StructurePickerClient.tickPlaneCycleKey();
 
         if (mc.world == null || mc.player == null)
         {
@@ -462,18 +473,20 @@ public class StructurePickerClient
 
         if (leftPressed && !rightDown)
         {
-            if (StructurePickerScaleGizmo.isOverSelectionInteractable(mc))
+            if (StructurePickerScaleGizmo.isOverSelectionCorner(mc))
             {
-                /* Corner / scale gizmo owns LMB — never select-body or erase. */
+                /* Corner handle owns LMB. */
                 StructurePickerClient.leftSelectArmed = false;
-
-                if (StructurePickerScaleGizmo.isOverSelectionCorner(mc))
-                {
-                    StructurePickerScaleGizmo.tryPickCubeCorner(mc);
-                }
+                StructurePickerScaleGizmo.tryPickCubeCorner(mc);
+            }
+            else if (StructurePickerScaleGizmo.isOverSelectionInteractable(mc))
+            {
+                /* Axis gizmo owns LMB — do not treat as body select / air deselect. */
+                StructurePickerClient.leftSelectArmed = false;
             }
             else
             {
+                /* Region body or miss — select / deselect on release. */
                 StructurePickerClient.leftSelectArmed = true;
             }
         }
@@ -482,8 +495,7 @@ public class StructurePickerClient
         {
             boolean shouldHandleSelect = StructurePickerClient.leftSelectArmed
                 && !rightDown
-                && !StructurePickerScaleGizmo.isDragging()
-                && !StructurePickerScaleGizmo.isOverSelectionInteractable(mc);
+                && !StructurePickerScaleGizmo.isDragging();
 
             StructurePickerClient.leftSelectArmed = false;
             StructurePickerScaleGizmo.tick(mc, leftPressed, leftReleased, leftDown);
@@ -500,8 +512,22 @@ public class StructurePickerClient
             StructurePickerScaleGizmo.tick(mc, leftPressed, leftReleased, leftDown);
         }
 
+        boolean sneaking = mc.player.isSneaking();
+
         if (StructurePickerClient.mode.isPaintMode())
         {
+            if (sneaking)
+            {
+                if (released)
+                {
+                    StructurePickerClient.endPaintStroke();
+                    StructurePickerClient.lastPaintedBlock = null;
+                    StructurePickerClient.openPanel();
+                }
+
+                return;
+            }
+
             if (rightDown)
             {
                 StructurePickerClient.beginPaintStroke();
@@ -518,6 +544,16 @@ public class StructurePickerClient
 
         if (StructurePickerClient.mode.isEraseMode())
         {
+            if (sneaking)
+            {
+                if (released)
+                {
+                    StructurePickerClient.openPanel();
+                }
+
+                return;
+            }
+
             if (rightDown)
             {
                 StructurePickerClient.updateErasePaint(mc);
@@ -539,7 +575,7 @@ public class StructurePickerClient
         if (released)
         {
             /* Sneak+RMB opens the panel when not mid-draw (Shift multi-select stays usable). */
-            if (mc.player.isSneaking() && !StructurePickerClient.hasInProgress())
+            if (sneaking && !StructurePickerClient.hasInProgress())
             {
                 StructurePickerClient.openPanel();
             }
@@ -552,11 +588,29 @@ public class StructurePickerClient
 
     private static void updatePlaneSelection(MinecraftClient mc)
     {
-        StructurePickerClient.tryLockPlane(mc);
-        StructurePickerClient.ensureSelectionPlane(mc);
+        if (StructurePickerClient.mode == StructurePickerMode.RECTANGLE)
+        {
+            /* Lock plane after the first look sample — continuous re-orient made far angles jump. */
+            if (StructurePickerClient.selectionPlane == null)
+            {
+                StructurePickerClient.applyPlaneFromLook(mc);
+            }
+        }
+        else
+        {
+            StructurePickerClient.tryLockPlane(mc);
+            StructurePickerClient.ensureSelectionPlane(mc);
+        }
 
         Vec3d look = mc.player.getRotationVec(1.0F);
         BlockPos target = StructurePickerClient.resolvePlaneTarget(mc, look);
+
+        if (target == null && StructurePickerClient.firstCorner != null)
+        {
+            /* Looking parallel to the plane / empty sky: still advance the free corner along look. */
+            double reach = StructurePickerClient.getPickerReach(mc);
+            target = BlockPos.ofFloored(mc.player.getEyePos().add(look.multiply(reach)));
+        }
 
         if (target == null)
         {
@@ -919,13 +973,12 @@ public class StructurePickerClient
             return;
         }
 
-        List<BlockPos> stamped = StructurePickerSelection.collectBrushSurface(
+        List<BlockPos> stamped = StructurePickerSelection.collectBrushVolume(
             world,
             origin,
             StructurePickerClient.getBrushShape(),
             StructurePickerClient.getBrushRadius(),
-            StructurePickerClient.getBrushDepth(),
-            StructurePickerClient.getBrushFace()
+            StructurePickerClient.getBrushDepth()
         );
 
         if (stamped.isEmpty())
@@ -1305,6 +1358,7 @@ public class StructurePickerClient
         {
             if (StructurePickerClient.lastRaycastHit != null && StructurePickerClient.lastRaycastHit.getType() == HitResult.Type.BLOCK)
             {
+                /* Default orientation from the clicked face (Plane and other shape tools). */
                 StructurePickerClient.applyPlaneFromFace(StructurePickerClient.lastRaycastHit.getSide());
             }
             else
@@ -1478,10 +1532,52 @@ public class StructurePickerClient
             return;
         }
 
+        if (StructurePickerClient.applyToSelectedOnly)
+        {
+            StructurePickerClient.removeSelectedRegions();
+
+            return;
+        }
+
         List<Region> previous = StructurePickerClient.copyRegions();
 
         StructurePickerClient.clearSelection();
         StructurePickerHistory.push(new RemoveSelectionEntry(previous));
+    }
+
+    private static void removeSelectedRegions()
+    {
+        if (!StructurePickerClient.hasRegionSelection())
+        {
+            return;
+        }
+
+        List<Region> before = StructurePickerClient.copyRegions();
+        List<Integer> sorted = new ArrayList<>(StructurePickerClient.selectedRegionIndices);
+
+        sorted.sort((a, b) -> Integer.compare(b, a));
+
+        for (Integer index : sorted)
+        {
+            if (index == null || index < 0 || index >= StructurePickerClient.regions.size())
+            {
+                continue;
+            }
+
+            StructurePickerClient.regions.remove((int) index);
+        }
+
+        StructurePickerClient.selectedRegionIndices.clear();
+        StructurePickerClient.activeRegionIndex = -1;
+        StructurePickerClient.hoveredRegionIndex = -1;
+        StructurePickerScaleGizmo.clear();
+
+        List<Region> after = StructurePickerClient.copyRegions();
+
+        if (!before.equals(after))
+        {
+            StructurePickerHistory.push(new RegionsChangeEntry(before, after));
+        }
     }
 
     public static List<Region> copyRegions()
@@ -1594,6 +1690,128 @@ public class StructurePickerClient
         StructurePickerScaleGizmo.ensure();
     }
 
+    private static void tickPlaneCycleKey()
+    {
+        if (UIStructurePickerPanel.isOpened() || !StructurePickerClient.isActive())
+        {
+            StructurePickerClient.planeCycleKeyDown = StructurePickerClient.isKeyComboDown(Keys.STRUCTURE_PICKER_CYCLE_PLANE);
+
+            return;
+        }
+
+        boolean cycleDown = StructurePickerClient.isKeyComboDown(Keys.STRUCTURE_PICKER_CYCLE_PLANE);
+
+        if (cycleDown && !StructurePickerClient.planeCycleKeyDown)
+        {
+            StructurePickerClient.cyclePlaneOrientation();
+        }
+
+        StructurePickerClient.planeCycleKeyDown = cycleDown;
+    }
+
+    private static boolean isKeyComboDown(mchorse.bbs_mod.ui.utils.keys.KeyCombo combo)
+    {
+        if (combo == null || combo.keys.isEmpty())
+        {
+            return false;
+        }
+
+        if (!Window.isKeyPressed(combo.getMainKey()))
+        {
+            return false;
+        }
+
+        for (int i = 1; i < combo.keys.size(); i++)
+        {
+            if (!Window.isKeyPressed(combo.keys.get(i)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void cyclePlaneOrientation()
+    {
+        if (StructurePickerClient.mode != StructurePickerMode.RECTANGLE)
+        {
+            return;
+        }
+
+        if (StructurePickerClient.firstCorner == null || StructurePickerClient.depthAdjust)
+        {
+            return;
+        }
+
+        int next = (StructurePickerClient.getPlaneOrientIndex() + 1) % 3;
+
+        StructurePickerClient.applyPlaneOrientIndex(next);
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc.player == null)
+        {
+            return;
+        }
+
+        Vec3d look = mc.player.getRotationVec(1.0F);
+        BlockPos target = StructurePickerClient.resolvePlaneTarget(mc, look);
+
+        if (target == null)
+        {
+            double reach = StructurePickerClient.getPickerReach(mc);
+
+            target = BlockPos.ofFloored(mc.player.getEyePos().add(look.multiply(reach)));
+        }
+
+        if (StructurePickerClient.selectionPlane != null)
+        {
+            StructurePickerClient.secondCorner = StructurePickerClient.selectionPlane.clampSecond(
+                StructurePickerClient.firstCorner,
+                target,
+                StructurePickerClient.planeHorizontalAxis
+            );
+        }
+    }
+
+    private static int getPlaneOrientIndex()
+    {
+        if (StructurePickerClient.selectionPlane == null || StructurePickerClient.selectionPlane == StructurePickerPlane.XZ)
+        {
+            return 0;
+        }
+
+        if (StructurePickerClient.planeHorizontalAxis == StructurePickerAxis.X)
+        {
+            return 1;
+        }
+
+        return 2;
+    }
+
+    private static void applyPlaneOrientIndex(int index)
+    {
+        switch (index)
+        {
+            case 1 ->
+            {
+                StructurePickerClient.selectionPlane = StructurePickerPlane.VERTICAL;
+                StructurePickerClient.planeHorizontalAxis = StructurePickerAxis.X;
+            }
+            case 2 ->
+            {
+                StructurePickerClient.selectionPlane = StructurePickerPlane.VERTICAL;
+                StructurePickerClient.planeHorizontalAxis = StructurePickerAxis.Z;
+            }
+            default ->
+            {
+                StructurePickerClient.selectionPlane = StructurePickerPlane.XZ;
+                StructurePickerClient.planeHorizontalAxis = null;
+            }
+        }
+    }
+
     private static void tickUndoRedoKeys()
     {
         /* Panel owns Ctrl+Z/Y while open so text fields / overlays can take priority. */
@@ -1686,12 +1904,34 @@ public class StructurePickerClient
     {
         Set<BlockPos> blocks = new LinkedHashSet<>();
 
-        for (Region region : StructurePickerClient.regions)
+        for (Region region : StructurePickerClient.getActionTargetRegions())
         {
             blocks.addAll(StructurePickerSelection.collect(world, region.first(), region.second(), region.mode(), StructurePickerClient.clickOnAir, region.triangleFacing()));
         }
 
         return blocks;
+    }
+
+    private static List<Region> getActionTargetRegions()
+    {
+        if (!StructurePickerClient.applyToSelectedOnly)
+        {
+            return new ArrayList<>(StructurePickerClient.regions);
+        }
+
+        List<Region> targets = new ArrayList<>();
+
+        for (Integer index : StructurePickerClient.selectedRegionIndices)
+        {
+            if (index == null || index < 0 || index >= StructurePickerClient.regions.size())
+            {
+                continue;
+            }
+
+            targets.add(StructurePickerClient.regions.get(index));
+        }
+
+        return targets;
     }
 
     public static Set<BlockPos> getPreviewBlocks()
@@ -1809,16 +2049,29 @@ public class StructurePickerClient
             return;
         }
 
+        if (StructurePickerClient.applyToSelectedOnly && !StructurePickerClient.hasRegionSelection())
+        {
+            return;
+        }
+
         List<Region> previousRegions = StructurePickerClient.copyRegions();
         List<BlockPos> blocks = new ArrayList<>(StructurePickerClient.getSelectedBlocks(world));
+        boolean selectedOnly = StructurePickerClient.applyToSelectedOnly;
 
         if (blocks.isEmpty())
         {
-            StructurePickerClient.clearSelection();
-
-            if (!previousRegions.isEmpty())
+            if (selectedOnly)
             {
-                StructurePickerHistory.push(new RemoveSelectionEntry(previousRegions));
+                StructurePickerClient.removeSelectedRegions();
+            }
+            else
+            {
+                StructurePickerClient.clearSelection();
+
+                if (!previousRegions.isEmpty())
+                {
+                    StructurePickerHistory.push(new RemoveSelectionEntry(previousRegions));
+                }
             }
 
             return;
@@ -1831,10 +2084,49 @@ public class StructurePickerClient
             StructurePickerExporter.removeBlocks(serverWorld, blocks);
             mc.execute(() ->
             {
-                StructurePickerClient.clearSelection();
-                StructurePickerHistory.push(new BreakSelectionEntry(previousRegions, snapshots));
+                if (selectedOnly)
+                {
+                    StructurePickerClient.removeSelectedRegionsWithoutHistory();
+                }
+                else
+                {
+                    StructurePickerClient.clearSelection();
+                }
+
+                StructurePickerHistory.push(new BreakSelectionEntry(
+                    previousRegions,
+                    StructurePickerClient.copyRegions(),
+                    snapshots
+                ));
             });
         });
+    }
+
+    private static void removeSelectedRegionsWithoutHistory()
+    {
+        if (!StructurePickerClient.hasRegionSelection())
+        {
+            return;
+        }
+
+        List<Integer> sorted = new ArrayList<>(StructurePickerClient.selectedRegionIndices);
+
+        sorted.sort((a, b) -> Integer.compare(b, a));
+
+        for (Integer index : sorted)
+        {
+            if (index == null || index < 0 || index >= StructurePickerClient.regions.size())
+            {
+                continue;
+            }
+
+            StructurePickerClient.regions.remove((int) index);
+        }
+
+        StructurePickerClient.selectedRegionIndices.clear();
+        StructurePickerClient.activeRegionIndex = -1;
+        StructurePickerClient.hoveredRegionIndex = -1;
+        StructurePickerScaleGizmo.clear();
     }
 
     private static void runOnServer(MinecraftClient mc, Consumer<ServerWorld> task)
@@ -1941,11 +2233,6 @@ public class StructurePickerClient
 
     private static double getPickerReach(MinecraftClient mc)
     {
-        if (StructurePickerClient.clickOnAir)
-        {
-            return mc.player.getBlockInteractionRange();
-        }
-
         if (Window.isCtrlPressed())
         {
             return BBSSettings.structurePickerReachExtended.get();
@@ -1956,12 +2243,24 @@ public class StructurePickerClient
 
     private static double getAirClickReach(MinecraftClient mc)
     {
-        return mc.player.getBlockInteractionRange();
+        return StructurePickerClient.getPickerReach(mc);
+    }
+
+    /**
+     * Shape tools (plane/cube/…) may place corners in empty space along the look ray.
+     * Paint/erase still require {@link #clickOnAir} for air targets.
+     */
+    private static boolean allowsAirCornerPlacement()
+    {
+        StructurePickerMode mode = StructurePickerClient.mode;
+
+        return mode != null && !mode.isPaintMode() && !mode.isEraseMode();
     }
 
     private static BlockPos resolveTargetBlock(MinecraftClient mc)
     {
-        BlockHitResult hit = StructurePickerClient.performRaycast(mc, StructurePickerClient.clickOnAir);
+        boolean allowAir = StructurePickerClient.clickOnAir || StructurePickerClient.allowsAirCornerPlacement();
+        BlockHitResult hit = StructurePickerClient.performRaycast(mc, allowAir);
 
         if (hit == null)
         {
@@ -1973,7 +2272,7 @@ public class StructurePickerClient
             return hit.getBlockPos();
         }
 
-        if (StructurePickerClient.clickOnAir)
+        if (allowAir)
         {
             return BlockPos.ofFloored(hit.getPos());
         }
@@ -2147,12 +2446,14 @@ public class StructurePickerClient
 
     private static final class BreakSelectionEntry implements StructurePickerHistory.Entry
     {
-        private final List<Region> regions;
+        private final List<Region> beforeRegions;
+        private final List<Region> afterRegions;
         private final List<StructurePickerExporter.BlockSnapshot> snapshots;
 
-        private BreakSelectionEntry(List<Region> regions, List<StructurePickerExporter.BlockSnapshot> snapshots)
+        private BreakSelectionEntry(List<Region> beforeRegions, List<Region> afterRegions, List<StructurePickerExporter.BlockSnapshot> snapshots)
         {
-            this.regions = regions;
+            this.beforeRegions = beforeRegions;
+            this.afterRegions = afterRegions;
             this.snapshots = snapshots;
         }
 
@@ -2162,7 +2463,7 @@ public class StructurePickerClient
             MinecraftClient mc = MinecraftClient.getInstance();
 
             StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.restoreBlocks(serverWorld, this.snapshots));
-            StructurePickerClient.restoreRegions(this.regions);
+            StructurePickerClient.restoreRegions(this.beforeRegions);
         }
 
         @Override
@@ -2177,7 +2478,7 @@ public class StructurePickerClient
             }
 
             StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.removeBlocks(serverWorld, blocks));
-            StructurePickerClient.clearSelection();
+            StructurePickerClient.restoreRegions(this.afterRegions);
         }
     }
 

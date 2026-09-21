@@ -1217,6 +1217,12 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_REMOVE_CONFIRM = L10n.lang("bbs.ui.items.structure_picker.remove_confirm");
     public static final IKey STRUCTURE_PICKER_BREAK_CONFIRM = L10n.lang("bbs.ui.items.structure_picker.break_confirm");
     public static final IKey STRUCTURE_PICKER_CLICK_ON_AIR = L10n.lang("bbs.ui.items.structure_picker.click_on_air");
+    public static final IKey STRUCTURE_PICKER_REACH = L10n.lang("bbs.ui.items.structure_picker.reach");
+    public static final IKey STRUCTURE_PICKER_REACH_EXTENDED = L10n.lang("bbs.ui.items.structure_picker.reach_extended");
+    public static final IKey STRUCTURE_PICKER_KEYS_CYCLE_PLANE = L10n.lang("bbs.ui.items.structure_picker.keys.cycle_plane");
+    public static final IKey STRUCTURE_PICKER_KEYS_HELP_TIP = L10n.lang("bbs.ui.items.structure_picker.keys.help_tip");
+    public static final IKey STRUCTURE_PICKER_APPLY_SELECTED = L10n.lang("bbs.ui.items.structure_picker.apply_selected");
+    public static final IKey STRUCTURE_PICKER_APPLY_ALL = L10n.lang("bbs.ui.items.structure_picker.apply_all");
     public static final IKey[] STRUCTURE_PICKER_MODE_LABELS = new IKey[]
     {
         STRUCTURE_PICKER_MODE_BLOCK,

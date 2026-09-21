@@ -503,7 +503,11 @@ public class StructurePickerSelection
         return found;
     }
 
-    public static List<BlockPos> collectBrushSurface(World world, BlockPos center, StructurePickerBrushShape shape, int radius, int depth, Direction face)
+    /**
+     * Volumetric brush around {@code center}: solid blocks inside the sphere/cube of {@code radius}.
+     * {@code depth} is kept for UI compatibility and enlarges the brush when greater than {@code radius}.
+     */
+    public static List<BlockPos> collectBrushVolume(World world, BlockPos center, StructurePickerBrushShape shape, int radius, int depth)
     {
         LinkedHashSet<BlockPos> blocks = new LinkedHashSet<>();
 
@@ -512,38 +516,25 @@ public class StructurePickerSelection
             return new ArrayList<>();
         }
 
-        Direction outward = face == null ? Direction.UP : face;
-        Direction inward = outward.getOpposite();
-        Direction[] tangents = StructurePickerSelection.tangentAxes(outward);
-        int r = Math.max(0, radius);
-        int layers = Math.max(1, depth);
-        int scan = Math.max(1, r) + 2;
+        int r = Math.max(0, Math.max(radius, depth - 1));
 
-        for (int u = -r; u <= r; u++)
+        for (int dx = -r; dx <= r; dx++)
         {
-            for (int v = -r; v <= r; v++)
+            for (int dy = -r; dy <= r; dy++)
             {
-                if (shape == StructurePickerBrushShape.SPHERE && u * u + v * v > r * r)
+                for (int dz = -r; dz <= r; dz++)
                 {
-                    continue;
-                }
+                    if (shape == StructurePickerBrushShape.SPHERE && dx * dx + dy * dy + dz * dz > r * r)
+                    {
+                        continue;
+                    }
 
-                BlockPos column = center.offset(tangents[0], u).offset(tangents[1], v);
-                BlockPos surface = StructurePickerSelection.findFaceSurface(world, column, outward, inward, scan);
-
-                if (surface == null)
-                {
-                    continue;
-                }
-
-                for (int layer = 0; layer < layers; layer++)
-                {
-                    BlockPos pos = surface.offset(inward, layer);
+                    BlockPos pos = center.add(dx, dy, dz);
                     BlockState state = world.getBlockState(pos);
 
                     if (state.isAir())
                     {
-                        break;
+                        continue;
                     }
 
                     blocks.add(pos.toImmutable());
@@ -553,46 +544,6 @@ public class StructurePickerSelection
         }
 
         return new ArrayList<>(blocks);
-    }
-
-    private static Direction[] tangentAxes(Direction face)
-    {
-        return switch (face.getAxis())
-        {
-            case Y -> new Direction[] {Direction.EAST, Direction.SOUTH};
-            case X -> new Direction[] {Direction.UP, Direction.SOUTH};
-            case Z -> new Direction[] {Direction.UP, Direction.EAST};
-        };
-    }
-
-    /**
-     * Walk from the air side of {@code column} inward until air meets solid —
-     * that solid is the surface facing {@code outward}.
-     */
-    private static BlockPos findFaceSurface(World world, BlockPos column, Direction outward, Direction inward, int scan)
-    {
-        BlockPos cursor = column.offset(outward, scan);
-
-        for (int i = 0; i < scan * 2 + 1; i++)
-        {
-            BlockPos next = cursor.offset(inward);
-            boolean cursorEmpty = StructurePickerSelection.isBrushEmpty(world, cursor);
-            boolean nextSolid = !StructurePickerSelection.isBrushEmpty(world, next);
-
-            if (cursorEmpty && nextSolid)
-            {
-                return next.toImmutable();
-            }
-
-            cursor = next;
-        }
-
-        return null;
-    }
-
-    private static boolean isBrushEmpty(World world, BlockPos pos)
-    {
-        return world.getBlockState(pos).isAir();
     }
 
     private static boolean isPlantCover(World world, BlockPos pos, BlockState state)

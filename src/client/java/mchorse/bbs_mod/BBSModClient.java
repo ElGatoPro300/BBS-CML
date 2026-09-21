@@ -13,6 +13,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
 import mchorse.bbs_mod.client.StructurePickerClient;
+import mchorse.bbs_mod.client.StructurePickerRenderer;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
@@ -822,10 +823,13 @@ public class BBSModClient implements ClientModInitializer
 
         /* Soft-opacity: Iris flushes here. Vanilla Fabulous also flushes into the translucent
          * FB before combine (otherwise soft vanishes). Vanilla Fancy waits until LAST.
-         * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md. */
+         * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md.
+         * Structure picker volumes also draw here (depth ON) so translucent water/glass no longer
+         * paints over them, while solid terrain still occludes buried selections. */
         WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
+            StructurePickerRenderer.render(context);
         });
 
         WorldRenderEvents.LAST.register((context) ->

@@ -1097,7 +1097,6 @@ public class BBSRendering
         }
 
         BBSModClient.getFilms().render(worldRenderContext);
-        StructurePickerRenderer.render(worldRenderContext);
     }
 
     public static boolean isOptifinePresent()
