@@ -1016,7 +1016,10 @@ public class BBSModClient implements ClientModInitializer
                 gunItemRenderer.update();
                 textures.update();
                 VideoFormEngine.tickCleanup();
-                VideoRenderer.update();
+                if (VideoRenderer.isAvailable())
+                {
+                    VideoRenderer.update();
+                }
             }
 
             StructurePickerClient.tick(mc);
