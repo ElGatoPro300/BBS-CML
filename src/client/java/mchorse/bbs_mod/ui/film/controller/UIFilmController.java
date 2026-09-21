@@ -2581,7 +2581,7 @@ public class UIFilmController extends UIElement
 
                     IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                     boolean physicalActor = renderEntity != entry.getValue();
-                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                    transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
                     float propertyTick = replay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
@@ -2602,8 +2602,8 @@ public class UIFilmController extends UIElement
                 /* Bone pick only the selected replay. Without Alt, limbs on other actors
                  * must not be clickable (Alt is the way to target/switch other replays). */
                 Pair<String, TransformOrientation> bone = this.getBone();
-                int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
-                Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
+                currentIndex = this.panel.replayEditor.replays.replays.getIndex();
+                currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
 
                 if (currentIndex >= 0 && currentReplay != null && this.editorController != null
                     && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
@@ -2616,7 +2616,7 @@ public class UIFilmController extends UIElement
                         IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
                         boolean physicalActor = renderEntity != currentEntity;
                         Set<String> allowedBones = this.resolveMarkedBonesFilter(currentReplay, renderEntity);
-                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                        transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
                         float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
                         /* Mesh only (depth on): closest limb under cursor. */

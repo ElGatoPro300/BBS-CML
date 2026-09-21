@@ -68,7 +68,6 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
     public UIButton pickModel;
     public UIButton pick;
-    public UIToggle toggleSolidHitbox;
 
     public UIModelFormPanel(UIForm editor)
     {

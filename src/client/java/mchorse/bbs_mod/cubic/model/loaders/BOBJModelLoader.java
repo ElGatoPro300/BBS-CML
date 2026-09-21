@@ -152,7 +152,8 @@ public class BOBJModelLoader implements IModelLoader
             {
                 System.err.println("Emoticons model \"" + id + "\" has 0 animations after load (mesh=" + meshLink + "). Retrying actions.bobj...");
                 this.defaultAnimations = null;
-                this.appendDefaultAnimations(instance, models.provider, models.parser);
+                this.ensureDefaultAnimations(models.provider, models.parser);
+                this.mergeDefaultAnimationsInto(instance);
             }
 
             System.out.println("BOBJ model \"" + id + "\" loaded with " + instance.animations.animations.size() + " animation(s) from " + bobjLinks.size() + " file(s).");

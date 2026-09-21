@@ -211,7 +211,6 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
->>>>>>> origin/master
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);

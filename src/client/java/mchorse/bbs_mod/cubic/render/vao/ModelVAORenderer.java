@@ -510,7 +510,9 @@ public class ModelVAORenderer
             false,
             true,
             false,
+            false,
             true,
+            null,
             draw
         ));
     }

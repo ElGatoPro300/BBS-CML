@@ -648,16 +648,16 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
             boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
-            Supplier<ShaderProgram> deferredShader = irisCamera
-                ? GameRenderer::getRenderTypeEntityTranslucentProgram
-                : BBSShaders::getModel;
+            boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
+            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
+                ? BBSShaders::getModel
+                : GameRenderer::getRenderTypeEntityTranslucentProgram;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
             float gradeContrastSnapshot = storedFormColor.contrast;
             float gradeHueSnapshot = storedFormColor.hue;
             float gradeSaturationSnapshot = storedFormColor.saturation;
             boolean gradeActiveSnapshot = gradeOnDeferredDraw;
             Color gradeSourceSnapshot = storedFormColor;
-            boolean irisCameraSnapshot = irisCamera;
 
             Runnable deferredDraw = () ->
             {

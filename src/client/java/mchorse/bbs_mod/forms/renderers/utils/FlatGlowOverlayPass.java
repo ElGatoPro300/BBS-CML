@@ -11,11 +11,10 @@ import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
 
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 
 import java.util.function.BiConsumer;
@@ -26,152 +25,124 @@ import java.util.function.Consumer;
  * <p>
  * Intensity = bright layered PTC (always visible). Size/Spread = soft outer halo shells.
  */
-public final class FlatGlowOverlayPass
+public class FlatGlowOverlayPass
 {
-    private static final float SHELL_OFFSET_BIAS = 0.0003F;
-
     private FlatGlowOverlayPass()
-    {}
+    {
+    }
+
+    public static void render(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Consumer<Color> drawLayer)
+    {
+        render(glowSettings, legacyGlow, null, null, null, alpha, glowIntensity, drawLayer);
+    }
+
+    public static void render(GlowSettings glowSettings, Color legacyGlow, PaintSettings paint, Color legacyPaint, Color formColor, float alpha, float glowIntensity, Consumer<Color> drawLayer)
+    {
+        renderSized(glowSettings, legacyGlow, paint, legacyPaint, formColor, alpha, glowIntensity, (layer, expand) -> drawLayer.accept(layer));
+    }
 
     /**
-     * @param emitPass draws the full quad at given local Z-offset and RGBA color
+     * @param drawLayer receives glow tint and expand (quad scale delta from Size).
+     *                  Callers must remap UVs with {@link #remapUvForOuterGlow} when expand != 0.
      */
-    public static void render(
-        GlowSettings glow,
-        Color legacyGlow,
-        PaintSettings paint,
-        Color paintColor,
-        Color formColor,
-        float entityAlpha,
-        BiConsumer<Float, Color> emitPass
-    )
+    public static void renderSized(GlowSettings glowSettings, Color legacyGlow, PaintSettings paint, Color legacyPaint, Color formColor, float alpha, float glowIntensity, BiConsumer<Color, Float> drawLayer)
     {
-        if (emitPass == null)
+        if (glowIntensity <= 0F || drawLayer == null)
         {
             return;
         }
 
-        float intensity = glow != null ? glow.intensity : 0F;
+        float size = glowSettings == null ? 0F : glowSettings.resolveSize();
+        float spread = glowSettings == null ? 0F : glowSettings.resolveSpread();
 
-        if (intensity <= 0.0001F)
-        {
-            return;
-        }
-
-        int layers = FormColorEffects.resolveGlowOverlayLayers(intensity);
-        Color glowColor = FormColorEffects.resolveGlowOverlayColor(
-            glow, legacyGlow, paint, paintColor, formColor, entityAlpha, intensity, layers
-        );
-
-        if (glowColor.a <= 0.0001F)
-        {
-            return;
-        }
+        FormGlowBloomPatch.setFromGlow(glowSettings, legacyGlow);
 
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(-2F, -2F);
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {
-            /* Base emission core */
-            for (int i = 0; i < layers; i++)
+            /* Intensity MUST use PTC layers — soft-only path was invisible under HDR / full-bleed sprites. */
+            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+
+            int intensityLayers = Math.max(1, FormColorEffects.resolveGlowOverlayLayers(glowIntensity));
+            int bundles = Math.max(1, FormColorEffects.resolveGlowOverlayBundles(glowIntensity));
+
+            for (int bundle = 0; bundle < bundles; bundle++)
             {
-                emitPass.accept(0F, glowColor);
+                for (int i = 0; i < intensityLayers; i++)
+                {
+                    Color layer = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, paint, legacyPaint, formColor, alpha, glowIntensity, intensityLayers);
+
+                    drawLayer.accept(layer, 0F);
+                }
             }
 
-            /* Outer expansion shells when Size > 0 (omitted if pack handles bloom itself) */
-            float size = glow != null ? glow.size : 0F;
-            float spread = glow != null ? glow.spread : 0F;
+            /* Intensity alone must bloom — Size=0 used to skip all outer shells. */
+            float bloomSize = FormColorEffects.resolveBloomSizeFromIntensity(glowIntensity, size);
+            int sizeShells = FormColorEffects.resolveGlowSizeShells(bloomSize, spread);
 
-            if (size > 0.0001F && !FormGlowBloomPatch.shouldSkipGeometrySizeShells())
+            if (sizeShells <= 0 || FormGlowBloomPatch.shouldSkipGeometrySizeShells())
             {
-                int shells = Math.min(8, Math.max(1, (int) Math.ceil(size * 4F)));
-                Color shellColor = glowColor.copy();
+                return;
+            }
 
-                for (int s = 1; s <= shells; s++)
+            ShaderProgram softProgram = BBSShaders.getFlatGlowOverlayProgram();
+
+            if (softProgram != null)
+            {
+                RenderSystem.setShader(() -> softProgram);
+
+                for (int i = 0; i < sizeShells; i++)
                 {
-                    float t = (float) s / (float) shells;
-                    /* Spread biases opacity toward the outer edge */
-                    float alphaFactor = (1F - t) * (1F - spread * 0.5F);
+                    float expand = FormColorEffects.resolveGlowShellExpand(bloomSize, spread, i, sizeShells);
+                    float fade = FormColorEffects.resolveGlowShellFade(spread, i, sizeShells);
+                    float shellSize = Math.max(0.5F, bloomSize * (1F - (i + 1F) / (sizeShells + 1F) * 0.35F));
+                    Color tint = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, paint, legacyPaint, formColor, alpha, glowIntensity);
+                    Color layer = tint.copy();
 
-                    shellColor.a = glowColor.a * alphaFactor / (float) shells;
+                    layer.r = Math.min(1F, layer.r * Math.max(0.45F, fade));
+                    layer.g = Math.min(1F, layer.g * Math.max(0.45F, fade));
+                    layer.b = Math.min(1F, layer.b * Math.max(0.45F, fade));
+                    layer.a = Math.max(0.3F, alpha * fade);
+                    bindGlowUniforms(softProgram, glowIntensity * Math.max(0.4F, fade), shellSize, spread);
+                    drawLayer.accept(layer, expand);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < sizeShells; i++)
+                {
+                    float expand = FormColorEffects.resolveGlowShellExpand(bloomSize, spread, i, sizeShells);
+                    float fade = FormColorEffects.resolveGlowShellFade(spread, i, sizeShells);
+                    Color layer = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, paint, legacyPaint, formColor, alpha, glowIntensity, Math.max(1, sizeShells));
 
-                    if (shellColor.a > 0.001F)
-                    {
-                        emitPass.accept(s * SHELL_OFFSET_BIAS, shellColor);
-                    }
+                    layer.r *= fade;
+                    layer.g *= fade;
+                    layer.b *= fade;
+                    layer.a *= Math.max(0.3F, fade);
+                    drawLayer.accept(layer, expand);
                 }
             }
         }
         finally
         {
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.defaultBlendFunc();
-        }
-    }
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GL11.glPolygonOffset(0F, 0F);
 
-    /**
-     * Variant for draw calls using shader uniform-based outer expansion (e.g. model/flat glow shader).
-     */
-    public static void renderWithShader(
-        GlowSettings glow,
-        Color legacyGlow,
-        PaintSettings paint,
-        Color paintColor,
-        Color formColor,
-        float entityAlpha,
-        Consumer<Color> drawCall
-    )
-    {
-        if (drawCall == null)
-        {
-            return;
-        }
-
-        float intensity = glow != null ? glow.intensity : 0F;
-
-        if (intensity <= 0.0001F)
-        {
-            return;
-        }
-
-        int layers = FormColorEffects.resolveGlowOverlayLayers(intensity);
-        Color glowColor = FormColorEffects.resolveGlowOverlayColor(
-            glow, legacyGlow, paint, paintColor, formColor, entityAlpha, intensity, layers
-        );
-
-        if (glowColor.a <= 0.0001F)
-        {
-            return;
-        }
-
-        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.depthMask(false);
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-
-        float size = glow != null ? glow.size : 0F;
-        float spread = glow != null ? glow.spread : 0F;
-        ShaderProgram program = GameRenderer.getPositionTexColorProgram();
-
-        bindGlowUniforms(program, intensity, size, spread);
-
-        try
-        {
-            for (int i = 0; i < layers; i++)
+            if (!savedPolygonOffsetFill)
             {
-                drawCall.accept(glowColor);
+                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
-        }
-        finally
-        {
-            bindGlowUniforms(program, 0F, 0F, 0F);
 
             RenderSystem.depthMask(savedDepthMask);
             RenderSystem.defaultBlendFunc();

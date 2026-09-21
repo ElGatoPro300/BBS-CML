@@ -12,6 +12,7 @@ import mchorse.bbs_mod.camera.clips.misc.TrackerClientClip;
 import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
+import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.client.StructurePickerRenderer;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
