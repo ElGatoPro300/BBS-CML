@@ -290,7 +290,7 @@ public class StructurePickerRenderer
         float hMin;
         float hMax;
 
-        if (StructurePickerScaleGizmo.hasActiveCubeSelection())
+        if (StructurePickerScaleGizmo.hasScalableSelection())
         {
             hMin = CORNER_HANDLE * StructurePickerScaleGizmo.getHandleVisualScale(min.getX(), min.getY(), min.getZ());
             hMax = CORNER_HANDLE * StructurePickerScaleGizmo.getHandleVisualScale(max.getX() + 1, max.getY() + 1, max.getZ() + 1);

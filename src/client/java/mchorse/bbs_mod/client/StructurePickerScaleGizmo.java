@@ -18,8 +18,9 @@ import org.joml.Vector3f;
 import java.util.List;
 
 /**
- * CUBE selection scale handles: click a corner to choose the free pivot,
- * then drag the colored XYZ axes to resize the single active cube region.
+ * Volume selection scale handles: click a corner to choose the free pivot,
+ * then drag the colored XYZ axes to resize that region (cube, rectangle, etc.).
+ * Works with multiple volume regions — picking a corner activates that region.
  */
 public final class StructurePickerScaleGizmo
 {
@@ -113,46 +114,42 @@ public final class StructurePickerScaleGizmo
         return MathUtils.clamp(scale, 0.7F, 7.5F);
     }
 
-    public static boolean hasActiveCubeSelection()
+    public static boolean isScalableMode(StructurePickerMode mode)
     {
-        if (StructurePickerClient.getMode() != StructurePickerMode.CUBE)
-        {
-            return false;
-        }
+        return mode != null && !mode.isSingleClick();
+    }
 
-        List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
-        int cubeRegions = 0;
-
-        for (StructurePickerClient.Region region : regions)
+    public static boolean hasScalableSelection()
+    {
+        for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
         {
-            if (region.mode() == StructurePickerMode.CUBE)
+            if (StructurePickerScaleGizmo.isScalableMode(region.mode()))
             {
-                cubeRegions++;
+                return true;
             }
         }
 
-        /* Brush paint stores many tiny CUBE AABBs — only a real cube-tool pick is scalable. */
-        return cubeRegions == 1 && regions.size() == 1;
+        return false;
     }
 
     /**
-     * Keep a scale gizmo on the latest cube region so handles are always available.
+     * Keep a scale gizmo on a scalable volume region so handles stay available.
      */
     public static void ensure()
     {
-        if (StructurePickerClient.getMode() != StructurePickerMode.CUBE || StructurePickerClient.getRegions().isEmpty())
+        List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
+
+        if (regions.isEmpty() || !StructurePickerScaleGizmo.hasScalableSelection())
         {
             StructurePickerScaleGizmo.clear();
 
             return;
         }
 
-        List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
-
         if (StructurePickerScaleGizmo.resizeGizmoActive
             && StructurePickerScaleGizmo.resizeRegionIndex >= 0
             && StructurePickerScaleGizmo.resizeRegionIndex < regions.size()
-            && regions.get(StructurePickerScaleGizmo.resizeRegionIndex).mode() == StructurePickerMode.CUBE)
+            && StructurePickerScaleGizmo.isScalableMode(regions.get(StructurePickerScaleGizmo.resizeRegionIndex).mode()))
         {
             StructurePickerScaleGizmo.syncScaleCornersFromRegion();
 
@@ -161,7 +158,7 @@ public final class StructurePickerScaleGizmo
 
         for (int i = regions.size() - 1; i >= 0; i--)
         {
-            if (regions.get(i).mode() == StructurePickerMode.CUBE)
+            if (StructurePickerScaleGizmo.isScalableMode(regions.get(i).mode()))
             {
                 StructurePickerScaleGizmo.activateRegionScale(i, true);
 
@@ -184,19 +181,28 @@ public final class StructurePickerScaleGizmo
     }
 
     /**
-     * True when the look ray hits a corner cube or scale-axis gizmo of the active selection.
+     * True when the look ray hits a corner cube or scale-axis gizmo of any scalable region.
      */
     public static boolean isOverSelectionInteractable(MinecraftClient mc)
     {
-        if (StructurePickerClient.getMode() != StructurePickerMode.CUBE || !StructurePickerScaleGizmo.hasActiveCubeSelection())
+        if (!StructurePickerScaleGizmo.hasScalableSelection())
         {
             return false;
         }
 
-        StructurePickerScaleGizmo.ensure();
+        if (StructurePickerScaleGizmo.findCornerHit(mc, true) != null)
+        {
+            return true;
+        }
 
-        return StructurePickerScaleGizmo.findCornerHit(mc, true) != null
-            || (StructurePickerScaleGizmo.isActive() && StructurePickerScaleGizmo.pickAxisGizmo(mc) != null);
+        if (StructurePickerScaleGizmo.isActive())
+        {
+            StructurePickerScaleGizmo.syncScaleCornersFromRegion();
+
+            return StructurePickerScaleGizmo.pickAxisGizmo(mc) != null;
+        }
+
+        return false;
     }
 
     public static boolean isOverSelectionCorner(MinecraftClient mc)
@@ -226,12 +232,17 @@ public final class StructurePickerScaleGizmo
 
     public static void tick(MinecraftClient mc, boolean leftPressed, boolean leftReleased, boolean leftDown)
     {
-        if (StructurePickerClient.getMode() != StructurePickerMode.CUBE)
+        if (!StructurePickerScaleGizmo.hasScalableSelection())
         {
             return;
         }
 
-        StructurePickerScaleGizmo.ensure();
+        if (!StructurePickerScaleGizmo.resizeGizmoActive)
+        {
+            return;
+        }
+
+        StructurePickerScaleGizmo.syncScaleCornersFromRegion();
 
         if (!StructurePickerScaleGizmo.resizeGizmoActive)
         {
@@ -321,7 +332,7 @@ public final class StructurePickerScaleGizmo
 
     private static CornerHit findCornerHit(MinecraftClient mc, boolean enlarged)
     {
-        if (StructurePickerClient.getMode() != StructurePickerMode.CUBE || StructurePickerClient.getRegions().isEmpty())
+        if (StructurePickerClient.getRegions().isEmpty() || !StructurePickerScaleGizmo.hasScalableSelection())
         {
             return null;
         }
@@ -336,13 +347,14 @@ public final class StructurePickerScaleGizmo
         {
             StructurePickerClient.Region region = regions.get(regionIndex);
 
-            if (region.mode() != StructurePickerMode.CUBE)
+            if (!StructurePickerScaleGizmo.isScalableMode(region.mode()))
             {
                 continue;
             }
 
-            BlockPos min = StructurePickerSelection.min(region.first(), region.second());
-            BlockPos max = StructurePickerSelection.max(region.first(), region.second());
+            BlockPos adjusted = StructurePickerSelection.adjustSecond(region.first(), region.second(), region.mode());
+            BlockPos min = StructurePickerSelection.min(region.first(), adjusted);
+            BlockPos max = StructurePickerSelection.max(region.first(), adjusted);
             Vec3d minCorner = new Vec3d(min.getX(), min.getY(), min.getZ());
             Vec3d maxCorner = new Vec3d(max.getX() + 1, max.getY() + 1, max.getZ() + 1);
             float scaleMin = StructurePickerScaleGizmo.getHandleVisualScale(minCorner.x, minCorner.y, minCorner.z);
@@ -600,7 +612,7 @@ public final class StructurePickerScaleGizmo
         StructurePickerClient.replaceRegion(StructurePickerScaleGizmo.resizeRegionIndex, new StructurePickerClient.Region(
             StructurePickerScaleGizmo.resizeFreeCorner,
             StructurePickerScaleGizmo.resizeFixedCorner,
-            StructurePickerMode.CUBE,
+            previous.mode(),
             previous.triangleFacing()
         ));
     }

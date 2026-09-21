@@ -406,8 +406,7 @@ public class StructurePickerClient
             return;
         }
 
-        if (StructurePickerClient.mode == StructurePickerMode.CUBE
-            && StructurePickerScaleGizmo.hasActiveCubeSelection())
+        if (StructurePickerScaleGizmo.hasScalableSelection())
         {
             StructurePickerScaleGizmo.ensure();
         }
@@ -1087,7 +1086,7 @@ public class StructurePickerClient
                     StructurePickerClient.triangleFacing
                 ));
 
-                if (StructurePickerClient.mode == StructurePickerMode.CUBE)
+                if (StructurePickerScaleGizmo.isScalableMode(StructurePickerClient.mode))
                 {
                     StructurePickerScaleGizmo.ensure();
                 }
