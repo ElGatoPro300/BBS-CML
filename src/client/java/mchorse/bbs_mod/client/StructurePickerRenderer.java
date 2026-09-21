@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.items.StructurePickerAxis;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerRegionMerger;
 import mchorse.bbs_mod.items.StructurePickerSelection;
@@ -25,15 +26,20 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.opengl.GL11;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
  * Structure picker world overlay: yellow selection volumes that respect depth
- * (occluded by terrain), plus visual corner handles on volume selections.
+ * (occluded by terrain), plus visual corner handles and CUBE scale gizmos.
  */
 public class StructurePickerRenderer
 {
     private static final float CORNER_HANDLE = 0.28F;
+    private static final float GIZMO_AXIS_LENGTH = 2.15F;
+    private static final float GIZMO_AXIS_HALF = 0.028F;
+    private static final float GIZMO_KNOB = 0.20F;
+    private static final float GIZMO_HUB = 0.10F;
     private static final double VOLUME_EXPAND = 0.005D;
     private static final float EDGE_ALPHA = 0.95F;
     private static final float FILL_ALPHA = 0.42F;
@@ -45,7 +51,10 @@ public class StructurePickerRenderer
             return;
         }
 
-        if (!StructurePickerClient.hasAnySelection())
+        boolean brushPreview = StructurePickerClient.getMode() == StructurePickerMode.BRUSH
+            && !StructurePickerClient.getBrushPreviewRegions().isEmpty();
+
+        if (!StructurePickerClient.hasAnySelection() && !brushPreview && !StructurePickerScaleGizmo.isActive())
         {
             return;
         }
@@ -61,6 +70,7 @@ public class StructurePickerRenderer
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         /* Depth on: selection must not paint through buried blocks / walls. */
+        RenderSystem.disableCull();
         RenderSystem.enableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -73,7 +83,7 @@ public class StructurePickerRenderer
 
         Set<BlockPos> blockPositions = new LinkedHashSet<>();
 
-        if (StructurePickerClient.getMode() == StructurePickerMode.BLOCK)
+        if (StructurePickerClient.getMode().isSingleClick())
         {
             blockPositions.addAll(StructurePickerClient.getAllRegionBlocks());
 
@@ -102,37 +112,48 @@ public class StructurePickerRenderer
             }
         }
 
-        /* Corner handles always on top so they stay readable. */
+        StructurePickerRenderer.renderBrushPreview(stack);
+
+        /* Corner handles + scale axes always on top so they stay readable. */
         RenderSystem.disableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         StructurePickerRenderer.renderCornerGizmos(stack, camera);
-        RenderSystem.enableDepthTest();
+
+        if (StructurePickerScaleGizmo.isActive())
+        {
+            StructurePickerRenderer.renderResizeGizmo(stack, StructurePickerScaleGizmo.getFreeCorner());
+        }
 
         stack.pop();
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
         RenderSystem.disableBlend();
     }
 
     private static void renderCornerGizmos(MatrixStack stack, Vec3d camera)
     {
-        /* BLOCK is paint-style (many tiny cells); corner handles stay on AABB volume modes. */
-        if (StructurePickerClient.getMode() == StructurePickerMode.BLOCK)
+        /* BLOCK/SAME are paint-style (many tiny cells); corner handles stay on AABB volume modes. */
+        if (StructurePickerClient.getMode().isSingleClick())
         {
             return;
         }
 
         for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
         {
-            if (region.mode() != StructurePickerMode.BLOCK)
+            if (region.mode().isSingleClick())
             {
-                StructurePickerRenderer.renderSelectionCorners(stack, region.first(), region.second(), region.mode(), camera);
+                continue;
             }
+
+            StructurePickerRenderer.renderSelectionCorners(stack, region.first(), region.second(), region.mode(), camera);
         }
 
         if (StructurePickerClient.hasInProgress()
-            && StructurePickerClient.getMode() != StructurePickerMode.BLOCK
+            && !StructurePickerClient.getMode().isSingleClick()
             && !StructurePickerClient.isSubtractMode())
         {
             StructurePickerRenderer.renderSelectionCorners(
@@ -142,6 +163,39 @@ public class StructurePickerRenderer
                 StructurePickerClient.getMode(),
                 camera
             );
+        }
+    }
+
+    private static void renderBrushPreview(MatrixStack stack)
+    {
+        if (StructurePickerClient.getMode() != StructurePickerMode.BRUSH)
+        {
+            return;
+        }
+
+        List<StructurePickerRegionMerger.MergedRegion> preview = StructurePickerClient.getBrushPreviewRegions();
+
+        if (preview.isEmpty())
+        {
+            return;
+        }
+
+        float pulse = 0.5F + 0.5F * (0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() * 0.004D));
+        float r = StructurePickerClient.isSubtractMode() ? 1F : 0.35F;
+        float g = StructurePickerClient.isSubtractMode() ? 0.35F : 0.85F;
+        float b = StructurePickerClient.isSubtractMode() ? 0.35F : 1F;
+        float edge = 0.45F + 0.55F * pulse;
+        float fill = 0.12F + 0.22F * pulse;
+
+        for (StructurePickerRegionMerger.MergedRegion region : preview)
+        {
+            double sizeX = region.max().getX() - region.min().getX() + 1D;
+            double sizeY = region.max().getY() - region.min().getY() + 1D;
+            double sizeZ = region.max().getZ() - region.min().getZ() + 1D;
+            double e = VOLUME_EXPAND;
+
+            StructurePickerRenderer.renderVolumeFill(stack, region.min().getX() - e, region.min().getY() - e, region.min().getZ() - e, sizeX + e * 2D, sizeY + e * 2D, sizeZ + e * 2D, r, g, b, fill);
+            StructurePickerRenderer.renderBoxEdges(stack, region.min().getX() - e, region.min().getY() - e, region.min().getZ() - e, sizeX + e * 2D, sizeY + e * 2D, sizeZ + e * 2D, r, g, b, edge);
         }
     }
 
@@ -233,8 +287,19 @@ public class StructurePickerRenderer
         BlockPos min = StructurePickerSelection.min(first, adjusted);
         BlockPos max = StructurePickerSelection.max(first, adjusted);
         float pulse = 0.85F + 0.15F * (0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() * 0.004D));
-        float hMin = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, min.getX(), min.getY(), min.getZ());
-        float hMax = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        float hMin;
+        float hMax;
+
+        if (StructurePickerScaleGizmo.hasActiveCubeSelection())
+        {
+            hMin = CORNER_HANDLE * StructurePickerScaleGizmo.getHandleVisualScale(min.getX(), min.getY(), min.getZ());
+            hMax = CORNER_HANDLE * StructurePickerScaleGizmo.getHandleVisualScale(max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        }
+        else
+        {
+            hMin = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, min.getX(), min.getY(), min.getZ());
+            hMax = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        }
 
         StructurePickerRenderer.renderCornerHandle(stack, min.getX(), min.getY(), min.getZ(), hMin, pulse);
         StructurePickerRenderer.renderCornerHandle(stack, max.getX() + 1, max.getY() + 1, max.getZ() + 1, hMax, pulse);
@@ -246,6 +311,95 @@ public class StructurePickerRenderer
 
         StructurePickerRenderer.renderVolumeFill(stack, x - rim * 0.5D, y - rim * 0.5D, z - rim * 0.5D, rim, rim, rim, 1F, 1F, 1F, alpha * 0.55F);
         StructurePickerRenderer.renderVolumeFill(stack, x - h * 0.5D, y - h * 0.5D, z - h * 0.5D, h, h, h, 1F, 1F, 1F, alpha);
+    }
+
+    private static void renderResizeGizmo(MatrixStack stack, BlockPos freeCorner)
+    {
+        if (freeCorner == null)
+        {
+            return;
+        }
+
+        double ox = freeCorner.getX();
+        double oy = freeCorner.getY();
+        double oz = freeCorner.getZ();
+
+        if (StructurePickerScaleGizmo.isUsingMaxCorner())
+        {
+            ox += 1D;
+            oy += 1D;
+            oz += 1D;
+        }
+
+        boolean positive = StructurePickerScaleGizmo.isScalePositive();
+        float scale = StructurePickerScaleGizmo.getHandleVisualScale(ox, oy, oz);
+        float len = (positive ? GIZMO_AXIS_LENGTH : -GIZMO_AXIS_LENGTH) * scale;
+        float t = GIZMO_AXIS_HALF * scale;
+        float knob = GIZMO_KNOB * scale;
+        float hub = GIZMO_HUB * scale;
+        StructurePickerAxis hover = StructurePickerScaleGizmo.getResizeDragAxis();
+
+        StructurePickerRenderer.renderVolumeFill(stack, ox - hub * 0.5D, oy - hub * 0.5D, oz - hub * 0.5D, hub, hub, hub, 1F, 1F, 1F, 1F);
+        StructurePickerRenderer.renderScaleAxis(stack, ox, oy, oz, StructurePickerAxis.X, len, t, knob, 1F, 0.22F, 0.22F, hover == StructurePickerAxis.X);
+        StructurePickerRenderer.renderScaleAxis(stack, ox, oy, oz, StructurePickerAxis.Y, len, t, knob, 0.22F, 1F, 0.22F, hover == StructurePickerAxis.Y);
+        StructurePickerRenderer.renderScaleAxis(stack, ox, oy, oz, StructurePickerAxis.Z, len, t, knob, 0.25F, 0.5F, 1F, hover == StructurePickerAxis.Z);
+    }
+
+    private static void renderScaleAxis(MatrixStack stack, double ox, double oy, double oz, StructurePickerAxis axis, float len, float t, float knob, float r, float g, float b, boolean highlight)
+    {
+        StructurePickerRenderer.renderAxisArm(stack, ox, oy, oz, axis, len, t, r, g, b, highlight);
+
+        double ex = ox;
+        double ey = oy;
+        double ez = oz;
+
+        if (axis == StructurePickerAxis.X)
+        {
+            ex += len;
+        }
+        else if (axis == StructurePickerAxis.Y)
+        {
+            ey += len;
+        }
+        else
+        {
+            ez += len;
+        }
+
+        float a = highlight ? 1F : 0.95F;
+        float s = knob * (highlight ? 1.25F : 1F);
+        float rim = s * 1.2F;
+
+        StructurePickerRenderer.renderVolumeFill(stack, ex - rim * 0.5D, ey - rim * 0.5D, ez - rim * 0.5D, rim, rim, rim, 1F, 1F, 1F, a * 0.45F);
+        StructurePickerRenderer.renderVolumeFill(stack, ex - s * 0.5D, ey - s * 0.5D, ez - s * 0.5D, s, s, s, r, g, b, a);
+    }
+
+    private static void renderAxisArm(MatrixStack stack, double ox, double oy, double oz, StructurePickerAxis axis, float len, float t, float r, float g, float b, boolean highlight)
+    {
+        float thick = t * (highlight ? 1.45F : 1F);
+        float a = highlight ? 1F : 0.92F;
+        double w = Math.abs(len);
+        double h = Math.abs(len);
+        double d = Math.abs(len);
+
+        if (axis == StructurePickerAxis.X)
+        {
+            double x0 = len >= 0F ? ox : ox + len;
+
+            StructurePickerRenderer.renderVolumeFill(stack, x0, oy - thick, oz - thick, w, thick * 2F, thick * 2F, r, g, b, a);
+        }
+        else if (axis == StructurePickerAxis.Y)
+        {
+            double y0 = len >= 0F ? oy : oy + len;
+
+            StructurePickerRenderer.renderVolumeFill(stack, ox - thick, y0, oz - thick, thick * 2F, h, thick * 2F, r, g, b, a);
+        }
+        else
+        {
+            double z0 = len >= 0F ? oz : oz + len;
+
+            StructurePickerRenderer.renderVolumeFill(stack, ox - thick, oy - thick, z0, thick * 2F, thick * 2F, d, r, g, b, a);
+        }
     }
 
     private static float handleScale(Vec3d camera, double x, double y, double z)

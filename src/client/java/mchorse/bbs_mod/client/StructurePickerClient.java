@@ -6,7 +6,9 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.StructureForm;
+import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.items.StructurePickerAxis;
+import mchorse.bbs_mod.items.StructurePickerBrushShape;
 import mchorse.bbs_mod.items.StructurePickerExporter;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerPlane;
@@ -16,6 +18,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
@@ -35,6 +38,7 @@ import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +63,8 @@ public class StructurePickerClient
     private static BlockPos slabMax;
     private static boolean rightMouseDown;
     private static boolean leftMouseDown;
+    /** True only after LMB went down away from corner/scale handles. */
+    private static boolean leftClearArmed;
     private static double planeMouseX;
     private static double planeMouseY;
     private static StructurePickerAxis planeHorizontalAxis;
@@ -66,6 +72,18 @@ public class StructurePickerClient
     private static BlockHitResult lastRaycastHit;
     private static BlockPos lastPaintedBlock;
     private static Direction triangleFacing;
+    private static boolean undoKeyDown;
+    private static boolean redoKeyDown;
+    private static int sameBlockLimit = 100;
+    private static int brushRadius = 2;
+    private static int brushDepth = 1;
+    private static StructurePickerBrushShape brushShape = StructurePickerBrushShape.SPHERE;
+    private static BlockPos brushPreviewHover;
+    private static Direction brushPreviewFace;
+    private static int brushPreviewRadius = Integer.MIN_VALUE;
+    private static int brushPreviewDepth = Integer.MIN_VALUE;
+    private static StructurePickerBrushShape brushPreviewShape;
+    private static List<StructurePickerRegionMerger.MergedRegion> brushPreviewRegions = List.of();
 
     public static StructurePickerMode getMode()
     {
@@ -75,6 +93,20 @@ public class StructurePickerClient
     public static void setMode(StructurePickerMode mode)
     {
         StructurePickerClient.mode = mode;
+        StructurePickerScaleGizmo.clear();
+
+        if (mode != StructurePickerMode.BRUSH)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    /**
+     * Package helper for {@link StructurePickerScaleGizmo} region mutation.
+     */
+    static void replaceRegion(int index, Region region)
+    {
+        StructurePickerClient.regions.set(index, region);
     }
 
     public static boolean isSubtractMode()
@@ -95,6 +127,145 @@ public class StructurePickerClient
     public static void setClickOnAir(boolean clickOnAir)
     {
         StructurePickerClient.clickOnAir = clickOnAir;
+    }
+
+    public static int getSameBlockLimit()
+    {
+        return StructurePickerClient.sameBlockLimit;
+    }
+
+    public static void setSameBlockLimit(int limit)
+    {
+        StructurePickerClient.sameBlockLimit = MathUtils.clamp(limit, 1, 500);
+    }
+
+    public static int getBrushRadius()
+    {
+        return StructurePickerClient.brushRadius;
+    }
+
+    public static void setBrushRadius(int radius)
+    {
+        int clamped = MathUtils.clamp(radius, 0, 32);
+
+        if (StructurePickerClient.brushRadius != clamped)
+        {
+            StructurePickerClient.brushRadius = clamped;
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static int getBrushDepth()
+    {
+        return StructurePickerClient.brushDepth;
+    }
+
+    public static void setBrushDepth(int depth)
+    {
+        int clamped = MathUtils.clamp(depth, 1, 32);
+
+        if (StructurePickerClient.brushDepth != clamped)
+        {
+            StructurePickerClient.brushDepth = clamped;
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static StructurePickerBrushShape getBrushShape()
+    {
+        return StructurePickerClient.brushShape;
+    }
+
+    public static void setBrushShape(StructurePickerBrushShape shape)
+    {
+        StructurePickerBrushShape next = shape == null ? StructurePickerBrushShape.SPHERE : shape;
+
+        if (StructurePickerClient.brushShape != next)
+        {
+            StructurePickerClient.brushShape = next;
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static List<StructurePickerRegionMerger.MergedRegion> getBrushPreviewRegions()
+    {
+        if (StructurePickerClient.mode != StructurePickerMode.BRUSH)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+
+            return List.of();
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc.world == null)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+
+            return List.of();
+        }
+
+        BlockPos hovered = StructurePickerClient.resolveTargetBlock(mc);
+
+        if (hovered == null)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+
+            return List.of();
+        }
+
+        Direction face = StructurePickerClient.getBrushFace();
+        int radius = StructurePickerClient.getBrushRadius();
+        int depth = StructurePickerClient.getBrushDepth();
+        StructurePickerBrushShape shape = StructurePickerClient.getBrushShape();
+
+        if (hovered.equals(StructurePickerClient.brushPreviewHover)
+            && face == StructurePickerClient.brushPreviewFace
+            && radius == StructurePickerClient.brushPreviewRadius
+            && depth == StructurePickerClient.brushPreviewDepth
+            && shape == StructurePickerClient.brushPreviewShape)
+        {
+            return StructurePickerClient.brushPreviewRegions;
+        }
+
+        List<BlockPos> blocks = StructurePickerSelection.collectBrushSurface(
+            mc.world,
+            hovered,
+            shape,
+            radius,
+            depth,
+            face
+        );
+        List<StructurePickerRegionMerger.MergedRegion> merged = StructurePickerRegionMerger.merge(blocks);
+
+        StructurePickerClient.brushPreviewHover = hovered.toImmutable();
+        StructurePickerClient.brushPreviewFace = face;
+        StructurePickerClient.brushPreviewRadius = radius;
+        StructurePickerClient.brushPreviewDepth = depth;
+        StructurePickerClient.brushPreviewShape = shape;
+        StructurePickerClient.brushPreviewRegions = merged;
+
+        return merged;
+    }
+
+    private static void clearBrushPreviewCache()
+    {
+        StructurePickerClient.brushPreviewHover = null;
+        StructurePickerClient.brushPreviewFace = null;
+        StructurePickerClient.brushPreviewRadius = Integer.MIN_VALUE;
+        StructurePickerClient.brushPreviewDepth = Integer.MIN_VALUE;
+        StructurePickerClient.brushPreviewShape = null;
+        StructurePickerClient.brushPreviewRegions = List.of();
+    }
+
+    private static Direction getBrushFace()
+    {
+        if (StructurePickerClient.lastRaycastHit != null)
+        {
+            return StructurePickerClient.lastRaycastHit.getSide();
+        }
+
+        return Direction.UP;
     }
 
     public static Direction getTriangleFacing()
@@ -129,7 +300,7 @@ public class StructurePickerClient
 
     public static boolean hasBlockSelection()
     {
-        return StructurePickerClient.mode == StructurePickerMode.BLOCK && !StructurePickerClient.regions.isEmpty();
+        return StructurePickerClient.mode.isSingleClick() && !StructurePickerClient.regions.isEmpty();
     }
 
     public static Set<BlockPos> getAllRegionBlocks()
@@ -198,6 +369,8 @@ public class StructurePickerClient
 
     public static void tick(MinecraftClient mc)
     {
+        StructurePickerClient.tickUndoRedoKeys();
+
         if (mc.world == null || mc.player == null)
         {
             StructurePickerClient.clearSelection();
@@ -208,6 +381,7 @@ public class StructurePickerClient
         boolean rightDown = GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
         boolean released = !rightDown && StructurePickerClient.rightMouseDown;
         boolean leftDown = GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean leftPressed = leftDown && !StructurePickerClient.leftMouseDown;
         boolean leftReleased = !leftDown && StructurePickerClient.leftMouseDown;
 
         StructurePickerClient.rightMouseDown = rightDown;
@@ -215,6 +389,8 @@ public class StructurePickerClient
 
         if (UIStructurePickerPanel.isOpened() || mc.currentScreen != null || !StructurePickerClient.isActive())
         {
+            StructurePickerClient.leftClearArmed = false;
+
             return;
         }
 
@@ -225,14 +401,54 @@ public class StructurePickerClient
                 StructurePickerClient.openPanel();
             }
 
+            StructurePickerClient.leftClearArmed = false;
+
             return;
+        }
+
+        if (StructurePickerClient.mode == StructurePickerMode.CUBE
+            && StructurePickerScaleGizmo.hasActiveCubeSelection())
+        {
+            StructurePickerScaleGizmo.ensure();
+        }
+
+        if (leftPressed)
+        {
+            if (StructurePickerScaleGizmo.isOverSelectionInteractable(mc))
+            {
+                /* Corner / scale gizmo owns LMB — never clear or start a new region. */
+                StructurePickerClient.leftClearArmed = false;
+
+                if (StructurePickerScaleGizmo.isOverSelectionCorner(mc))
+                {
+                    StructurePickerScaleGizmo.tryPickCubeCorner(mc);
+                }
+            }
+            else
+            {
+                StructurePickerClient.leftClearArmed = true;
+            }
         }
 
         if (leftReleased)
         {
-            StructurePickerClient.clearSelection();
+            boolean shouldClear = StructurePickerClient.leftClearArmed
+                && !StructurePickerScaleGizmo.isDragging()
+                && !StructurePickerScaleGizmo.isOverSelectionInteractable(mc);
 
-            return;
+            StructurePickerClient.leftClearArmed = false;
+            StructurePickerScaleGizmo.tick(mc, leftPressed, leftReleased, leftDown);
+
+            if (shouldClear)
+            {
+                StructurePickerClient.clearSelection();
+
+                return;
+            }
+        }
+        else if (leftDown)
+        {
+            StructurePickerScaleGizmo.tick(mc, leftPressed, leftReleased, leftDown);
         }
 
         if (StructurePickerClient.mode.isSingleClick())
@@ -564,15 +780,125 @@ public class StructurePickerClient
 
     private static void applyBlockPaint(BlockPos pos)
     {
+        if (StructurePickerClient.mode == StructurePickerMode.SAME)
+        {
+            StructurePickerClient.applySameBlockPaint(pos);
+
+            return;
+        }
+
+        if (StructurePickerClient.mode == StructurePickerMode.BRUSH)
+        {
+            StructurePickerClient.applyBrushPaint(pos);
+
+            return;
+        }
+
         if (StructurePickerClient.subtractMode)
         {
             StructurePickerClient.applySubtract(pos, pos, StructurePickerMode.BLOCK);
         }
         else if (!StructurePickerClient.isBlockSelected(pos))
         {
-            Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
+            StructurePickerClient.addPaintBlocks(List.of(pos));
+        }
+    }
 
-            blocks.add(pos);
+    private static void applyBrushPaint(BlockPos origin)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world;
+
+        if (world == null)
+        {
+            return;
+        }
+
+        List<BlockPos> stamped = StructurePickerSelection.collectBrushSurface(
+            world,
+            origin,
+            StructurePickerClient.getBrushShape(),
+            StructurePickerClient.getBrushRadius(),
+            StructurePickerClient.getBrushDepth(),
+            StructurePickerClient.getBrushFace()
+        );
+
+        if (stamped.isEmpty())
+        {
+            return;
+        }
+
+        if (StructurePickerClient.subtractMode)
+        {
+            StructurePickerClient.removePaintBlocks(stamped);
+
+            return;
+        }
+
+        StructurePickerClient.addPaintBlocks(stamped);
+    }
+
+    private static void applySameBlockPaint(BlockPos origin)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world;
+
+        if (world == null)
+        {
+            return;
+        }
+
+        List<BlockPos> connected = StructurePickerSelection.collectConnectedSame(world, origin, StructurePickerClient.getSameBlockLimit());
+
+        if (connected.isEmpty())
+        {
+            return;
+        }
+
+        if (StructurePickerClient.subtractMode)
+        {
+            StructurePickerClient.removePaintBlocks(connected);
+
+            return;
+        }
+
+        StructurePickerClient.addPaintBlocks(connected);
+    }
+
+    private static void addPaintBlocks(Collection<BlockPos> stamped)
+    {
+        Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
+        boolean addedAny = false;
+
+        for (BlockPos pos : stamped)
+        {
+            if (blocks.add(pos.toImmutable()))
+            {
+                addedAny = true;
+            }
+        }
+
+        if (addedAny)
+        {
+            StructurePickerClient.setRegionsFromBlocks(blocks);
+        }
+    }
+
+    private static void removePaintBlocks(Collection<BlockPos> stamped)
+    {
+        Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
+        boolean removedAny = false;
+
+        for (BlockPos pos : stamped)
+        {
+            if (blocks.remove(pos))
+            {
+                removedAny = true;
+            }
+        }
+
+        if (removedAny)
+        {
             StructurePickerClient.setRegionsFromBlocks(blocks);
         }
     }
@@ -760,6 +1086,11 @@ public class StructurePickerClient
                     StructurePickerClient.mode,
                     StructurePickerClient.triangleFacing
                 ));
+
+                if (StructurePickerClient.mode == StructurePickerMode.CUBE)
+                {
+                    StructurePickerScaleGizmo.ensure();
+                }
             }
         }
 
@@ -826,7 +1157,139 @@ public class StructurePickerClient
     {
         StructurePickerClient.regions.clear();
         StructurePickerClient.lastPaintedBlock = null;
+        StructurePickerClient.clearBrushPreviewCache();
         StructurePickerClient.clearInProgress();
+        StructurePickerScaleGizmo.clear();
+    }
+
+    public static void removeSelection()
+    {
+        if (StructurePickerClient.regions.isEmpty() && !StructurePickerClient.hasInProgress())
+        {
+            return;
+        }
+
+        List<Region> previous = StructurePickerClient.copyRegions();
+
+        StructurePickerClient.clearSelection();
+        StructurePickerHistory.push(new RemoveSelectionEntry(previous));
+    }
+
+    public static List<Region> copyRegions()
+    {
+        List<Region> copy = new ArrayList<>(StructurePickerClient.regions.size());
+
+        for (Region region : StructurePickerClient.regions)
+        {
+            copy.add(new Region(
+                region.first().toImmutable(),
+                region.second().toImmutable(),
+                region.mode(),
+                region.triangleFacing()
+            ));
+        }
+
+        return copy;
+    }
+
+    public static void restoreRegions(List<Region> regions)
+    {
+        StructurePickerClient.clearSelection();
+
+        if (regions == null || regions.isEmpty())
+        {
+            return;
+        }
+
+        StructurePickerClient.regions.addAll(regions);
+    }
+
+    private static void tickUndoRedoKeys()
+    {
+        /* Panel owns Ctrl+Z/Y while open so text fields / overlays can take priority. */
+        if (UIStructurePickerPanel.isOpened())
+        {
+            StructurePickerClient.undoKeyDown = Window.isCtrlPressed() && Window.isKeyPressed(GLFW.GLFW_KEY_Z);
+            StructurePickerClient.redoKeyDown = Window.isCtrlPressed() && Window.isKeyPressed(GLFW.GLFW_KEY_Y);
+
+            return;
+        }
+
+        if (!StructurePickerClient.isActive())
+        {
+            StructurePickerClient.undoKeyDown = false;
+            StructurePickerClient.redoKeyDown = false;
+
+            return;
+        }
+
+        boolean undoDown = Window.isCtrlPressed() && Window.isKeyPressed(GLFW.GLFW_KEY_Z) && !Window.isShiftPressed();
+        boolean redoDown = Window.isCtrlPressed() && Window.isKeyPressed(GLFW.GLFW_KEY_Y);
+
+        if (undoDown && !StructurePickerClient.undoKeyDown)
+        {
+            StructurePickerClient.undo();
+        }
+
+        if (redoDown && !StructurePickerClient.redoKeyDown)
+        {
+            StructurePickerClient.redo();
+        }
+
+        StructurePickerClient.undoKeyDown = undoDown;
+        StructurePickerClient.redoKeyDown = redoDown;
+    }
+
+    public static boolean canUndo()
+    {
+        return StructurePickerHistory.canUndo();
+    }
+
+    public static boolean canRedo()
+    {
+        return StructurePickerHistory.canRedo();
+    }
+
+    public static boolean undo()
+    {
+        return StructurePickerHistory.undo();
+    }
+
+    public static boolean redo()
+    {
+        return StructurePickerHistory.redo();
+    }
+
+    /**
+     * Places a structure file into the world and records undo. No panel UI yet;
+     * kept so PlaceStructure history entries match the prior SIRSPY contract.
+     */
+    public static void placeStructure(String path, BlockPos origin)
+    {
+        if (path == null || path.isEmpty() || origin == null)
+        {
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        List<Region> previousRegions = StructurePickerClient.copyRegions();
+
+        StructurePickerClient.runOnServer(mc, (serverWorld) ->
+        {
+            StructurePickerExporter.PlaceResult result = StructurePickerExporter.placeStructure(serverWorld, path, origin);
+
+            if (result == null)
+            {
+                return;
+            }
+
+            mc.execute(() ->
+            {
+                StructurePickerClient.mode = StructurePickerMode.CUBE;
+                StructurePickerClient.restoreRegions(List.of(new Region(result.min(), result.max(), StructurePickerMode.CUBE)));
+                StructurePickerHistory.push(new PlaceStructureEntry(path, origin.toImmutable(), previousRegions, result.previousBlocks(), result.min(), result.max()));
+            });
+        });
     }
 
     public static Set<BlockPos> getSelectedBlocks(World world)
@@ -908,12 +1371,20 @@ public class StructurePickerClient
         {
             StructurePickerClient.runOnServer(mc, (serverWorld) ->
             {
+                StructurePickerExporter.BlockSnapshot previous = StructurePickerExporter.captureBlock(serverWorld, placement);
                 String path = StructurePickerExporter.export(serverWorld, blocks);
 
-                if (path != null)
+                if (path == null)
                 {
-                    StructurePickerExporter.placeModelBlock(serverWorld, placement, path);
+                    return;
                 }
+
+                if (!StructurePickerExporter.placeModelBlock(serverWorld, placement, path))
+                {
+                    return;
+                }
+
+                mc.execute(() -> StructurePickerHistory.push(new ImportModelBlockEntry(placement.toImmutable(), previous, path)));
             });
         }
         else
@@ -924,7 +1395,15 @@ public class StructurePickerClient
 
                 if (path != null)
                 {
-                    mc.execute(() -> StructurePickerClient.importToFilm(path, placement));
+                    mc.execute(() ->
+                    {
+                        Replay replay = StructurePickerClient.importToFilm(path, placement);
+
+                        if (replay != null)
+                        {
+                            StructurePickerHistory.push(new ImportFilmEntry(path, placement.toImmutable(), replay));
+                        }
+                    });
                 }
             });
         }
@@ -940,14 +1419,32 @@ public class StructurePickerClient
             return;
         }
 
+        List<Region> previousRegions = StructurePickerClient.copyRegions();
         List<BlockPos> blocks = new ArrayList<>(StructurePickerClient.getSelectedBlocks(world));
 
-        if (!blocks.isEmpty())
+        if (blocks.isEmpty())
         {
-            StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.removeBlocks(serverWorld, blocks));
+            StructurePickerClient.clearSelection();
+
+            if (!previousRegions.isEmpty())
+            {
+                StructurePickerHistory.push(new RemoveSelectionEntry(previousRegions));
+            }
+
+            return;
         }
 
-        StructurePickerClient.clearSelection();
+        StructurePickerClient.runOnServer(mc, (serverWorld) ->
+        {
+            List<StructurePickerExporter.BlockSnapshot> snapshots = StructurePickerExporter.captureBlocks(serverWorld, blocks);
+
+            StructurePickerExporter.removeBlocks(serverWorld, blocks);
+            mc.execute(() ->
+            {
+                StructurePickerClient.clearSelection();
+                StructurePickerHistory.push(new BreakSelectionEntry(previousRegions, snapshots));
+            });
+        });
     }
 
     private static void runOnServer(MinecraftClient mc, Consumer<ServerWorld> task)
@@ -1009,7 +1506,7 @@ public class StructurePickerClient
 
         if (!StructurePickerClient.hasInProgress())
         {
-            if (StructurePickerClient.mode == StructurePickerMode.BLOCK && StructurePickerClient.hasBlockSelection())
+            if (StructurePickerClient.mode.isSingleClick() && StructurePickerClient.hasBlockSelection())
             {
                 Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
                 BlockPos blockMin = null;
@@ -1158,13 +1655,13 @@ public class StructurePickerClient
         return StructurePickerClient.raycastTarget(mc, false);
     }
 
-    private static void importToFilm(String structurePath, BlockPos placement)
+    private static Replay importToFilm(String structurePath, BlockPos placement)
     {
         UIFilmPanel panel = BBSModClient.getDashboard().getPanel(UIFilmPanel.class);
 
         if (panel == null || panel.getData() == null)
         {
-            return;
+            return null;
         }
 
         StructureForm form = new StructureForm();
@@ -1181,6 +1678,197 @@ public class StructurePickerClient
         replay.keyframes.z.insert(0, placement.getZ() + 0.5D);
 
         panel.replayEditor.replays.replays.finishImport(replay);
+
+        return replay;
+    }
+
+    private static void removeFilmReplay(Replay replay)
+    {
+        if (replay == null)
+        {
+            return;
+        }
+
+        UIFilmPanel panel = BBSModClient.getDashboard().getPanel(UIFilmPanel.class);
+
+        if (panel == null || panel.getData() == null)
+        {
+            return;
+        }
+
+        panel.getData().replays.remove(replay);
+
+        if (panel.replayEditor != null && panel.replayEditor.replays != null && panel.replayEditor.replays.replays != null)
+        {
+            panel.replayEditor.replays.replays.update();
+        }
+    }
+
+    private static final class RemoveSelectionEntry implements StructurePickerHistory.Entry
+    {
+        private final List<Region> regions;
+
+        private RemoveSelectionEntry(List<Region> regions)
+        {
+            this.regions = regions;
+        }
+
+        @Override
+        public void undo()
+        {
+            StructurePickerClient.restoreRegions(this.regions);
+        }
+
+        @Override
+        public void redo()
+        {
+            StructurePickerClient.clearSelection();
+        }
+    }
+
+    private static final class BreakSelectionEntry implements StructurePickerHistory.Entry
+    {
+        private final List<Region> regions;
+        private final List<StructurePickerExporter.BlockSnapshot> snapshots;
+
+        private BreakSelectionEntry(List<Region> regions, List<StructurePickerExporter.BlockSnapshot> snapshots)
+        {
+            this.regions = regions;
+            this.snapshots = snapshots;
+        }
+
+        @Override
+        public void undo()
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.restoreBlocks(serverWorld, this.snapshots));
+            StructurePickerClient.restoreRegions(this.regions);
+        }
+
+        @Override
+        public void redo()
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            List<BlockPos> blocks = new ArrayList<>(this.snapshots.size());
+
+            for (StructurePickerExporter.BlockSnapshot snapshot : this.snapshots)
+            {
+                blocks.add(snapshot.pos());
+            }
+
+            StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.removeBlocks(serverWorld, blocks));
+            StructurePickerClient.clearSelection();
+        }
+    }
+
+    private static final class PlaceStructureEntry implements StructurePickerHistory.Entry
+    {
+        private final String path;
+        private final BlockPos origin;
+        private final List<Region> previousRegions;
+        private final List<StructurePickerExporter.BlockSnapshot> previousBlocks;
+        private final BlockPos placedMin;
+        private final BlockPos placedMax;
+
+        private PlaceStructureEntry(String path, BlockPos origin, List<Region> previousRegions, List<StructurePickerExporter.BlockSnapshot> previousBlocks, BlockPos placedMin, BlockPos placedMax)
+        {
+            this.path = path;
+            this.origin = origin;
+            this.previousRegions = previousRegions;
+            this.previousBlocks = previousBlocks;
+            this.placedMin = placedMin;
+            this.placedMax = placedMax;
+        }
+
+        @Override
+        public void undo()
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.restoreBlocks(serverWorld, this.previousBlocks));
+            StructurePickerClient.restoreRegions(this.previousRegions);
+        }
+
+        @Override
+        public void redo()
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            StructurePickerClient.runOnServer(mc, (serverWorld) ->
+            {
+                StructurePickerExporter.PlaceResult result = StructurePickerExporter.placeStructure(serverWorld, this.path, this.origin);
+
+                if (result == null)
+                {
+                    return;
+                }
+
+                mc.execute(() ->
+                {
+                    StructurePickerClient.mode = StructurePickerMode.CUBE;
+                    StructurePickerClient.restoreRegions(List.of(new Region(result.min(), result.max(), StructurePickerMode.CUBE)));
+                });
+            });
+        }
+    }
+
+    private static final class ImportModelBlockEntry implements StructurePickerHistory.Entry
+    {
+        private final BlockPos placement;
+        private final StructurePickerExporter.BlockSnapshot previous;
+        private final String structurePath;
+
+        private ImportModelBlockEntry(BlockPos placement, StructurePickerExporter.BlockSnapshot previous, String structurePath)
+        {
+            this.placement = placement;
+            this.previous = previous;
+            this.structurePath = structurePath;
+        }
+
+        @Override
+        public void undo()
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            StructurePickerClient.runOnServer(mc, (serverWorld) -> StructurePickerExporter.restoreBlock(serverWorld, this.previous));
+        }
+
+        @Override
+        public void redo()
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            StructurePickerClient.runOnServer(mc, (serverWorld) ->
+                StructurePickerExporter.placeModelBlock(serverWorld, this.placement, this.structurePath));
+        }
+    }
+
+    private static final class ImportFilmEntry implements StructurePickerHistory.Entry
+    {
+        private final String structurePath;
+        private final BlockPos placement;
+        private Replay replay;
+
+        private ImportFilmEntry(String structurePath, BlockPos placement, Replay replay)
+        {
+            this.structurePath = structurePath;
+            this.placement = placement;
+            this.replay = replay;
+        }
+
+        @Override
+        public void undo()
+        {
+            StructurePickerClient.removeFilmReplay(this.replay);
+            this.replay = null;
+        }
+
+        @Override
+        public void redo()
+        {
+            this.replay = StructurePickerClient.importToFilm(this.structurePath, this.placement);
+        }
     }
 
     public record Region(BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)

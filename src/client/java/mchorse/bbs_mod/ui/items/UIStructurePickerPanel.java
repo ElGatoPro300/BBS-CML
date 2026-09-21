@@ -3,13 +3,18 @@ package mchorse.bbs_mod.ui.items;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.items.StructurePickerBrushShape;
 import mchorse.bbs_mod.items.StructurePickerMode;
+import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
@@ -42,6 +47,16 @@ public class UIStructurePickerPanel extends UIOverlayPanel
     private final UIButton breakSelectionButton;
 
     private final UIToggle clickOnAirToggle;
+
+    private final UITrackpad sameBlockLimit;
+
+    private final UIElement brushControls;
+
+    private final UICirculate brushShape;
+
+    private final UITrackpad brushRadius;
+
+    private final UITrackpad brushDepth;
 
 
 
@@ -163,7 +178,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
 
 
-                UIOverlay.addOverlay(this.context, panel, 300, 240);
+                UIOverlay.addOverlay(this.context, panel, 320, 320);
 
             }
 
@@ -261,6 +276,34 @@ public class UIStructurePickerPanel extends UIOverlayPanel
             StructurePickerClient.setClickOnAir(b.getValue());
         });
 
+        this.sameBlockLimit = new UITrackpad((v) -> StructurePickerClient.setSameBlockLimit(v.intValue()));
+        this.sameBlockLimit.tooltip(UIKeys.STRUCTURE_PICKER_SAME_LIMIT);
+        this.sameBlockLimit.integer().limit(1, 500);
+        this.sameBlockLimit.setValue(StructurePickerClient.getSameBlockLimit());
+
+        this.brushShape = new UICirculate((b) ->
+            StructurePickerClient.setBrushShape(StructurePickerBrushShape.fromIndex(b.getValue())));
+        this.brushShape.addLabel(UIKeys.STRUCTURE_PICKER_BRUSH_SPHERE);
+        this.brushShape.addLabel(UIKeys.STRUCTURE_PICKER_BRUSH_CUBE);
+        this.brushShape.setValue(StructurePickerClient.getBrushShape().index);
+        this.brushShape.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_SHAPE);
+
+        this.brushRadius = new UITrackpad((v) -> StructurePickerClient.setBrushRadius(v.intValue()));
+        this.brushRadius.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_RADIUS);
+        this.brushRadius.integer().limit(0, 32);
+        this.brushRadius.setValue(StructurePickerClient.getBrushRadius());
+
+        this.brushDepth = new UITrackpad((v) -> StructurePickerClient.setBrushDepth(v.intValue()));
+        this.brushDepth.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_DEPTH);
+        this.brushDepth.integer().limit(1, 32);
+        this.brushDepth.setValue(StructurePickerClient.getBrushDepth());
+
+        this.brushControls = new UIElement();
+        this.brushShape.relative(this.brushControls).x(0).y(0).w(1F).h(20);
+        this.brushRadius.relative(this.brushControls).x(0).y(24).w(1F).h(20);
+        this.brushDepth.relative(this.brushControls).x(0).y(48).w(1F).h(20);
+        this.brushControls.add(this.brushShape, this.brushRadius, this.brushDepth);
+
 
 
         this.modelBlockButton.relative(this.content).x(126).y(8).w(1F, -134).h(20);
@@ -275,15 +318,24 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
         this.clickOnAirToggle.relative(this.content).x(126).y(122).w(1F, -134).h(14);
 
+        this.sameBlockLimit.relative(this.content).x(126).y(146).w(1F, -134).h(20);
+
+        this.brushControls.relative(this.content).x(126).y(146).w(1F, -134).h(68);
+
         this.breakSelectionButton.color(Colors.RED);
 
 
 
-        this.content.add(this.modelBlockButton, this.importFilmButton, this.subtractToggle, this.removeSelectionButton, this.breakSelectionButton, this.clickOnAirToggle);
+        this.content.add(this.modelBlockButton, this.importFilmButton, this.subtractToggle, this.removeSelectionButton, this.breakSelectionButton, this.clickOnAirToggle, this.sameBlockLimit, this.brushControls);
+
+        this.keys().register(Keys.UNDO, StructurePickerClient::undo).active(StructurePickerClient::canUndo);
+        this.keys().register(Keys.REDO, StructurePickerClient::redo).active(StructurePickerClient::canRedo);
 
         this.updateShapeButtons();
 
         this.updateImportButtons();
+
+        this.syncModeExtras();
 
     }
 
@@ -296,6 +348,8 @@ public class UIStructurePickerPanel extends UIOverlayPanel
         StructurePickerClient.setMode(mode);
 
         this.updateShapeButtons();
+
+        this.syncModeExtras();
 
     }
 
@@ -317,6 +371,61 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
             this.shapeButtons.get(i).color(modes[i] == current ? Colors.ACTIVE : Colors.GRAY);
 
+        }
+
+    }
+
+
+
+    private void syncModeExtras()
+
+    {
+
+        StructurePickerMode mode = StructurePickerClient.getMode();
+        boolean showSame = mode == StructurePickerMode.SAME;
+        boolean showBrush = mode == StructurePickerMode.BRUSH;
+
+        this.sameBlockLimit.setVisible(showSame);
+        this.brushControls.setVisible(showBrush);
+
+        if (showSame && !this.sameBlockLimit.isFocused() && !this.sameBlockLimit.isDragging())
+        {
+            int limit = StructurePickerClient.getSameBlockLimit();
+
+            if ((int) this.sameBlockLimit.getValue() != limit)
+            {
+                this.sameBlockLimit.setValue(limit);
+            }
+        }
+
+        if (showBrush)
+        {
+            int shape = StructurePickerClient.getBrushShape().index;
+
+            if (this.brushShape.getValue() != shape)
+            {
+                this.brushShape.setValue(shape);
+            }
+
+            if (!this.brushRadius.isFocused() && !this.brushRadius.isDragging())
+            {
+                int radius = StructurePickerClient.getBrushRadius();
+
+                if ((int) this.brushRadius.getValue() != radius)
+                {
+                    this.brushRadius.setValue(radius);
+                }
+            }
+
+            if (!this.brushDepth.isFocused() && !this.brushDepth.isDragging())
+            {
+                int depth = StructurePickerClient.getBrushDepth();
+
+                if ((int) this.brushDepth.getValue() != depth)
+                {
+                    this.brushDepth.setValue(depth);
+                }
+            }
         }
 
     }
@@ -376,7 +485,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
         {
 
-            StructurePickerClient.clearSelection();
+            StructurePickerClient.removeSelection();
 
             this.close();
 
@@ -402,7 +511,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
                 {
 
-                    StructurePickerClient.clearSelection();
+                    StructurePickerClient.removeSelection();
 
                     this.close();
 

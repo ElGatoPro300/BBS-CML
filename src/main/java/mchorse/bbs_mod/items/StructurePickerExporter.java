@@ -18,6 +18,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
+import net.minecraft.structure.StructurePlacementData;
 import net.minecraft.structure.StructureTemplate;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.BlockPos;
@@ -26,6 +27,7 @@ import net.minecraft.util.math.Vec3i;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -154,6 +156,130 @@ public class StructurePickerExporter
 
             world.setBlockState(pos, Blocks.AIR.getDefaultState(), 3);
         }
+    }
+
+    public static List<BlockSnapshot> captureBlocks(ServerWorld world, List<BlockPos> blocks)
+    {
+        List<BlockSnapshot> snapshots = new ArrayList<>();
+
+        for (BlockPos pos : blocks)
+        {
+            if (world.getBlockState(pos).isOf(BBSMod.MODEL_BLOCK))
+            {
+                continue;
+            }
+
+            snapshots.add(StructurePickerExporter.captureBlock(world, pos));
+        }
+
+        return snapshots;
+    }
+
+    public static BlockSnapshot captureBlock(ServerWorld world, BlockPos pos)
+    {
+        BlockPos immutable = pos.toImmutable();
+        BlockState state = world.getBlockState(immutable);
+        BlockEntity entity = world.getBlockEntity(immutable);
+        NbtCompound nbt = entity == null ? null : entity.createNbtWithId(world.getRegistryManager());
+
+        return new BlockSnapshot(immutable, state, nbt);
+    }
+
+    public static void restoreBlocks(ServerWorld world, List<BlockSnapshot> snapshots)
+    {
+        for (BlockSnapshot snapshot : snapshots)
+        {
+            StructurePickerExporter.restoreBlock(world, snapshot);
+        }
+    }
+
+    public static void restoreBlock(ServerWorld world, BlockSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        world.setBlockState(snapshot.pos(), snapshot.state(), 3);
+
+        if (snapshot.nbt() != null)
+        {
+            BlockEntity blockEntity = BlockEntity.createFromNbt(snapshot.pos(), snapshot.state(), snapshot.nbt(), world.getRegistryManager());
+
+            if (blockEntity != null)
+            {
+                world.addBlockEntity(blockEntity);
+            }
+        }
+    }
+
+    public static StructureTemplate loadTemplate(ServerWorld world, String pathString)
+    {
+        NbtCompound nbt = StructurePickerExporter.readStructureNbt(pathString);
+
+        if (nbt == null || world == null)
+        {
+            return null;
+        }
+
+        return world.getStructureTemplateManager().createTemplate(nbt);
+    }
+
+    public static List<BlockSnapshot> captureVolume(ServerWorld world, BlockPos min, BlockPos max)
+    {
+        List<BlockSnapshot> snapshots = new ArrayList<>();
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+
+        for (int x = min.getX(); x <= max.getX(); x++)
+        {
+            for (int y = min.getY(); y <= max.getY(); y++)
+            {
+                for (int z = min.getZ(); z <= max.getZ(); z++)
+                {
+                    snapshots.add(StructurePickerExporter.captureBlock(world, mutable.set(x, y, z)));
+                }
+            }
+        }
+
+        return snapshots;
+    }
+
+    /**
+     * Places a saved structure NBT into the world and returns the previous volume
+     * so panel undo can restore terrain. Used by PlaceStructure history entries.
+     */
+    public static PlaceResult placeStructure(ServerWorld world, String pathString, BlockPos origin)
+    {
+        StructureTemplate template = StructurePickerExporter.loadTemplate(world, pathString);
+
+        if (template == null)
+        {
+            return null;
+        }
+
+        Vec3i size = template.getSize();
+
+        if (size.getX() <= 0 || size.getY() <= 0 || size.getZ() <= 0)
+        {
+            return null;
+        }
+
+        BlockPos min = origin.toImmutable();
+        BlockPos max = min.add(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
+        List<BlockSnapshot> previous = StructurePickerExporter.captureVolume(world, min, max);
+        StructurePlacementData data = new StructurePlacementData();
+
+        template.place(world, min, min, data, world.getRandom(), 3);
+
+        return new PlaceResult(min, max, previous);
+    }
+
+    public record BlockSnapshot(BlockPos pos, BlockState state, NbtCompound nbt)
+    {
+    }
+
+    public record PlaceResult(BlockPos min, BlockPos max, List<BlockSnapshot> previousBlocks)
+    {
     }
 
     /**

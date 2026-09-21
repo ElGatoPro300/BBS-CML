@@ -1197,6 +1197,14 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_MODE_TRIANGLE = L10n.lang("bbs.ui.items.structure_picker.mode.triangle");
     public static final IKey STRUCTURE_PICKER_MODE_CONE = L10n.lang("bbs.ui.items.structure_picker.mode.cone");
     public static final IKey STRUCTURE_PICKER_MODE_CYLINDER = L10n.lang("bbs.ui.items.structure_picker.mode.cylinder");
+    public static final IKey STRUCTURE_PICKER_MODE_SAME = L10n.lang("bbs.ui.items.structure_picker.mode.same");
+    public static final IKey STRUCTURE_PICKER_MODE_BRUSH = L10n.lang("bbs.ui.items.structure_picker.mode.brush");
+    public static final IKey STRUCTURE_PICKER_SAME_LIMIT = L10n.lang("bbs.ui.items.structure_picker.same_limit");
+    public static final IKey STRUCTURE_PICKER_BRUSH_SHAPE = L10n.lang("bbs.ui.items.structure_picker.brush_shape");
+    public static final IKey STRUCTURE_PICKER_BRUSH_SPHERE = L10n.lang("bbs.ui.items.structure_picker.brush_sphere");
+    public static final IKey STRUCTURE_PICKER_BRUSH_CUBE = L10n.lang("bbs.ui.items.structure_picker.brush_cube");
+    public static final IKey STRUCTURE_PICKER_BRUSH_RADIUS = L10n.lang("bbs.ui.items.structure_picker.brush_radius");
+    public static final IKey STRUCTURE_PICKER_BRUSH_DEPTH = L10n.lang("bbs.ui.items.structure_picker.brush_depth");
     public static final IKey STRUCTURE_PICKER_CONFIRM_TITLE = L10n.lang("bbs.ui.items.structure_picker.confirm.title");
     public static final IKey STRUCTURE_PICKER_MAKE_MODEL_BLOCK = L10n.lang("bbs.ui.items.structure_picker.confirm.model_block");
     public static final IKey STRUCTURE_PICKER_IMPORT_FILM = L10n.lang("bbs.ui.items.structure_picker.confirm.import_film");
@@ -1217,7 +1225,9 @@ public class UIKeys
         STRUCTURE_PICKER_MODE_SPHERE,
         STRUCTURE_PICKER_MODE_TRIANGLE,
         STRUCTURE_PICKER_MODE_CONE,
-        STRUCTURE_PICKER_MODE_CYLINDER
+        STRUCTURE_PICKER_MODE_CYLINDER,
+        STRUCTURE_PICKER_MODE_SAME,
+        STRUCTURE_PICKER_MODE_BRUSH
     };
     public static final IKey GENERAL_EXPORT = L10n.lang("bbs.ui.export");
     public static final IKey GENERAL_FFMPEG_ERROR_DESCRIPTION = L10n.lang("bbs.ui.ffmpeg.error-description");
