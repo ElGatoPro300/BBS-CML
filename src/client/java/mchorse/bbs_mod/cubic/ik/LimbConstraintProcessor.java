@@ -58,19 +58,6 @@ public final class LimbConstraintProcessor
 
         map = resolveIkMap(instance);
 
-        if (instance.form instanceof ModelForm form)
-        {
-            controlOverrides = form.limbParamOverrides;
-            targetWeights = form.ikTargetWeights;
-            poleWeights = form.poleTargetWeights;
-
-            if (tipRotations == null && !form.ikTipRotationOverrides.isEmpty())
-            {
-                tipRotations = form.ikTipRotationOverrides;
-                tipRotationWeights = form.ikTipRotationWeights;
-            }
-        }
-
         if (map != null)
         {
             compiled = LimbConstraintCompiler.getFromData(model, map);
@@ -185,46 +172,16 @@ public final class LimbConstraintProcessor
 
     private static MapType mergeIkMap(ModelForm form, MapType instanceLimbs)
     {
-        MapType base = null;
-
         if (form.ik.get() instanceof MapType map && !map.isEmpty())
         {
-            base = (MapType) map.copy();
+            return (MapType) map.copy();
         }
-        else if (instanceLimbs != null)
+
+        if (instanceLimbs != null)
         {
-            base = (MapType) instanceLimbs.copy();
+            return (MapType) instanceLimbs.copy();
         }
 
-        if (form.inverseKinematicsLimbs == null || form.inverseKinematicsLimbs.isEmpty())
-        {
-            return base;
-        }
-
-        if (base == null)
-        {
-            base = new MapType();
-        }
-
-        /* The auto-limbs are a FLAT tip-keyed map; the form's config may be either
-         * shape, so they have to land in its limb sub-map rather than beside it —
-         * dropped at the top level of a wrapped config they would be silently
-         * ignored by the deserializer. */
-        MapType entries = LimbConstraintSerializer.limbEntries(base);
-
-        if (entries == null)
-        {
-            return base;
-        }
-
-        for (String key : form.inverseKinematicsLimbs.keys())
-        {
-            if (!entries.has(key))
-            {
-                entries.put(key, form.inverseKinematicsLimbs.get(key).copy());
-            }
-        }
-
-        return base;
+        return null;
     }
 }

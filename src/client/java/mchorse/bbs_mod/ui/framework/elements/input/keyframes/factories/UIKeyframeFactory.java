@@ -57,8 +57,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     {
         register(KeyframeFactories.ANCHOR, UIAnchorKeyframeFactory::new);
         register(KeyframeFactories.MOUNT_LINK, UIMountLinkKeyframeFactory::new);
-        register(KeyframeFactories.LOOK_AT, UILookAtKeyframeFactory::new);
-        register(KeyframeFactories.INVERSE_KINEMATICS, UIInverseKinematicsKeyframeFactory::new);
         register(KeyframeFactories.ILLUSION, UIIllusionKeyframeFactory::new);
         register(KeyframeFactories.BOOLEAN, UIBooleanKeyframeFactory::new);
         register(KeyframeFactories.COLOR, UIColorKeyframeFactory::new);

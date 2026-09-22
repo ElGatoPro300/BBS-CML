@@ -23,8 +23,6 @@ import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
-import mchorse.bbs_mod.forms.forms.utils.LookAt;
-import mchorse.bbs_mod.forms.forms.utils.LookAtBone;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
@@ -55,8 +53,6 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
-import mchorse.bbs_mod.utils.pose.Pose;
-import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -91,8 +87,6 @@ import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
@@ -230,12 +224,6 @@ public abstract class BaseFilmController
             target = defaultMatrix;
         }
 
-        if (!relative && !context.physicalActor)
-        {
-            applyLookAt(context, form, position, target);
-            InverseKinematicsApplier.apply(context, form);
-        }
-
         if (context.localGroupTransform != null && !context.isShadowPass)
         {
             target.mul(context.localGroupTransform);
@@ -315,8 +303,6 @@ public abstract class BaseFilmController
             {
                 syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
             }
-
-            ModelFormRenderer lookAtRenderer = (relative || context.physicalActor) ? null : applyLookAtPose(context, form, position);
 
             if (drawBody && context.isShadowPass)
             {
@@ -400,11 +386,6 @@ public abstract class BaseFilmController
                         ShaderOpacityPatch.endShadowForm();
                     }
                 }
-            }
-
-            if (lookAtRenderer != null)
-            {
-                lookAtRenderer.setLookAtPose(null);
             }
 
             if (UIBaseMenu.renderAxes)
@@ -502,367 +483,6 @@ public abstract class BaseFilmController
         BBSRendering.restoreWorldRenderState();
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
-    }
-
-    /**
-     * World-space point of a replay's attachment, used by look-at and inverse kinematics.
-     */
-    public static Vector3d resolveReplayAttachmentPoint(FilmControllerContext context, int replayIndex, String attachment)
-    {
-        if (context == null || replayIndex < 0)
-        {
-            return null;
-        }
-
-        IEntity targetEntity = context.entities.get(replayIndex);
-
-        if (targetEntity == null)
-        {
-            return null;
-        }
-
-        return getLookAtTargetPoint(targetEntity, attachment, context.transition);
-    }
-
-    /**
-     * World-space orientation of a replay's attachment, used by inverse kinematics
-     * angle targets.
-     */
-    public static Quaternionf resolveReplayAttachmentRotation(FilmControllerContext context, int replayIndex, String attachment)
-    {
-        if (context == null || replayIndex < 0)
-        {
-            return null;
-        }
-
-        IEntity targetEntity = context.entities.get(replayIndex);
-
-        if (targetEntity == null)
-        {
-            return null;
-        }
-
-        return getLookAtTargetRotation(targetEntity, attachment, context.transition);
-    }
-
-    private static void applyLookAt(FilmControllerContext context, Form form, Vector3d position, Matrix4f target)
-    {
-        LookAt lookAt = form.lookAt.get();
-
-        if (lookAt == null || !lookAt.translate || context.film == null)
-        {
-            return;
-        }
-
-        LookAtBone strongest = null;
-
-        for (LookAtBone bone : lookAt.bones.values())
-        {
-            if (bone.isActive() && (strongest == null || bone.blend > strongest.blend))
-            {
-                strongest = bone;
-            }
-        }
-
-        if (strongest == null)
-        {
-            return;
-        }
-
-        IEntity targetEntity = context.entities.get(strongest.replay);
-
-        if (targetEntity == null || targetEntity == context.entity)
-        {
-            return;
-        }
-
-        Replay targetReplay = CollectionUtils.getSafe(context.film.replays.getList(), strongest.replay);
-
-        if (targetReplay == null)
-        {
-            return;
-        }
-
-        float transition = context.transition;
-        float blend = MathUtils.clamp(strongest.blend, 0F, 1F);
-        float restorePropertyTick = getLookAtRestorePropertyTick(context, targetReplay, transition);
-
-        Vector3d pointNow = getLookAtTargetPoint(targetEntity, strongest.attachment, transition);
-        Vector3d pointBase = getLookAtTargetPointAtPropertyTick(targetReplay, targetEntity, strongest.attachment, 0F, transition, restorePropertyTick);
-        double dx = (pointNow.x - pointBase.x) * blend;
-        double dy = (pointNow.y - pointBase.y) * blend;
-        double dz = (pointNow.z - pointBase.z) * blend;
-
-        position.add(dx, dy, dz);
-
-        Vector3f translation = target.getTranslation(new Vector3f());
-
-        target.setTranslation(translation.x + (float) dx, translation.y + (float) dy, translation.z + (float) dz);
-    }
-
-    /**
-     * Computes the extra yaw/pitch (in the model's local space) that would make the
-     * entity fully face the look at target, or null when the direction is degenerate.
-     */
-    private static Vector2f getLookAtRotation(IEntity entity, IEntity targetEntity, String attachment, Vector3d position, float transition)
-    {
-        Vector3d targetPoint = getLookAtTargetPoint(targetEntity, attachment, transition);
-        double dirX = targetPoint.x - position.x;
-        double dirY = targetPoint.y - position.y;
-        double dirZ = targetPoint.z - position.z;
-        double horizontal = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-        if (horizontal * horizontal + dirY * dirY < 0.0001D)
-        {
-            return null;
-        }
-
-        /* Entities face (-sin(yaw), 0, cos(yaw)), and the matrix contains rotateY(-bodyYaw),
-         * so the desired matrix rotation that faces the target is atan2(dirX, dirZ) */
-        float desiredYaw = (float) Math.atan2(dirX, dirZ);
-        float currentYaw = MathUtils.toRad(-Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition));
-        float deltaYaw = desiredYaw - currentYaw;
-
-        /* Wrap into -PI..PI so the blended rotation takes the shortest path */
-        deltaYaw = (float) Math.atan2(Math.sin(deltaYaw), Math.cos(deltaYaw));
-
-        float pitch = (float) Math.atan2(dirY, horizontal);
-
-        return new Vector2f(deltaYaw, pitch);
-    }
-
-    /**
-     * Property tick at which the target replay's form properties should be restored
-     * after temporarily sampling another tick for look at translate follow.
-     */
-    private static float getLookAtRestorePropertyTick(FilmControllerContext context, Replay targetReplay, float transition)
-    {
-        if (context.filmTick >= 0)
-        {
-            return targetReplay.getTick(context.filmTick) + transition;
-        }
-
-        if (targetReplay == context.replay && !Float.isNaN(context.propertyTick))
-        {
-            return context.propertyTick;
-        }
-
-        return Float.NaN;
-    }
-
-    /**
-     * Visual offset matrix for a look at target: a picked attachment bone, the form
-     * root (including transform overlays), or the anchor attachment as fallback.
-     */
-    private static Matrix4f getLookAtVisualMatrix(MatrixCache map, Form targetForm, String attachment)
-    {
-        Matrix4f visualMatrix = null;
-
-        if (attachment != null && !attachment.isEmpty())
-        {
-            MatrixCacheEntry entry = map.get(attachment.replace("#origin", ""));
-
-            if (entry != null)
-            {
-                visualMatrix = entry.origin() != null ? entry.origin() : entry.matrix();
-            }
-        }
-        else
-        {
-            MatrixCacheEntry entry = map.get("");
-
-            if (entry != null)
-            {
-                visualMatrix = entry.origin() != null ? entry.origin() : entry.matrix();
-            }
-
-            if (visualMatrix == null)
-            {
-                Anchor anchor = targetForm.anchor.get();
-
-                if (anchor != null && !anchor.attachment.isEmpty())
-                {
-                    entry = map.get(anchor.attachment.replace("#origin", ""));
-
-                    if (entry != null)
-                    {
-                        visualMatrix = entry.origin() != null ? entry.origin() : entry.matrix();
-                    }
-                }
-            }
-        }
-
-        return visualMatrix;
-    }
-
-    /**
-     * Entity matrix from replay position keyframes at the given property tick, without
-     * using the entity's live coordinates.
-     */
-    private static Matrix4f getMatrixForReplayKeyframes(Replay replay, float propertyTick, float transition)
-    {
-        double x = replay.keyframes.x.interpolate(propertyTick);
-        double y = replay.keyframes.y.interpolate(propertyTick);
-        double z = replay.keyframes.z.interpolate(propertyTick);
-        double prevX = replay.keyframes.x.interpolate(propertyTick - 1F);
-        double prevY = replay.keyframes.y.interpolate(propertyTick - 1F);
-        double prevZ = replay.keyframes.z.interpolate(propertyTick - 1F);
-        float bodyYaw = replay.keyframes.bodyYaw.interpolate(propertyTick).floatValue();
-        float prevBodyYaw = replay.keyframes.bodyYaw.interpolate(propertyTick - 1F).floatValue();
-        Matrix4f matrix = new Matrix4f();
-
-        matrix.translate(
-            (float) Lerps.lerp(prevX, x, transition),
-            (float) Lerps.lerp(prevY, y, transition),
-            (float) Lerps.lerp(prevZ, z, transition)
-        );
-        float yaw = (float) Lerps.lerpYaw(prevBodyYaw, bodyYaw, transition);
-
-        matrix.rotateY(MathUtils.toRad(-yaw));
-
-        return matrix;
-    }
-
-    /**
-     * World position of the look at target. When an attachment bone is picked, the
-     * bone's matrix is used (which reacts to the target's pose animation), otherwise
-     * the target form's full visual transform is taken into account.
-     */
-    private static Vector3d getLookAtTargetPoint(IEntity targetEntity, String attachment, float transition)
-    {
-        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
-        Form targetForm = targetEntity.getForm();
-
-        if (targetForm != null)
-        {
-            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-        }
-
-        Vector3f translation = matrix.getTranslation(new Vector3f());
-
-        return new Vector3d(translation);
-    }
-
-    private static Quaternionf getLookAtTargetRotation(IEntity targetEntity, String attachment, float transition)
-    {
-        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
-        Form targetForm = targetEntity.getForm();
-
-        if (targetForm != null)
-        {
-            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-        }
-
-        return matrix.getNormalizedRotation(new Quaternionf());
-    }
-
-    /**
-     * Same as {@link #getLookAtTargetPoint} but samples the target replay at a specific
-     * property tick (for example tick 0 as the translate follow baseline). Restores the
-     * target form's properties afterward when {@code restorePropertyTick} is not NaN.
-     */
-    private static Vector3d getLookAtTargetPointAtPropertyTick(Replay replay, IEntity targetEntity, String attachment, float propertyTick, float transition, float restorePropertyTick)
-    {
-        Form form = targetEntity.getForm();
-        Matrix4f matrix = getMatrixForReplayKeyframes(replay, propertyTick, transition);
-
-        if (form != null)
-        {
-            replay.properties.resetProperties(form);
-            replay.properties.applyProperties(form, propertyTick);
-
-            MatrixCache map = FormUtilsClient.getRenderer(form).collectMatrices(targetEntity, transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, form, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-
-            if (!Float.isNaN(restorePropertyTick))
-            {
-                replay.properties.resetProperties(form);
-                replay.properties.applyProperties(form, restorePropertyTick);
-            }
-        }
-
-        Vector3f translation = matrix.getTranslation(new Vector3f());
-
-        return new Vector3d(translation);
-    }
-
-    /**
-     * Sets a temporary look at pose on the form's renderer. Every locked bone gets
-     * rotated toward its own target (replay and optionally attachment), scaled by
-     * its own lock strength. The returned renderer must be cleared with
-     * setLookAtPose(null) after rendering.
-     */
-    private static ModelFormRenderer applyLookAtPose(FilmControllerContext context, Form form, Vector3d position)
-    {
-        LookAt lookAt = form.lookAt.get();
-
-        if (lookAt == null || !lookAt.isActive())
-        {
-            return null;
-        }
-
-        if (!(FormUtilsClient.getRenderer(form) instanceof ModelFormRenderer renderer))
-        {
-            return null;
-        }
-
-        Pose pose = new Pose();
-
-        for (Map.Entry<String, LookAtBone> entry : lookAt.bones.entrySet())
-        {
-            LookAtBone bone = entry.getValue();
-
-            if (!bone.isActive())
-            {
-                continue;
-            }
-
-            IEntity targetEntity = context.entities.get(bone.replay);
-
-            if (targetEntity == null || targetEntity == context.entity)
-            {
-                continue;
-            }
-
-            Vector2f rotation = getLookAtRotation(context.entity, targetEntity, bone.attachment, position, context.transition);
-
-            if (rotation == null)
-            {
-                continue;
-            }
-
-            float blend = MathUtils.clamp(bone.blend, 0F, 1F);
-            PoseTransform poseTransform = pose.get(entry.getKey());
-
-            poseTransform.rotate.y = rotation.x * blend;
-            poseTransform.rotate.x = rotation.y * blend;
-        }
-
-        if (pose.isEmpty())
-        {
-            return null;
-        }
-
-        renderer.setLookAtPose(pose);
-
-        return renderer;
     }
 
     private static void renderGizmo(MatrixStack stack, StencilMap stencilMap)
@@ -1096,11 +716,6 @@ public abstract class BaseFilmController
         else
         {
             worldTarget = defaultMatrix;
-        }
-
-        if (form != null)
-        {
-            applyLookAt(context, form, position, worldTarget);
         }
 
         if (context.localGroupTransform != null)

@@ -727,7 +727,6 @@
     "bbs.ui.forms.editors.general.illusion": "Illusion",
     "bbs.ui.forms.editors.general.lighting": "İşıqlandırma",
     "bbs.ui.forms.editors.general.lighting-tooltip": "Məşəl işığı, göy üzü işığı, günün saatı və s. kimi formaya işıqlandırma tətbiq olunub-olunmadığı.",
-    "bbs.ui.forms.editors.general.look_at": "Look",
     "bbs.ui.forms.editors.general.movement_speed": "Sürət",
     "bbs.ui.forms.editors.general.movement_speed-tooltip": "Bu seçim daha əvvəl artıq qeyd edilmiş aktyorların hərəkət sürətini dəyişdirmir. Yalnızca dönüşən oyunçu üçündür!",
     "bbs.ui.forms.editors.general.shader_shadow": "Shader kölgəsi",

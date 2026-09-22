@@ -92,7 +92,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -132,9 +131,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private int lastUiAnimTick = Integer.MIN_VALUE;
 
     private IEntity entity = new StubEntity();
-
-    /* Transient additive pose applied by the film "Look at" constraint */
-    private Pose lookAtPose;
 
     @Override
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
@@ -321,22 +317,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.applyPose(pose, newPose.get());
         }
 
-        if (this.lookAtPose != null)
-        {
-            this.applyPose(pose, this.lookAtPose);
-        }
-
         return pose;
-    }
-
-    /**
-     * Sets a transient additive pose used by the film controller's "Look at"
-     * constraint (per bone lock weights). It's set right before rendering an
-     * entity and cleared right after, so it never gets serialized.
-     */
-    public void setLookAtPose(Pose pose)
-    {
-        this.lookAtPose = pose;
     }
 
     private void applyPose(Pose targetPose, Pose pose)
@@ -1912,81 +1893,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         this.ikAppliedThisRender = true;
         model.form = this.form;
-
-        boolean hasOverrides = baseTransform != null && this.form != null
-            && (!this.form.ikTargetOverrides.isEmpty()
-                || !this.form.poleTargetOverrides.isEmpty()
-                || !this.form.ikTipRotationOverrides.isEmpty()
-                || !this.form.limbParamOverrides.isEmpty());
-
-        if (!hasOverrides)
-        {
-            LimbConstraintProcessor.process(model, null, null);
-            return;
-        }
-
-        Matrix4f inv = new Matrix4f(baseTransform).invert();
-        Map<String, Vector3f> local = toModelSpace(this.form.ikTargetOverrides, inv);
-        Map<String, Vector3f> poleLocal = toModelSpace(this.form.poleTargetOverrides, inv);
-        Map<String, Quaternionf> tipLocal = toModelSpaceRotation(this.form.ikTipRotationOverrides, inv);
-
-        if (local.isEmpty() && poleLocal.isEmpty() && tipLocal.isEmpty() && this.form.limbParamOverrides.isEmpty())
-        {
-            LimbConstraintProcessor.process(model, null, null);
-            return;
-        }
-
-        LimbConstraintProcessor.process(
-            model,
-            local.isEmpty() ? null : local,
-            poleLocal.isEmpty() ? null : poleLocal,
-            tipLocal.isEmpty() ? null : tipLocal,
-            null
-        );
-    }
-
-    private static Map<String, Quaternionf> toModelSpaceRotation(Map<String, Quaternionf> world, Matrix4f inv)
-    {
-        Map<String, Quaternionf> local = new HashMap<>(world.size() * 2);
-        Quaternionf invRot = inv.getNormalizedRotation(new Quaternionf());
-
-        for (Map.Entry<String, Quaternionf> entry : world.entrySet())
-        {
-            String key = entry.getKey();
-            Quaternionf worldRot = entry.getValue();
-
-            if (key == null || key.isEmpty() || worldRot == null)
-            {
-                continue;
-            }
-
-            local.put(key, invRot.mul(worldRot, new Quaternionf()));
-        }
-
-        return local;
-    }
-
-    /** World-space target overrides into the model's local space (the space the solver and pivot frames use). */
-    private static Map<String, Vector3f> toModelSpace(Map<String, Vector3f> world, Matrix4f inv)
-    {
-        Map<String, Vector3f> local = new HashMap<>(world.size() * 2);
-
-        for (Map.Entry<String, Vector3f> entry : world.entrySet())
-        {
-            String key = entry.getKey();
-            Vector3f worldPos = entry.getValue();
-
-            if (key == null || key.isEmpty() || worldPos == null)
-            {
-                continue;
-            }
-
-            Vector3f pos = new Vector3f(worldPos);
-            inv.transformPosition(pos);
-            local.put(key, pos);
-        }
-
-        return local;
+        LimbConstraintProcessor.process(model, null, null);
     }
 
     private void applyPhysicsOnce(IEntity target, ModelInstance model, float transition, Matrix4f baseTransform)

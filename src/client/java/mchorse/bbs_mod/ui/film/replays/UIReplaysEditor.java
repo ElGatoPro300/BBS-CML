@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.film.replays;
 
-import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.audio.SoundBuffer;
@@ -68,8 +67,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIInverseKinematicsKeyframeFactory;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UILookAtKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeGraph;
@@ -212,8 +209,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("shake", 0x159e64);
         COLORS.put("color_grade", Colors.PINK);
         COLORS.put("lighting", Colors.YELLOW);
-        COLORS.put("look_at", 0x007f70);
-        COLORS.put("inverse_kinematics", 0x6b4c9a);
         COLORS.put("illusion", Colors.DEEP_PINK);
         COLORS.put("illusion_overlay", 0xff66aa);
         COLORS.put("illusion_transform", 0xdd66ff);
@@ -284,8 +279,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("shake", Icons.EXCHANGE);
         ICONS.put("color_grade", Icons.FAVORITE);
         ICONS.put("lighting", Icons.LIGHT);
-        ICONS.put("look_at", Icons.VISIBLE);
-        ICONS.put("inverse_kinematics", Icons.IK);
         ICONS.put("illusion", Icons.POSE);
         ICONS.put("illusion_transform", Icons.ALL_DIRECTIONS);
         ICONS.put("structure_light", Icons.LIGHT);
@@ -1602,7 +1595,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "shake", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "shake", "pose", "pose_overlay", "anchor", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1939,16 +1932,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("repeat_center_z"))
         {
             return UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z;
-        }
-
-        if (trackName.equals("look_at"))
-        {
-            return UIKeys.FORMS_EDITORS_GENERAL_LOOK_AT;
-        }
-
-        if (trackName.equals("inverse_kinematics"))
-        {
-            return UIKeys.FORMS_EDITORS_GENERAL_INVERSE_KINEMATICS;
         }
 
         if (trackName.equals("illusion"))
@@ -2420,8 +2403,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (name.indexOf(':') != -1) return 29;
 
                 if (name.equals("anchor")) return 30;
-                if (name.equals("look_at")) return 31;
-                if (name.equals("inverse_kinematics")) return 32;
                 if (name.equals("illusion")) return 33;
                 if (name.equals("illusion_overlay")) return 34;
                 if (name.startsWith("illusion_overlay") && name.length() > "illusion_overlay".length())
@@ -3200,14 +3181,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
         {
             poseFactory.poseEditor.selectBone(bone);
-        }
-        else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
-        {
-            lookAtFactory.lookAtEditor.selectBone(bone);
-        }
-        else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
-        {
-            ikFactory.ikEditor.selectBone(bone);
         }
     }
 
@@ -4066,9 +4039,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     private boolean isBonePickProperty(String propertyId)
     {
-        return propertyId.equals("pose") || propertyId.startsWith("pose_overlay")
-            || (BBSFeatures.isFormIkLookAtUiEnabled() && BBSFeatures.isFormIkLookAtProperty(propertyId));
+        return propertyId.equals("pose") || propertyId.startsWith("pose_overlay");
     }
+
 
     /**
      * Bone stencil can hit any visible replay. Switch to the owning replay first so
@@ -4179,12 +4152,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             String activeOverlayPath = null;
             String posePath = null;
-            String lookAtPath = null;
-            String inverseKinematicsPath = null;
             double minPoseDist = Double.MAX_VALUE;
             double minOverlayDist = Double.MAX_VALUE;
-            double minLookAtDist = Double.MAX_VALUE;
-            double minInverseKinematicsDist = Double.MAX_VALUE;
             int currentTick = this.filmPanel.getCursor();
 
             for (UIKeyframeSheet sheet : graph.getSheets())
@@ -4229,34 +4198,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             }
                         }
                     }
-                    else if (propertyId.equals("look_at"))
-                    {
-                        lookAtPath = pathWithProperty;
-
-                        if (!sheet.channel.isEmpty())
-                        {
-                            KeyframeSegment segment = sheet.channel.find(currentTick);
-
-                            if (segment != null)
-                            {
-                                minLookAtDist = Math.abs(segment.getClosest().getTick() - currentTick);
-                            }
-                        }
-                    }
-                    else if (propertyId.equals("inverse_kinematics"))
-                    {
-                        inverseKinematicsPath = pathWithProperty;
-
-                        if (!sheet.channel.isEmpty())
-                        {
-                            KeyframeSegment segment = sheet.channel.find(currentTick);
-
-                            if (segment != null)
-                            {
-                                minInverseKinematicsDist = Math.abs(segment.getClosest().getTick() - currentTick);
-                            }
-                        }
-                    }
                 }
             }
 
@@ -4264,42 +4205,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 propertyPath = activeOverlayPath;
             }
-            else if (inverseKinematicsPath != null && minInverseKinematicsDist <= minPoseDist && this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory)
-            {
-                propertyPath = inverseKinematicsPath;
-            }
-            else if (lookAtPath != null && minLookAtDist <= minPoseDist && this.keyframeEditor.editor instanceof UILookAtKeyframeFactory)
-            {
-                propertyPath = lookAtPath;
-            }
             else if (posePath != null)
             {
                 propertyPath = posePath;
-            }
-            else if (BBSFeatures.isFormIkLookAtUiEnabled() && lookAtPath != null)
-            {
-                propertyPath = lookAtPath;
-            }
-            else if (BBSFeatures.isFormIkLookAtUiEnabled() && inverseKinematicsPath != null)
-            {
-                propertyPath = inverseKinematicsPath;
             }
         }
 
         if (propertyPath == null)
         {
-            if (BBSFeatures.isFormIkLookAtUiEnabled() && this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory)
-            {
-                propertyPath = StringUtils.combinePaths(formPath, "inverse_kinematics");
-            }
-            else if (BBSFeatures.isFormIkLookAtUiEnabled() && this.keyframeEditor.editor instanceof UILookAtKeyframeFactory)
-            {
-                propertyPath = StringUtils.combinePaths(formPath, "look_at");
-            }
-            else
-            {
-                propertyPath = StringUtils.combinePaths(formPath, "pose");
-            }
+            propertyPath = StringUtils.combinePaths(formPath, "pose");
         }
 
         this.pickProperty(bone, propertyPath, false);
@@ -4406,14 +4320,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     poseFactory.poseEditor.selectBone(bone);
                 }
             }
-            else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
-            {
-                lookAtFactory.lookAtEditor.selectBone(bone);
-            }
-            else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
-            {
-                ikFactory.ikEditor.selectBone(bone);
-            }
         }
     }
 
@@ -4472,14 +4378,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     poseFactory.poseEditor.selectBone(bone);
                 }
             }
-            else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
-            {
-                lookAtFactory.lookAtEditor.selectBone(bone);
-            }
-            else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
-            {
-                ikFactory.ikEditor.selectBone(bone);
-            }
 
             this.filmPanel.setCursor((int) closest.getTick());
         }
@@ -4493,14 +4391,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 poseFactory.poseEditor.selectBone(bone);
             }
-        }
-        else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
-        {
-            lookAtFactory.lookAtEditor.selectBone(bone);
-        }
-        else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
-        {
-            ikFactory.ikEditor.selectBone(bone);
         }
     }
 

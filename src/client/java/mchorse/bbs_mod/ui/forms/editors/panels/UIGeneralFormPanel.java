@@ -1,14 +1,9 @@
 package mchorse.bbs_mod.ui.forms.editors.panels;
 
-import mchorse.bbs_mod.BBSFeatures;
-import mchorse.bbs_mod.forms.FormUtils;
-import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
-import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
-import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
@@ -16,14 +11,11 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.ui.framework.elements.input.UIInverseKinematicsEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIKeybind;
-import mchorse.bbs_mod.ui.framework.elements.input.UILookAtEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIIllusionKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
-import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
@@ -46,8 +38,6 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UIToggle lighting;
     public UIToggle noShading;
     public UIToggle shaderShadow;
-    public UILookAtEditor lookAt;
-    public UIInverseKinematicsEditor inverseKinematics;
     public UITrackpad illusionCount;
     public UITrackpad illusionSpread;
     public UIToggle illusionFront;
@@ -93,8 +83,6 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UITrackpad speed;
     public UITrackpad stepHeight;
 
-    public UISection lookAtSection;
-    public UISection inverseKinematicsSection;
     public UISection illusionSection;
 
     private UIElement illusionOpacityRow;
@@ -128,10 +116,6 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
         this.shaderShadow = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW, (b) -> this.form.shaderShadow.set(b.getValue()));
         this.shaderShadow.tooltip(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW_HINT);
-        this.lookAt = new UILookAtEditor();
-        this.lookAt.callbacks(() -> this.form.lookAt.get(), this::editLookAt);
-        this.inverseKinematics = new UIInverseKinematicsEditor();
-        this.inverseKinematics.callbacks(() -> this.form.inverseKinematics.get(), this::editInverseKinematics);
         this.illusionCount = new UITrackpad((v) -> this.editIllusion((illusion) -> illusion.count = v.intValue()));
         this.illusionCount.limit(0D).integer();
         this.illusionSpread = new UITrackpad((v) -> this.editIllusion((illusion) -> illusion.spread = v.floatValue()));
@@ -223,23 +207,6 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.stepHeight = new UITrackpad((v) -> this.form.stepHeight.set(v.floatValue()));
         this.stepHeight.limit(0F);
 
-        this.lookAtSection = new UISection(UIKeys.FORMS_EDITORS_GENERAL_LOOK_AT, this.lookAt);
-        this.lookAtSection.onToggle((b) ->
-        {
-            if (b)
-            {
-                this.refreshLookAt();
-            }
-        });
-        this.inverseKinematicsSection = new UISection(UIKeys.FORMS_EDITORS_GENERAL_INVERSE_KINEMATICS, this.inverseKinematics);
-        this.inverseKinematicsSection.onToggle((b) ->
-        {
-            if (b)
-            {
-                this.refreshInverseKinematics();
-            }
-        });
-
         this.illusionOpacityRow = UI.row(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_OPACITY), this.illusionOpacity);
         this.illusionOpacityFlagsRow = UI.row(this.illusionOpacityUniform, this.illusionInvert);
         this.illusionTransformLabel = UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_TRANSFORM);
@@ -326,37 +293,13 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.options.add(
             displaySection,
             transformSection.marginTop(4),
-            this.lookAtSection.marginTop(4),
-            this.inverseKinematicsSection.marginTop(4),
             this.illusionSection.marginTop(4),
             hitboxSection.marginTop(4),
             statsSection.marginTop(4)
         );
     }
 
-    private void refreshLookAt()
-    {
-        if (this.form == null)
-        {
-            return;
-        }
 
-        this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(this.form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-        this.lookAt.refresh();
-        this.lookAt.resize();
-    }
-
-    private void refreshInverseKinematics()
-    {
-        if (this.form == null)
-        {
-            return;
-        }
-
-        this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(this.form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-        this.inverseKinematics.refresh();
-        this.inverseKinematics.resize();
-    }
 
     private void editIllusion(Consumer<Illusion> consumer)
     {
@@ -385,21 +328,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.editIllusion((illusion) -> illusion.directions = enabled ? illusion.directions | bit : illusion.directions & ~bit);
     }
 
-    private void editLookAt(Consumer<LookAt> consumer)
-    {
-        LookAt lookAt = this.form.lookAt.get().copy();
 
-        consumer.accept(lookAt);
-        this.form.lookAt.set(lookAt);
-    }
-
-    private void editInverseKinematics(Consumer<InverseKinematics> consumer)
-    {
-        InverseKinematics ik = this.form.inverseKinematics.get().copy();
-
-        consumer.accept(ik);
-        this.form.inverseKinematics.set(ik);
-    }
 
     @Override
     public void startEdit(Form form)
@@ -414,21 +343,6 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.lighting.setValue(form.lighting.get() < 0.5F);
         this.noShading.setValue(form.noshadingOpacity.get());
         this.shaderShadow.setValue(form.shaderShadow.get());
-        /* Look At / IK need film replay actors as targets — hide in model-block form editing. */
-        this.updateFilmOnlySectionsVisibility();
-
-        if (this.lookAtSection.isVisible())
-        {
-            this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-            this.lookAt.refresh();
-        }
-
-        if (this.inverseKinematicsSection.isVisible())
-        {
-            this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-            this.inverseKinematics.refresh();
-        }
-
         Illusion illusion = form.illusion.get();
 
         this.illusionCount.setValue(illusion.count);
@@ -478,37 +392,8 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.stepHeight.setValue(form.stepHeight.get());
     }
 
-    /**
-     * Re-evaluate Look At / IK visibility (e.g. when the General tab becomes active).
-     */
-    public void refreshFilmOnlySectionsVisibility()
-    {
-        this.updateFilmOnlySectionsVisibility();
-        this.options.resize();
-    }
-
-    /**
-     * Film-only constraint UIs (targets are replay actors). Keep them for morphing /
-     * film form editors; hide when this General panel is nested under a model block.
-     * <p>
-     * Walk from {@link UIForm#editor} rather than {@code this}: at
-     * {@link #startEdit} time the General tab is usually not mounted (Pose is the
-     * default panel), so {@code this.getParent(...)} is null even inside a model block.
-     */
-    private void updateFilmOnlySectionsVisibility()
-    {
-        boolean show = BBSFeatures.isFormIkLookAtUiEnabled() && !this.isModelBlockFormContext();
-
-        this.lookAtSection.setVisible(show);
-        this.inverseKinematicsSection.setVisible(show);
-
-        if (!show)
-        {
-            this.lookAtSection.setExpanded(false);
-            this.inverseKinematicsSection.setExpanded(false);
-        }
-    }
-
+    
+    
     private void updateIllusionParticleOptions(Form form)
     {
         boolean particleForm = form instanceof ParticleForm || form instanceof VanillaParticleForm;
@@ -533,15 +418,4 @@ public class UIGeneralFormPanel extends UIFormPanel
         }
     }
 
-    private boolean isModelBlockFormContext()
-    {
-        UIElement anchor = this;
-
-        if (this.editor != null && this.editor.editor != null)
-        {
-            anchor = this.editor.editor;
-        }
-
-        return anchor.getParent(UIModelBlockPanel.class) != null;
-    }
 }
