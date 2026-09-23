@@ -177,11 +177,6 @@ public final class LimbConstraintProcessor
             return (MapType) map.copy();
         }
 
-        if (instanceLimbs != null)
-        {
-            return (MapType) instanceLimbs.copy();
-        }
-
         return null;
     }
 }

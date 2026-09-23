@@ -77,9 +77,14 @@ public final class DynamicBoneOrchestrator
             return null;
         }
 
-        if (instance.form instanceof ModelForm modelForm && modelForm.springs.get() instanceof MapType m)
+        if (instance.form instanceof ModelForm modelForm)
         {
-            return m;
+            if (modelForm.springs.get() instanceof MapType m && !m.isEmpty())
+            {
+                return m;
+            }
+
+            return null;
         }
 
         return instance.springChains;

@@ -42,9 +42,12 @@ public final class JointLimitEnforcer
     {
         MapType map = null;
 
-        if (instance != null && instance.form instanceof ModelForm form && form.constraints.get() instanceof MapType m)
+        if (instance != null && instance.form instanceof ModelForm form)
         {
-            map = m;
+            if (form.constraints.get() instanceof MapType m && !m.isEmpty())
+            {
+                map = m;
+            }
         }
         else if (instance != null && instance.jointLimits != null)
         {
