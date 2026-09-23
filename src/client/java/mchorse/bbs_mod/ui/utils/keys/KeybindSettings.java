@@ -20,6 +20,14 @@ public class KeybindSettings
         classes.add(Keys.class);
     }
 
+    public static void registerClass(Class clazz)
+    {
+        if (clazz != null && !classes.contains(clazz))
+        {
+            classes.add(clazz);
+        }
+    }
+
     public static void register(SettingsBuilder builder)
     {
         Map<String, List<KeyCombo>> combos = new HashMap<>();

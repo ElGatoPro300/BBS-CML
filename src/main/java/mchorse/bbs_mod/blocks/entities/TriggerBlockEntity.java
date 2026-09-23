@@ -2,7 +2,7 @@ package mchorse.bbs_mod.blocks.entities;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.DataStorageUtils;
-import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
+import mchorse.bbs_mod.api.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;

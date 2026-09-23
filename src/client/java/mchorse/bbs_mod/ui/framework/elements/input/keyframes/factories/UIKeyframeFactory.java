@@ -40,6 +40,7 @@ import java.util.Map;
 public abstract class UIKeyframeFactory <T> extends UIElement
 {
     public static final Map<IKeyframeFactory, IUIKeyframeFactoryFactory> FACTORIES = new HashMap<>();
+    private static final Map<String, IUIKeyframeFactoryFactory> PROPERTIES = new HashMap<>();
     private static final Map<IKeyframeFactory, Integer> SCROLLS = new HashMap<>();
 
     public UIScrollView scroll;
@@ -89,6 +90,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         FACTORIES.put(clazz, factory);
     }
 
+    public static <T> void registerProperty(String property, IUIKeyframeFactoryFactory<T> factory)
+    {
+        PROPERTIES.put(property, factory);
+    }
+
     public static void saveScroll(UIKeyframeFactory editor)
     {
         if (editor != null)
@@ -99,6 +105,27 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
     public static <T> UIKeyframeFactory createPanel(Keyframe<T> keyframe, UIKeyframes editor)
     {
+        if (editor != null && editor.getGraph() != null)
+        {
+            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+
+            if (sheet != null && sheet.channel != null)
+            {
+                IUIKeyframeFactoryFactory propertyFactory = PROPERTIES.get(StringUtils.fileName(sheet.channel.getId()));
+
+                if (propertyFactory != null)
+                {
+                    UIKeyframeFactory uiEditor = propertyFactory.create(keyframe, editor);
+
+                    if (uiEditor != null)
+                    {
+                        uiEditor.scroll.scroll.setScroll(SCROLLS.getOrDefault(keyframe.getFactory(), 0));
+
+                        return uiEditor;
+                    }
+                }
+            }
+        }
         if (keyframe.getFactory() == KeyframeFactories.BOOLEAN && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);

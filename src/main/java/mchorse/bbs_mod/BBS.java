@@ -2,7 +2,7 @@ package mchorse.bbs_mod;
 
 import mchorse.bbs_mod.actions.ActionManager;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
-import mchorse.bbs_mod.events.EventBus;
+import mchorse.bbs_mod.api.EventBus;
 import mchorse.bbs_mod.film.FilmManager;
 import mchorse.bbs_mod.forms.FormArchitect;
 import mchorse.bbs_mod.resources.AssetProvider;

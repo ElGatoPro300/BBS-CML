@@ -36,8 +36,8 @@ This comprehensive guide explains how to create addons for BBS CML. The addon sy
 
 To register your addon, you need to add specific entrypoints to your `fabric.mod.json`.
 
-- `bbs-addon`: For your common/server-side addon class.
-- `bbs-addon-client`: For your client-side addon class.
+- `bbs-addon`: For your common/server-side addon class (implements `BBSAddonMod`).
+- `bbs-client-addon`: For your client-side addon class (implements `BBSAddonMod`). *(Note: `bbs-addon-client` is also supported for backwards compatibility).*
 
 ```json
 {
@@ -66,7 +66,7 @@ To register your addon, you need to add specific entrypoints to your `fabric.mod
     "bbs-addon": [
       "com.example.addon.MyBBSAddon"
     ],
-    "bbs-addon-client": [
+    "bbs-client-addon": [
       "com.example.addon.client.MyBBSClientAddon"
     ]
   },
@@ -83,11 +83,65 @@ To register your addon, you need to add specific entrypoints to your `fabric.mod
 
 The BBS Mod addon system is divided into two main parts: the common/server side and the client side.
 
-### BBSAddon (Common/Server)
-Extend `mchorse.bbs_mod.addons.BBSAddon`. Handles logical registration: Forms, Clips, Settings, Molang functions.
+### Common / Server (`bbs-addon`)
+Implement `mchorse.bbs_mod.api.BBSAddonMod` and use `@Subscribe` methods for logical registration: Forms, Clips, Settings, Molang functions, Keyframe factories.
 
-### BBSClientAddon (Client)
-Extend `mchorse.bbs_mod.addons.BBSClientAddon`. Handles visual registration: UI Panels, Renderers, Keyframe Editors.
+```java
+package com.example.addon;
+
+import mchorse.bbs_mod.api.BBSAddonMod;
+import mchorse.bbs_mod.api.BBSApi;
+import mchorse.bbs_mod.api.Subscribe;
+import mchorse.bbs_mod.api.events.RegisterFormsEvent;
+import mchorse.bbs_mod.api.events.RegisterSourcePacksEvent;
+
+public class MyBBSAddon implements BBSAddonMod
+{
+    public MyBBSAddon()
+    {
+        BBSApi.requireVersion("my_bbs_addon", 1);
+    }
+
+    @Subscribe
+    public void onRegisterSourcePacks(RegisterSourcePacksEvent event)
+    {
+        event.registerAddon("my_bbs_addon", getClass());
+    }
+
+    @Subscribe
+    public void onRegisterForms(RegisterFormsEvent event)
+    {
+        event.register(Link.create("my_bbs_addon:custom_form"), CustomForm.class);
+    }
+}
+```
+
+### Client (`bbs-client-addon`)
+Implement `mchorse.bbs_mod.api.BBSAddonMod` and use `@Subscribe` methods for client visual registration: Form Renderers, Form Editors, Clip Panels, Dashboard Panels, Keybinds, Keyframe Editors.
+
+```java
+package com.example.addon.client;
+
+import mchorse.bbs_mod.api.BBSAddonMod;
+import mchorse.bbs_mod.api.Subscribe;
+import mchorse.bbs_mod.api.client.events.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormRenderersEvent;
+
+public class MyBBSClientAddon implements BBSAddonMod
+{
+    @Subscribe
+    public void onRegisterFormRenderers(RegisterFormRenderersEvent event)
+    {
+        event.register(CustomForm.class, CustomFormRenderer::new);
+    }
+
+    @Subscribe
+    public void onRegisterFormEditors(RegisterFormEditorsEvent event)
+    {
+        event.register(CustomForm.class, UICustomForm::new);
+    }
+}
+```
 
 ## Core Concepts
 

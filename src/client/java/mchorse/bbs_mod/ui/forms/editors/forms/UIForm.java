@@ -26,8 +26,14 @@ import mchorse.bbs_mod.utils.joml.Matrices;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
 public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>>
 {
+    private static final List<Consumer<UIForm<?>>> EXTENSIONS = new ArrayList<>();
+
     public UIFormEditor editor;
 
     public T form;
@@ -36,9 +42,22 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
 
     private UIPropTransform general;
 
+    public static void registerPanelExtension(Consumer<UIForm<?>> extension)
+    {
+        if (extension != null)
+        {
+            EXTENSIONS.add(extension);
+        }
+    }
+
     public UIForm()
     {
         super(Direction.LEFT);
+
+        for (Consumer<UIForm<?>> extension : EXTENSIONS)
+        {
+            extension.accept(this);
+        }
 
         this.keys().register(Keys.FILM_CONTROLLER_CYCLE_EDITORS, this::cyclePanels).allowShift();
     }

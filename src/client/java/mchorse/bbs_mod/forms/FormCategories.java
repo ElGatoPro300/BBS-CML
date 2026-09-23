@@ -13,9 +13,12 @@ import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public class FormCategories implements IWatchDogListener
 {
+    private static final List<Function<FormCategories, FormSection>> EXTRA_SECTIONS = new ArrayList<>();
+
     public final VisibilityManager visibility = new VisibilityManager();
 
     private List<FormSection> sections = new ArrayList<>();
@@ -24,6 +27,11 @@ public class FormCategories implements IWatchDogListener
     private ExtraFormSection extraForms = new ExtraFormSection(this);
 
     private long lastUpdate;
+
+    public static void registerSection(Function<FormCategories, FormSection> factory)
+    {
+        EXTRA_SECTIONS.add(factory);
+    }
 
     /* Setup */
 
@@ -35,6 +43,11 @@ public class FormCategories implements IWatchDogListener
         this.sections.add(new ModelFormSection(this));
         this.sections.add(new ParticleFormSection(this));
         this.sections.add(this.extraForms);
+
+        for (Function<FormCategories, FormSection> factory : EXTRA_SECTIONS)
+        {
+            this.sections.add(factory.apply(this));
+        }
 
         for (FormSection section : this.sections)
         {

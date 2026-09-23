@@ -64,18 +64,20 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.entity.GunProjectileEntity;
-import mchorse.bbs_mod.events.BBSAddonMod;
-import mchorse.bbs_mod.events.EventBus;
-import mchorse.bbs_mod.events.register.RegisterActionClipsEvent;
-import mchorse.bbs_mod.events.register.RegisterActionConfigsEvent;
-import mchorse.bbs_mod.events.register.RegisterCameraClipsEvent;
-import mchorse.bbs_mod.events.register.RegisterEntityCaptureHandlersEvent;
-import mchorse.bbs_mod.events.register.RegisterFormsEvent;
-import mchorse.bbs_mod.events.register.RegisterKeyframeFactoriesEvent;
-import mchorse.bbs_mod.events.register.RegisterMolangFunctionsEvent;
-import mchorse.bbs_mod.events.register.RegisterParticleSimulationsEvent;
-import mchorse.bbs_mod.events.register.RegisterSettingsEvent;
-import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
+import mchorse.bbs_mod.api.BBSAddonMod;
+import mchorse.bbs_mod.api.EventBus;
+import mchorse.bbs_mod.api.events.BBSReadyEvent;
+import mchorse.bbs_mod.api.events.RegisterActionClipsEvent;
+import mchorse.bbs_mod.api.events.RegisterActionConfigsEvent;
+import mchorse.bbs_mod.api.events.RegisterCameraClipsEvent;
+import mchorse.bbs_mod.api.events.RegisterEntityCaptureHandlersEvent;
+import mchorse.bbs_mod.api.events.RegisterFormModifiersEvent;
+import mchorse.bbs_mod.api.events.RegisterFormsEvent;
+import mchorse.bbs_mod.api.events.RegisterKeyframeFactoriesEvent;
+import mchorse.bbs_mod.api.events.RegisterMolangFunctionsEvent;
+import mchorse.bbs_mod.api.events.RegisterParticleSimulationsEvent;
+import mchorse.bbs_mod.api.events.RegisterSettingsEvent;
+import mchorse.bbs_mod.api.events.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.film.FilmManager;
 import mchorse.bbs_mod.forms.FormArchitect;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
@@ -625,6 +627,7 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("light"), LightForm.class, null);
 
         events.post(new RegisterFormsEvent(forms));
+        events.post(new RegisterFormModifiersEvent());
         events.post(new RegisterActionConfigsEvent());
         events.post(new RegisterParticleSimulationsEvent());
 
@@ -845,6 +848,8 @@ public class BBSMod implements ModInitializer
                 }
             });
         });
+
+        events.post(new BBSReadyEvent());
     }
 
     public static Settings setupConfig(Icon icon, String id, File destination, Consumer<SettingsBuilder> registerer)

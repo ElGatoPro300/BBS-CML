@@ -4,7 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.network.ClientNetwork;

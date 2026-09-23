@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.ui.dashboard.panels;
 
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.Keys;

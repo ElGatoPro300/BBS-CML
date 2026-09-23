@@ -3,7 +3,7 @@ package mchorse.bbs_mod;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent;
+import mchorse.bbs_mod.api.events.RegisterBBSSettingsEvent;
 import mchorse.bbs_mod.settings.SettingsBuilder;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueString;

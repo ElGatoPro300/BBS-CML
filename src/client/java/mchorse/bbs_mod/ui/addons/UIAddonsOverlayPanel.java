@@ -2,7 +2,7 @@ package mchorse.bbs_mod.ui.addons;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.addons.AddonInfo;
+import mchorse.bbs_mod.api.AddonInfo;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.packs.InternalAssetsSourcePack;

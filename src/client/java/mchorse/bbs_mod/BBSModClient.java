@@ -1,6 +1,6 @@
 package mchorse.bbs_mod;
 
-import mchorse.bbs_mod.addons.AddonInfo;
+import mchorse.bbs_mod.api.AddonInfo;
 import mchorse.bbs_mod.audio.SoundManager;
 import mchorse.bbs_mod.blocks.ModelBlock;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
@@ -25,36 +25,40 @@ import mchorse.bbs_mod.client.video.VideoFormEngine;
 import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
-import mchorse.bbs_mod.events.BBSAddonMod;
-import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
-import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
-import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
-import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
-import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
-import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
-import mchorse.bbs_mod.events.register.RegisterFormEditorsEvent;
-import mchorse.bbs_mod.events.register.RegisterFormRenderPhaseEvent;
-import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
-import mchorse.bbs_mod.events.register.RegisterIconsEvent;
-import mchorse.bbs_mod.events.register.RegisterImportersEvent;
-import mchorse.bbs_mod.events.register.RegisterInterpolationsEvent;
-import mchorse.bbs_mod.events.register.RegisterKeyframeShapesEvent;
-import mchorse.bbs_mod.events.register.RegisterL10nEvent;
-import mchorse.bbs_mod.events.register.RegisterModelLoadersEvent;
-import mchorse.bbs_mod.events.register.RegisterParticleComponentsEvent;
-import mchorse.bbs_mod.events.register.RegisterParticleSchemeUIEvent;
-import mchorse.bbs_mod.events.register.RegisterPropTransformEvent;
-import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
-import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
-import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
-import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
-import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
-import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
-import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
-import mchorse.bbs_mod.events.register.RegisterUIValueFactoriesEvent;
+import mchorse.bbs_mod.api.BBSAddonMod;
+import mchorse.bbs_mod.api.client.events.BBSClientReadyEvent;
+import mchorse.bbs_mod.api.client.events.RegisterClientSettingsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterClipInteractionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterDockLayoutEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmControllerInteractionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormBlendEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormCategoriesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormEditorSectionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormRenderPhaseEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormRenderersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormsRenderersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterIconsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterImportersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterInterpolationsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterKeybindsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterKeyframeShapesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterL10nEvent;
+import mchorse.bbs_mod.api.client.events.RegisterModelLoadersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterPreviewOverlaysEvent;
+import mchorse.bbs_mod.api.client.events.RegisterParticleComponentsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterParticleSchemeUIEvent;
+import mchorse.bbs_mod.api.client.events.RegisterPropTransformEvent;
+import mchorse.bbs_mod.api.events.RegisterRayTracingEvent;
+import mchorse.bbs_mod.api.client.events.RegisterReplayListContextMenuEvent;
+import mchorse.bbs_mod.api.client.events.RegisterReplayPanelEvent;
+import mchorse.bbs_mod.api.client.events.RegisterSettingsUISectionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterStencilMapEvent;
+import mchorse.bbs_mod.api.client.events.RegisterUIKeyframeFactoriesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterUIThemeEvent;
+import mchorse.bbs_mod.api.client.events.RegisterUIValueFactoriesEvent;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
@@ -524,6 +528,13 @@ public class BBSModClient implements ClientModInitializer
         });
 
         FabricLoader.getInstance()
+            .getEntrypointContainers("bbs-client-addon", BBSAddonMod.class)
+            .forEach((container) ->
+            {
+                BBSMod.events.register(container.getEntrypoint());
+            });
+
+        FabricLoader.getInstance()
             .getEntrypointContainers("bbs-addon-client", BBSAddonMod.class)
             .forEach((container) ->
             {
@@ -553,6 +564,7 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterParticleComponentsEvent(ParticleScheme.PARSER.components));
         BBSMod.events.post(new RegisterInterpolationsEvent(Interpolations.MAP));
         BBSMod.events.post(new RegisterFormsRenderersEvent());
+        BBSMod.events.post(new RegisterFormRenderersEvent());
         BBSMod.events.post(new RegisterFormEditorsEvent(UIFormEditor.panels));
         BBSMod.events.post(new RegisterIconsEvent());
         BBSMod.events.post(new RegisterUIValueFactoriesEvent(UIValueMap.factories));
@@ -574,6 +586,7 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterFilmControllerInteractionEvent());
         BBSMod.events.post(new RegisterSettingsUISectionEvent());
         BBSMod.events.post(new RegisterFilmSyncEvent());
+        BBSMod.events.post(new RegisterPreviewOverlaysEvent());
         screenshotRecorder = new ScreenshotRecorder(new File(parentFile, "screenshots"));
         videoRecorder = new VideoRecorder();
         selectors = new EntitySelectors();
@@ -590,6 +603,8 @@ public class BBSModClient implements ClientModInitializer
         provider.register(new URLSourcePack("https", repository));
 
         KeybindSettings.registerClasses();
+
+        BBSMod.events.post(new RegisterKeybindsEvent());
 
         BBSMod.setupConfig(Icons.KEY_CAP, "keybinds", new File(BBSMod.getSettingsFolder(), "keybinds.json"), KeybindSettings::register);
 
@@ -1100,6 +1115,8 @@ public class BBSModClient implements ClientModInitializer
         {
             BBSMod.getAssetsPath("models/player/" + path + "/").mkdirs();
         }
+
+        BBSMod.events.post(new BBSClientReadyEvent());
     }
 
     private KeyBinding createKey(String id, int key)

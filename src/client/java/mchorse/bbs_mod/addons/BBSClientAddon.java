@@ -1,46 +1,49 @@
 package mchorse.bbs_mod.addons;
 
-import mchorse.bbs_mod.events.BBSAddonMod;
-import mchorse.bbs_mod.events.Subscribe;
-import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
-import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
-import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
-import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmEditorFactoriesEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
-import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
-import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
-import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
-import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
-import mchorse.bbs_mod.events.register.RegisterFormEditorsEvent;
-import mchorse.bbs_mod.events.register.RegisterFormRenderPhaseEvent;
-import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
-import mchorse.bbs_mod.events.register.RegisterGizmoEvent;
-import mchorse.bbs_mod.events.register.RegisterIconsEvent;
-import mchorse.bbs_mod.events.register.RegisterImportersEvent;
-import mchorse.bbs_mod.events.register.RegisterInterpolationsEvent;
-import mchorse.bbs_mod.events.register.RegisterKeyframeShapesEvent;
-import mchorse.bbs_mod.events.register.RegisterL10nEvent;
-import mchorse.bbs_mod.events.register.RegisterModelLoadersEvent;
-import mchorse.bbs_mod.events.register.RegisterParticleComponentsEvent;
-import mchorse.bbs_mod.events.register.RegisterParticleSchemeUIEvent;
-import mchorse.bbs_mod.events.register.RegisterPropTransformEvent;
-import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
-import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
-import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
-import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
-import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
-import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
-import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
-import mchorse.bbs_mod.events.register.RegisterUIValueFactoriesEvent;
+import mchorse.bbs_mod.api.BBSAddonMod;
+import mchorse.bbs_mod.api.Subscribe;
+import mchorse.bbs_mod.api.client.events.RegisterClientSettingsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterClipInteractionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterDashboardPanelsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterDockLayoutEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmControllerInteractionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmEditorFactoriesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormBlendEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormCategoriesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormEditorSectionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormRenderPhaseEvent;
+import mchorse.bbs_mod.api.client.events.RegisterFormsRenderersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterGizmoEvent;
+import mchorse.bbs_mod.api.client.events.RegisterIconsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterImportersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterInterpolationsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterKeyframeShapesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterL10nEvent;
+import mchorse.bbs_mod.api.client.events.RegisterModelLoadersEvent;
+import mchorse.bbs_mod.api.client.events.RegisterParticleComponentsEvent;
+import mchorse.bbs_mod.api.client.events.RegisterParticleSchemeUIEvent;
+import mchorse.bbs_mod.api.client.events.RegisterPropTransformEvent;
+import mchorse.bbs_mod.api.events.RegisterRayTracingEvent;
+import mchorse.bbs_mod.api.client.events.RegisterReplayListContextMenuEvent;
+import mchorse.bbs_mod.api.client.events.RegisterReplayPanelEvent;
+import mchorse.bbs_mod.api.client.events.RegisterSettingsUISectionEvent;
+import mchorse.bbs_mod.api.client.events.RegisterStencilMapEvent;
+import mchorse.bbs_mod.api.client.events.RegisterUIKeyframeFactoriesEvent;
+import mchorse.bbs_mod.api.client.events.RegisterUIThemeEvent;
+import mchorse.bbs_mod.api.client.events.RegisterUIValueFactoriesEvent;
 
 /**
  * Base class for BBS client addons.
  *
  * <p>Use this class for client-side only addons.
- * In fabric.mod.json, register this using "bbs-addon-client" entrypoint.</p>
+ * In fabric.mod.json, register this using "bbs-client-addon" (or "bbs-addon-client") entrypoint.</p>
+ *
+ * @deprecated Use {@link BBSAddonMod} and {@link Subscribe} methods directly as per BBS 3.0 standard.
  */
+@Deprecated
 public abstract class BBSClientAddon implements BBSAddonMod
 {
     @Subscribe
