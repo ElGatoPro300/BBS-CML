@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.film;
 
-import mchorse.bbs_mod.BBS;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
@@ -332,7 +331,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         super(dashboard);
 
         RegisterFilmEditorFactoriesEvent event = new RegisterFilmEditorFactoriesEvent();
-        BBS.getEvents().post(event);
+        BBSMod.events.post(event);
 
         this.controller = event.createController(this);
 
@@ -6571,7 +6570,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return new File(worldFolder, "config/bbs/thumbnails/films/" + id + ".png");
         }
 
-        return new File(BBS.getGameFolder(), "config/bbs/thumbnails/films/" + id + ".png");
+        return new File(BBSMod.getGameFolder(), "config/bbs/thumbnails/films/" + id + ".png");
     }
 
     private String resolveThumbnailId(String listPath)
@@ -6629,7 +6628,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         File worldFolder = BBSMod.getWorldFolder();
         File folder = worldFolder != null
             ? new File(worldFolder, "config/bbs/thumbnails/films")
-            : new File(BBS.getGameFolder(), "config/bbs/thumbnails/films");
+            : new File(BBSMod.getGameFolder(), "config/bbs/thumbnails/films");
 
         this.deleteFolder(folder);
     }

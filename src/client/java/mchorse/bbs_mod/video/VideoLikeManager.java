@@ -19,6 +19,8 @@ import java.util.List;
 
 public class VideoLikeManager
 {
+    public static final VideoLikeManager INSTANCE = new VideoLikeManager();
+
     private static final String LIKED_VIDEOS_FILE = "liked_videos.dat";
     private static final Logger LOGGER = LogUtils.getLogger();
 

@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.forms.editors;
 
-import mchorse.bbs_mod.BBSClient;
 import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
@@ -30,7 +29,6 @@ import mchorse.bbs_mod.ui.model.UIModelGeometryPanel;
 import mchorse.bbs_mod.ui.model.UIModelHandsSection;
 import mchorse.bbs_mod.ui.model.UIModelIKPanel;
 import mchorse.bbs_mod.ui.model.UIModelItemsSection;
-import mchorse.bbs_mod.ui.model.UIModelLookAtSection;
 import mchorse.bbs_mod.ui.model.UIModelPanel;
 import mchorse.bbs_mod.ui.model.UIModelPartsSection;
 import mchorse.bbs_mod.ui.model.UIModelPhysBonePanel;
@@ -123,11 +121,6 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
         this.addSection(new UIModelItemsSection(this));
         this.addSection(new UIModelHandsSection(this));
         this.addSection(new UIModelSneakingSection(this));
-
-        if (BBSFeatures.MODEL_PROCEDURAL_LOOK_AT_UI)
-        {
-            this.addSection(new UIModelLookAtSection(this));
-        }
 
         this.registerWorkspacePanel(this.modelSettingsPanel, UIKeys.MODELS_SETTINGS, Icons.MODELS_SETTINGS);
 
@@ -386,7 +379,7 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
             dynamicConfigFile.delete();
         }
 
-        BBSClient.getModels().loadModel(modelId);
+        BBSModClient.getModels().loadModel(modelId);
         this.renderer.invalidatePreviewModel();
         this.loadConfig(modelId);
     }

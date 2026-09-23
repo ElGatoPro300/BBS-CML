@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
-import mchorse.bbs_mod.BBSClient;
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
@@ -109,7 +109,7 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
                     this.editor.getGraph().setValue(id, true);
                 });
 
-                overlay.addValues(BBSClient.getModels().getAvailableKeys());
+                overlay.addValues(BBSModClient.getModels().getAvailableKeys());
                 overlay.list.list.sort();
                 overlay.setValue(this.keyframe.getValue());
                 UIOverlay.addOverlay(this.getContext(), overlay, 280, 0.5F);
@@ -151,7 +151,7 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
                     this.editor.getGraph().setValue(id, true);
                 });
 
-                overlay.addValues(BBSClient.getParticles().getKeys());
+                overlay.addValues(BBSModClient.getParticles().getKeys());
                 overlay.list.list.sort();
                 overlay.setValue(this.keyframe.getValue());
                 UIOverlay.addOverlay(this.getContext(), overlay, 280, 0.5F);

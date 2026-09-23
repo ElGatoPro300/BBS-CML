@@ -1498,7 +1498,6 @@ public class UIKeys
     public static final IKey MODELS_LOOK_AT_WHEEL_TOOLTIP = L10n.lang("bbs.ui.models.look_at.wheel_tooltip");
     public static final IKey MODELS_LOOK_AT_WHEEL_AXIS_TOOLTIP = L10n.lang("bbs.ui.models.look_at.wheel_axis_tooltip");
     public static final IKey MODELS_LOOK_AT_WHEEL_SPEED_TOOLTIP = L10n.lang("bbs.ui.models.look_at.wheel_speed_tooltip");
-    public static final IKey MODELS_PICK_LOOK_AT_LIMB = L10n.lang("bbs.ui.models.pick_look_at_limb");
     public static final IKey MODELS_POSE_GROUP = L10n.lang("bbs.ui.models.pose_group");
     public static final IKey MODELS_POSE_GROUP_TOOLTIP = L10n.lang("bbs.ui.models.pose_group_tooltip");
     public static final IKey MODELS_PICK_SNEAKING_POSE = L10n.lang("bbs.ui.models.pick_sneaking_pose");

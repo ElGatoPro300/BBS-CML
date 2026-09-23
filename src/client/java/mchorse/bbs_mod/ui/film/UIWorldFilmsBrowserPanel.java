@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.ui.film;
 
-import mchorse.bbs_mod.BBS;
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.CrossWorldFilmLoader;
 import mchorse.bbs_mod.client.CrossWorldFilmScanner;
 import mchorse.bbs_mod.client.FilmLaunchHelper;
@@ -385,7 +385,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             }
         }
 
-        return new File(BBS.getGameFolder(), "config/bbs/thumbnails/films/" + filmId + ".png");
+        return new File(BBSMod.getGameFolder(), "config/bbs/thumbnails/films/" + filmId + ".png");
     }
 
     private Texture getFilmThumbnail(String listPath)

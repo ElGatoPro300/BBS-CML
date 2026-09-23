@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.ui.model;
 
-import mchorse.bbs_mod.BBSClient;
 import mchorse.bbs_mod.BBSFeatures;
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
@@ -122,7 +122,7 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
             if (this.data != null)
             {
                 String modelId = this.data.getId();
-                BBSClient.getModels().loadModel(modelId);
+                BBSModClient.getModels().loadModel(modelId);
                 this.renderer.invalidatePreviewModel();
                 this.fillData(this.data);
             }
@@ -504,11 +504,6 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.addSection(new UIModelHandsSection(this));
         this.addSection(new UIModelSneakingSection(this));
         this.addSection(new UIModelGeckoAnimationsSection(this));
-
-        if (BBSFeatures.MODEL_PROCEDURAL_LOOK_AT_UI)
-        {
-            this.addSection(new UIModelLookAtSection(this));
-        }
 
         /* Register Panels */
         UIElement spacer = new UIElement();
