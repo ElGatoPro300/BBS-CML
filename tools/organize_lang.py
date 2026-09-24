@@ -110,9 +110,70 @@ def process_file(filepath, dry_run=False, verbose=False):
         print(f"[ERROR] processing {filepath}: {e}", file=sys.stderr)
         return False
 
+def check_parity(targets=None, verbose=False):
+    """Check that all language files in each directory have 100% key parity with en_us.json."""
+    parity_ok = True
+    dirs_to_check = []
+
+    if targets:
+        for t in targets:
+            abs_t = os.path.abspath(t)
+            if os.path.isdir(abs_t):
+                dirs_to_check.append(abs_t)
+            elif os.path.isfile(abs_t):
+                d = os.path.dirname(abs_t)
+                if d not in dirs_to_check:
+                    dirs_to_check.append(d)
+    else:
+        dirs_to_check = [d for d in DEFAULT_LANG_DIRS if os.path.exists(d)]
+
+    print("\n--- Language Key Parity Check ---")
+    for d in dirs_to_check:
+        rel_dir = os.path.relpath(d, PROJECT_ROOT)
+        en_path = os.path.join(d, "en_us.json")
+        if not os.path.exists(en_path):
+            if verbose:
+                print(f"[SKIP] No en_us.json in {rel_dir}")
+            continue
+
+        with open(en_path, 'r', encoding='utf-8') as f:
+            en_data = json.load(f)
+        en_keys = set(en_data.keys())
+
+        print(f"\nComparing with {rel_dir}/en_us.json ({len(en_keys)} keys):")
+        dir_files = sorted(glob.glob(os.path.join(d, "*.json")))
+
+        for fp in dir_files:
+            fname = os.path.basename(fp)
+            if fname == "en_us.json":
+                continue
+            with open(fp, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            file_keys = set(data.keys())
+            missing = en_keys - file_keys
+            extra = file_keys - en_keys
+
+            if not missing and not extra:
+                if verbose:
+                    print(f"  [OK] {fname}: 100% parity ({len(file_keys)} keys)")
+            else:
+                parity_ok = False
+                print(f"  [PARITY MISMATCH] {fname}:")
+                if missing:
+                    print(f"    Missing ({len(missing)}): {', '.join(sorted(missing)[:10])}{'...' if len(missing) > 10 else ''}")
+                if extra:
+                    print(f"    Extra ({len(extra)}): {', '.join(sorted(extra)[:10])}{'...' if len(extra) > 10 else ''}")
+
+    if parity_ok:
+        print("\nAll language files are in 100% parity with en_us.json!")
+    else:
+        print("\nWarning: Some language files have missing or extra keys compared to en_us.json.")
+
+    return parity_ok
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Sort and format JSON translation files for BBS CML EDITION 3.0."
+        description="Sort, format, and verify parity of JSON translation files for BBS CML EDITION 3.0."
     )
     parser.add_argument(
         "targets",
@@ -128,6 +189,11 @@ def main():
         "--check",
         action="store_true",
         help="Exit with code 1 if any file is unformatted or unsorted (CI mode)."
+    )
+    parser.add_argument(
+        "--parity",
+        action="store_true",
+        help="Check key parity across all language files against en_us.json."
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -153,7 +219,11 @@ def main():
 
     print(f"\nDone. {modified_count}/{len(files)} files {'need sorting' if dry_run else 'updated'}.")
 
-    if args.check and modified_count > 0:
+    parity_ok = True
+    if args.parity or args.check:
+        parity_ok = check_parity(args.targets, verbose=args.verbose)
+
+    if (args.check and modified_count > 0) or (args.parity and not parity_ok):
         sys.exit(1)
 
     return 0
