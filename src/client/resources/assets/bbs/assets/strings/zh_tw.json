@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "設定臉...",
     "bbs.ui.forms.editor.finish": "完成編輯",
     "bbs.ui.forms.editor.form": "形式",
+    "bbs.ui.forms.editor.keyframes": "關鍵幀",
+    "bbs.ui.forms.editor.keyframes.none_selected": "未選擇關鍵幀",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "拖曳以重新排序。右鍵點選可在表單編輯器中隱藏或顯示小控制項按鈕。",
     "bbs.ui.forms.editor.model.models": "模型",
     "bbs.ui.forms.editor.model.open_in": "開啟於...",

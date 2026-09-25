@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Настроить лицо...",
     "bbs.ui.forms.editor.finish": "Закончить редактирование",
     "bbs.ui.forms.editor.form": "Форма",
+    "bbs.ui.forms.editor.keyframes": "Ключевые кадры",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Ключевые кадры не выбраны",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Перетаскивайте, чтобы изменить порядок. Щёлкните правой кнопкой, чтобы скрыть или показать кнопку гизмо в редакторе форм.",
     "bbs.ui.forms.editor.model.models": "Модели",
     "bbs.ui.forms.editor.model.open_in": "Открыть в...",

@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Aufstellfläche...",
     "bbs.ui.forms.editor.finish": "Fertig",
     "bbs.ui.forms.editor.form": "Formular",
+    "bbs.ui.forms.editor.keyframes": "Schlüsselbilder",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Keine Schlüsselbilder ausgewählt",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Zum Neuanordnen ziehen. Klicken Sie mit der rechten Maustaste, um eine Gizmo-Schaltfläche im Formulareditor auszublenden oder anzuzeigen.",
     "bbs.ui.forms.editor.model.models": "Modelle",
     "bbs.ui.forms.editor.model.open_in": "Öffnen in...",

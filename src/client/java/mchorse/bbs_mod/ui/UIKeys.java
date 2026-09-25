@@ -1009,6 +1009,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_SHAPE_TEXTURE_SCROLL_Y = L10n.lang("bbs.ui.forms.editors.shape.texture_scroll_y");
     public static final IKey FORMS_EDITOR_BONE = L10n.lang("bbs.ui.forms.editor.bone");
     public static final IKey FORMS_EDITOR_FORM = L10n.lang("bbs.ui.forms.editor.form");
+    public static final IKey FORMS_EDITOR_KEYFRAMES = L10n.lang("bbs.ui.forms.editor.keyframes");
+    public static final IKey FORMS_EDITOR_KEYFRAMES_NONE_SELECTED = L10n.lang("bbs.ui.forms.editor.keyframes.none_selected");
     public static final IKey FORMS_EDITORS_COLOR_ADVANCED = L10n.lang("bbs.ui.forms.editors.color_advanced");
     public static final IKey FORMS_EDITOR_CONTEXT_ADD = L10n.lang("bbs.ui.forms.editor.context.add");
     public static final IKey FORMS_EDITOR_CONTEXT_COPY = L10n.lang("bbs.ui.forms.editor.context.copy");

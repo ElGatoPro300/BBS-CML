@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "ตั้งค่าใบหน้า...",
     "bbs.ui.forms.editor.finish": "เสร็จสิ้นการแก้ไข",
     "bbs.ui.forms.editor.form": "แบบฟอร์ม",
+    "bbs.ui.forms.editor.keyframes": "คีย์เฟรม",
+    "bbs.ui.forms.editor.keyframes.none_selected": "ไม่ได้เลือกคีย์เฟรม",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "ลากเพื่อเรียงลำดับใหม่ คลิกขวาเพื่อซ่อนหรือแสดงปุ่ม Gizmo ในตัวแก้ไขแบบฟอร์ม",
     "bbs.ui.forms.editor.model.models": "โมเดลข้อมูล",
     "bbs.ui.forms.editor.model.open_in": "เปิดใน...",

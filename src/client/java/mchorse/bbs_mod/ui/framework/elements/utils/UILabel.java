@@ -218,7 +218,9 @@ public class UILabel extends UIElement implements ITextColoring
 
                 for (String line : this.wrappedLines)
                 {
-                    context.batcher.text(line, x, y, this.color, this.textShadow);
+                    int lineX = this.area.x(this.anchorX, font.getWidth(line));
+
+                    context.batcher.text(line, lineX, y, this.color, this.textShadow);
                     y += LINE_HEIGHT;
                 }
             }

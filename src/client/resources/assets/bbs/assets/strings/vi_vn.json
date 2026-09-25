@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Mặt cài đặt...",
     "bbs.ui.forms.editor.finish": "Hoàn tất",
     "bbs.ui.forms.editor.form": "biểu mẫu",
+    "bbs.ui.forms.editor.keyframes": "Khung hình chính",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Không có khung hình chính nào được chọn",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Kéo để sắp xếp lại. Nhấp chuột phải để ẩn hoặc hiển thị nút gizmo trong trình chỉnh sửa biểu mẫu.",
     "bbs.ui.forms.editor.model.models": "Mô hình",
     "bbs.ui.forms.editor.model.open_in": "Mở trong...",

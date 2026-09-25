@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Configurer le visage...",
     "bbs.ui.forms.editor.finish": "Finir l'édition",
     "bbs.ui.forms.editor.form": "Formulaire",
+    "bbs.ui.forms.editor.keyframes": "Images clés",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Aucune image clé sélectionnée",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Faites glisser pour réorganiser. Cliquez avec le bouton droit pour masquer ou afficher un bouton gadget dans l'éditeur de formulaire.",
     "bbs.ui.forms.editor.model.models": "Modèles",
     "bbs.ui.forms.editor.model.open_in": "Ouvrir dans...",

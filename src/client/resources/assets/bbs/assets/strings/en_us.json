@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Setup face...",
     "bbs.ui.forms.editor.finish": "Finish editing",
     "bbs.ui.forms.editor.form": "Form",
+    "bbs.ui.forms.editor.keyframes": "Keyframes",
+    "bbs.ui.forms.editor.keyframes.none_selected": "No keyframes selected",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Drag to reorder. Right-click to hide or show a gizmo button in the form editor.",
     "bbs.ui.forms.editor.model.models": "Models",
     "bbs.ui.forms.editor.model.open_in": "Open in...",

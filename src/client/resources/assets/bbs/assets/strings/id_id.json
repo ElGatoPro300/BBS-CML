@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Siapkan wajah...",
     "bbs.ui.forms.editor.finish": "Selesaikan pengeditan",
     "bbs.ui.forms.editor.form": "Formulir",
+    "bbs.ui.forms.editor.keyframes": "Keyframe",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Tidak ada keyframe yang dipilih",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Tarik untuk menyusun ulang. Klik kanan untuk menyembunyikan atau menampilkan tombol alat di editor formulir.",
     "bbs.ui.forms.editor.model.models": "Model",
     "bbs.ui.forms.editor.model.open_in": "Buka di...",

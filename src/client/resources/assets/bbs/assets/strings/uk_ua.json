@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Налаштувати обличчя...",
     "bbs.ui.forms.editor.finish": "Завершити редагування",
     "bbs.ui.forms.editor.form": "Форма",
+    "bbs.ui.forms.editor.keyframes": "Ключові кадри",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Ключові кадри не вибрано",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Перетягніть, щоб змінити порядок. Клацніть правою кнопкою миші, щоб приховати або показати кнопку gizmo в редакторі форм.",
     "bbs.ui.forms.editor.model.models": "Моделі",
     "bbs.ui.forms.editor.model.open_in": "Відкрити в...",

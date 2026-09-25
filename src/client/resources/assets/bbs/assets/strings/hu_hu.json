@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Arc beállítása...",
     "bbs.ui.forms.editor.finish": "Fejezd be a szerkesztést",
     "bbs.ui.forms.editor.form": "Űrlap",
+    "bbs.ui.forms.editor.keyframes": "Kulcskockák",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Nincs kiválasztott kulcskocka",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Húzza át az átrendezéshez. Kattintson a jobb gombbal egy gizmogomb elrejtéséhez vagy megjelenítéséhez az űrlapszerkesztőben.",
     "bbs.ui.forms.editor.model.models": "Modellek",
     "bbs.ui.forms.editor.model.open_in": "Megnyitás...",

@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "设置脸...",
     "bbs.ui.forms.editor.finish": "完成编辑",
     "bbs.ui.forms.editor.form": "形式",
+    "bbs.ui.forms.editor.keyframes": "关键帧",
+    "bbs.ui.forms.editor.keyframes.none_selected": "未选择关键帧",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "拖动以重新排序。右键单击可在表单编辑器中隐藏或显示小控件按钮。",
     "bbs.ui.forms.editor.model.models": "模型",
     "bbs.ui.forms.editor.model.open_in": "打开于...",

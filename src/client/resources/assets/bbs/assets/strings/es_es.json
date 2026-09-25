@@ -1537,6 +1537,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Configurar cara...",
     "bbs.ui.forms.editor.finish": "Terminar de editar",
     "bbs.ui.forms.editor.form": "Forma",
+    "bbs.ui.forms.editor.keyframes": "Keyframes",
+    "bbs.ui.forms.editor.keyframes.none_selected": "No hay keyframes seleccionados",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Arrastra para reordenar. Clic derecho para ocultar o mostrar un botón del gizmo en el editor de formas.",
     "bbs.ui.forms.editor.model.models": "Modelos",
     "bbs.ui.forms.editor.model.open_in": "Abrir en...",

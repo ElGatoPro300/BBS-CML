@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "얼굴 설정...",
     "bbs.ui.forms.editor.finish": "편집 완료",
     "bbs.ui.forms.editor.form": "양식",
+    "bbs.ui.forms.editor.keyframes": "키프레임",
+    "bbs.ui.forms.editor.keyframes.none_selected": "선택된 키프레임 없음",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "재정렬하려면 드래그하세요. 양식 편집기에서 기즈모 버튼을 숨기거나 표시하려면 마우스 오른쪽 버튼을 클릭하세요.",
     "bbs.ui.forms.editor.model.models": "모델",
     "bbs.ui.forms.editor.model.open_in": "다음에서 열기...",

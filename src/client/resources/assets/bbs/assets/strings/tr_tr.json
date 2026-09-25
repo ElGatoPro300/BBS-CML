@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "Yüzü ayarla...",
     "bbs.ui.forms.editor.finish": "Düzenlemeyi bitir",
     "bbs.ui.forms.editor.form": "formu",
+    "bbs.ui.forms.editor.keyframes": "Keyframe'ler",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Seçili keyframe yok",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Yeniden sıralamak için sürükleyin. Form düzenleyicide bir alet düğmesini gizlemek veya göstermek için sağ tıklayın.",
     "bbs.ui.forms.editor.model.models": "Modeller",
     "bbs.ui.forms.editor.model.open_in": "Şunda aç...",

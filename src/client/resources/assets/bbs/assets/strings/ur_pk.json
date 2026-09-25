@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "سیٹ اپ چہرہ...",
     "bbs.ui.forms.editor.finish": "ترمیم مکمل کریں",
     "bbs.ui.forms.editor.form": "فارم",
+    "bbs.ui.forms.editor.keyframes": "کی فریمز",
+    "bbs.ui.forms.editor.keyframes.none_selected": "کوئی کی فریم منتخب نہیں",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "دوبارہ ترتیب دینے کے لیے گھسیٹیں۔ فارم ایڈیٹر میں گیزمو بٹن کو چھپانے یا دکھانے کے لیے دائیں کلک کریں۔",
     "bbs.ui.forms.editor.model.models": "ماڈلز",
     "bbs.ui.forms.editor.model.open_in": "میں کھولیں...",

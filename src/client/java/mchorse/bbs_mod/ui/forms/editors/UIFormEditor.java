@@ -154,6 +154,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     public float outlinerSplitRatio = 0.5F;
     public UIIcon formModeBtn;
     public UIIcon keyframeModeBtn;
+    public UIElement inspectorModeSwitch;
     public UIElement keyframeEditorContainer;
     private UILabel keyframePlaceholder;
     private InspectorMode inspectorMode = InspectorMode.FORM;
@@ -300,9 +301,9 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.formModeBtn.active(true);
 
         this.keyframeModeBtn = new UIIcon(Icons.GRAPH, (b) -> this.setInspectorMode(InspectorMode.KEYFRAME));
-        this.keyframeModeBtn.tooltip(UIKeys.POSE_LIMB_KEYFRAME, Direction.RIGHT);
+        this.keyframeModeBtn.tooltip(UIKeys.FORMS_EDITOR_KEYFRAMES, Direction.RIGHT);
         this.keyframeModeBtn.activeBackground(Colors.A50 | Colors.BLUE);
-        this.keyframeModeBtn.setEnabled(false);
+        this.keyframeModeBtn.setVisible(false);
 
         this.outlinerHeader = new UIElement()
         {
@@ -318,10 +319,10 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         addPart.relative(this.outlinerHeader).x(0).y(0).w(20).h(20);
 
-        UIElement modeSwitch = UI.row(0, this.formModeBtn, this.keyframeModeBtn);
-        modeSwitch.relative(this.outlinerHeader).x(1F).y(0).w(40).h(20).anchorX(1F);
+        this.inspectorModeSwitch = UI.row(0, this.formModeBtn, this.keyframeModeBtn);
+        this.inspectorModeSwitch.relative(this.outlinerHeader).x(1F).y(0).w(20).h(20).anchorX(1F);
 
-        this.outlinerHeader.add(addPart, modeSwitch);
+        this.outlinerHeader.add(addPart, this.inspectorModeSwitch);
 
         this.formsList = new UIForms((l) ->
         {
@@ -375,17 +376,18 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             @Override
             public void render(UIContext context)
             {
-                if (UIFormEditor.this.keyframePlaceholder != null)
-                {
-                    UIFormEditor.this.keyframePlaceholder.setVisible(this.getChildren().size() <= 1);
-                }
+                UIFormEditor.this.updateKeyframePlaceholderVisibility();
 
                 super.render(context);
             }
         };
         this.keyframeEditorContainer.relative(this.rightSidebar).w(1F).h(1F);
-        this.keyframePlaceholder = UI.label(UIKeys.POSE_LIMB_KEYFRAME).color(Colors.GRAY);
-        this.keyframePlaceholder.relative(this.keyframeEditorContainer).x(0.5F).y(0.5F).anchor(0.5F, 0.5F);
+        /* Full width + labelAnchor: text is centered in the panel; wrapping handles long locales. */
+        this.keyframePlaceholder = UI.label(UIKeys.FORMS_EDITOR_KEYFRAMES_NONE_SELECTED)
+            .color(Colors.LIGHTER_GRAY)
+            .labelAnchor(0.5F, 0.5F)
+            .wrapping();
+        this.keyframePlaceholder.relative(this.keyframeEditorContainer).x(0.5F).y(0.5F).w(1F, -24).h(20).anchor(0.5F, 0.5F);
         this.keyframeEditorContainer.add(this.keyframePlaceholder);
         this.keyframeEditorContainer.setVisible(false);
 
@@ -1068,9 +1070,16 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         if (this.keyframeModeBtn != null)
         {
-            this.keyframeModeBtn.setEnabled(this.statesEditor.isVisible());
+            boolean statesOpen = this.statesEditor.isVisible();
 
-            if (!this.statesEditor.isVisible() && this.inspectorMode == InspectorMode.KEYFRAME)
+            this.keyframeModeBtn.setVisible(statesOpen);
+
+            if (this.inspectorModeSwitch != null)
+            {
+                this.inspectorModeSwitch.w(statesOpen ? 40 : 20).resize();
+            }
+
+            if (!statesOpen && this.inspectorMode == InspectorMode.KEYFRAME)
             {
                 this.setInspectorMode(InspectorMode.FORM);
             }
@@ -1496,6 +1505,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         if (this.keyframeEditorContainer != null)
         {
             this.keyframeEditorContainer.setVisible(isKeyframe);
+            this.updateKeyframePlaceholderVisibility();
         }
 
         if (this.formModeBtn != null)
@@ -1509,6 +1519,17 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         }
 
         this.rightSidebar.resize();
+    }
+
+    private void updateKeyframePlaceholderVisibility()
+    {
+        if (this.keyframePlaceholder == null || this.keyframeEditorContainer == null)
+        {
+            return;
+        }
+
+        /* Placeholder is the only permanent child; a factory panel is added when a keyframe is selected. */
+        this.keyframePlaceholder.setVisible(this.keyframeEditorContainer.getChildren().size() <= 1);
     }
 
     private void pickForm(UIForms.FormEntry entry)

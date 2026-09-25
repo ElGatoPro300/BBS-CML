@@ -694,6 +694,8 @@
     "bbs.ui.forms.editor.states.toggle": "Animasiya mərhələləri redaktorunu aç/bağla",
     "bbs.ui.forms.editor.toggle_tree": "Formalar ağacını aç/bağla",
     "bbs.ui.forms.editor.use_target": "Hədəfi istifadə et",
+    "bbs.ui.forms.editor.keyframes": "Açar kadrlar",
+    "bbs.ui.forms.editor.keyframes.none_selected": "Açar kadr seçilməyib",
     "bbs.ui.forms.editors.actions.animations": "Animasiyalar",
     "bbs.ui.forms.editors.actions.fade": "Keçid",
     "bbs.ui.forms.editors.actions.loops": "Dövrə",

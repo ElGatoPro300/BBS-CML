@@ -1543,6 +1543,8 @@
     "bbs.ui.forms.editor.context.setup_face": "وجه الإعداد...",
     "bbs.ui.forms.editor.finish": "إنهاء التحرير",
     "bbs.ui.forms.editor.form": "النموذج",
+    "bbs.ui.forms.editor.keyframes": "الإطارات المفتاحية",
+    "bbs.ui.forms.editor.keyframes.none_selected": "لم يتم تحديد إطارات مفتاحية",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "اسحب لإعادة الترتيب. انقر بزر الماوس الأيمن لإخفاء زر الأداة أو إظهاره في محرر النماذج.",
     "bbs.ui.forms.editor.model.models": "النماذج",
     "bbs.ui.forms.editor.model.open_in": "فتح في...",

@@ -1525,6 +1525,8 @@
     "bbs.ui.forms.editor.context.remove_all": "حذف بخش‌های بدن",
     "bbs.ui.forms.editor.finish": "پایان ویرایش",
     "bbs.ui.forms.editor.form": "فرم",
+    "bbs.ui.forms.editor.keyframes": "کی‌فریم‌ها",
+    "bbs.ui.forms.editor.keyframes.none_selected": "هیچ کی‌فریمی انتخاب نشده",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "برای تغییر ترتیب بکشید. راست‌کلیک برای مخفی یا نمایش دکمه گیزمو در ویرایشگر فرم.",
     "bbs.ui.forms.editor.model.models": "مدل‌ها",
     "bbs.ui.forms.editor.model.open_in": "باز کردن در...",
