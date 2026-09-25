@@ -43,12 +43,9 @@ import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL30;
 
 import java.io.File;
 import java.util.function.Supplier;
@@ -697,10 +694,11 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         {
             Supplier<ShaderProgram> shaderSupplier = program != null ? () -> program : GameRenderer::getPositionTexProgram;
 
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             RenderSystem.setShader(shaderSupplier);
             RenderSystem.setShaderColor(tint.r, tint.g, tint.b, tint.a);
+            /* Only RenderSystem — never glTexParameteri on WaterMedia/VLC textures.
+             * Mutating wrap/filter on a non-2D / foreign texture throws GL_INVALID_ENUM
+             * and can poison the block atlas → black world. */
             RenderSystem.setShaderTexture(0, textureId);
 
             if (program != null)
@@ -753,10 +751,6 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.setShaderTexture(0, 0);
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
             RenderSystem.depthMask(true);
             RenderSystem.enableCull();
             RenderSystem.defaultBlendFunc();

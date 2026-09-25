@@ -381,27 +381,12 @@ public class BBSRendering
         ModelVAORenderer.clearFormColorTint();
         ModelVAORenderer.clearColorEffectTransform();
 
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
-
         MinecraftClient client = MinecraftClient.getInstance();
 
-        if (client != null)
+        if (client != null && client.gameRenderer != null)
         {
-            if (client.gameRenderer != null)
-            {
-                client.gameRenderer.getLightmapTextureManager().enable();
-                client.gameRenderer.getOverlayTexture().setupOverlayColor();
-            }
-
-            if (client.getFramebuffer() != null)
-            {
-                client.getFramebuffer().beginWrite(false);
-            }
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
     }
 

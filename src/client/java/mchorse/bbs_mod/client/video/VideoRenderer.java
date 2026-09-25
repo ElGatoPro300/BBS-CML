@@ -12,12 +12,7 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL30;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -487,26 +482,7 @@ public class VideoRenderer
             return null;
         }
 
-        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        int texture;
-
-        try
-        {
-            texture = (int) wrapper.player.texture();
-        }
-        finally
-        {
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GL30.glBindVertexArray(previousVAO);
-
-            MinecraftClient client = MinecraftClient.getInstance();
-
-            if (client != null && client.getFramebuffer() != null)
-            {
-                client.getFramebuffer().beginWrite(false);
-            }
-        }
+        int texture = (int) wrapper.player.texture();
 
         if (texture <= 0)
         {
@@ -789,26 +765,7 @@ public class VideoRenderer
             wrapper.lastBbsTime = bbsTime;
         }
 
-        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        int texture;
-
-        try
-        {
-            texture = (int) player.texture();
-        }
-        finally
-        {
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-            GL30.glBindVertexArray(previousVAO);
-
-            MinecraftClient client = MinecraftClient.getInstance();
-
-            if (client != null && client.getFramebuffer() != null)
-            {
-                client.getFramebuffer().beginWrite(false);
-            }
-        }
+        int texture = (int) player.texture();
 
         if (texture <= 0)
         {
