@@ -28,6 +28,7 @@ public class ValueUILayoutPreferences extends BaseValue
     private final List<String> filmCollapsedDocked = new ArrayList<>();
     private final List<String> filmCollapsedFloating = new ArrayList<>();
     private float formTreeWidth;
+    private float formOutlinerSplit = 0.5F;
     private final Map<String, Float> formPanelWidths = new HashMap<>();
     private int keyframeSidebarWidth;
 
@@ -79,6 +80,16 @@ public class ValueUILayoutPreferences extends BaseValue
     public void setFormTreeWidth(float width)
     {
         BaseValue.edit(this, (v) -> this.formTreeWidth = width);
+    }
+
+    public float getFormOutlinerSplit(float defaultSplit)
+    {
+        return this.formOutlinerSplit > 0F ? this.formOutlinerSplit : defaultSplit;
+    }
+
+    public void setFormOutlinerSplit(float split)
+    {
+        BaseValue.edit(this, (v) -> this.formOutlinerSplit = split);
     }
 
     public float getFormPanelWidth(String panelClassName, float defaultWidth)
@@ -222,6 +233,11 @@ public class ValueUILayoutPreferences extends BaseValue
             data.putFloat("form_tree_width", this.formTreeWidth);
         }
 
+        if (this.formOutlinerSplit > 0F && this.formOutlinerSplit != 0.5F)
+        {
+            data.putFloat("form_outliner_split", this.formOutlinerSplit);
+        }
+
         if (!this.formPanelWidths.isEmpty())
         {
             MapType widths = new MapType();
@@ -263,6 +279,7 @@ public class ValueUILayoutPreferences extends BaseValue
         this.readStringList(map, "film_collapsed_floating", this.filmCollapsedFloating);
         this.readFilmFloatingPanels(map);
         this.formTreeWidth = map.getFloat("form_tree_width", 0F);
+        this.formOutlinerSplit = map.getFloat("form_outliner_split", 0.5F);
         this.readFormPanelWidths(map);
         this.keyframeSidebarWidth = map.getInt("keyframe_sidebar_width", 0);
     }
