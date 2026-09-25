@@ -154,6 +154,9 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     public float outlinerSplitRatio = 0.5F;
     public UIIcon formModeBtn;
     public UIIcon keyframeModeBtn;
+    public UIIcon copyBodyPartBtn;
+    public UIIcon pasteBodyPartBtn;
+    public UIIcon removeBodyPartBtn;
     public UIElement inspectorModeSwitch;
     public UIElement keyframeEditorContainer;
     private UILabel keyframePlaceholder;
@@ -300,6 +303,37 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.formModeBtn.activeBackground(Colors.A50 | Colors.BLUE);
         this.formModeBtn.active(true);
 
+        this.copyBodyPartBtn = new UIIcon(Icons.COPY, (b) ->
+        {
+            if (this.copyPasteController.copy())
+            {
+                this.updateBodyPartListButtons();
+                UIUtils.playClick();
+            }
+        });
+        this.copyBodyPartBtn.tooltip(UIKeys.FORMS_EDITOR_CONTEXT_COPY, Direction.RIGHT);
+
+        this.pasteBodyPartBtn = new UIIcon(Icons.PASTE, (b) ->
+        {
+            if (this.copyPasteController.paste(0, 0))
+            {
+                this.updateBodyPartListButtons();
+                UIUtils.playClick();
+            }
+        });
+        this.pasteBodyPartBtn.tooltip(UIKeys.FORMS_EDITOR_CONTEXT_PASTE, Direction.RIGHT);
+
+        this.removeBodyPartBtn = new UIIcon(Icons.REMOVE, (b) ->
+        {
+            if (this.hasSelectedBodyParts())
+            {
+                this.removeBodyPart();
+                this.updateBodyPartListButtons();
+                UIUtils.playClick();
+            }
+        });
+        this.removeBodyPartBtn.tooltip(UIKeys.FORMS_EDITOR_CONTEXT_REMOVE, Direction.RIGHT);
+
         this.keyframeModeBtn = new UIIcon(Icons.GRAPH, (b) -> this.setInspectorMode(InspectorMode.KEYFRAME));
         this.keyframeModeBtn.tooltip(UIKeys.FORMS_EDITOR_KEYFRAMES, Direction.RIGHT);
         this.keyframeModeBtn.activeBackground(Colors.A50 | Colors.BLUE);
@@ -312,17 +346,20 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF1E1F23);
                 context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF2A2B2F);
+                UIFormEditor.this.updateBodyPartListButtons();
                 super.render(context);
             }
         };
         this.outlinerHeader.relative(this.outliner).w(1F).h(20);
 
-        addPart.relative(this.outlinerHeader).x(0).y(0).w(20).h(20);
+        /* Left: tree actions (add / copy / paste / remove body parts). Right: inspector mode. */
+        UIElement treeActions = UI.row(0, addPart, this.copyBodyPartBtn, this.pasteBodyPartBtn, this.removeBodyPartBtn);
+        treeActions.relative(this.outlinerHeader).x(0).y(0).w(80).h(20);
 
         this.inspectorModeSwitch = UI.row(0, this.formModeBtn, this.keyframeModeBtn);
         this.inspectorModeSwitch.relative(this.outlinerHeader).x(1F).y(0).w(20).h(20).anchorX(1F);
 
-        this.outlinerHeader.add(addPart, this.inspectorModeSwitch);
+        this.outlinerHeader.add(treeActions, this.inspectorModeSwitch);
 
         this.formsList = new UIForms((l) ->
         {
@@ -334,6 +371,20 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.formsList.setReorderCallback(this::refillState);
         this.formsList.relative(this.outliner).y(20).w(1F).h(1F, -20);
         this.formsList.context(this::createFormContextMenu);
+        this.formsList.keys().register(Keys.COPY, () ->
+        {
+            if (this.copyPasteController.copy())
+            {
+                this.updateBodyPartListButtons();
+            }
+        }).inside().label(UIKeys.FORMS_EDITOR_CONTEXT_COPY).active(this.copyPasteController::canCopy);
+        this.formsList.keys().register(Keys.PASTE, () ->
+        {
+            if (this.copyPasteController.paste(0, 0))
+            {
+                this.updateBodyPartListButtons();
+            }
+        }).inside().label(UIKeys.FORMS_EDITOR_CONTEXT_PASTE).active(this.copyPasteController::canPaste);
 
         this.outliner.add(this.outlinerHeader, this.formsList);
 
@@ -1553,6 +1604,27 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         this.updateLeftSplit();
         this.switchEditor(entry.getForm());
+        this.updateBodyPartListButtons();
+    }
+
+    private void updateBodyPartListButtons()
+    {
+        if (this.copyBodyPartBtn != null)
+        {
+            this.copyBodyPartBtn.setEnabled(this.copyPasteController.canCopy());
+            this.copyBodyPartBtn.tooltip(this.getBodyPartCopyLabel(), Direction.RIGHT);
+        }
+
+        if (this.pasteBodyPartBtn != null)
+        {
+            this.pasteBodyPartBtn.setEnabled(this.copyPasteController.canPaste());
+        }
+
+        if (this.removeBodyPartBtn != null)
+        {
+            this.removeBodyPartBtn.setEnabled(this.hasSelectedBodyParts());
+            this.removeBodyPartBtn.tooltip(this.getBodyPartRemoveLabel(), Direction.RIGHT);
+        }
     }
 
     /**
