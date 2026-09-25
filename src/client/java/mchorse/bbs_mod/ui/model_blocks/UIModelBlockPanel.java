@@ -1626,6 +1626,11 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         {
             UIFormEditor editor = palettes.get(0).editor;
 
+            if (editor != null && editor.modelSettingsEditor != null && editor.modelSettingsEditor.isVisible())
+            {
+                return editor.modelSettingsEditor.renderer.area;
+            }
+
             if (editor != null)
             {
                 return editor.renderer.area;

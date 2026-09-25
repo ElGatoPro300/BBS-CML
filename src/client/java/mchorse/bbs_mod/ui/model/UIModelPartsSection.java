@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.UIFormModelEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
@@ -122,6 +123,11 @@ public class UIModelPartsSection extends UIModelSection
         if (this.title.area.isInside(context) && context.mouseButton == 0)
         {
             this.editor.setRight(this.poseEditor);
+
+            if (this.editor instanceof UIFormModelEditor formModelEditor)
+            {
+                formModelEditor.onPoseSectionOpened();
+            }
         }
 
         return super.subMouseClicked(context);
