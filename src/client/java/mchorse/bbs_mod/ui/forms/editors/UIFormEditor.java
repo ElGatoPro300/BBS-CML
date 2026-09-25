@@ -77,7 +77,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
@@ -116,21 +115,17 @@ import java.util.function.Supplier;
 
 public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 {
-    public enum InspectorMode
-    {
-        FORM, BODY_PART, KEYFRAME
-    }
-
     public static Map<Class, Supplier<UIForm>> panels = new HashMap<>();
     public static Function<UIFormEditor, UIPickableFormRenderer> rendererFactory = UIPickableFormRenderer::new;
 
-    private static float treeWidth = 0F;
+    private static float treeWidth = 0.22F;
+    private static float inspectorWidth = 0.22F;
     private static boolean TOGGLED = true;
 
     /* Palette for picking a form for body parts */
     public UIFormPalette palette;
 
-    /* Main form editor element */
+    /* Main form editor element (right inspector column) */
     public UIElement formEditor;
     public UIPickableFormRenderer renderer;
     public UIForm editor;
@@ -142,26 +137,12 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     public UIIcon plause;
     public UIIcon shiftDuration;
 
-    /* Model settings editor */
-    public UIFormModelEditor modelSettingsEditor;
-
-    /* Right Sidebar (Blender-style Outliner + Inspector) */
-    public UIElement rightSidebar;
-    public UIElement outliner;
-    public UIElement outlinerHeader;
-    public UIDraggable outlinerSplitter;
-    public float outlinerSplitRatio = 0.35F;
-    public UIIcon formModeBtn;
-    public UIIcon bodyPartModeBtn;
-    public UIIcon keyframeModeBtn;
-    public UIElement keyframeEditorContainer;
-    private UILabel keyframePlaceholder;
-    private InspectorMode inspectorMode = InspectorMode.FORM;
-
-    /* Forms sidebar compatibility reference */
+    /* Left outliner (form tree + body-part under it) */
     public UIElement forms;
+    public UIElement listSection;
     public UIForms formsList;
     public UIBodyPartEditor bodyPartEditor;
+    private UIDraggable inspectorResizer;
 
     /* Sidebar icons */
     public UIElement icons;
@@ -243,7 +224,12 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         if (BBSSettings.uiLayoutPreferences != null)
         {
-            treeWidth = BBSSettings.uiLayoutPreferences.getFormTreeWidth();
+            float saved = BBSSettings.uiLayoutPreferences.getFormTreeWidth();
+
+            if (saved > 0F)
+            {
+                treeWidth = saved;
+            }
         }
 
         this.undoHandler = new UIFormUndoHandler(this);
@@ -269,14 +255,12 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
                 return current != null && current.getForm() != null;
             });
 
-        /* Right sidebar (Container for Outliner and Inspector) */
-        this.rightSidebar = new UIElement();
-        this.rightSidebar.relative(this).x(1F).w(treeWidth).minW(180).h(1F).anchorX(1F);
-        this.forms = this.rightSidebar;
+        /* Left outliner: form tree on top, body-part editor pinned below (bbs-fs style). */
+        this.forms = new UIElement();
+        this.forms.relative(this).x(20).w(treeWidth).minW(160).h(1F);
 
-        /* Outliner zone (Top) */
-        this.outliner = new UIElement();
-        this.outliner.relative(this.rightSidebar).w(1F).h(this.outlinerSplitRatio);
+        this.listSection = new UIElement();
+        this.listSection.relative(this.forms).w(1F).h(1F);
 
         UIIcon addPart = new UIIcon(Icons.ADD, (b) ->
         {
@@ -287,24 +271,9 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
                 this.addBodyPart(new BodyPart(""));
             }
         });
-        addPart.tooltip(UIKeys.FORMS_EDITOR_CONTEXT_ADD, Direction.LEFT);
+        addPart.tooltip(UIKeys.FORMS_EDITOR_CONTEXT_ADD, Direction.RIGHT);
 
-        this.formModeBtn = new UIIcon(Icons.PROPERTIES, (b) -> this.setInspectorMode(InspectorMode.FORM));
-        this.formModeBtn.tooltip(UIKeys.FORMS_EDITOR_FORM, Direction.LEFT);
-        this.formModeBtn.activeBackground(Colors.A50 | Colors.BLUE);
-        this.formModeBtn.active(true);
-
-        this.bodyPartModeBtn = new UIIcon(Icons.LIMB, (b) -> this.setInspectorMode(InspectorMode.BODY_PART));
-        this.bodyPartModeBtn.tooltip(UIKeys.FILM_GIZMO_BODY_PART, Direction.LEFT);
-        this.bodyPartModeBtn.activeBackground(Colors.A50 | Colors.BLUE);
-        this.bodyPartModeBtn.setEnabled(false);
-
-        this.keyframeModeBtn = new UIIcon(Icons.GRAPH, (b) -> this.setInspectorMode(InspectorMode.KEYFRAME));
-        this.keyframeModeBtn.tooltip(UIKeys.POSE_LIMB_KEYFRAME, Direction.LEFT);
-        this.keyframeModeBtn.activeBackground(Colors.A50 | Colors.BLUE);
-        this.keyframeModeBtn.setEnabled(false);
-
-        this.outlinerHeader = new UIElement()
+        UIElement outlinerHeader = new UIElement()
         {
             @Override
             public void render(UIContext context)
@@ -314,14 +283,9 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
                 super.render(context);
             }
         };
-        this.outlinerHeader.relative(this.outliner).w(1F).h(20);
-
-        addPart.relative(this.outlinerHeader).x(0).y(0).w(20).h(20);
-
-        UIElement modeSwitch = UI.row(0, this.formModeBtn, this.bodyPartModeBtn, this.keyframeModeBtn);
-        modeSwitch.relative(this.outlinerHeader).x(1F).y(0).w(60).h(20).anchorX(1F);
-
-        this.outlinerHeader.add(addPart, modeSwitch);
+        outlinerHeader.relative(this.listSection).w(1F).h(20);
+        addPart.relative(outlinerHeader).x(0).y(0).w(20).h(20);
+        outlinerHeader.add(addPart);
 
         this.formsList = new UIForms((l) ->
         {
@@ -331,59 +295,26 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             }
         });
         this.formsList.setReorderCallback(this::refillState);
-        this.formsList.relative(this.outliner).y(20).w(1F).h(1F, -20);
+        this.formsList.relative(this.listSection).y(20).w(1F).h(1F, -20);
         this.formsList.context(this::createFormContextMenu);
 
+        this.listSection.add(outlinerHeader, this.formsList);
+
         this.bodyPartEditor = new UIBodyPartEditor(this);
-        this.bodyPartEditor.relative(this.rightSidebar).y(this.outlinerSplitRatio).w(1F).h(1F - this.outlinerSplitRatio);
+        this.bodyPartEditor.relative(this.forms).w(1F).y(1F).h(0).anchorY(1F);
         this.bodyPartEditor.setVisible(false);
 
-        this.keyframeEditorContainer = new UIElement()
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                if (UIFormEditor.this.keyframePlaceholder != null)
-                {
-                    UIFormEditor.this.keyframePlaceholder.setVisible(this.getChildren().size() <= 1);
-                }
-
-                super.render(context);
-            }
-        };
-        this.keyframeEditorContainer.relative(this.rightSidebar).y(this.outlinerSplitRatio).w(1F).h(1F - this.outlinerSplitRatio);
-        this.keyframePlaceholder = UI.label(UIKeys.POSE_LIMB_KEYFRAME).color(Colors.GRAY);
-        this.keyframePlaceholder.relative(this.keyframeEditorContainer).x(0.5F).y(0.5F).anchor(0.5F, 0.5F);
-        this.keyframeEditorContainer.add(this.keyframePlaceholder);
-        this.keyframeEditorContainer.setVisible(false);
-
-        this.outliner.add(this.outlinerHeader, this.formsList);
-
-        /* Outliner horizontal splitter */
-        this.outlinerSplitter = new UIDraggable((context) ->
-        {
-            int diff = context.mouseY - this.rightSidebar.area.y;
-            float f = diff / (float) this.rightSidebar.area.h;
-
-            this.outlinerSplitRatio = MathUtils.clamp(f, 0.15F, 0.85F);
-            this.updateSidebarSplit();
-        });
-        this.outlinerSplitter.relative(this.rightSidebar).y(this.outlinerSplitRatio).w(1F).h(6).anchor(0F, 0.5F);
-
-        /* Inspector zone (Bottom) */
+        /* Right inspector: form tabs (Pose / Actions / IK / …). */
         this.formEditor = new UIElement();
-        this.formEditor.relative(this.rightSidebar).y(this.outlinerSplitRatio).w(1F).h(1F - this.outlinerSplitRatio);
+        this.formEditor.relative(this).x(1F).w(inspectorWidth).minW(180).h(1F).anchorX(1F);
 
         this.statesEditor = new UIElement()
         {
             @Override
             public void render(UIContext context)
             {
-                /* Solid Blender charcoal background for timeline */
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF18191C);
-                /* 1px top border outline */
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 1, 0xFF2A2B2F);
-                /* 1px vertical separator line between toolbar icons and keyframes */
                 context.batcher.box(this.area.x + 20, this.area.y, this.area.x + 21, this.area.ey(), 0xFF2A2B2F);
 
                 super.render(context);
@@ -421,18 +352,19 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         this.statesEditor.add(this.openStates, this.plause, this.shiftDuration, this.statesKeyframes);
 
-        this.modelSettingsEditor = new UIFormModelEditor(this);
-        this.modelSettingsEditor.full(this);
-        this.modelSettingsEditor.setVisible(false);
-
         this.renderer = rendererFactory.apply(this);
-        this.renderer.setRenderForm(() -> this.modelSettingsEditor == null || !this.modelSettingsEditor.isVisible());
+        this.renderer.setRenderForm(() -> true);
         this.renderer.updatable();
         this.renderer.full(this);
 
         this.finish = new UIIcon(Icons.IN, (b) -> this.palette.exit());
         this.finish.tooltip(UIKeys.FORMS_EDITOR_FINISH, Direction.RIGHT);
-        this.toggleSidebar = new UIIcon(() -> (this.rightSidebar != null && this.rightSidebar.isVisible()) ? Icons.RIGHTLOAD : Icons.LEFTLOAD, (b) ->
+        this.toggleSidebar = new UIIcon(() ->
+        {
+            boolean open = (this.forms != null && this.forms.isVisible()) || (this.formEditor != null && this.formEditor.isVisible());
+
+            return open ? Icons.LEFTLOAD : Icons.RIGHTLOAD;
+        }, (b) ->
         {
             this.toggleSidebar();
 
@@ -458,30 +390,33 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         };
         this.icons.column(0).vertical().stretch().height(20);
         this.icons.add(this.openModelEditor, this.openStateEditor, this.toggleSidebar, this.finish);
-        this.icons.relative(this).x(8).y(1F, -8).w(20).h(4 * 20).anchorY(1F);
+        this.icons.relative(this).x(0).y(1F, -8).w(20).h(4 * 20).anchorY(1F);
 
-        UIRenderable background = new UIRenderable((context) ->
+        UIRenderable sidebarsBackground = new UIRenderable((context) ->
         {
-            if (this.rightSidebar.isVisible())
+            /* Paint behind the columns so child widgets stay visible (opaque fill must not
+             * be a sibling that renders after prepended form panels). */
+            if (this.forms.isVisible())
             {
-                /* Solid opaque Blender charcoal sidebar background */
-                context.batcher.box(this.rightSidebar.area.x, this.rightSidebar.area.y, this.rightSidebar.area.ex(), this.rightSidebar.area.ey(), 0xFF18191C);
-                /* 1px Left border outline */
-                context.batcher.box(this.rightSidebar.area.x, this.rightSidebar.area.y, this.rightSidebar.area.x + 1, this.rightSidebar.area.ey(), 0xFF2A2B2F);
-                /* Splitter separator line between outliner and inspector */
-                int sy = this.outlinerSplitter.area.y + 2;
-                context.batcher.box(this.rightSidebar.area.x, sy, this.rightSidebar.area.ex(), sy + 1, 0xFF2A2B2F);
+                context.batcher.box(this.forms.area.x, this.forms.area.y, this.forms.area.ex(), this.forms.area.ey(), 0xFF18191C);
+                context.batcher.box(this.forms.area.ex() - 1, this.forms.area.y, this.forms.area.ex(), this.forms.area.ey(), 0xFF2A2B2F);
+            }
+
+            if (this.formEditor.isVisible())
+            {
+                context.batcher.box(this.formEditor.area.x, this.formEditor.area.y, this.formEditor.area.ex(), this.formEditor.area.ey(), 0xFF18191C);
+                context.batcher.box(this.formEditor.area.x, this.formEditor.area.y, this.formEditor.area.x + 1, this.formEditor.area.ey(), 0xFF2A2B2F);
             }
         });
 
-        UIDraggable draggable = new UIDraggable((context) ->
+        UIDraggable treeResizer = new UIDraggable((context) ->
         {
-            int diff = this.area.ex() - context.mouseX;
+            int diff = context.mouseX - this.forms.area.x;
             float f = diff / (float) this.area.w;
 
-            treeWidth = MathUtils.clamp(f, 0.15F, 0.55F);
-
-            this.rightSidebar.w(treeWidth).resize();
+            treeWidth = MathUtils.clamp(f, 0.12F, 0.4F);
+            this.forms.w(treeWidth).resize();
+            this.resizeSidebar();
             this.updateStatesEditorLayout();
             this.resize();
         }).dragEnd(() ->
@@ -491,8 +426,19 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
                 BBSSettings.uiLayoutPreferences.setFormTreeWidth(treeWidth);
             }
         });
+        treeResizer.relative(this.forms).x(1F).y(0.5F).w(6).h(40).anchor(0.5F, 0.5F);
 
-        draggable.relative(this.rightSidebar).x(0F).y(0.5F).w(6).h(40).anchor(0.5F, 0.5F);
+        this.inspectorResizer = new UIDraggable((context) ->
+        {
+            int diff = this.area.ex() - context.mouseX;
+            float f = diff / (float) this.area.w;
+
+            inspectorWidth = MathUtils.clamp(f, 0.15F, 0.45F);
+            this.formEditor.w(inspectorWidth).resize();
+            this.updateStatesEditorLayout();
+            this.resize();
+        });
+        this.inspectorResizer.relative(this.formEditor).x(0F).y(0.5F).w(6).h(40).anchor(0.5F, 0.5F);
 
         /* Gizmo mode toolbar */
         this.gizmoBodyPart = new UIIcon(Icons.LIMB, (b) ->
@@ -610,12 +556,13 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             }
         };
         this.gizmoToolbar.column(0).vertical().stretch().height(20);
-        this.gizmoToolbar.relative(this).x(8).y(8).w(20);
+        this.gizmoToolbar.relative(this).x(0).y(8).w(20);
         this.rebuildGizmoToolbar();
         BBSSettings.editorFormGizmoToolbar.postCallback((v, f) -> this.rebuildGizmoToolbar());
 
-        this.rightSidebar.add(background, this.outliner, this.outlinerSplitter, this.formEditor, this.bodyPartEditor, this.keyframeEditorContainer, draggable);
-        this.add(this.renderer, this.rightSidebar, this.statesEditor, this.modelSettingsEditor, this.gizmoToolbar, this.icons);
+        this.forms.add(this.listSection, this.bodyPartEditor, treeResizer);
+        this.formEditor.add(this.inspectorResizer);
+        this.add(this.renderer, sidebarsBackground, this.forms, this.formEditor, this.statesEditor, this.gizmoToolbar, this.icons);
 
         this.keys().register(Keys.UNDO, this::undo);
         this.keys().register(Keys.REDO, this::redo);
@@ -647,6 +594,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.updateStatesEditorLayout();
         this.setUndoId("form_editor");
     }
+
 
     public boolean clickViewport(UIContext context, StencilFormFramebuffer stencil)
     {
@@ -710,16 +658,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             return this.editor.getEditableTransform();
         }
 
-        if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            UIPoseEditor poseEditor = this.modelSettingsEditor.getPoseEditor();
-
-            if (poseEditor != null)
-            {
-                return poseEditor.transform;
-            }
-        }
-
         if (this.editor instanceof UIModelForm modelForm)
         {
             return modelForm.getPoseGizmoTransform();
@@ -739,16 +677,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         if (transform == null || this.gizmoTargetsBodyPart || this.gizmoTargetsTransform)
         {
             return false;
-        }
-
-        if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            UIPoseEditor poseEditor = this.modelSettingsEditor.getPoseEditor();
-
-            if (poseEditor != null && transform == poseEditor.transform)
-            {
-                return true;
-            }
         }
 
         return this.editor instanceof UIModelForm modelForm
@@ -779,28 +707,17 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         {
             this.editor.generalPanel.transform.setTransform(this.editor.form.transform.get());
         }
-
-        if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            this.modelSettingsEditor.enterFormTransformGizmoMode();
-        }
     }
 
     /** Turns off the toolbar transform gizmo and leaves form-transform edit mode in the model editor. */
     public void disableFormTransformGizmo()
     {
-        if (!this.gizmoTargetsTransform
-            && (this.modelSettingsEditor == null || !this.modelSettingsEditor.isFormTransformGizmoMode()))
+        if (!this.gizmoTargetsTransform)
         {
             return;
         }
 
         this.gizmoTargetsTransform = false;
-
-        if (this.modelSettingsEditor != null)
-        {
-            this.modelSettingsEditor.exitFormTransformGizmoMode();
-        }
     }
 
     /** Finds the world matrix of the selected body part's attach point (its bone's matrix,
@@ -928,15 +845,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         return button;
     }
 
-    /** Leave the nested model editor and return to the form editor, like Esc does first. */
-    private void closeModelEditorIfOpen()
-    {
-        if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            this.toggleModelEditor();
-        }
-    }
-
     public void pickFormFromRenderer(Pair<Form, String> pair)
     {
         if (Window.isCtrlPressed() && !pair.b.isEmpty()) this.bodyPartEditor.pickBone(pair);
@@ -995,9 +903,9 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         this.statesEditor.resetFlex().relative(this).x(0).y(1F).h(vSize).anchorY(1F);
 
-        if (this.rightSidebar != null && this.rightSidebar.isVisible())
+        if (this.formEditor != null && this.formEditor.isVisible())
         {
-            this.statesEditor.wTo(this.rightSidebar.area);
+            this.statesEditor.wTo(this.formEditor.area);
         }
         else
         {
@@ -1031,16 +939,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         this.updateGizmoToolbarLayout(spaceConstrained);
 
-        if (this.keyframeModeBtn != null)
-        {
-            this.keyframeModeBtn.setEnabled(this.statesEditor.isVisible());
-
-            if (!this.statesEditor.isVisible() && this.inspectorMode == InspectorMode.KEYFRAME)
-            {
-                this.setInspectorMode(InspectorMode.FORM);
-            }
-        }
-
         if (this.openStateEditor != null)
         {
             this.openStateEditor.active(this.statesEditor.isVisible());
@@ -1052,12 +950,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     {
         this.updateStatesEditorLayout();
         super.resize();
+        this.resizeSidebar();
     }
 
     private void toggleStateEditor()
     {
-        this.closeModelEditorIfOpen();
-
         this.statesEditor.toggleVisible();
         this.updateStatesEditorLayout();
         this.resize();
@@ -1113,8 +1010,10 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     private void toggleSidebar()
     {
-        this.closeModelEditorIfOpen();
-        this.rightSidebar.toggleVisible();
+        boolean visible = !(this.forms.isVisible() || this.formEditor.isVisible());
+
+        this.forms.setVisible(visible);
+        this.formEditor.setVisible(visible);
         this.updateStatesEditorLayout();
         this.resize();
     }
@@ -1440,39 +1339,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.refillState();
     }
 
-    public void setInspectorMode(InspectorMode mode)
-    {
-        this.inspectorMode = mode;
-
-        boolean isForm = mode == InspectorMode.FORM;
-        boolean isBodyPart = mode == InspectorMode.BODY_PART;
-        boolean isKeyframe = mode == InspectorMode.KEYFRAME;
-
-        this.formEditor.setVisible(isForm);
-        this.bodyPartEditor.setVisible(isBodyPart);
-        if (this.keyframeEditorContainer != null)
-        {
-            this.keyframeEditorContainer.setVisible(isKeyframe);
-        }
-
-        if (this.formModeBtn != null)
-        {
-            this.formModeBtn.active(isForm);
-        }
-
-        if (this.bodyPartModeBtn != null)
-        {
-            this.bodyPartModeBtn.active(isBodyPart);
-        }
-
-        if (this.keyframeModeBtn != null)
-        {
-            this.keyframeModeBtn.active(isKeyframe);
-        }
-
-        this.rightSidebar.resize();
-    }
-
     private void pickForm(UIForms.FormEntry entry)
     {
         if (entry == null)
@@ -1480,37 +1346,32 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             return;
         }
 
-        boolean hasPart = entry.part != null;
-
-        if (hasPart)
+        if (entry.part != null)
         {
             this.bodyPartEditor.setPart(entry.part, entry.form);
-            this.bodyPartModeBtn.setEnabled(true);
+            this.bodyPartEditor.setVisible(true);
         }
         else
         {
-            this.bodyPartModeBtn.setEnabled(false);
-
-            if (this.inspectorMode == InspectorMode.BODY_PART)
-            {
-                this.setInspectorMode(InspectorMode.FORM);
-            }
+            this.bodyPartEditor.setVisible(false);
         }
 
+        this.resizeSidebar();
         this.switchEditor(entry.getForm());
     }
 
-    private void updateSidebarSplit()
+    private void resizeSidebar()
     {
-        this.outliner.h(this.outlinerSplitRatio);
-        this.outlinerSplitter.y(this.outlinerSplitRatio);
-        this.formEditor.y(this.outlinerSplitRatio).h(1F - this.outlinerSplitRatio);
-        this.bodyPartEditor.y(this.outlinerSplitRatio).h(1F - this.outlinerSplitRatio);
-        if (this.keyframeEditorContainer != null)
+        int h = 0;
+
+        if (this.bodyPartEditor.isVisible())
         {
-            this.keyframeEditorContainer.y(this.outlinerSplitRatio).h(1F - this.outlinerSplitRatio);
+            h = Math.min((int) this.bodyPartEditor.scroll.scrollSize, Math.max(this.forms.area.h / 2, 0));
         }
-        this.rightSidebar.resize();
+
+        this.bodyPartEditor.h(h);
+        this.listSection.h(1F, -h);
+        this.forms.resize();
     }
 
     public void openFormList(Form current, Consumer<Form> callback)
@@ -1541,8 +1402,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         form = FormUtils.copy(form);
 
-        this.setInspectorMode(InspectorMode.FORM);
-
         if (this.switchEditor(form))
         {
             this.undoHandler.reset();
@@ -1552,10 +1411,8 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
                 this.toggleStateEditor();
             }
 
-            if (this.modelSettingsEditor.isVisible())
-            {
-                this.toggleModelEditor();
-            }
+            this.bodyPartEditor.setVisible(false);
+            this.resizeSidebar();
 
             this.form = form;
             this.form.setId("form");
@@ -1625,7 +1482,8 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         this.editor = editor;
 
-        this.formEditor.prepend(this.editor);
+        /* Keep the width resizer on top for hit-testing; panel content goes under it. */
+        this.formEditor.addBefore(this.inspectorResizer, this.editor);
 
         this.editor.setEditor(this);
         this.editor.startEdit(form);
@@ -1680,11 +1538,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     @Override
     public void exit()
     {
-        if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            this.toggleModelEditor();
-        }
-
         this.callback = null;
 
         List<UIFormList> children = this.getChildren(UIFormList.class);
@@ -1841,15 +1694,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             else
             {
                 result = matrix;
-            }
-        }
-        else if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            UIPoseEditor poseEditor = this.modelSettingsEditor.getPoseEditor();
-
-            if (this.editor instanceof UIModelForm modelForm)
-            {
-                result = modelForm.getOriginForPoseEditor(transition, poseEditor);
             }
         }
         else if (this.statesEditor.isVisible())

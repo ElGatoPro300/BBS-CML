@@ -5,7 +5,6 @@ import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.forms.editors.UIFormModelEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -114,15 +113,7 @@ public class UIModelGeneralSection extends UIModelSection
     @Override
     public boolean subMouseClicked(UIContext context)
     {
-        boolean wasVisible = this.fields.isVisible();
-        boolean handled = super.subMouseClicked(context);
-
-        if (handled && !wasVisible && this.fields.isVisible() && this.editor instanceof UIFormModelEditor formModelEditor)
-        {
-            formModelEditor.onGeneralSectionOpened();
-        }
-
-        return handled;
+        return super.subMouseClicked(context);
     }
 
     private void updateScale(int axis, float value)

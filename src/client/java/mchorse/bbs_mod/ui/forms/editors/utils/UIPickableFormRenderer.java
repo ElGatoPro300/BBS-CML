@@ -156,11 +156,6 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     @Override
     public boolean subMouseClicked(UIContext context)
     {
-        if (this.formEditor.modelSettingsEditor != null && this.formEditor.modelSettingsEditor.isVisible())
-        {
-            return false;
-        }
-
         if (this.formEditor.clickViewport(context, this.stencil))
         {
             return true;

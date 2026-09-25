@@ -22,11 +22,6 @@ public class ImmersiveModelBlockCameraController implements ICameraController
 
     private UIModelRenderer getActiveRenderer()
     {
-        if (this.formEditor.modelSettingsEditor != null && this.formEditor.modelSettingsEditor.isVisible())
-        {
-            return this.formEditor.modelSettingsEditor.renderer;
-        }
-
         return this.formEditor.renderer;
     }
 
