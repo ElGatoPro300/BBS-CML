@@ -426,6 +426,8 @@ public class UIModelPhysicsFormPanel extends UIFormPanel<ModelForm>
     {
         this.noSelectionLabel.setVisible(!visible);
         this.detailContainer.setVisible(visible);
+        /* Visibility before resize so ColumnResizer assigns height to the detail block. */
+        this.options.resize();
     }
 
     private String boneFromDisplay(String display)
