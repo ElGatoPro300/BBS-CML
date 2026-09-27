@@ -23,6 +23,8 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
@@ -588,11 +590,16 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 forceZeroPickLight = true;
                 /* Re-apply picker shader after every RenderLayer.startDrawing (TAIL mixin),
                  * same as ItemFormRenderer — otherwise eyes/clothing keep their own shader
-                 * or a different lightmap and Alt-hover only highlights one layer. */
+                 * or a different lightmap and Alt-hover only highlights one layer.
+                 * IgnoreLightmap forces totalIndex = Target even when feature layers emit
+                 * fullbright UV2 (pumpkin, eyes, armor) that bypass ModelPartMixin. */
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
                     this.bindTexture();
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    ShaderProgram picker = BBSShaders.getPickerModelsProgram();
+
+                    this.setupTarget(context, picker);
+                    this.setIgnoreLightmap(picker, 1);
                     RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                 });
 
@@ -716,8 +723,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             finally
             {
                 currentPose = currentPoseOverlay = null;
-                CustomVertexConsumerProvider.clearRunnables();
-                forceZeroPickLight = false;
 
                 if (prepareLighting)
                 {
@@ -726,11 +731,17 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                 try
                 {
+                    /* Draw while hijack is still active so the final Immediate flush keeps
+                     * picker_models + Target + IgnoreLightmap (not a vanilla layer shader). */
                     consumers.draw();
                 }
                 catch (Exception ignored)
                 {
                 }
+
+                CustomVertexConsumerProvider.clearRunnables();
+                this.setIgnoreLightmap(BBSShaders.getPickerModelsProgram(), 0);
+                forceZeroPickLight = false;
 
                 if (prepareLighting)
                 {
@@ -952,6 +963,21 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     private static class BooleanHolder
     {
         public boolean bool;
+    }
+
+    private void setIgnoreLightmap(ShaderProgram program, int value)
+    {
+        if (program == null)
+        {
+            return;
+        }
+
+        GlUniform ignore = program.getUniform("IgnoreLightmap");
+
+        if (ignore != null)
+        {
+            ignore.set(value);
+        }
     }
 
     public static int getStencilPickOffset(ModelPart part, int light)

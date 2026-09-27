@@ -59,6 +59,11 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
     @Override
     public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
     {
+        if (this.stencilMap != null && !this.stencilMap.isBoneAllowed(group.id))
+        {
+            return false;
+        }
+
         if (group.cubes.isEmpty() && group.meshes.isEmpty())
         {
             return false;

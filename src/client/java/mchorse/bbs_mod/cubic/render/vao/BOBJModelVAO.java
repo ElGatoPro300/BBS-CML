@@ -211,10 +211,10 @@ public class BOBJModelVAO
             resultNormal.set(0F, 0F, 0F);
 
             boolean allowBone = true;
-            if (stencilMap != null && stencilMap.allowedBones != null && lightBone >= 0)
+            if (stencilMap != null && lightBone >= 0)
             {
                 BOBJBone bone = this.getBoneByIndex(lightBone);
-                allowBone = bone != null && stencilMap.allowedBones.contains(bone.name);
+                allowBone = bone != null && stencilMap.isBoneAllowed(bone.name);
             }
 
             if (stencilMap != null)
