@@ -2,10 +2,9 @@ package mchorse.bbs_mod.items;
 
 import net.minecraft.util.math.BlockPos;
 
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -23,24 +22,18 @@ public class StructurePickerRegionMerger
             return List.of();
         }
 
-        LongOpenHashSet open = new LongOpenHashSet(blocks.size());
-
-        for (BlockPos pos : blocks)
-        {
-            open.add(pos.asLong());
-        }
-
+        Set<BlockPos> open = new HashSet<>(blocks);
         List<MergedRegion> merged = new ArrayList<>();
 
         while (!open.isEmpty())
         {
-            long seed = open.iterator().nextLong();
-            int x0 = BlockPos.unpackLongX(seed);
-            int y0 = BlockPos.unpackLongY(seed);
-            int z0 = BlockPos.unpackLongZ(seed);
-            int x1 = x0;
-            int y1 = y0;
-            int z1 = z0;
+            BlockPos seed = open.iterator().next();
+            int x0 = seed.getX();
+            int x1 = seed.getX();
+            int y0 = seed.getY();
+            int y1 = seed.getY();
+            int z0 = seed.getZ();
+            int z1 = seed.getZ();
             boolean expanded;
 
             do
@@ -91,7 +84,7 @@ public class StructurePickerRegionMerger
                 {
                     for (int z = z0; z <= z1; z++)
                     {
-                        open.remove(BlockPos.asLong(x, y, z));
+                        open.remove(new BlockPos(x, y, z));
                     }
                 }
             }
@@ -104,7 +97,7 @@ public class StructurePickerRegionMerger
         return merged;
     }
 
-    private static boolean canFill(LongOpenHashSet open, int x0, int y0, int z0, int x1, int y1, int z1)
+    private static boolean canFill(Set<BlockPos> open, int x0, int y0, int z0, int x1, int y1, int z1)
     {
         for (int x = x0; x <= x1; x++)
         {
@@ -112,7 +105,7 @@ public class StructurePickerRegionMerger
             {
                 for (int z = z0; z <= z1; z++)
                 {
-                    if (!open.contains(BlockPos.asLong(x, y, z)))
+                    if (!open.contains(new BlockPos(x, y, z)))
                     {
                         return false;
                     }

@@ -216,6 +216,9 @@ public class BBSSettings
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
 
+    public static ValueInt structurePickerReach;
+    public static ValueInt structurePickerReachExtended;
+
     public static ValueBoolean renderAllModelBlocks;
     public static ValueBoolean clickModelBlocks;
     public static ValueBoolean modelBlockCategoriesPanelEnabled;
@@ -256,8 +259,6 @@ public class BBSSettings
     public static ValueFloat shaderShadowOpacity;
     public static ValueBoolean shaderShadowDither;
     public static ValueBoolean lodShaderReloadFix;
-    public static ValueBoolean irisFormFluidPatch;
-    public static ValueBoolean irisFormGlowBloomPatch;
 
     public static ValueBoolean audioWaveformVisible;
     public static ValueInt audioWaveformDensity;
@@ -868,6 +869,11 @@ public class BBSSettings
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
         recordingCameraPreviewFutureCount = builder.getInt("camera_preview_future_count", 3, 1, 8);
 
+        builder.category("structure_picker");
+        structurePickerReach = builder.getInt("reach", 50, 1, 300);
+        structurePickerReachExtended = builder.getInt("reach_extended", 200, 1, 300);
+        builder.getCategory().invisible();
+
         builder.category("model_blocks");
         renderAllModelBlocks = builder.getBoolean("render_all", true);
         clickModelBlocks = builder.getBoolean("click", true);
@@ -901,8 +907,6 @@ public class BBSSettings
         shaderShadowOpacity = builder.getFloat("shader_shadow_opacity", 1F, 0F, 1F);
         shaderShadowDither = builder.getBoolean("shader_shadow_dither", true);
         lodShaderReloadFix = builder.getBoolean("lod_shader_reload_fix", true);
-        irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
-        irisFormGlowBloomPatch = builder.getBoolean("iris_form_glow_bloom_patch", true);
 
         builder.category("fluid_simulation");
         fluidRealisticModelInteraction = builder.getBoolean("realistic_model_interaction", false);

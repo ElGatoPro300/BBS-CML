@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.forms.editors.utils;
 
-import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.cubic.IModel;
@@ -53,14 +52,9 @@ public final class UIFormPropertyTrackSheets
         "glowing_color", "glow_settings", "glow_intensity", "paint_color"
     );
 
-    /** Film-entity targeting tracks that do not apply to form animation states / model blocks. */
-    private static final Set<String> ANIMATION_STATE_HIDDEN_PROPERTIES = Set.of(
-        "look_at", "inverse_kinematics"
-    );
-
     private static final List<String> MODEL_PROPERTIES = Arrays.asList(
         "visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay",
-        "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color",
+        "anchor", "illusion", "illusion_transform", "color",
         "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture",
         "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys",
         "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings",
@@ -91,19 +85,9 @@ public final class UIFormPropertyTrackSheets
         return path.endsWith("tint_block_entities")
             || path.endsWith("_item")
             || HIDDEN_MODEL_PROPERTIES.contains(name)
-            || name.startsWith("illusion_transform")
-            || (!BBSFeatures.isFormIkLookAtUiEnabled() && BBSFeatures.isFormIkLookAtProperty(name));
+            || name.startsWith("illusion_transform");
     }
 
-    public static boolean isAnimationStateHiddenProperty(String key)
-    {
-        if (isHiddenModelProperty(key))
-        {
-            return true;
-        }
-
-        return ANIMATION_STATE_HIDDEN_PROPERTIES.contains(propertyName(key));
-    }
 
     /**
      * Collects, filters, creates, sorts and groups form-property sheets for animation-state
@@ -161,7 +145,6 @@ public final class UIFormPropertyTrackSheets
             }
         }
 
-        propertyPaths.removeIf(UIFormPropertyTrackSheets::isAnimationStateHiddenProperty);
         propertyPaths.removeIf(UIVisibleRenderKeyframeUtils::isRenderTimelineHidden);
 
         return propertyPaths;
@@ -1048,8 +1031,6 @@ public final class UIFormPropertyTrackSheets
 
                 if (name.indexOf(':') != -1) return 29;
                 if (name.equals("anchor")) return 30;
-                if (name.equals("look_at")) return 31;
-                if (name.equals("inverse_kinematics")) return 32;
                 if (name.equals("illusion")) return 33;
                 if (name.equals("illusion_overlay")) return 34;
                 if (name.startsWith("illusion_overlay") && name.length() > "illusion_overlay".length())

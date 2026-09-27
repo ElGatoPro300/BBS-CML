@@ -144,7 +144,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         consumers.setSubstitute(null);
 
         matrices.pop();
-        BBSRendering.restoreGuiRenderState();
     }
 
     @Override
