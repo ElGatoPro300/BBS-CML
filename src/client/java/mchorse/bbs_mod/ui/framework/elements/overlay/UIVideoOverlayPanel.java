@@ -64,7 +64,7 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
         this.context = context;
         this.originalCallback = callback;
         this.externalManager = new ExternalVideoManager();
-        this.likeManager = VideoLikeManager.INSTANCE;
+        this.likeManager = new VideoLikeManager();
 
         this.content.remove(this.strings);
 
