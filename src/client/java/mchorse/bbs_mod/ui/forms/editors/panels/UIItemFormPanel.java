@@ -157,7 +157,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
-            UI.label(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS),
+            UI.label(UIKeys.FORMS_EDITORS_TRANSFORMS),
             this.modelTransform,
             this.sameAnimationWhenDropped,
             this.itemStackEditor

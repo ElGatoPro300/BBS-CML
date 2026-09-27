@@ -434,6 +434,8 @@ public class UIKeys
     public static final IKey FILM_GIZMO_THICKNESS = L10n.lang("bbs.ui.film.gizmo.thickness");
     public static final IKey FILM_GIZMO_TRANSLATE_SPEED = L10n.lang("bbs.ui.film.gizmo.translate_speed");
     public static final IKey FILM_GIZMO_BODY_PART = L10n.lang("bbs.ui.film.gizmo.body_part");
+    public static final IKey FILM_GIZMO_POSE = L10n.lang("bbs.ui.film.gizmo.pose");
+    public static final IKey FILM_GIZMO_TARGET = L10n.lang("bbs.ui.film.gizmo.target");
     public static final IKey FILM_GIZMO_TRANSFORM = L10n.lang("bbs.ui.film.gizmo.transform");
     public static final IKey FILM_OPEN_HISTORY = L10n.lang("bbs.ui.film.open_history");
     public static final IKey FILM_OPEN_REPLAY_EDITOR = L10n.lang("bbs.ui.film.open_replay_editor");
@@ -869,6 +871,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL_VISIBLE = L10n.lang("bbs.ui.forms.editors.general.visible");
     public static final IKey FORMS_EDITORS_ITEM_TITLE = L10n.lang("bbs.ui.forms.editors.item.title");
     public static final IKey FORMS_EDITORS_ITEM_TRANSFORMS = L10n.lang("bbs.ui.forms.editors.item.transforms");
+    public static final IKey FORMS_EDITORS_TRANSFORMS = L10n.lang("bbs.ui.forms.editors.transforms");
+    public static final IKey FORMS_EDITOR_LIMB_TRANSFORMS = L10n.lang("bbs.ui.forms.editor.limb_transforms");
     public static final IKey FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED = L10n.lang("bbs.ui.forms.editors.item.same_animation_when_dropped");
     public static final IKey FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED_TOOLTIP = L10n.lang("bbs.ui.forms.editors.item.same_animation_when_dropped-tooltip");
     public static final IKey FORMS_EDITORS_LABEL_ANCHOR = L10n.lang("bbs.ui.forms.editors.label.anchor");
@@ -1008,6 +1012,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_SHAPE_TEXTURE_SCROLL_X = L10n.lang("bbs.ui.forms.editors.shape.texture_scroll_x");
     public static final IKey FORMS_EDITORS_SHAPE_TEXTURE_SCROLL_Y = L10n.lang("bbs.ui.forms.editors.shape.texture_scroll_y");
     public static final IKey FORMS_EDITOR_BONE = L10n.lang("bbs.ui.forms.editor.bone");
+    public static final IKey FORMS_EDITOR_BONES = L10n.lang("bbs.ui.forms.editor.bones");
     public static final IKey FORMS_EDITOR_FORM = L10n.lang("bbs.ui.forms.editor.form");
     public static final IKey FORMS_EDITOR_KEYFRAMES = L10n.lang("bbs.ui.forms.editor.keyframes");
     public static final IKey FORMS_EDITOR_KEYFRAMES_NONE_SELECTED = L10n.lang("bbs.ui.forms.editor.keyframes.none_selected");

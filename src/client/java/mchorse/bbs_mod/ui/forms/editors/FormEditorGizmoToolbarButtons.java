@@ -13,13 +13,9 @@ public final class FormEditorGizmoToolbarButtons
 
     public static Icon getIcon(String id)
     {
-        if (ValueFormEditorGizmoToolbar.BODY_PART.equals(id))
+        if (ValueFormEditorGizmoToolbar.TARGET.equals(id))
         {
-            return Icons.LIMB;
-        }
-        else if (ValueFormEditorGizmoToolbar.TRANSFORM.equals(id))
-        {
-            return Icons.GEAR;
+            return Icons.POSE;
         }
         else if (ValueFormEditorGizmoToolbar.MOVE.equals(id))
         {
@@ -59,13 +55,9 @@ public final class FormEditorGizmoToolbarButtons
 
     public static IKey getTooltip(String id)
     {
-        if (ValueFormEditorGizmoToolbar.BODY_PART.equals(id))
+        if (ValueFormEditorGizmoToolbar.TARGET.equals(id))
         {
-            return UIKeys.FILM_GIZMO_BODY_PART;
-        }
-        else if (ValueFormEditorGizmoToolbar.TRANSFORM.equals(id))
-        {
-            return UIKeys.FILM_GIZMO_TRANSFORM;
+            return UIKeys.FILM_GIZMO_TARGET;
         }
         else if (ValueFormEditorGizmoToolbar.MOVE.equals(id))
         {

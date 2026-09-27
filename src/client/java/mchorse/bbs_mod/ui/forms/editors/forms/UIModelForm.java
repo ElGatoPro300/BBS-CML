@@ -76,7 +76,7 @@ public class UIModelForm extends UIForm<ModelForm>
     {
         super.setPanel(panel);
 
-        if (panel == this.modelPanel && this.editor != null)
+        if (panel == this.modelPanel && this.editor != null && !this.editor.isApplyingUndo())
         {
             this.editor.disableFormTransformGizmo();
         }
