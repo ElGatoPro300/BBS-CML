@@ -79,6 +79,13 @@ public class Window
     {
         try
         {
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            if (client != null && client.keyboard != null)
+            {
+                return client.keyboard.getClipboard();
+            }
+
             String string = GLFW.glfwGetClipboardString(getWindow());
 
             return string == null ? "" : string;
@@ -118,6 +125,19 @@ public class Window
 
     public static void setClipboard(String string)
     {
+        try
+        {
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            if (client != null && client.keyboard != null)
+            {
+                client.keyboard.setClipboard(string);
+                return;
+            }
+        }
+        catch (Exception ignored)
+        {}
+
         if (string.length() > 1024)
         {
             byte[] bytes = string.getBytes(StandardCharsets.UTF_8);

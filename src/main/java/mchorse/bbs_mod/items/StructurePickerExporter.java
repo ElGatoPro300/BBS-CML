@@ -14,13 +14,12 @@ import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtList;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
 import net.minecraft.structure.StructurePlacementData;
 import net.minecraft.structure.StructureTemplate;
+import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3i;
 
@@ -35,11 +34,6 @@ import java.util.Set;
 public class StructurePickerExporter
 {
     public static String export(ServerWorld world, List<BlockPos> blocks)
-    {
-        return export(world, blocks, null);
-    }
-
-    public static String export(ServerWorld world, List<BlockPos> blocks, String customName)
     {
         if (blocks.isEmpty())
         {
@@ -61,14 +55,15 @@ public class StructurePickerExporter
         template.saveFromWorld(world, min, size, true, Blocks.STRUCTURE_VOID);
         filterTemplate(template, min, new HashSet<>(blocks));
 
-        File folder = BBSMod.getAssetsPath("structures");
+        File generatedFolder = world.getServer().getSavePath(WorldSavePath.GENERATED).toFile();
+        File folder = new File(new File(generatedFolder, "minecraft"), "structures");
 
         if (!folder.exists())
         {
             folder.mkdirs();
         }
 
-        String fileName = resolveFileName(folder, customName);
+        String fileName = "pick_" + System.currentTimeMillis() + ".nbt";
         File file = new File(folder, fileName);
 
         try
@@ -283,17 +278,10 @@ public class StructurePickerExporter
 
     public static boolean placeModelBlock(ServerWorld world, BlockPos center, String structurePath)
     {
-        return placeModelBlock(world, center, structurePath, null);
-    }
-
-    public static boolean placeModelBlock(ServerWorld world, BlockPos center, String structurePath, String customName)
-    {
         if (structurePath == null || structurePath.isEmpty())
         {
             return false;
         }
-
-        String displayName = displayNameOf(customName, structurePath);
 
         if (world.getBlockState(center).isOf(BBSMod.MODEL_BLOCK))
         {
@@ -308,7 +296,7 @@ public class StructurePickerExporter
                 ModelProperties properties = modelBlockEntity.getProperties();
 
                 properties.setForm(form);
-                properties.setName(displayName);
+                properties.setName("Structure");
                 properties.setHitbox(true);
                 modelBlockEntity.markDirty();
                 world.updateListeners(center, world.getBlockState(center), world.getBlockState(center), 3);
@@ -340,7 +328,7 @@ public class StructurePickerExporter
         ModelProperties properties = modelBlockEntity.getProperties();
 
         properties.setForm(form);
-        properties.setName(displayName);
+        properties.setName("Structure");
         properties.setHitbox(true);
         modelBlockEntity.markDirty();
         world.updateListeners(center, modelState, modelState, 3);
@@ -373,12 +361,7 @@ public class StructurePickerExporter
                 continue;
             }
 
-            BlockPos immutable = pos.toImmutable();
-            BlockState state = world.getBlockState(immutable);
-            BlockEntity entity = world.getBlockEntity(immutable);
-            NbtCompound nbt = entity == null ? null : entity.createNbtWithId();
-
-            snapshots.add(new BlockSnapshot(immutable, state, nbt));
+            snapshots.add(StructurePickerExporter.captureBlock(world, pos));
         }
 
         return snapshots;
@@ -398,7 +381,7 @@ public class StructurePickerExporter
     {
         for (BlockSnapshot snapshot : snapshots)
         {
-            restoreBlock(world, snapshot);
+            StructurePickerExporter.restoreBlock(world, snapshot);
         }
     }
 
@@ -422,22 +405,6 @@ public class StructurePickerExporter
         }
     }
 
-    public record BlockSnapshot(BlockPos pos, BlockState state, NbtCompound nbt)
-    {
-    }
-
-    public record PlaceResult(BlockPos min, BlockPos max, List<BlockSnapshot> previousBlocks)
-    {
-    }
-
-    public record TemplateSize(int x, int y, int z)
-    {
-        public boolean isEmpty()
-        {
-            return this.x <= 0 || this.y <= 0 || this.z <= 0;
-        }
-    }
-
     public static StructureTemplate loadTemplate(ServerWorld world, String pathString)
     {
         NbtCompound nbt = StructurePickerExporter.readStructureNbt(pathString);
@@ -450,93 +417,91 @@ public class StructurePickerExporter
         return world.getStructureTemplateManager().createTemplate(nbt);
     }
 
-    public static TemplateSize getTemplateSize(String pathString)
+    public static List<BlockSnapshot> captureVolume(ServerWorld world, BlockPos min, BlockPos max)
     {
-        NbtCompound nbt = StructurePickerExporter.readStructureNbt(pathString);
+        List<BlockSnapshot> snapshots = new ArrayList<>();
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
 
-        if (nbt == null)
+        for (int x = min.getX(); x <= max.getX(); x++)
         {
-            return new TemplateSize(0, 0, 0);
-        }
-
-        if (nbt.contains("size", NbtElement.INT_ARRAY_TYPE))
-        {
-            int[] size = nbt.getIntArray("size");
-
-            if (size.length >= 3)
+            for (int y = min.getY(); y <= max.getY(); y++)
             {
-                return new TemplateSize(size[0], size[1], size[2]);
+                for (int z = min.getZ(); z <= max.getZ(); z++)
+                {
+                    snapshots.add(StructurePickerExporter.captureBlock(world, mutable.set(x, y, z)));
+                }
             }
         }
 
-        if (nbt.contains("size", NbtElement.LIST_TYPE))
-        {
-            NbtList sizeList = nbt.getList("size", NbtElement.INT_TYPE);
-
-            if (sizeList.size() >= 3)
-            {
-                return new TemplateSize(sizeList.getInt(0), sizeList.getInt(1), sizeList.getInt(2));
-            }
-        }
-
-        return new TemplateSize(0, 0, 0);
+        return snapshots;
     }
 
     /**
-     * Relative block offsets (non-air) for translucent blueprint preview.
+     * Places a saved structure NBT into the world and returns the previous volume
+     * so panel undo can restore terrain. Used by PlaceStructure history entries.
      */
-    public static List<BlockPos> loadOccupiedOffsets(String pathString)
+    public static PlaceResult placeStructure(ServerWorld world, String pathString, BlockPos origin)
     {
-        List<BlockPos> offsets = new ArrayList<>();
-        NbtCompound root = StructurePickerExporter.readStructureNbt(pathString);
+        StructureTemplate template = StructurePickerExporter.loadTemplate(world, pathString);
 
-        if (root == null || !root.contains("blocks", NbtElement.LIST_TYPE) || !root.contains("palette", NbtElement.LIST_TYPE))
+        if (template == null)
         {
-            return offsets;
+            return null;
         }
 
-        NbtList palette = root.getList("palette", NbtElement.COMPOUND_TYPE);
-        boolean[] air = new boolean[palette.size()];
+        Vec3i size = template.getSize();
 
-        for (int i = 0; i < palette.size(); i++)
+        if (size.getX() <= 0 || size.getY() <= 0 || size.getZ() <= 0)
         {
-            air[i] = StructurePickerExporter.isAirPaletteEntry(palette.getCompound(i));
+            return null;
         }
 
-        NbtList blocks = root.getList("blocks", NbtElement.COMPOUND_TYPE);
+        BlockPos min = origin.toImmutable();
+        BlockPos max = min.add(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
+        List<BlockSnapshot> previous = StructurePickerExporter.captureVolume(world, min, max);
+        StructurePlacementData data = new StructurePlacementData();
 
-        for (int i = 0; i < blocks.size(); i++)
-        {
-            NbtCompound entry = blocks.getCompound(i);
-            int state = entry.getInt("state");
+        template.place(world, min, min, data, world.getRandom(), 3);
 
-            if (state < 0 || state >= air.length || air[state])
-            {
-                continue;
-            }
-
-            NbtList pos = entry.getList("pos", NbtElement.INT_TYPE);
-
-            if (pos.size() < 3)
-            {
-                continue;
-            }
-
-            offsets.add(new BlockPos(pos.getInt(0), pos.getInt(1), pos.getInt(2)));
-        }
-
-        return offsets;
+        return new PlaceResult(min, max, previous);
     }
 
-    private static boolean isAirPaletteEntry(NbtCompound entry)
+    public record BlockSnapshot(BlockPos pos, BlockState state, NbtCompound nbt)
     {
-        String name = entry.getString("Name");
+    }
 
-        return name.isEmpty()
-            || name.equals("minecraft:air")
-            || name.equals("minecraft:cave_air")
-            || name.equals("minecraft:void_air")
-            || name.equals("minecraft:structure_void");
+    public record PlaceResult(BlockPos min, BlockPos max, List<BlockSnapshot> previousBlocks)
+    {
+    }
+
+    /**
+     * Block position whose center matches the structure form's render pivot,
+     * so the rendered structure lines up with the original world blocks.
+     */
+    public static BlockPos getPlacementPos(BlockPos min, BlockPos max)
+    {
+        int sizeX = max.getX() - min.getX() + 1;
+        int sizeZ = max.getZ() - min.getZ() + 1;
+
+        return new BlockPos(
+            min.getX() + (sizeX - 1) / 2,
+            min.getY(),
+            min.getZ() + (sizeZ - 1) / 2
+        );
+    }
+
+    private static void filterTemplate(StructureTemplate template, BlockPos origin, Set<BlockPos> selected)
+    {
+        StructureTemplateAccessor accessor = (StructureTemplateAccessor) template;
+
+        for (StructureTemplate.PalettedBlockInfoList list : accessor.bbs$getBlockInfoLists())
+        {
+            StructureTemplatePalettedListAccessor palette = (StructureTemplatePalettedListAccessor) (Object) list;
+
+            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos())));
+        }
+
+        accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());
     }
 
     public static NbtCompound readStructureNbt(String pathString)
@@ -572,80 +537,5 @@ public class StructurePickerExporter
 
             return null;
         }
-    }
-
-    public static List<BlockSnapshot> captureVolume(ServerWorld world, BlockPos min, BlockPos max)
-    {
-        List<BlockSnapshot> snapshots = new ArrayList<>();
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
-
-        for (int x = min.getX(); x <= max.getX(); x++)
-        {
-            for (int y = min.getY(); y <= max.getY(); y++)
-            {
-                for (int z = min.getZ(); z <= max.getZ(); z++)
-                {
-                    snapshots.add(StructurePickerExporter.captureBlock(world, mutable.set(x, y, z)));
-                }
-            }
-        }
-
-        return snapshots;
-    }
-
-    public static PlaceResult placeStructure(ServerWorld world, String pathString, BlockPos origin)
-    {
-        StructureTemplate template = StructurePickerExporter.loadTemplate(world, pathString);
-
-        if (template == null)
-        {
-            return null;
-        }
-
-        Vec3i size = template.getSize();
-
-        if (size.getX() <= 0 || size.getY() <= 0 || size.getZ() <= 0)
-        {
-            return null;
-        }
-
-        BlockPos min = origin.toImmutable();
-        BlockPos max = min.add(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
-        List<BlockSnapshot> previous = StructurePickerExporter.captureVolume(world, min, max);
-        StructurePlacementData data = new StructurePlacementData();
-
-        template.place(world, min, min, data, world.getRandom(), 3);
-
-        return new PlaceResult(min, max, previous);
-    }
-
-    /**
-     * Block position whose center matches the structure form's render pivot,
-     * so the rendered structure lines up with the original world blocks.
-     */
-    public static BlockPos getPlacementPos(BlockPos min, BlockPos max)
-    {
-        int sizeX = max.getX() - min.getX() + 1;
-        int sizeZ = max.getZ() - min.getZ() + 1;
-
-        return new BlockPos(
-            min.getX() + (sizeX - 1) / 2,
-            min.getY(),
-            min.getZ() + (sizeZ - 1) / 2
-        );
-    }
-
-    private static void filterTemplate(StructureTemplate template, BlockPos origin, Set<BlockPos> selected)
-    {
-        StructureTemplateAccessor accessor = (StructureTemplateAccessor) template;
-
-        for (StructureTemplate.PalettedBlockInfoList list : accessor.bbs$getBlockInfoLists())
-        {
-            StructureTemplatePalettedListAccessor palette = (StructureTemplatePalettedListAccessor) (Object) list;
-
-            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos)));
-        }
-
-        accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());
     }
 }

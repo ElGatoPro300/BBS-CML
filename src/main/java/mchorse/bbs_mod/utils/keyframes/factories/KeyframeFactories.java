@@ -23,8 +23,6 @@ public class KeyframeFactories
     public static final Vector4fKeyframeFactory VECTOR4F = new Vector4fKeyframeFactory();
     public static final AnchorKeyframeFactory ANCHOR = new AnchorKeyframeFactory();
     public static final MountLinkKeyframeFactory MOUNT_LINK = new MountLinkKeyframeFactory();
-    public static final LookAtKeyframeFactory LOOK_AT = new LookAtKeyframeFactory();
-    public static final InverseKinematicsKeyframeFactory INVERSE_KINEMATICS = new InverseKinematicsKeyframeFactory();
     public static final IllusionKeyframeFactory ILLUSION = new IllusionKeyframeFactory();
     public static final BlockStateKeyframeFactory BLOCK_STATE = new BlockStateKeyframeFactory();
     public static final ItemStackKeyframeFactory ITEM_STACK = new ItemStackKeyframeFactory();
@@ -62,8 +60,6 @@ public class KeyframeFactories
         FACTORIES.put("vector4f", VECTOR4F);
         FACTORIES.put("anchor", ANCHOR);
         FACTORIES.put("mount_link", MOUNT_LINK);
-        FACTORIES.put("look_at", LOOK_AT);
-        FACTORIES.put("inverse_kinematics", INVERSE_KINEMATICS);
         FACTORIES.put("illusion", ILLUSION);
         FACTORIES.put("block_state", BLOCK_STATE);
         FACTORIES.put("item_stack", ITEM_STACK);
