@@ -147,4 +147,7 @@ public class Keys
 
     /* Texture picker */
     public static final KeyCombo TEXTURE_PICKER_FIND = new KeyCombo("find", UIKeys.TEXTURE_KEYS_FIND_ALL, GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("texture_picker");
+
+    /* Structure picker */
+    public static final KeyCombo STRUCTURE_PICKER_CYCLE_PLANE = new KeyCombo("cycle_plane", UIKeys.STRUCTURE_PICKER_KEYS_CYCLE_PLANE, GLFW.GLFW_KEY_R).categoryKey("structure_picker");
 }

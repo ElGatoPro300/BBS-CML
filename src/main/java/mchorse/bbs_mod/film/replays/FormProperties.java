@@ -1447,7 +1447,7 @@ public class FormProperties extends ValueGroup
                  "paint", "paint_settings", "glow", "glow_settings",
                  "structure_light_settings", "structure_light",
                  "shadow", "shadow_settings", "chroma_sky_settings",
-                 "particle_settings", "look_at", "inverse_kinematics",
+                 "particle_settings",
                  "illusion", "mount_link", "shake_settings", "shake" -> true;
             default -> false;
         };

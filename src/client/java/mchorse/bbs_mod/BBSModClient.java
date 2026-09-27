@@ -662,28 +662,6 @@ public class BBSModClient implements ClientModInitializer
             });
         }
 
-        if (BBSSettings.irisFormFluidPatch != null)
-        {
-            BBSSettings.irisFormFluidPatch.postCallback((v, f) ->
-            {
-                if (BBSRendering.isIrisLoaded())
-                {
-                    IrisUtils.reloadShaders();
-                }
-            });
-        }
-
-        if (BBSSettings.irisFormGlowBloomPatch != null)
-        {
-            BBSSettings.irisFormGlowBloomPatch.postCallback((v, f) ->
-            {
-                if (BBSRendering.isIrisLoaded())
-                {
-                    IrisUtils.reloadShaders();
-                }
-            });
-        }
-
         if (BBSSettings.shaderShadowOpacity != null)
         {
             BBSSettings.shaderShadowOpacity.postCallback((v, f) ->
@@ -857,10 +835,13 @@ public class BBSModClient implements ClientModInitializer
 
         /* Soft-opacity: Iris flushes here. Vanilla Fabulous also flushes into the translucent
          * FB before combine (otherwise soft vanishes). Vanilla Fancy waits until LAST.
-         * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md. */
+         * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md.
+         * Structure picker volumes also draw here (depth ON) so translucent water/glass no longer
+         * paints over them, while solid terrain still occludes buried selections. */
         WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
+            StructurePickerRenderer.render(context);
         });
 
         WorldRenderEvents.LAST.register((context) ->
@@ -868,10 +849,6 @@ public class BBSModClient implements ClientModInitializer
             /* Fancy: primary soft flush after clouds. Fabulous: leftovers on main FB. */
             ShaderOpacityPatch.onAfterVanillaClouds();
 
-            Draw.flushIrisBoxes();
-
-            /* After clouds / translucents / model blocks so selection+gizmos stay on top. */
-            StructurePickerRenderer.render(context);
             Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())

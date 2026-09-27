@@ -6780,7 +6780,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (clip != null)
         {
-            min = Math.round(clip.tick.get());
+            min = clip.tick.get();
             max = min + clip.duration.get();
         }
 

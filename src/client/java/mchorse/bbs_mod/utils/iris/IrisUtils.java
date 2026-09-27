@@ -20,6 +20,8 @@ import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
 import net.irisshaders.iris.gui.screen.ShaderPackScreen;
 import net.irisshaders.iris.pbr.TextureTracker;
 import net.irisshaders.iris.pbr.loader.PBRTextureLoaderRegistry;
+import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
+import net.irisshaders.iris.pipeline.WorldRenderingPipeline;
 import net.irisshaders.iris.shaderpack.LanguageMap;
 import net.irisshaders.iris.shaderpack.ShaderPack;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuContainer;
@@ -28,6 +30,7 @@ import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElementScreen;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuLinkElement;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
 import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
+import net.irisshaders.iris.shadows.ShadowRenderer;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.IntCachedUniform;
@@ -53,6 +56,59 @@ public class IrisUtils
     private static Map<Integer, PBRIntensity> trackedPBRIntensities = new HashMap<>();
     private static final ThreadLocal<PBRIntensity> activePBRIntensity = new ThreadLocal<>();
     private static ShaderProperties properties;
+    private static int offscreenDepth;
+
+    public static void setMainBound(boolean bound)
+    {
+        WorldRenderingPipeline pipeline = Iris.getPipelineManager().getPipelineNullable();
+
+        if (pipeline != null)
+        {
+            pipeline.setIsMainBound(bound);
+        }
+    }
+
+    public static boolean shouldOverrideShaders()
+    {
+        WorldRenderingPipeline pipeline = Iris.getPipelineManager().getPipelineNullable();
+
+        return pipeline instanceof IrisRenderingPipeline irisPipeline && irisPipeline.shouldOverrideShaders();
+    }
+
+    public static void renderOffscreen(Runnable render)
+    {
+        WorldRenderingPipeline pipeline = Iris.getPipelineManager().getPipelineNullable();
+        boolean override = offscreenDepth == 0 && pipeline instanceof IrisRenderingPipeline irisPipeline && irisPipeline.shouldOverrideShaders();
+        boolean shadow = ShadowRenderer.ACTIVE;
+
+        try
+        {
+            if (override)
+            {
+                pipeline.setIsMainBound(false);
+            }
+
+            offscreenDepth += 1;
+            ShadowRenderer.ACTIVE = false;
+
+            render.run();
+        }
+        finally
+        {
+            offscreenDepth -= 1;
+            ShadowRenderer.ACTIVE = shadow;
+
+            if (override)
+            {
+                pipeline.setIsMainBound(true);
+            }
+        }
+    }
+
+    public static boolean isRenderingOffscreen()
+    {
+        return offscreenDepth > 0;
+    }
 
     private static class PBRIntensity
     {

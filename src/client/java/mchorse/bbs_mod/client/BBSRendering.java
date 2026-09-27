@@ -411,7 +411,7 @@ public class BBSRendering
     /**
      * Model-block / world forms (and hotbar GUI forms) can leave TU0 on a form atlas,
      * ColorModulator tinted, lightmap off, or blend enabled ({@code DST_COLOR} from color masks).
-     * {@link GameRenderer#renderBlur()} then samples that state —
+     * {@link net.minecraft.client.render.GameRenderer#renderBlur()} then samples that state —
      * NeoForge pause blur makes hotbar / sky / leaves go dark while menu buttons still draw fine.
      */
     public static void prepareMenuBackgroundState()
@@ -1128,7 +1128,6 @@ public class BBSRendering
         }
 
         BBSModClient.getFilms().render(worldRenderContext);
-        StructurePickerRenderer.render(worldRenderContext);
     }
 
     public static boolean isOptifinePresent()
@@ -1299,6 +1298,34 @@ public class BBSRendering
     public static boolean isIrisLoaded()
     {
         return iris;
+    }
+
+    public static void renderOffscreen(Runnable render)
+    {
+        boolean world = renderingWorld;
+
+        try
+        {
+            renderingWorld = false;
+
+            if (iris)
+            {
+                IrisUtils.renderOffscreen(render);
+            }
+            else
+            {
+                render.run();
+            }
+        }
+        finally
+        {
+            renderingWorld = world;
+        }
+    }
+
+    public static boolean isRenderingOffscreen()
+    {
+        return iris && IrisUtils.isRenderingOffscreen();
     }
 
     public static boolean isIrisShadersEnabled()
