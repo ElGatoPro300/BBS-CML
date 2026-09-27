@@ -3,10 +3,12 @@ package mchorse.bbs_mod.ui.framework.elements.buttons;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -14,6 +16,11 @@ import java.util.function.Consumer;
 
 public class UICirculate extends UIClickable<UICirculate>
 {
+    private static final int MIN_HEIGHT = 20;
+    private static final int LINE_HEIGHT = 12;
+    private static final int VERTICAL_PADDING = 6;
+    private static final int MAX_LABEL_LINES = 3;
+
     public IKey label;
 
     public boolean custom;
@@ -23,17 +30,39 @@ public class UICirculate extends UIClickable<UICirculate>
     protected Set<Integer> disabled = new HashSet<>();
     protected int value = 0;
 
+    private boolean wrapping;
+    private List<String> wrappedLines;
+    private String lastWrappedText;
+    private int lastWrapWidth = -1;
+    private int wrappedHeight = MIN_HEIGHT;
+
     public UICirculate(Consumer<UICirculate> callback)
     {
         super(callback);
 
-        this.h(20);
+        this.h(MIN_HEIGHT);
     }
 
     public UICirculate color(int color)
     {
         this.custom = true;
         this.customColor = color & Colors.RGB;
+
+        return this;
+    }
+
+    /**
+     * Wrap long labels onto multiple lines and grow height instead of a single-line ellipsis.
+     */
+    public UICirculate wrapping()
+    {
+        return this.wrapping(true);
+    }
+
+    public UICirculate wrapping(boolean wrapping)
+    {
+        this.wrapping = wrapping;
+        this.invalidateWrappedLabel();
 
         return this;
     }
@@ -51,6 +80,7 @@ public class UICirculate extends UIClickable<UICirculate>
         }
 
         this.labels.add(label);
+        this.invalidateWrappedLabel();
     }
 
     public void disable(int value)
@@ -98,6 +128,7 @@ public class UICirculate extends UIClickable<UICirculate>
         }
 
         this.label = this.labels.get(this.value);
+        this.invalidateWrappedLabel();
     }
 
     @Override
@@ -123,6 +154,81 @@ public class UICirculate extends UIClickable<UICirculate>
     }
 
     @Override
+    public void resize()
+    {
+        super.resize();
+
+        this.invalidateWrappedLabel();
+    }
+
+    private void invalidateWrappedLabel()
+    {
+        this.wrappedLines = null;
+        this.lastWrappedText = null;
+        this.lastWrapWidth = -1;
+    }
+
+    private void ensureWrappedLabel(FontRenderer font, int maxWidth)
+    {
+        String text = this.label == null ? "" : this.label.get();
+
+        if (this.wrappedLines != null && text.equals(this.lastWrappedText) && maxWidth == this.lastWrapWidth)
+        {
+            return;
+        }
+
+        List<String> lines;
+
+        if (text.isEmpty() || maxWidth <= 0)
+        {
+            lines = Collections.emptyList();
+        }
+        else if (this.wrapping)
+        {
+            lines = this.limitWrappedLines(font, font.wrap(text, maxWidth), maxWidth);
+        }
+        else
+        {
+            lines = Collections.singletonList(font.limitToWidth(text, maxWidth));
+        }
+
+        int lineCount = Math.max(1, lines.isEmpty() ? 1 : lines.size());
+        int textHeight = lineCount * LINE_HEIGHT - (LINE_HEIGHT - font.getHeight());
+        int height = Math.max(MIN_HEIGHT, textHeight + VERTICAL_PADDING);
+
+        if (this.wrapping && height != this.wrappedHeight)
+        {
+            this.wrappedHeight = height;
+            this.h(height);
+
+            UIElement container = this.getParentContainer();
+
+            if (container != null)
+            {
+                container.resize();
+            }
+        }
+
+        this.wrappedLines = lines;
+        this.lastWrappedText = text;
+        this.lastWrapWidth = maxWidth;
+    }
+
+    private List<String> limitWrappedLines(FontRenderer font, List<String> lines, int maxWidth)
+    {
+        if (lines.size() <= MAX_LABEL_LINES)
+        {
+            return lines;
+        }
+
+        List<String> limited = new ArrayList<>(lines.subList(0, MAX_LABEL_LINES));
+
+        limited.set(MAX_LABEL_LINES - 1, font.limitToWidth(limited.get(MAX_LABEL_LINES - 1), maxWidth));
+
+        return limited;
+    }
+
+    @Override
     protected void renderSkin(UIContext context)
     {
         int color = Colors.A100 | (this.custom ? this.customColor : BBSSettings.primaryColor.get());
@@ -135,11 +241,30 @@ public class UICirculate extends UIClickable<UICirculate>
         this.area.render(context.batcher, color);
 
         FontRenderer font = context.batcher.getFont();
-        String label = font.limitToWidth(this.label.get(), this.area.w - 4);
-        int x = this.area.mx(font.getWidth(label));
-        int y = this.area.my(font.getHeight());
+        int maxWidth = Math.max(0, this.area.w - 6);
 
-        context.batcher.textShadow(label, x, y, Colors.mulRGB(Colors.WHITE, this.hover ? 0.9F : 1F));
+        this.ensureWrappedLabel(font, maxWidth);
+
+        List<String> lines = this.wrappedLines == null ? Collections.emptyList() : this.wrappedLines;
+        int lineCount = Math.max(1, lines.isEmpty() ? 1 : lines.size());
+        int textHeight = lineCount * LINE_HEIGHT - (LINE_HEIGHT - font.getHeight());
+        int y = this.area.my(textHeight);
+        int textColor = Colors.mulRGB(Colors.WHITE, this.hover ? 0.9F : 1F);
+
+        if (lines.isEmpty())
+        {
+            context.batcher.textShadow("", this.area.mx(0), y, textColor);
+        }
+        else
+        {
+            for (int i = 0; i < lines.size(); i++)
+            {
+                String line = lines.get(i);
+                int x = this.area.mx(font.getWidth(line));
+
+                context.batcher.textShadow(line, x, y + i * LINE_HEIGHT, textColor);
+            }
+        }
 
         this.renderLockedArea(context);
     }

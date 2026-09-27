@@ -172,7 +172,7 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
 
         editor.view.backgroundRenderer((context) ->
         {
-            UIReplaysEditor.renderBackground(context, editor.view, (Clips) this.clip.getParent(), Math.round(this.clip.tick.get()), this.clip);
+            UIReplaysEditor.renderBackground(context, editor.view, (Clips) this.clip.getParent(), this.clip.tick.get(), this.clip);
         });
         editor.view.duration(() -> this.clip.duration.get());
         /* Do not call fillData on every keyframe edit — that rebuilt sheets via setChannels

@@ -41,6 +41,8 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
 
     private Supplier<Icon> leadingIcon;
     private boolean wrapping = true;
+    /** When true, uses the same bright border/fill treatment as hover. */
+    private boolean outlined;
     private List<String> wrappedLines;
     private String lastWrappedText;
     private int lastWrapWidth = -1;
@@ -118,6 +120,21 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
         this.invalidateWrappedLabel();
 
         return this;
+    }
+
+    /**
+     * Keep the hover-style bright outline even when the cursor is not over the button.
+     */
+    public UIButton outlined(boolean outlined)
+    {
+        this.outlined = outlined;
+
+        return this;
+    }
+
+    public boolean isOutlined()
+    {
+        return this.outlined;
     }
 
     @Override
@@ -233,8 +250,9 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
 
             int fill;
             int border;
+            boolean highlight = this.hover || this.outlined;
 
-            if (this.hover)
+            if (highlight)
             {
                 fill = 0xFF000000 | Colors.mulRGB(base, 1.18F);
                 border = 0xFF000000 | Colors.mulRGB(base, 1.5F);
@@ -270,7 +288,7 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
             /* Bottom inner shading edge — slight cube depth. */
             if (!nBottom)
             {
-                context.batcher.box(x1, y2 - 2, x2, y2, 0xFF000000 | Colors.mulRGB(base, this.hover ? 0.9F : 0.66F));
+                context.batcher.box(x1, y2 - 2, x2, y2, 0xFF000000 | Colors.mulRGB(base, highlight ? 0.9F : 0.66F));
             }
 
             /* Border stroke — sides facing a connected neighbour are omitted. */

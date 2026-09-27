@@ -11,9 +11,7 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIInverseKinematicsKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UILookAtKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UITransformKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
@@ -593,15 +591,6 @@ public class UIKeyframeEditor extends UIElement
                 }
             }
         }
-        else if (editor instanceof UILookAtKeyframeFactory lookAtFactory)
-        {
-            bone = lookAtFactory.lookAtEditor.getCurrentBone();
-        }
-        else if (editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
-        {
-            bone = ikFactory.ikEditor.getCurrentBone();
-        }
-
         if (bone != null)
         {
             return new Pair<>(bone, orientation);

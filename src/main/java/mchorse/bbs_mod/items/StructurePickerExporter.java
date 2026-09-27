@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -60,7 +59,7 @@ public class StructurePickerExporter
         Vec3i size = max.subtract(min).offset(1, 1, 1);
         StructureTemplate template = new StructureTemplate();
 
-        template.fillFromWorld(world, min, size, true, Collections.singletonList(Blocks.STRUCTURE_VOID));
+        template.fillFromWorld(world, min, size, true, List.of(Blocks.STRUCTURE_VOID));
         filterTemplate(template, min, new HashSet<>(blocks));
 
         File folder = BBSMod.getAssetsPath("structures");
@@ -123,13 +122,6 @@ public class StructurePickerExporter
         template.fillFromWorld(world, min, size, true, List.of(Blocks.STRUCTURE_VOID));
         filterTemplate(template, min, new HashSet<>(blocks));
 
-        File parent = file.getParentFile();
-
-        if (parent != null && !parent.exists())
-        {
-            parent.mkdirs();
-        }
-
         try
         {
             CompoundTag nbt = new CompoundTag();
@@ -147,140 +139,68 @@ public class StructurePickerExporter
         return true;
     }
 
-    public static File resolveWritableStructureFile(String pathString)
+    private static File resolveWritableStructureFile(String structurePath)
     {
-        if (pathString == null || pathString.isEmpty())
+        if (structurePath == null || structurePath.isEmpty())
         {
             return null;
         }
 
-        String normalized = pathString;
+        Link link = Link.create(structurePath);
 
-        if (normalized.startsWith("saved:"))
-        {
-            normalized = "structures/" + normalized.substring("saved:".length());
-        }
-
-        Link link = Link.create(normalized);
-        File existing = BBSMod.getProvider().getFile(link);
-
-        if (existing != null)
-        {
-            return existing;
-        }
-
-        String display = StructurePickerExporter.displayNameOf(null, normalized);
-
-        if (display.isEmpty())
+        if (link.source.equals("bbs"))
         {
             return null;
         }
 
         File folder = BBSMod.getAssetsPath("structures");
 
-        if (!folder.exists())
-        {
-            folder.mkdirs();
-        }
-
-        String fileName = display.endsWith(".nbt") ? display : display + ".nbt";
-
-        return new File(folder, fileName);
+        return new File(folder, link.path);
     }
 
     private static String resolveFileName(File folder, String customName)
     {
-        String sanitized = sanitizeFileName(customName);
-
-        if (sanitized.isEmpty())
+        if (customName != null && !customName.trim().isEmpty())
         {
-            return "pick_" + System.currentTimeMillis() + ".nbt";
+            String name = customName.trim();
+
+            if (!name.endsWith(".nbt"))
+            {
+                name = name + ".nbt";
+            }
+
+            return name;
         }
 
-        String base = sanitized;
-        String fileName = base + ".nbt";
-        File file = new File(folder, fileName);
-
-        if (!file.exists())
-        {
-            return fileName;
-        }
-
-        return base + "_" + System.currentTimeMillis() + ".nbt";
+        return "pick_" + System.currentTimeMillis() + ".nbt";
     }
 
-    public static String sanitizeFileName(String name)
+    private static String displayNameOf(String customName, String structurePath)
     {
-        if (name == null)
+        if (customName != null && !customName.trim().isEmpty())
         {
-            return "";
+            return customName.trim();
         }
 
-        String trimmed = name.trim();
-
-        if (trimmed.isEmpty())
+        if (structurePath == null || structurePath.isEmpty())
         {
-            return "";
+            return "Structure";
         }
 
-        StringBuilder builder = new StringBuilder(trimmed.length());
+        String path = structurePath;
+        int slash = path.lastIndexOf('/');
 
-        for (int i = 0; i < trimmed.length(); i++)
+        if (slash >= 0 && slash + 1 < path.length())
         {
-            char c = trimmed.charAt(i);
-
-            if (Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == '.' || c == '[' || c == ']' || c == '!')
-            {
-                builder.append(c);
-            }
-            else if (c == ' ')
-            {
-                builder.append('_');
-            }
+            path = path.substring(slash + 1);
         }
 
-        return builder.toString();
-    }
-
-    public static String displayNameOf(String customName, String structurePath)
-    {
-        String sanitized = sanitizeFileName(customName);
-
-        if (!sanitized.isEmpty())
+        if (path.endsWith(".nbt"))
         {
-            return sanitized;
+            path = path.substring(0, path.length() - 4);
         }
 
-        if (structurePath != null && !structurePath.isEmpty())
-        {
-            String file = structurePath;
-
-            if (file.startsWith("assets:"))
-            {
-                file = file.substring("assets:".length());
-            }
-            else if (file.startsWith("world:"))
-            {
-                file = file.substring("world:".length());
-            }
-
-            if (file.startsWith("structures/"))
-            {
-                file = file.substring("structures/".length());
-            }
-
-            if (file.endsWith(".nbt"))
-            {
-                file = file.substring(0, file.length() - 4);
-            }
-
-            if (!file.isEmpty())
-            {
-                return file;
-            }
-        }
-
-        return "Structure";
+        return path.isEmpty() ? "Structure" : path;
     }
 
     public static boolean placeModelBlock(ServerLevel world, BlockPos center, String structurePath)
@@ -375,12 +295,7 @@ public class StructurePickerExporter
                 continue;
             }
 
-            BlockPos immutable = pos.immutable();
-            BlockState state = world.getBlockState(immutable);
-            BlockEntity entity = world.getBlockEntity(immutable);
-            CompoundTag nbt = entity == null ? null : entity.saveCustomOnly(world.registryAccess());
-
-            snapshots.add(new BlockSnapshot(immutable, state, nbt));
+            snapshots.add(StructurePickerExporter.captureBlock(world, pos));
         }
 
         return snapshots;
@@ -400,7 +315,7 @@ public class StructurePickerExporter
     {
         for (BlockSnapshot snapshot : snapshots)
         {
-            restoreBlock(world, snapshot);
+            StructurePickerExporter.restoreBlock(world, snapshot);
         }
     }
 
@@ -456,7 +371,7 @@ public class StructurePickerExporter
         return template;
     }
 
-    public static TemplateSize getTemplateSize(String pathString)
+    public static TemplateSize readTemplateSize(String pathString)
     {
         CompoundTag nbt = StructurePickerExporter.readStructureNbt(pathString);
 
@@ -465,35 +380,29 @@ public class StructurePickerExporter
             return new TemplateSize(0, 0, 0);
         }
 
-        if (nbt.contains("size"))
+        int[] size = nbt.getIntArray("size").orElse(null);
+
+        if (size != null && size.length >= 3)
         {
-            int[] size = nbt.getIntArray("size").orElse(null);
+            return new TemplateSize(size[0], size[1], size[2]);
+        }
 
-            if (size != null && size.length >= 3)
-            {
-                return new TemplateSize(size[0], size[1], size[2]);
-            }
+        ListTag sizeList = nbt.getList("size").orElse(null);
 
-            ListTag sizeList = nbt.getList("size").orElse(null);
-
-            if (sizeList != null && sizeList.size() >= 3)
-            {
-                return new TemplateSize(sizeList.getInt(0).orElse(0), sizeList.getInt(1).orElse(0), sizeList.getInt(2).orElse(0));
-            }
+        if (sizeList != null && sizeList.size() >= 3)
+        {
+            return new TemplateSize(sizeList.getInt(0).orElse(0), sizeList.getInt(1).orElse(0), sizeList.getInt(2).orElse(0));
         }
 
         return new TemplateSize(0, 0, 0);
     }
 
-    /**
-     * Relative block offsets (non-air) for translucent blueprint preview.
-     */
-    public static List<BlockPos> loadOccupiedOffsets(String pathString)
+    public static List<BlockPos> readSelectedOffsets(String pathString)
     {
         List<BlockPos> offsets = new ArrayList<>();
         CompoundTag root = StructurePickerExporter.readStructureNbt(pathString);
 
-        if (root == null || !root.contains("blocks") || !root.contains("palette"))
+        if (root == null)
         {
             return offsets;
         }
@@ -551,53 +460,9 @@ public class StructurePickerExporter
 
     private static boolean isAirPaletteEntry(CompoundTag entry)
     {
-        if (entry == null)
-        {
-            return true;
-        }
-
         String name = entry.getString("Name").orElse("");
 
-        return name.isEmpty()
-            || name.equals("minecraft:air")
-            || name.equals("minecraft:cave_air")
-            || name.equals("minecraft:void_air")
-            || name.equals("minecraft:structure_void");
-    }
-
-    public static CompoundTag readStructureNbt(String pathString)
-    {
-        if (pathString == null || pathString.isEmpty())
-        {
-            return null;
-        }
-
-        Link link = Link.create(pathString);
-        File file = BBSMod.getProvider().getFile(link);
-
-        try
-        {
-            if (file != null && file.exists())
-            {
-                return NbtIo.readCompressed(file.toPath(), NbtAccounter.unlimitedHeap());
-            }
-
-            try (InputStream stream = BBSMod.getProvider().getAsset(link))
-            {
-                if (stream == null)
-                {
-                    return null;
-                }
-
-                return NbtIo.readCompressed(stream, NbtAccounter.unlimitedHeap());
-            }
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-
-            return null;
-        }
+        return name.isEmpty() || name.equals("minecraft:air") || name.equals("minecraft:cave_air") || name.equals("minecraft:void_air") || name.equals("minecraft:structure_void");
     }
 
     public static List<BlockSnapshot> captureVolume(ServerLevel world, BlockPos min, BlockPos max)
@@ -673,5 +538,40 @@ public class StructurePickerExporter
         }
 
         accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());
+    }
+
+    public static CompoundTag readStructureNbt(String pathString)
+    {
+        if (pathString == null || pathString.isEmpty())
+        {
+            return null;
+        }
+
+        Link link = Link.create(pathString);
+        File file = BBSMod.getProvider().getFile(link);
+
+        try
+        {
+            if (file != null && file.exists())
+            {
+                return NbtIo.readCompressed(file.toPath(), NbtAccounter.unlimitedHeap());
+            }
+
+            try (InputStream stream = BBSMod.getProvider().getAsset(link))
+            {
+                if (stream == null)
+                {
+                    return null;
+                }
+
+                return NbtIo.readCompressed(stream, NbtAccounter.unlimitedHeap());
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+
+            return null;
+        }
     }
 }

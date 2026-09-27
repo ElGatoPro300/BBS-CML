@@ -2099,8 +2099,8 @@ public class ModelVAORenderer
         /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
          * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
          * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
-         * current RenderSystem fog. */
-        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
+         * current RenderSystem fog. Offscreen framebuffer draws also skip fog. */
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass || BBSRendering.isRenderingOffscreen())
         {
             BBSUniform.set(shader, "FogStart", 1_000_000F);
             BBSUniform.set(shader, "FogEnd", 1_000_001F);
@@ -2183,7 +2183,7 @@ public class ModelVAORenderer
             return;
         }
 
-        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass || BBSRendering.isRenderingOffscreen())
         {
             /* Fog disabled for these passes — FogMat unused. */
             BBSUniform.setMatrix4f(shader, "FogMat", IDENTITY_MODEL_VIEW);

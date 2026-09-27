@@ -1182,7 +1182,6 @@ public class BBSRendering
         }
 
         BBSModClient.getFilms().render(worldRenderContext);
-        StructurePickerRenderer.render(worldRenderContext);
     }
 
     public static boolean isOptifinePresent()
@@ -1353,6 +1352,34 @@ public class BBSRendering
     public static boolean isIrisLoaded()
     {
         return iris;
+    }
+
+    public static void renderOffscreen(Runnable render)
+    {
+        boolean world = renderingWorld;
+
+        try
+        {
+            renderingWorld = false;
+
+            if (iris)
+            {
+                IrisUtils.renderOffscreen(render);
+            }
+            else
+            {
+                render.run();
+            }
+        }
+        finally
+        {
+            renderingWorld = world;
+        }
+    }
+
+    public static boolean isRenderingOffscreen()
+    {
+        return iris && IrisUtils.isRenderingOffscreen();
     }
 
     public static boolean isIrisShadersEnabled()

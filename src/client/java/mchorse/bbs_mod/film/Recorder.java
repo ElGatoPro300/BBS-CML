@@ -236,14 +236,14 @@ public class Recorder extends WorldFilmController
                     break;
                 }
 
-                int nextTick = Math.max(0, Math.min(Math.round(next.tick.get()), durationCap));
+                int nextTick = Math.max(0, Math.min(next.tick.get(), durationCap));
 
                 if (nextTick != tick)
                 {
                     output[count++] = nextTick;
                 }
 
-                searchStart = Math.round(next.tick.get()) + 1;
+                searchStart = next.tick.get() + 1;
             }
 
             return trimTicks(output, count);
@@ -251,7 +251,7 @@ public class Recorder extends WorldFilmController
 
         if (active instanceof KeyframeClip keyframeClip)
         {
-            int relative = Math.max(0, tick - Math.round(active.tick.get()));
+            int relative = Math.max(0, tick - active.tick.get());
 
             for (var channel : keyframeClip.channels)
             {
@@ -261,7 +261,7 @@ public class Recorder extends WorldFilmController
 
                     if (kfTick > relative)
                     {
-                        count = insertTick(output, count, Math.round(active.tick.get()) + kfTick, tick);
+                        count = insertTick(output, count, active.tick.get() + kfTick, tick);
 
                         if (count >= maxCount)
                         {
@@ -277,7 +277,7 @@ public class Recorder extends WorldFilmController
 
             if (points > 1)
             {
-                int localTick = Math.max(0, tick - Math.round(active.tick.get()));
+                int localTick = Math.max(0, tick - active.tick.get());
                 int durationTick = Math.max(1, active.duration.get());
                 float progress = MathUtils.clamp(localTick / (float) durationTick, 0F, 1F);
                 int currentPoint = Math.min(points - 1, (int) Math.floor(progress * (points - 1)));
@@ -285,14 +285,14 @@ public class Recorder extends WorldFilmController
 
                 for (int nextPoint = currentPoint + 1; nextPoint <= maxPoint; nextPoint++)
                 {
-                    count = insertTick(output, count, Math.round(active.tick.get()) + pathClip.getTickForPoint(nextPoint), tick);
+                    count = insertTick(output, count, active.tick.get() + pathClip.getTickForPoint(nextPoint), tick);
                 }
             }
         }
         else
         {
             int durationCap = Math.max(0, duration - 1);
-            int searchStart = Math.round(active.tick.get()) + active.duration.get();
+            int searchStart = active.tick.get() + active.duration.get();
 
             while (count < maxCount)
             {
@@ -303,14 +303,14 @@ public class Recorder extends WorldFilmController
                     break;
                 }
 
-                int nextTick = Math.max(0, Math.min(Math.round(next.tick.get()), durationCap));
+                int nextTick = Math.max(0, Math.min(next.tick.get(), durationCap));
 
                 if (nextTick != tick)
                 {
                     output[count++] = nextTick;
                 }
 
-                searchStart = Math.round(next.tick.get()) + 1;
+                searchStart = next.tick.get() + 1;
             }
         }
 
@@ -395,7 +395,7 @@ public class Recorder extends WorldFilmController
                 continue;
             }
 
-            int clipStart = Math.round(clip.tick.get());
+            int clipStart = clip.tick.get();
 
             if (clipStart >= tick && (next == null || clipStart < next.tick.get()))
             {

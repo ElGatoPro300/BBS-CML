@@ -1,12 +1,7 @@
 package mchorse.bbs_mod.client;
 
-import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.forms.StructureForm;
-import mchorse.bbs_mod.forms.renderers.FormRenderType;
-import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.items.StructurePickerAxis;
-import mchorse.bbs_mod.items.StructurePickerExporter;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerRegionMerger;
 import mchorse.bbs_mod.items.StructurePickerSelection;
@@ -15,11 +10,8 @@ import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -31,8 +23,14 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
+/**
+ * Structure picker world overlay: selection volumes that respect depth
+ * (occluded by terrain), plus visual corner handles and scale gizmos.
+ */
 public class StructurePickerRenderer
 {
     private static final float CORNER_HANDLE = 0.28F;
@@ -40,29 +38,21 @@ public class StructurePickerRenderer
     private static final float GIZMO_AXIS_HALF = 0.028F;
     private static final float GIZMO_KNOB = 0.20F;
     private static final float GIZMO_HUB = 0.10F;
-    /* Slight outward expand so selection faces do not Z-fight with block surfaces. */
     private static final double VOLUME_EXPAND = 0.005D;
-    private static final double[] AABB_SCRATCH = new double[6];
+    private static final float EDGE_ALPHA = 0.95F;
+    private static final float FILL_ALPHA = 0.42F;
 
     public static void render(LevelRenderContext context)
     {
-        StructurePickerRenderer.renderModelBlockFlash(context);
-
-        boolean showSelection = StructurePickerClient.isActive() || UIStructurePickerPanel.isOpened();
-        boolean showPlacement = StructurePickerClient.isPlacementActive();
-        boolean showBrushPreview = showSelection
-            && !showPlacement
-            && StructurePickerClient.getMode() == StructurePickerMode.BRUSH;
-
-        if (!showSelection && !showPlacement)
+        if (!StructurePickerClient.isActive() && !UIStructurePickerPanel.isOpened())
         {
             return;
         }
 
-        if (!showPlacement
-            && !showBrushPreview
-            && !StructurePickerClient.hasAnySelection()
-            && !StructurePickerClient.isResizeGizmoActive())
+        boolean brushPreview = StructurePickerClient.getMode() == StructurePickerMode.BRUSH
+            && !StructurePickerClient.getBrushPreviewRegions().isEmpty();
+
+        if (!StructurePickerClient.hasAnySelection() && !brushPreview && !StructurePickerScaleGizmo.isActive())
         {
             return;
         }
@@ -75,52 +65,66 @@ public class StructurePickerRenderer
         }
 
         Vec3 camera = mc.gameRenderer.getMainCamera().position();
-        float pulse = StructurePickerRenderer.selectionPulseAlpha();
-        float edgeAlpha = 0.75F + 0.25F * pulse;
-        float fillAlpha = 0.22F + 0.28F * pulse;
 
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._disableDepthTest();
+        /* Depth on: selection must not paint through buried blocks / walls. */
+        GlStateManager._disableCull();
+        GlStateManager._enableDepthTest();
         GlStateManager._depthMask(false);
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
 
         PoseStack stack = context.poseStack();
 
         stack.pushPose();
         stack.translate(-camera.x, -camera.y, -camera.z);
 
-        if (showPlacement)
-        {
-            StructurePickerRenderer.renderPlacementGhostForm(stack, context);
-        }
+        Set<BlockPos> blockPositions = new LinkedHashSet<>();
 
-        /* Selection volumes respect depth so they do not tint the first-person hand.
-         * Gizmos/corners still draw on top of clouds and model blocks below. */
-        GlStateManager._disableCull();
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
-
-        if (showPlacement)
+        if (StructurePickerClient.getMode().isPaintMode())
         {
-            StructurePickerRenderer.renderPlacementOverlayVolumes(stack, edgeAlpha);
+            blockPositions.addAll(StructurePickerClient.getAllRegionBlocks());
+
+            for (StructurePickerRegionMerger.MergedRegion merged : StructurePickerRegionMerger.merge(blockPositions))
+            {
+                StructurePickerRenderer.renderMergedBlockBox(stack, merged.min(), merged.max(), 1F, 1F, 0F);
+            }
         }
         else
         {
-            StructurePickerRenderer.renderSelectionVolumes(edgeAlpha, fillAlpha, stack);
-            StructurePickerRenderer.renderBrushPreview(edgeAlpha, fillAlpha, stack);
+            List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
+
+            for (int i = 0; i < regions.size(); i++)
+            {
+                StructurePickerClient.Region region = regions.get(i);
+                float[] color = StructurePickerRenderer.resolveRegionColor(i);
+
+                StructurePickerRenderer.renderRegionBox(stack, region.first(), region.second(), region.mode(), region.triangleFacing(), color[0], color[1], color[2]);
+            }
         }
 
+        if (StructurePickerClient.hasInProgress())
+        {
+            if (StructurePickerClient.isSubtractMode())
+            {
+                StructurePickerRenderer.renderRegionBox(stack, StructurePickerClient.getFirstCorner(), StructurePickerClient.getSecondCorner(), StructurePickerClient.getMode(), StructurePickerClient.getTriangleFacing(), 1F, 0.25F, 0.25F);
+            }
+            else
+            {
+                StructurePickerRenderer.renderRegionBox(stack, StructurePickerClient.getFirstCorner(), StructurePickerClient.getSecondCorner(), StructurePickerClient.getMode(), StructurePickerClient.getTriangleFacing(), 1F, 1F, 0F);
+            }
+        }
+
+        StructurePickerRenderer.renderBrushPreview(stack);
+
+        /* Corner handles + scale axes always on top so they stay readable. */
         GlStateManager._disableDepthTest();
         GlStateManager._depthFunc(GL11.GL_ALWAYS);
+        StructurePickerRenderer.renderCornerGizmos(stack, camera);
 
-        if (showPlacement)
+        if (StructurePickerScaleGizmo.isActive())
         {
-            StructurePickerRenderer.renderPlacementOverlayGizmos(stack);
-        }
-        else
-        {
-            StructurePickerRenderer.renderSelectionGizmos(stack);
+            StructurePickerRenderer.renderResizeGizmo(stack, StructurePickerScaleGizmo.getFreeCorner());
         }
 
         stack.popPose();
@@ -132,119 +136,70 @@ public class StructurePickerRenderer
         GlStateManager._disableBlend();
     }
 
-    /**
-     * Real StructureForm VAO at low opacity — same pivot as model-block / film import.
-     */
-    private static void renderPlacementGhostForm(PoseStack stack, LevelRenderContext context)
+    private static float[] resolveRegionColor(int regionIndex)
     {
-        StructureForm form = StructurePickerClient.getPlacementPreviewForm();
-        BlockPos min = StructurePickerClient.getPlacementOrigin();
-        BlockPos max = StructurePickerClient.getPlacementMax();
+        boolean selected = StructurePickerClient.isRegionSelected(regionIndex);
+        boolean hovered = StructurePickerClient.getHoveredRegionIndex() == regionIndex;
+        float r = 1F;
+        float g = 1F;
+        float b = selected ? 0F : 1F;
 
-        if (form == null || min == null || max == null)
+        if (hovered)
+        {
+            if (StructurePickerClient.getMode().isEraseMode())
+            {
+                r = r * 0.4F + 1F * 0.6F;
+                g = g * 0.4F + 0.2F * 0.6F;
+                b = b * 0.4F + 0.2F * 0.6F;
+            }
+            else
+            {
+                /* Soft yellow tint while looking at a region. */
+                r = 1F;
+                g = 1F;
+                b = selected ? 0.12F : 0.45F;
+            }
+        }
+
+        return new float[] {r, g, b};
+    }
+
+    private static void renderCornerGizmos(PoseStack stack, Vec3 camera)
+    {
+        /* BLOCK/SAME/BRUSH are paint-style; corner handles stay on AABB volume modes. */
+        if (StructurePickerClient.getMode().isPaintMode() || StructurePickerClient.getMode().isEraseMode())
         {
             return;
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        Level world = mc.level;
+        int activeIndex = StructurePickerClient.getActiveRegionIndex();
+        List<StructurePickerClient.Region> regions = StructurePickerClient.getRegions();
 
-        if (world == null)
+        if (activeIndex >= 0 && activeIndex < regions.size())
         {
-            return;
-        }
+            StructurePickerClient.Region region = regions.get(activeIndex);
 
-        BlockPos placement = StructurePickerExporter.getPlacementPos(min, max);
-        float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        int light = LevelRenderer.getLightCoords(world, placement);
-
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthMask(true);
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-
-        stack.pushPose();
-        stack.translate(placement.getX() + 0.5D, placement.getY(), placement.getZ() + 0.5D);
-
-        FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.MODEL_BLOCK, null, stack, light, OverlayTexture.NO_OVERLAY, tickDelta)
-            .camera(mc.gameRenderer.getMainCamera());
-
-        FormUtilsClient.render(form, formContext);
-
-        stack.popPose();
-    }
-
-    private static void renderSelectionVolumes(float edgeAlpha, float fillAlpha, PoseStack stack)
-    {
-        boolean paintStyle = StructurePickerClient.getMode().isSingleClick()
-            || StructurePickerClient.isSelectionFromPaint();
-
-        if (paintStyle)
-        {
-            List<StructurePickerRegionMerger.MergedRegion> lod = StructurePickerClient.getSelectionLodRegions();
-
-            if (lod != null)
+            if (StructurePickerScaleGizmo.isScalableMode(region.mode()))
             {
-                /* Large paint selections: coarse cells, fill-only (edges are too heavy). */
-                StructurePickerRenderer.renderMergedAabbs(stack, lod, 1F, 1F, 0F, 0F, Math.min(fillAlpha, 0.28F));
-
-                BlockPos min = StructurePickerClient.getSelectionBoundsMin();
-                BlockPos max = StructurePickerClient.getSelectionBoundsMax();
-
-                if (min != null && max != null)
-                {
-                    StructurePickerRenderer.renderMergedBlockBox(
-                        stack,
-                        min,
-                        max,
-                        1F,
-                        1F,
-                        0F,
-                        edgeAlpha * 0.85F,
-                        0.04F
-                    );
-                }
-            }
-            else
-            {
-                int regionCount = StructurePickerClient.getRegions().size();
-                float edges = regionCount > 220 ? 0F : edgeAlpha;
-                float fills = regionCount > 220 ? Math.min(fillAlpha, 0.30F) : fillAlpha;
-
-                StructurePickerRenderer.renderRegionAabbs(
-                    stack,
-                    StructurePickerClient.getRegions(),
-                    1F,
-                    1F,
-                    0F,
-                    edges,
-                    fills
-                );
-            }
-        }
-        else
-        {
-            for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
-            {
-                StructurePickerRenderer.renderRegionBox(stack, region.first(), region.second(), region.mode(), region.triangleFacing(), 1F, 1F, 0F, edgeAlpha, fillAlpha);
+                StructurePickerRenderer.renderSelectionCorners(stack, region.first(), region.second(), region.mode(), camera);
             }
         }
 
-        if (StructurePickerClient.hasInProgress())
+        if (StructurePickerClient.hasInProgress()
+            && !StructurePickerClient.getMode().isSingleClick()
+            && !StructurePickerClient.isSubtractMode())
         {
-            if (StructurePickerClient.isSubtractMode())
-            {
-                StructurePickerRenderer.renderRegionBox(stack, StructurePickerClient.getFirstCorner(), StructurePickerClient.getSecondCorner(), StructurePickerClient.getMode(), StructurePickerClient.getTriangleFacing(), 1F, 0.25F, 0.25F, edgeAlpha, fillAlpha);
-            }
-            else
-            {
-                StructurePickerRenderer.renderRegionBox(stack, StructurePickerClient.getFirstCorner(), StructurePickerClient.getSecondCorner(), StructurePickerClient.getMode(), StructurePickerClient.getTriangleFacing(), 1F, 1F, 0F, edgeAlpha, fillAlpha);
-            }
+            StructurePickerRenderer.renderSelectionCorners(
+                stack,
+                StructurePickerClient.getFirstCorner(),
+                StructurePickerClient.getSecondCorner(),
+                StructurePickerClient.getMode(),
+                camera
+            );
         }
     }
 
-    private static void renderBrushPreview(float edgeAlpha, float fillAlpha, PoseStack stack)
+    private static void renderBrushPreview(PoseStack stack)
     {
         if (StructurePickerClient.getMode() != StructurePickerMode.BRUSH)
         {
@@ -258,284 +213,26 @@ public class StructurePickerRenderer
             return;
         }
 
-        float pulse = StructurePickerRenderer.selectionPulseAlpha();
+        float pulse = 0.5F + 0.5F * (0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() * 0.004D));
         float r = StructurePickerClient.isSubtractMode() ? 1F : 0.35F;
         float g = StructurePickerClient.isSubtractMode() ? 0.35F : 0.85F;
         float b = StructurePickerClient.isSubtractMode() ? 0.35F : 1F;
-        float previewEdge = 0.45F + 0.55F * pulse;
-        float previewFill = 0.12F + 0.22F * pulse;
+        float edge = 0.45F + 0.55F * pulse;
+        float fill = 0.12F + 0.22F * pulse;
 
-        StructurePickerRenderer.renderMergedAabbs(stack, preview, r, g, b, previewEdge, previewFill);
-    }
-
-    private static void renderRegionAabbs(PoseStack stack, List<StructurePickerClient.Region> regions, float r, float g, float b, float edgeAlpha, float fillAlpha)
-    {
-        if (regions.isEmpty())
+        for (StructurePickerRegionMerger.MergedRegion region : preview)
         {
-            return;
-        }
+            double sizeX = region.max().getX() - region.min().getX() + 1D;
+            double sizeY = region.max().getY() - region.min().getY() + 1D;
+            double sizeZ = region.max().getZ() - region.min().getZ() + 1D;
+            double e = VOLUME_EXPAND;
 
-        StructurePickerRenderer.beginAabbBatch(stack, r, g, b, edgeAlpha, fillAlpha, regions.size(), (i, out) ->
-        {
-            StructurePickerClient.Region region = regions.get(i);
-            BlockPos min = StructurePickerSelection.min(region.first(), region.second());
-            BlockPos max = StructurePickerSelection.max(region.first(), region.second());
-
-            out[0] = min.getX();
-            out[1] = min.getY();
-            out[2] = min.getZ();
-            out[3] = max.getX() - min.getX() + 1D;
-            out[4] = max.getY() - min.getY() + 1D;
-            out[5] = max.getZ() - min.getZ() + 1D;
-        });
-    }
-
-    private static void renderMergedAabbs(PoseStack stack, List<StructurePickerRegionMerger.MergedRegion> regions, float r, float g, float b, float edgeAlpha, float fillAlpha)
-    {
-        if (regions.isEmpty())
-        {
-            return;
-        }
-
-        StructurePickerRenderer.beginAabbBatch(stack, r, g, b, edgeAlpha, fillAlpha, regions.size(), (i, out) ->
-        {
-            StructurePickerRegionMerger.MergedRegion region = regions.get(i);
-            BlockPos min = region.min();
-            BlockPos max = region.max();
-
-            out[0] = min.getX();
-            out[1] = min.getY();
-            out[2] = min.getZ();
-            out[3] = max.getX() - min.getX() + 1D;
-            out[4] = max.getY() - min.getY() + 1D;
-            out[5] = max.getZ() - min.getZ() + 1D;
-        });
-    }
-
-    @FunctionalInterface
-    private interface AabbWriter
-    {
-        void write(int index, double[] out);
-    }
-
-    /**
-     * One fill draw + one edge draw (or Iris-queued edges) for all AABBs.
-     */
-    private static void beginAabbBatch(PoseStack stack, float r, float g, float b, float edgeAlpha, float fillAlpha, int count, AabbWriter writer)
-    {
-        double e = VOLUME_EXPAND;
-        boolean irisEdges = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-        double[] box = AABB_SCRATCH;
-
-        if (fillAlpha > 0.001F)
-        {
-            BufferBuilder fill = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-
-            for (int i = 0; i < count; i++)
-            {
-                writer.write(i, box);
-                stack.pushPose();
-                stack.translate(box[0] - e, box[1] - e, box[2] - e);
-                Draw.fillBox(
-                    fill,
-                    stack,
-                    0F,
-                    0F,
-                    0F,
-                    (float) (box[3] + e * 2D),
-                    (float) (box[4] + e * 2D),
-                    (float) (box[5] + e * 2D),
-                    r,
-                    g,
-                    b,
-                    fillAlpha
-                );
-                stack.popPose();
-            }
-
-            Draw.flush(fill, Draw.getPositionColorLayer());
-        }
-
-        if (edgeAlpha <= 0.001F)
-        {
-            return;
-        }
-
-        if (irisEdges)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                writer.write(i, box);
-                Draw.renderBox(stack, box[0] - e, box[1] - e, box[2] - e, box[3] + e * 2D, box[4] + e * 2D, box[5] + e * 2D, r, g, b, edgeAlpha);
-            }
-
-            return;
-        }
-
-        BufferBuilder edges = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-
-        for (int i = 0; i < count; i++)
-        {
-            writer.write(i, box);
-            StructurePickerRenderer.appendBoxEdges(
-                edges,
-                stack,
-                box[0] - e,
-                box[1] - e,
-                box[2] - e,
-                box[3] + e * 2D,
-                box[4] + e * 2D,
-                box[5] + e * 2D,
-                r,
-                g,
-                b,
-                edgeAlpha
-            );
-        }
-
-        Draw.flush(edges, Draw.getPositionColorLayer());
-    }
-
-    private static void appendBoxEdges(BufferBuilder builder, PoseStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
-    {
-        float fw = (float) w;
-        float fh = (float) h;
-        float fd = (float) d;
-        float t = 1F / 96F + (float) (Math.sqrt(w * w + h * h + d * d) / 2000D);
-
-        stack.pushPose();
-        stack.translate(x, y, z);
-
-        /* Pillars */
-        Draw.fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
-        Draw.fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, a);
-        Draw.fillBox(builder, stack, -t, -t, -t + fd, t, t + fh, t + fd, r, g, b, a);
-        Draw.fillBox(builder, stack, -t + fw, -t, -t + fd, t + fw, t + fh, t + fd, r, g, b, a);
-
-        /* Top */
-        Draw.fillBox(builder, stack, -t, -t + fh, -t, t + fw, t + fh, t, r, g, b, a);
-        Draw.fillBox(builder, stack, -t, -t + fh, -t + fd, t + fw, t + fh, t + fd, r, g, b, a);
-        Draw.fillBox(builder, stack, -t, -t + fh, -t, t, t + fh, t + fd, r, g, b, a);
-        Draw.fillBox(builder, stack, -t + fw, -t + fh, -t, t + fw, t + fh, t + fd, r, g, b, a);
-
-        /* Bottom */
-        Draw.fillBox(builder, stack, -t, -t, -t, t + fw, t, t, r, g, b, a);
-        Draw.fillBox(builder, stack, -t, -t, -t + fd, t + fw, t, t + fd, r, g, b, a);
-        Draw.fillBox(builder, stack, -t, -t, -t, t, t, t + fd, r, g, b, a);
-        Draw.fillBox(builder, stack, -t + fw, -t, -t, t + fw, t, t + fd, r, g, b, a);
-
-        stack.popPose();
-    }
-
-    private static void renderSelectionGizmos(PoseStack stack)
-    {
-        if (StructurePickerClient.hasActiveCubeSelection())
-        {
-            for (StructurePickerClient.Region region : StructurePickerClient.getRegions())
-            {
-                if (region.mode() == StructurePickerMode.CUBE)
-                {
-                    StructurePickerRenderer.renderCubeCorners(stack, region.first(), region.second());
-                }
-            }
-        }
-
-        if (StructurePickerClient.isResizeGizmoActive())
-        {
-            StructurePickerRenderer.renderResizeGizmo(stack, StructurePickerClient.getResizeFreeCorner());
+            StructurePickerRenderer.renderVolumeFill(stack, region.min().getX() - e, region.min().getY() - e, region.min().getZ() - e, sizeX + e * 2D, sizeY + e * 2D, sizeZ + e * 2D, r, g, b, fill);
+            StructurePickerRenderer.renderBoxEdges(stack, region.min().getX() - e, region.min().getY() - e, region.min().getZ() - e, sizeX + e * 2D, sizeY + e * 2D, sizeZ + e * 2D, r, g, b, edge);
         }
     }
 
-    private static void renderPlacementOverlayVolumes(PoseStack stack, float edgeAlpha)
-    {
-        BlockPos min = StructurePickerClient.getPlacementOrigin();
-        BlockPos max = StructurePickerClient.getPlacementMax();
-
-        if (min == null || max == null)
-        {
-            return;
-        }
-
-        double sizeX = max.getX() - min.getX() + 1D;
-        double sizeY = max.getY() - min.getY() + 1D;
-        double sizeZ = max.getZ() - min.getZ() + 1D;
-        double e = VOLUME_EXPAND;
-
-        Draw.renderBox(stack, min.getX() - e, min.getY() - e, min.getZ() - e, sizeX + e * 2D, sizeY + e * 2D, sizeZ + e * 2D, 1F, 1F, 0.35F, edgeAlpha);
-    }
-
-    private static void renderPlacementOverlayGizmos(PoseStack stack)
-    {
-        Vec3 gizmo = StructurePickerClient.getPlacementGizmoPoint();
-
-        if (gizmo != null)
-        {
-            StructurePickerRenderer.renderPlacementGizmo(stack, gizmo);
-        }
-    }
-
-    private static void renderPlacementGizmo(PoseStack stack, Vec3 center)
-    {
-        double ox = center.x;
-        double oy = center.y;
-        double oz = center.z;
-        float scale = StructurePickerClient.getHandleVisualScale(ox, oy, oz);
-        float len = GIZMO_AXIS_LENGTH * scale;
-        float t = GIZMO_AXIS_HALF * scale * 1.35F;
-        float hub = GIZMO_HUB * scale;
-        StructurePickerAxis hover = StructurePickerClient.getPlacementDragAxis();
-
-        StructurePickerRenderer.renderVolumeFill(stack, ox - hub * 0.5D, oy - hub * 0.5D, oz - hub * 0.5D, hub, hub, hub, 1F, 1F, 1F, 1F);
-        StructurePickerRenderer.renderTranslateAxis(stack, ox, oy, oz, StructurePickerAxis.X, len, t, 1F, 0.22F, 0.22F, hover == StructurePickerAxis.X);
-        StructurePickerRenderer.renderTranslateAxis(stack, ox, oy, oz, StructurePickerAxis.Y, len, t, 0.22F, 1F, 0.22F, hover == StructurePickerAxis.Y);
-        StructurePickerRenderer.renderTranslateAxis(stack, ox, oy, oz, StructurePickerAxis.Z, len, t, 0.25F, 0.5F, 1F, hover == StructurePickerAxis.Z);
-    }
-
-    public static float selectionPulseAlpha()
-    {
-        return 0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() * 0.004D);
-    }
-
-    private static void renderModelBlockFlash(LevelRenderContext context)
-    {
-        BlockPos pos = StructurePickerClient.getModelBlockFlashPos();
-
-        if (pos == null || context.poseStack() == null)
-        {
-            return;
-        }
-
-        float alpha = StructurePickerClient.getModelBlockFlashAlpha();
-
-        if (alpha <= 0.01F)
-        {
-            return;
-        }
-
-        Minecraft mc = Minecraft.getInstance();
-        Vec3 camera = mc.gameRenderer.getMainCamera().position();
-
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._disableCull();
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-        GlStateManager._depthFunc(GL11.GL_ALWAYS);
-
-        PoseStack stack = context.poseStack();
-
-        stack.pushPose();
-        stack.translate(-camera.x, -camera.y, -camera.z);
-        /* Same cyan as F3 model-block outline (see ModelBlockEntityRenderer) */
-        Draw.renderBox(stack, pos.getX(), pos.getY(), pos.getZ(), 1D, 1D, 1D, 0F, 0.5F, 1F, alpha);
-        stack.popPose();
-
-        GlStateManager._depthMask(true);
-        GlStateManager._enableDepthTest();
-        GlStateManager._disableBlend();
-    }
-
-    private static void renderRegionBox(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b, float edgeAlpha, float fillAlpha)
+    private static void renderRegionBox(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b)
     {
         BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
         BlockPos min = StructurePickerSelection.min(first, adjusted);
@@ -546,27 +243,28 @@ public class StructurePickerRenderer
 
         if (mode.hasShapeOutline())
         {
-            StructurePickerShapeOutline.render(stack, first, second, mode, triangleFacing, r, g, b, edgeAlpha);
+            StructurePickerShapeOutline.render(stack, first, second, mode, triangleFacing, r, g, b, EDGE_ALPHA);
         }
 
-        StructurePickerRenderer.renderExpandedVolume(stack, min.getX(), min.getY(), min.getZ(), sizeX, sizeY, sizeZ, r, g, b, edgeAlpha, fillAlpha);
+        StructurePickerRenderer.renderExpandedVolume(stack, min.getX(), min.getY(), min.getZ(), sizeX, sizeY, sizeZ, r, g, b);
     }
 
-    private static void renderMergedBlockBox(PoseStack stack, BlockPos min, BlockPos max, float r, float g, float b, float edgeAlpha, float fillAlpha)
+    private static void renderMergedBlockBox(PoseStack stack, BlockPos min, BlockPos max, float r, float g, float b)
     {
         double sizeX = max.getX() - min.getX() + 1D;
         double sizeY = max.getY() - min.getY() + 1D;
         double sizeZ = max.getZ() - min.getZ() + 1D;
 
-        StructurePickerRenderer.renderExpandedVolume(stack, min.getX(), min.getY(), min.getZ(), sizeX, sizeY, sizeZ, r, g, b, edgeAlpha, fillAlpha);
+        StructurePickerRenderer.renderExpandedVolume(stack, min.getX(), min.getY(), min.getZ(), sizeX, sizeY, sizeZ, r, g, b);
     }
 
-    private static void renderExpandedVolume(PoseStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float edgeAlpha, float fillAlpha)
+    private static void renderExpandedVolume(PoseStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
     {
         double e = VOLUME_EXPAND;
 
-        StructurePickerRenderer.renderVolumeFill(stack, x - e, y - e, z - e, w + e * 2D, h + e * 2D, d + e * 2D, r, g, b, fillAlpha);
-        Draw.renderBox(stack, x - e, y - e, z - e, w + e * 2D, h + e * 2D, d + e * 2D, r, g, b, edgeAlpha);
+        StructurePickerRenderer.renderVolumeFill(stack, x - e, y - e, z - e, w + e * 2D, h + e * 2D, d + e * 2D, r, g, b, FILL_ALPHA);
+        /* Draw edges immediately (not Draw.renderBox Iris queue) so depth test is honored. */
+        StructurePickerRenderer.renderBoxEdges(stack, x - e, y - e, z - e, w + e * 2D, h + e * 2D, d + e * 2D, r, g, b, EDGE_ALPHA);
     }
 
     private static void renderVolumeFill(PoseStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
@@ -586,13 +284,55 @@ public class StructurePickerRenderer
         Draw.flush(builder, Draw.getPositionColorLayer());
     }
 
-    private static void renderCubeCorners(PoseStack stack, BlockPos first, BlockPos second)
+    private static void renderBoxEdges(PoseStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
     {
-        BlockPos min = StructurePickerSelection.min(first, second);
-        BlockPos max = StructurePickerSelection.max(first, second);
-        float pulse = 0.8F + 0.2F * StructurePickerRenderer.selectionPulseAlpha();
-        float hMin = CORNER_HANDLE * StructurePickerClient.getHandleVisualScale(min.getX(), min.getY(), min.getZ());
-        float hMax = CORNER_HANDLE * StructurePickerClient.getHandleVisualScale(max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        float fw = (float) w;
+        float fh = (float) h;
+        float fd = (float) d;
+        float t = 1F / 96F + (float) (Math.sqrt(w * w + h * h + d * d) / 2000D);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+
+        stack.pushPose();
+        stack.translate(x, y, z);
+
+        Draw.fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
+        Draw.fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, a);
+        Draw.fillBox(builder, stack, -t, -t, -t + fd, t, t + fh, t + fd, r, g, b, a);
+        Draw.fillBox(builder, stack, -t + fw, -t, -t + fd, t + fw, t + fh, t + fd, r, g, b, a);
+
+        Draw.fillBox(builder, stack, -t, -t + fh, -t, t + fw, t + fh, t, r, g, b, a);
+        Draw.fillBox(builder, stack, -t, -t + fh, -t + fd, t + fw, t + fh, t + fd, r, g, b, a);
+        Draw.fillBox(builder, stack, -t, -t + fh, -t, t, t + fh, t + fd, r, g, b, a);
+        Draw.fillBox(builder, stack, -t + fw, -t + fh, -t, t + fw, t + fh, t + fd, r, g, b, a);
+
+        Draw.fillBox(builder, stack, -t, -t, -t, t + fw, t, t, r, g, b, a);
+        Draw.fillBox(builder, stack, -t, -t, -t + fd, t + fw, t, t + fd, r, g, b, a);
+        Draw.fillBox(builder, stack, -t, -t, -t, t, t, t + fd, r, g, b, a);
+        Draw.fillBox(builder, stack, -t + fw, -t, -t, t + fw, t, t + fd, r, g, b, a);
+
+        stack.popPose();
+        Draw.flush(builder, Draw.getPositionColorLayer());
+    }
+
+    private static void renderSelectionCorners(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Vec3 camera)
+    {
+        BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
+        BlockPos min = StructurePickerSelection.min(first, adjusted);
+        BlockPos max = StructurePickerSelection.max(first, adjusted);
+        float pulse = 0.85F + 0.15F * (0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() * 0.004D));
+        float hMin;
+        float hMax;
+
+        if (StructurePickerScaleGizmo.hasScalableSelection())
+        {
+            hMin = CORNER_HANDLE * StructurePickerScaleGizmo.getHandleVisualScale(min.getX(), min.getY(), min.getZ());
+            hMax = CORNER_HANDLE * StructurePickerScaleGizmo.getHandleVisualScale(max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        }
+        else
+        {
+            hMin = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, min.getX(), min.getY(), min.getZ());
+            hMax = CORNER_HANDLE * StructurePickerRenderer.handleScale(camera, max.getX() + 1, max.getY() + 1, max.getZ() + 1);
+        }
 
         StructurePickerRenderer.renderCornerHandle(stack, min.getX(), min.getY(), min.getZ(), hMin, pulse);
         StructurePickerRenderer.renderCornerHandle(stack, max.getX() + 1, max.getY() + 1, max.getZ() + 1, hMax, pulse);
@@ -617,20 +357,20 @@ public class StructurePickerRenderer
         double oy = freeCorner.getY();
         double oz = freeCorner.getZ();
 
-        if (StructurePickerClient.isSelectionMoveUsingMaxCorner())
+        if (StructurePickerScaleGizmo.isUsingMaxCorner())
         {
             ox += 1D;
             oy += 1D;
             oz += 1D;
         }
 
-        boolean positive = StructurePickerClient.isScaleGizmoPositive();
-        float scale = StructurePickerClient.getHandleVisualScale(ox, oy, oz);
+        boolean positive = StructurePickerScaleGizmo.isScalePositive();
+        float scale = StructurePickerScaleGizmo.getHandleVisualScale(ox, oy, oz);
         float len = (positive ? GIZMO_AXIS_LENGTH : -GIZMO_AXIS_LENGTH) * scale;
         float t = GIZMO_AXIS_HALF * scale;
         float knob = GIZMO_KNOB * scale;
         float hub = GIZMO_HUB * scale;
-        StructurePickerAxis hover = StructurePickerClient.getResizeDragAxis();
+        StructurePickerAxis hover = StructurePickerScaleGizmo.getResizeDragAxis();
 
         StructurePickerRenderer.renderVolumeFill(stack, ox - hub * 0.5D, oy - hub * 0.5D, oz - hub * 0.5D, hub, hub, hub, 1F, 1F, 1F, 1F);
         StructurePickerRenderer.renderScaleAxis(stack, ox, oy, oz, StructurePickerAxis.X, len, t, knob, 1F, 0.22F, 0.22F, hover == StructurePickerAxis.X);
@@ -667,67 +407,41 @@ public class StructurePickerRenderer
         StructurePickerRenderer.renderVolumeFill(stack, ex - s * 0.5D, ey - s * 0.5D, ez - s * 0.5D, s, s, s, r, g, b, a);
     }
 
-    /**
-     * Placement move handle: thick stem + cone arrow tip (Blender-style translate gizmo).
-     */
-    private static void renderTranslateAxis(PoseStack stack, double ox, double oy, double oz, StructurePickerAxis axis, float len, float t, float r, float g, float b, boolean highlight)
-    {
-        float tipLength = Math.abs(len) * 0.35F;
-        float tipRadius = t * 2.6F * (highlight ? 1.2F : 1F);
-        float a = highlight ? 1F : 0.95F;
-        float sign = len >= 0F ? 1F : -1F;
-        float base = Math.abs(len) * sign;
-        float apex = (Math.abs(len) + tipLength) * sign;
-
-        StructurePickerRenderer.renderAxisArm(stack, ox, oy, oz, axis, len, t, r, g, b, highlight);
-
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-
-        stack.pushPose();
-        stack.translate(ox, oy, oz);
-
-        if (axis == StructurePickerAxis.X)
-        {
-            Draw.cone(builder, stack, apex, 0F, 0F, base, 0F, 0F, tipRadius, 10, r, g, b, a);
-        }
-        else if (axis == StructurePickerAxis.Y)
-        {
-            Draw.cone(builder, stack, 0F, apex, 0F, 0F, base, 0F, tipRadius, 10, r, g, b, a);
-        }
-        else
-        {
-            Draw.cone(builder, stack, 0F, 0F, apex, 0F, 0F, base, tipRadius, 10, r, g, b, a);
-        }
-
-        stack.popPose();
-        Draw.flush(builder, Draw.getPositionColorLayer());
-    }
-
     private static void renderAxisArm(PoseStack stack, double ox, double oy, double oz, StructurePickerAxis axis, float len, float t, float r, float g, float b, boolean highlight)
     {
         float thick = t * (highlight ? 1.45F : 1F);
         float a = highlight ? 1F : 0.92F;
-        double x0 = ox;
-        double y0 = oy;
-        double z0 = oz;
         double w = Math.abs(len);
         double h = Math.abs(len);
         double d = Math.abs(len);
 
         if (axis == StructurePickerAxis.X)
         {
-            x0 = len >= 0F ? ox : ox + len;
+            double x0 = len >= 0F ? ox : ox + len;
+
             StructurePickerRenderer.renderVolumeFill(stack, x0, oy - thick, oz - thick, w, thick * 2F, thick * 2F, r, g, b, a);
         }
         else if (axis == StructurePickerAxis.Y)
         {
-            y0 = len >= 0F ? oy : oy + len;
+            double y0 = len >= 0F ? oy : oy + len;
+
             StructurePickerRenderer.renderVolumeFill(stack, ox - thick, y0, oz - thick, thick * 2F, h, thick * 2F, r, g, b, a);
         }
         else
         {
-            z0 = len >= 0F ? oz : oz + len;
+            double z0 = len >= 0F ? oz : oz + len;
+
             StructurePickerRenderer.renderVolumeFill(stack, ox - thick, oy - thick, z0, thick * 2F, thick * 2F, d, r, g, b, a);
         }
+    }
+
+    private static float handleScale(Vec3 camera, double x, double y, double z)
+    {
+        double dx = camera.x - x;
+        double dy = camera.y - y;
+        double dz = camera.z - z;
+        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        return (float) Math.max(0.75D, Math.min(3.5D, dist * 0.08D));
     }
 }

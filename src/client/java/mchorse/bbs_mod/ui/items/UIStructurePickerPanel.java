@@ -1,103 +1,103 @@
 package mchorse.bbs_mod.ui.items;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.camera.OrbitCamera;
-import mchorse.bbs_mod.camera.controller.OrbitCameraController;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.items.StructurePickerBrushShape;
-import mchorse.bbs_mod.items.StructurePickerExporter;
 import mchorse.bbs_mod.items.StructurePickerMode;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.dashboard.utils.UIOrbitCamera;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.UIScreen;
-import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
-import mchorse.bbs_mod.ui.utils.Area;
-import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.ScrollDirection;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
 
-import org.lwjgl.glfw.GLFW;
-
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Immersive Structure Picker: tools on left, mode list on right; slide in from each side.
- */
 public class UIStructurePickerPanel extends UIOverlayPanel
 {
-    private static final int MODES_W = 120;
-    private static final int TOOLS_W = 180;
-    private static final int TOOLS_H = 380;
-    private static final int MODE_EXTRA_BAR_H = 92;
-    private static final int COLOR_IMPORT_MODEL = 0xFF3B82F6;
-    private static final int COLOR_IMPORT_FILM = 0xFF3B82F6;
-    private static final int COLOR_PLACE = 0xFF22C55E;
-    private static final int COLOR_SAVE = 0xFF14B8A6;
-    private static final int COLOR_REMOVE = 0xFFF59E0B;
-    private static final int COLOR_BREAK = Colors.RED;
-    public static final int COLOR_SIDEBAR = 0x66101018;
+    private static final int MODE_COLUMN_HEIGHT = 8 + StructurePickerMode.values().length * 22 + 8;
+    /* Right column through reachExtended + bottom pad (same/brush slots added dynamically). */
+    private static final int RIGHT_COLUMN_CORE = 8 + 32 + 4 + 6 + 4 + 20 + 24 + 14 + 20 + 24 + 14 + 20 + 24 + 20 + 24 + 8;
+    private static final int SLOT_SAME = 24;
+    private static final int SLOT_BRUSH = 72;
+    private static final int BODY_WIDTH = 360;
+    private static final int BODY_HEIGHT_MAX = Math.max(MODE_COLUMN_HEIGHT, RIGHT_COLUMN_CORE + Math.max(SLOT_SAME, SLOT_BRUSH));
+    private static final int DEFAULT_WIDTH = 400;
+    private static final int DEFAULT_HEIGHT = 20 + Math.min(BODY_HEIGHT_MAX + 16, 320);
+    private static final float MODE_INACTIVE_TINT = 0.78F;
+
+    /* Distinct accents per mode (not rainbow-ordered). */
+    private static final int[] MODE_TINTS = new int[]
+    {
+        0xFF14B8A6, /* Block - teal */
+        0xFFF97316, /* Rectangle - orange */
+        0xFFA78BFA, /* Cube - light purple */
+        0xFF84CC16, /* Circle - lime */
+        0xFFE11D48, /* Sphere - crimson */
+        0xFF0EA5E9, /* Triangle - sky */
+        0xFFEAB308, /* Cone - gold */
+        0xFFC026D3, /* Cylinder - fuchsia */
+        0xFF6366F1, /* Same - indigo */
+        0xFFEC4899, /* Brush - pink */
+        0xFFEF4444  /* Erase - red */
+    };
+
+    private static final Icon[] MODE_ICONS = new Icon[]
+    {
+        Icons.SP_BLOCK,
+        Icons.SP_RECTANGLE,
+        Icons.SP_CUBE,
+        Icons.SP_CIRCLE,
+        Icons.SP_SPHERE,
+        Icons.SP_TRIANGLE,
+        Icons.SP_CONE,
+        Icons.SP_CYLINDER,
+        Icons.BUCKET,
+        Icons.BRUSH,
+        Icons.ERASER
+    };
 
     private static UIStructurePickerPanel opened;
 
-    private final UIElement modesPanel;
-    private final UIElement toolsPanel;
-    private final UITextbox nameBox;
+    private final List<UIButton> shapeButtons = new ArrayList<>();
+    private final UICirculate applyScope;
     private final UIButton modelBlockButton;
     private final UIButton importFilmButton;
-    private final UIButton placeStructureButton;
-    private final UIButton saveStructureButton;
-    private final UIButton placeAndSelectButton;
-    private final UIButton placeCancelButton;
     private final UIButton removeSelectionButton;
+    private final UIToggle subtractToggle;
     private final UIButton breakSelectionButton;
-    private final UIElement placementCoords;
-    private final UITrackpad placementX;
-    private final UITrackpad placementY;
-    private final UITrackpad placementZ;
-    private final UIElement selectionSizeCoords;
-    private final UITrackpad selectionSizeX;
-    private final UITrackpad selectionSizeY;
-    private final UITrackpad selectionSizeZ;
-    private final UIStructurePickerModePicker modePicker;
+    private final UIToggle clickOnAirToggle;
+    private final UITrackpad reach;
+    private final UITrackpad reachExtended;
     private final UITrackpad sameBlockLimit;
     private final UIElement brushControls;
     private final UICirculate brushShape;
     private final UITrackpad brushRadius;
     private final UITrackpad brushDepth;
-    private final UIToggle clickOnAirToggle;
-    private final UIToggle subtractToggle;
-    private final UIOrbitCamera uiOrbitCamera;
-    private final IUIElement worldPickLayer;
-
-    private OrbitCamera orbitCamera;
-    private boolean syncingPlacementCoords;
-    private boolean syncingSelectionSize;
-    private boolean suppressFreecamUntilLmbUp;
-    private Runnable exitMenu;
+    private final UIElement body;
+    private final UIScrollView horizontalScroll;
+    private final UIIcon helpIcon;
 
     public static void open()
     {
@@ -112,81 +112,20 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
         Minecraft client = Minecraft.getInstance();
         Screen returnScreen = client.screen;
-        LocalPlayer player = client.player;
-        OrbitCamera orbit = new OrbitCamera();
 
-        orbit.setFovRoll(false);
-
-        if (player != null)
+        panel.onClose((event) ->
         {
-            /* Match UIDashboard freecam setup so the view keeps the same angle. */
-            orbit.position.set(player.getX(), player.getEyeY(), player.getZ());
-            orbit.rotation.set(
-                MathUtils.toRad(player.getXRot()),
-                MathUtils.toRad(player.getYHeadRot() - 180),
-                0F
-            );
-            orbit.fov = MathUtils.toRad(client.options.fov().get());
-        }
-
-        panel.orbitCamera = orbit;
-        panel.uiOrbitCamera.orbit = orbit;
-        StructurePickerClient.setFreecamOrbit(orbit);
-
-        OrbitCameraController orbitController = new OrbitCameraController(orbit);
-        boolean previousHudHidden = client.options.hideGui;
-        boolean[] closed = new boolean[] {false};
-
-        Runnable finishExit = () ->
-        {
-            if (closed[0])
-            {
-                return;
-            }
-
-            closed[0] = true;
-            /* Clear before setScreen so any leftover UIScreen.render won't re-hide the HUD. */
             UIStructurePickerPanel.opened = null;
-            client.options.hideGui = previousHudHidden;
 
-            if (StructurePickerClient.isPlacementActive())
-            {
-                StructurePickerClient.clearBoundStructurePath();
-            }
-
-            StructurePickerClient.cancelPlacement();
-            StructurePickerClient.setPlacementUiListener(null);
-            StructurePickerClient.setFreecamOrbit(null);
-
-            if (panel.orbitCamera != null)
-            {
-                panel.orbitCamera.reset();
-            }
-
-            BBSModClient.getCameraController().remove(orbitController);
-        };
-
-        Runnable exitToReturnScreen = () ->
-        {
-            if (closed[0])
-            {
-                return;
-            }
-
-            finishExit.run();
-
-            if (client.screen instanceof UIScreen)
+            if (returnScreen != null)
             {
                 client.setScreen(returnScreen);
             }
-        };
-
-        panel.onClose((event) -> exitToReturnScreen.run());
-        panel.exitMenu = exitToReturnScreen;
-
-        StructurePickerClient.setPlacementUiListener(panel::syncPlacementButtons);
-        StructurePickerClient.ensureCubeScaleGizmo();
-        panel.syncPlacementButtons();
+            else
+            {
+                client.setScreen(null);
+            }
+        });
 
         UIScreen.open(new UIBaseMenu()
         {
@@ -199,8 +138,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
             @Override
             public boolean canHideHUD()
             {
-                /* Stop forcing F1 as soon as exit begins / panel is cleared. */
-                return UIStructurePickerPanel.opened != null && !closed[0];
+                return false;
             }
 
             @Override
@@ -212,7 +150,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
             @Override
             protected void closeMenu()
             {
-                exitToReturnScreen.run();
+                panel.close();
             }
 
             @Override
@@ -220,35 +158,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
             {
                 super.onOpen(oldMenu);
 
-                BBSModClient.getCameraController().add(orbitController);
-
-                UIOverlay overlay = new UIOverlay()
-                {
-                    @Override
-                    protected boolean subMouseClicked(UIContext context)
-                    {
-                        /* Immersive fullscreen picker: empty-world LMB is freecam, not dismiss. */
-                        return false;
-                    }
-                };
-
-                overlay.noBackground();
-                panel.relative(overlay).xy(0.5F, 0.5F).wh(1F, 1F).anchor(0.5F).bounds(overlay, 0);
-                UIOverlay.setupPanel(this.context, overlay, panel);
-                /* Ignore saved 300x240 size from the old compact confirm dialog. */
-                panel.getFlex().x.offset = 0;
-                panel.getFlex().y.offset = 0;
-                panel.getFlex().w.offset = 0;
-                panel.getFlex().h.offset = 0;
-                overlay.resize();
-            }
-
-            @Override
-            public void onClose(UIBaseMenu nextMenu)
-            {
-                finishExit.run();
-                client.options.hideGui = previousHudHidden;
-                super.onClose(nextMenu);
+                UIOverlay.addOverlay(this.context, panel, DEFAULT_WIDTH, DEFAULT_HEIGHT);
             }
         });
     }
@@ -272,512 +182,205 @@ public class UIStructurePickerPanel extends UIOverlayPanel
         return !panels.isEmpty();
     }
 
-    @Override
-    public String getKey()
-    {
-        /* Separate from the old compact 300x240 confirm dialog saved size. */
-        return "UIStructurePickerPanel_immersive";
-    }
-
     public UIStructurePickerPanel()
     {
         super(UIKeys.STRUCTURE_PICKER_CONFIRM_TITLE);
 
-        this.title.setVisible(false);
-        this.title.setEnabled(false);
-        this.close.setVisible(false);
-        this.close.setEnabled(false);
-        this.icons.setVisible(false);
-        this.icons.setEnabled(false);
-        this.resizable(false);
-        this.content.relative(this).xy(0, 0).w(1F).h(1F);
+        this.minSize(280, 200);
 
-        this.uiOrbitCamera = new UIOrbitCamera()
+        this.body = new UIElement();
+        StructurePickerMode[] modes = StructurePickerMode.values();
+
+        for (int i = 0; i < modes.length; i++)
         {
-            @Override
-            public IUIElement mouseClicked(UIContext context)
-            {
-                /* LMB look is driven every frame in updateFreecamLook. */
-                return null;
-            }
+            StructurePickerMode mode = modes[i];
+            UIButton button = new UIButton(UIKeys.STRUCTURE_PICKER_MODE_LABELS[mode.index], (b) -> this.selectMode(mode));
 
-            @Override
-            public void render(UIContext context)
-            {
-                /* Look-drag is driven by UIStructurePickerPanel.updateFreecamLook. */
-            }
+            button.leadingIcon(MODE_ICONS[mode.index]);
+            button.relative(this.body).x(8).y(8 + i * 22).w(110).h(20);
+            this.shapeButtons.add(button);
+            this.body.add(button);
+        }
 
-            @Override
-            public IUIElement mouseScrolled(UIContext context)
-            {
-                if (UIStructurePickerPanel.this.isOverSidePanels(context))
-                {
-                    return null;
-                }
-
-                return this.orbit.scroll((int) context.mouseWheel) ? this : null;
-            }
-        };
-        this.uiOrbitCamera.setControl(true);
-        this.orbitCamera = this.uiOrbitCamera.orbit;
-        this.orbitCamera.setFovRoll(false);
-
-        /* Checked before freecam orbit: consume LMB only when over gizmos/corners. */
-        this.worldPickLayer = new IUIElement()
+        this.applyScope = new UICirculate((b) ->
         {
-            @Override
-            public IUIElement mouseClicked(UIContext context)
-            {
-                if (context.mouseButton != 0)
-                {
-                    return null;
-                }
+            StructurePickerClient.setApplyToSelectedOnly(b.getValue() == 0);
+            this.updateActionButtons();
+        });
+        this.applyScope.addLabel(UIKeys.STRUCTURE_PICKER_APPLY_SELECTED);
+        this.applyScope.addLabel(UIKeys.STRUCTURE_PICKER_APPLY_ALL);
+        this.applyScope.wrapping();
+        this.applyScope.setValue(StructurePickerClient.isApplyToSelectedOnly() ? 0 : 1);
 
-                if (UIStructurePickerPanel.this.isOverSidePanels(context))
-                {
-                    return null;
-                }
-
-                if (StructurePickerClient.isPlacementActive() && StructurePickerClient.isOverPlacementGizmo())
-                {
-                    return this;
-                }
-
-                if (!StructurePickerClient.isPlacementActive())
-                {
-                    if (StructurePickerClient.isOverSelectionMoveGizmo())
-                    {
-                        return this;
-                    }
-
-                    if (StructurePickerClient.isOverSelectionCorner())
-                    {
-                        StructurePickerClient.tryActivateSelectionMoveFromUi();
-
-                        return this;
-                    }
-                }
-
-                return null;
-            }
-
-            @Override
-            public IUIElement mouseScrolled(UIContext context)
-            {
-                if (UIStructurePickerPanel.this.isOverSidePanels(context) || UIStructurePickerPanel.this.orbitCamera == null)
-                {
-                    return null;
-                }
-
-                return UIStructurePickerPanel.this.orbitCamera.scroll((int) context.mouseWheel) ? this : null;
-            }
-
-            @Override
-            public IUIElement mouseReleased(UIContext context)
-            {
-                return null;
-            }
-
-            @Override
-            public IUIElement keyPressed(UIContext context)
-            {
-                return null;
-            }
-
-            @Override
-            public IUIElement textInput(UIContext context)
-            {
-                return null;
-            }
-
-            @Override
-            public boolean isEnabled()
-            {
-                return true;
-            }
-
-            @Override
-            public boolean isVisible()
-            {
-                return true;
-            }
-
-            @Override
-            public void resize()
-            {}
-
-            @Override
-            public boolean canBeRendered(Area area)
-            {
-                return false;
-            }
-
-            @Override
-            public void render(UIContext context)
-            {}
-        };
-
-        this.modesPanel = new UIElement()
+        UIElement scopeSeparator = new UIElement()
         {
             @Override
             public void render(UIContext context)
             {
-                float t = UIStructurePickerPanel.this.getOpenAmount();
-                float slide = (1.0F - t) * -(MODES_W + 24);
-
-                context.render.batcher.getContext().pose().pushMatrix();
-                context.render.batcher.getContext().pose().translate(slide, 0.0F);
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), COLOR_SIDEBAR);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0x55FFFFFF, 1);
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 1, 0x66FFFFFF);
                 super.render(context);
-                context.render.batcher.getContext().pose().popMatrix();
             }
         };
-        this.modesPanel.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE);
-        this.toolsPanel = new UIElement()
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                float t = UIStructurePickerPanel.this.getOpenAmount();
-                float slide = (1.0F - t) * (TOOLS_W + 24);
-
-                context.render.batcher.getContext().pose().pushMatrix();
-                context.render.batcher.getContext().pose().translate(slide, 0.0F);
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), COLOR_SIDEBAR);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0x55FFFFFF, 1);
-                super.render(context);
-                context.render.batcher.getContext().pose().popMatrix();
-            }
-        };
-        this.toolsPanel.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE);
-
-        this.nameBox = new UITextbox(64, null);
-        this.nameBox.filename();
-        this.nameBox.placeholder(UIKeys.STRUCTURE_PICKER_NAME_PLACEHOLDER);
 
         this.modelBlockButton = new UIButton(UIKeys.STRUCTURE_PICKER_MAKE_MODEL_BLOCK, (b) -> this.importSelection(true));
-        this.modelBlockButton.color(COLOR_IMPORT_MODEL);
         this.importFilmButton = new UIButton(UIKeys.STRUCTURE_PICKER_IMPORT_FILM, (b) -> this.importSelection(false));
-        this.importFilmButton.color(COLOR_IMPORT_FILM);
-        this.placeStructureButton = new UIButton(UIKeys.STRUCTURE_PICKER_PLACE_STRUCTURE, (b) -> this.browseStructures());
-        this.placeStructureButton.color(COLOR_PLACE);
-        this.saveStructureButton = new UIButton(UIKeys.STRUCTURE_PICKER_SAVE_STRUCTURE, (b) -> this.saveBoundStructure());
-        this.saveStructureButton.color(COLOR_SAVE);
-        this.placeAndSelectButton = new UIButton(UIKeys.STRUCTURE_PICKER_PLACE_AND_SELECT, (b) ->
-        {
-            StructurePickerClient.confirmPlaceAndSelect();
-            this.syncBoundStructureName();
-            this.syncPlacementButtons();
-        });
-        this.placeAndSelectButton.color(COLOR_PLACE);
-        this.placeCancelButton = new UIButton(UIKeys.STRUCTURE_PICKER_PLACE_CANCEL, (b) ->
-        {
-            StructurePickerClient.cancelPlacement();
-            StructurePickerClient.clearBoundStructurePath();
-            this.syncPlacementButtons();
-        });
-        this.placeCancelButton.color(COLOR_REMOVE);
-
-        this.placementX = new UITrackpad((v) -> this.applyPlacementCoord()).integer();
-        this.placementY = new UITrackpad((v) -> this.applyPlacementCoord()).integer();
-        this.placementZ = new UITrackpad((v) -> this.applyPlacementCoord()).integer();
-        this.placementCoords = UI.column(
-            4,
-            UI.row(4, new UILabel(UIKeys.GENERAL_X).background().w(18), this.placementX),
-            UI.row(4, new UILabel(UIKeys.GENERAL_Y).background().w(18), this.placementY),
-            UI.row(4, new UILabel(UIKeys.GENERAL_Z).background().w(18), this.placementZ)
-        );
-
-        this.selectionSizeX = new UITrackpad((v) -> this.applySelectionSize()).integer().limit(1, 512);
-        this.selectionSizeY = new UITrackpad((v) -> this.applySelectionSize()).integer().limit(1, 512);
-        this.selectionSizeZ = new UITrackpad((v) -> this.applySelectionSize()).integer().limit(1, 512);
-        this.selectionSizeCoords = UI.column(
-            4,
-            UI.row(4, new UILabel(UIKeys.GENERAL_X).background().w(18), this.selectionSizeX),
-            UI.row(4, new UILabel(UIKeys.GENERAL_Y).background().w(18), this.selectionSizeY),
-            UI.row(4, new UILabel(UIKeys.GENERAL_Z).background().w(18), this.selectionSizeZ)
-        );
-
         this.removeSelectionButton = new UIButton(UIKeys.STRUCTURE_PICKER_REMOVE_SELECTION, (b) -> this.removeSelection());
-        this.removeSelectionButton.color(COLOR_REMOVE);
-        this.breakSelectionButton = new UIButton(UIKeys.STRUCTURE_PICKER_BREAK_SELECTION, (b) -> this.breakSelection());
-        this.breakSelectionButton.color(COLOR_BREAK);
-
-        this.modePicker = new UIStructurePickerModePicker();
-
-        this.sameBlockLimit = new UITrackpad((v) ->
-        {
-            StructurePickerClient.setSameBlockLimit(v.intValue());
-        }).integer().limit(1, 500).values(1D);
-        this.sameBlockLimit.tooltip(UIKeys.STRUCTURE_PICKER_SAME_LIMIT);
-        this.sameBlockLimit.setValue(StructurePickerClient.getSameBlockLimit());
-
-        this.brushShape = new UICirculate((b) ->
-        {
-            StructurePickerClient.setBrushShape(StructurePickerBrushShape.fromIndex(b.getValue()));
-        });
-        this.brushShape.addLabel(UIKeys.STRUCTURE_PICKER_BRUSH_SPHERE);
-        this.brushShape.addLabel(UIKeys.STRUCTURE_PICKER_BRUSH_CUBE);
-        this.brushShape.setValue(StructurePickerClient.getBrushShape().index);
-
-        this.brushRadius = new UITrackpad((v) ->
-        {
-            StructurePickerClient.setBrushRadius(v.intValue());
-        }).integer().limit(0, 16).values(1D);
-        this.brushRadius.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_RADIUS);
-        this.brushRadius.setValue(StructurePickerClient.getBrushRadius());
-
-        this.brushDepth = new UITrackpad((v) ->
-        {
-            StructurePickerClient.setBrushDepth(v.intValue());
-        }).integer().limit(1, 16).values(1D);
-        this.brushDepth.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_DEPTH);
-        this.brushDepth.setValue(StructurePickerClient.getBrushDepth());
-
-        this.brushControls = new UIElement();
-        this.brushShape.relative(this.brushControls).x(8).y(0).w(1F, -16).h(20);
-        this.brushRadius.relative(this.brushControls).x(8).y(24).w(1F, -16).h(20);
-        this.brushDepth.relative(this.brushControls).x(8).y(48).w(1F, -16).h(20);
-        this.brushControls.add(this.brushShape, this.brushRadius, this.brushDepth);
-
-        this.clickOnAirToggle = new UIToggle(UIKeys.STRUCTURE_PICKER_CLICK_ON_AIR, StructurePickerClient.isClickOnAir(), (b) ->
-        {
-            StructurePickerClient.setClickOnAir(b.getValue());
-        });
-        this.clickOnAirToggle.color(Colors.WHITE, true);
-
         this.subtractToggle = new UIToggle(UIKeys.STRUCTURE_PICKER_SUBTRACT_SELECTION, StructurePickerClient.isSubtractMode(), (b) ->
         {
             StructurePickerClient.setSubtractMode(b.getValue());
         });
-        this.subtractToggle.color(Colors.WHITE, true);
+        this.breakSelectionButton = new UIButton(UIKeys.STRUCTURE_PICKER_BREAK_SELECTION, (b) -> this.breakSelection());
+        this.clickOnAirToggle = new UIToggle(UIKeys.STRUCTURE_PICKER_CLICK_ON_AIR, StructurePickerClient.isClickOnAir(), (b) ->
+        {
+            StructurePickerClient.setClickOnAir(b.getValue());
+        });
 
-        int panelH = Math.max(this.modePicker.preferredHeight() + MODE_EXTRA_BAR_H, TOOLS_H);
+        this.reach = new UITrackpad((v) -> BBSSettings.structurePickerReach.set(v.intValue()));
+        this.reach.tooltip(UIKeys.STRUCTURE_PICKER_REACH);
+        this.reach.integer().limit(1, 300);
+        this.reach.setValue(BBSSettings.structurePickerReach.get());
 
-        /* Mode list flush left, tools flush right — matched height. */
-        this.modesPanel.relative(this.content).x(0).y(0.5F).w(MODES_W).h(panelH).anchorY(0.5F);
-        this.toolsPanel.relative(this.content).x(1F).y(0.5F).w(TOOLS_W).h(panelH).anchor(1F, 0.5F);
+        this.reachExtended = new UITrackpad((v) -> BBSSettings.structurePickerReachExtended.set(v.intValue()));
+        this.reachExtended.tooltip(UIKeys.STRUCTURE_PICKER_REACH_EXTENDED);
+        this.reachExtended.integer().limit(1, 300);
+        this.reachExtended.setValue(BBSSettings.structurePickerReachExtended.get());
 
-        this.modePicker.relative(this.modesPanel).xy(0, 0).w(1F).h(1F, -MODE_EXTRA_BAR_H);
-        this.sameBlockLimit.relative(this.modesPanel).x(8).y(1F, -28).w(1F, -16).h(20);
-        this.brushControls.relative(this.modesPanel).x(0).y(1F, -MODE_EXTRA_BAR_H + 8).w(1F).h(MODE_EXTRA_BAR_H - 8);
+        this.sameBlockLimit = new UITrackpad((v) -> StructurePickerClient.setSameBlockLimit(v.intValue()));
+        this.sameBlockLimit.tooltip(UIKeys.STRUCTURE_PICKER_SAME_LIMIT);
+        this.sameBlockLimit.integer().limit(1, 500);
+        this.sameBlockLimit.setValue(StructurePickerClient.getSameBlockLimit());
 
-        this.nameBox.relative(this.toolsPanel).x(10).y(10).w(1F, -20).h(20);
-        this.modelBlockButton.relative(this.toolsPanel).x(10).y(36).w(1F, -20).h(22);
-        this.importFilmButton.relative(this.toolsPanel).x(10).y(62).w(1F, -20).h(22);
-        this.removeSelectionButton.relative(this.toolsPanel).x(10).y(88).w(1F, -20).h(22);
-        this.breakSelectionButton.relative(this.toolsPanel).x(10).y(114).w(1F, -20).h(22);
-        this.placeStructureButton.relative(this.toolsPanel).x(10).y(140).w(1F, -20).h(22);
-        this.saveStructureButton.relative(this.toolsPanel).x(10).y(166).w(1F, -20).h(22);
-        this.clickOnAirToggle.relative(this.toolsPanel).x(10).y(198).w(1F, -20).h(16);
-        this.subtractToggle.relative(this.toolsPanel).x(10).y(220).w(1F, -20).h(16);
+        this.brushShape = new UICirculate((b) ->
+            StructurePickerClient.setBrushShape(StructurePickerBrushShape.fromIndex(b.getValue())));
+        this.brushShape.addLabel(UIKeys.STRUCTURE_PICKER_BRUSH_SPHERE);
+        this.brushShape.addLabel(UIKeys.STRUCTURE_PICKER_BRUSH_CUBE);
+        this.brushShape.setValue(StructurePickerClient.getBrushShape().index);
+        this.brushShape.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_SHAPE);
 
-        /* Placement / selection size sit at the bottom of the tools panel. */
-        this.placementCoords.relative(this.toolsPanel).x(10).y(1F, -78).w(1F, -20).h(68);
-        this.selectionSizeCoords.relative(this.toolsPanel).x(10).y(1F, -78).w(1F, -20).h(68);
-        this.placeCancelButton.relative(this.toolsPanel).x(10).y(1F, -104).w(1F, -20).h(22);
-        this.placeAndSelectButton.relative(this.toolsPanel).x(10).y(1F, -130).w(1F, -20).h(22);
+        this.brushRadius = new UITrackpad((v) -> StructurePickerClient.setBrushRadius(v.intValue()));
+        this.brushRadius.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_RADIUS);
+        this.brushRadius.integer().limit(0, 32);
+        this.brushRadius.setValue(StructurePickerClient.getBrushRadius());
 
-        this.modesPanel.add(this.modePicker, this.sameBlockLimit, this.brushControls);
-        this.toolsPanel.add(
-            this.nameBox,
-            this.modelBlockButton,
-            this.importFilmButton,
-            this.removeSelectionButton,
-            this.breakSelectionButton,
-            this.placeStructureButton,
-            this.saveStructureButton,
-            this.placeAndSelectButton,
-            this.placeCancelButton,
-            this.placementCoords,
-            this.selectionSizeCoords,
-            this.clickOnAirToggle,
-            this.subtractToggle
-        );
-        /* Orbit first (checked last): LMB look on empty world. World-pick before orbit. */
-        this.content.prepend(this.uiOrbitCamera);
-        this.content.add(this.worldPickLayer, this.modesPanel, this.toolsPanel);
+        this.brushDepth = new UITrackpad((v) -> StructurePickerClient.setBrushDepth(v.intValue()));
+        this.brushDepth.tooltip(UIKeys.STRUCTURE_PICKER_BRUSH_DEPTH);
+        this.brushDepth.integer().limit(1, 32);
+        this.brushDepth.setValue(StructurePickerClient.getBrushDepth());
+
+        this.brushControls = new UIElement();
+        this.brushShape.relative(this.brushControls).x(0).y(0).w(1F).h(20);
+        this.brushRadius.relative(this.brushControls).x(0).y(24).w(1F).h(20);
+        this.brushDepth.relative(this.brushControls).x(0).y(48).w(1F).h(20);
+        this.brushControls.add(this.brushShape, this.brushRadius, this.brushDepth);
+
+        this.applyScope.relative(this.body).x(126).y(8).w(1F, -134).h(20);
+        scopeSeparator.relative(this.applyScope).x(0).y(1F, 4).w(1F).h(6);
+        this.modelBlockButton.relative(scopeSeparator).x(0).y(1F, 4).w(1F).h(20);
+        this.importFilmButton.relative(this.modelBlockButton).x(0).y(1F, 4).w(1F).h(20);
+        this.subtractToggle.relative(this.importFilmButton).x(0).y(1F, 4).w(1F).h(14);
+        this.removeSelectionButton.relative(this.subtractToggle).x(0).y(1F, 4).w(1F).h(20);
+        this.breakSelectionButton.relative(this.removeSelectionButton).x(0).y(1F, 4).w(1F).h(20);
+        this.clickOnAirToggle.relative(this.breakSelectionButton).x(0).y(1F, 4).w(1F).h(14);
+        this.reach.relative(this.clickOnAirToggle).x(0).y(1F, 4).w(1F).h(20);
+        this.reachExtended.relative(this.reach).x(0).y(1F, 4).w(1F).h(20);
+        this.sameBlockLimit.relative(this.reachExtended).x(0).y(1F, 4).w(1F).h(20);
+        this.brushControls.relative(this.reachExtended).x(0).y(1F, 4).w(1F).h(68);
+        this.breakSelectionButton.color(Colors.RED);
+
+        this.body.add(this.applyScope, scopeSeparator, this.modelBlockButton, this.importFilmButton, this.subtractToggle, this.removeSelectionButton, this.breakSelectionButton, this.clickOnAirToggle, this.reach, this.reachExtended, this.sameBlockLimit, this.brushControls);
+        this.body.w(BODY_WIDTH).h(this.computeBodyHeight());
+
+        this.horizontalScroll = new UIScrollView(ScrollDirection.HORIZONTAL);
+
+        this.horizontalScroll.h(this.computeBodyHeight());
+        this.horizontalScroll.column(0).vertical(false).scroll().width(BODY_WIDTH).padding(0);
+        this.horizontalScroll.add(this.body);
+
+        UIScrollView verticalScroll = new UIScrollView();
+
+        verticalScroll.full(this.content);
+        verticalScroll.column(0).vertical().stretch().scroll().padding(0);
+        verticalScroll.add(this.horizontalScroll);
+        this.content.add(verticalScroll);
+
+        this.helpIcon = new UIIcon(Icons.HELP, (b) -> {});
+        this.helpIcon.tooltip(UIStructurePickerPanel::buildKeysHelpTip, 220, Direction.LEFT);
+        this.helpIcon.relative(this).x(1F, -24).y(1F, -24).wh(20, 20);
+        this.add(this.helpIcon);
 
         this.keys().register(Keys.UNDO, StructurePickerClient::undo).active(StructurePickerClient::canUndo);
         this.keys().register(Keys.REDO, StructurePickerClient::redo).active(StructurePickerClient::canRedo);
 
+        this.updateShapeButtons();
         this.updateImportButtons();
-        this.syncPlacementButtons();
+        this.updateActionButtons();
+        this.syncReachControls();
+        this.syncModeExtras();
     }
 
-    @Override
-    public boolean subMouseClicked(UIContext context)
+    private void selectMode(StructurePickerMode mode)
     {
-        return super.subMouseClicked(context);
+        StructurePickerClient.setMode(mode);
+        this.updateShapeButtons();
+        this.syncModeExtras();
     }
 
-    private boolean isOverWorldGizmo()
+    private void updateShapeButtons()
     {
-        if (StructurePickerClient.isPlacementActive())
-        {
-            return StructurePickerClient.isOverPlacementGizmo();
-        }
+        StructurePickerMode current = StructurePickerClient.getMode();
+        StructurePickerMode[] modes = StructurePickerMode.values();
 
-        return StructurePickerClient.isOverSelectionMoveGizmo()
-            || StructurePickerClient.isOverSelectionCorner();
+        for (int i = 0; i < this.shapeButtons.size(); i++)
+        {
+            StructurePickerMode mode = modes[i];
+            int tint = MODE_TINTS[mode.index];
+            boolean selected = mode == current;
+
+            this.shapeButtons.get(i).color(selected ? tint : Colors.mulRGB(tint, MODE_INACTIVE_TINT));
+            this.shapeButtons.get(i).outlined(selected);
+        }
     }
 
-    @Override
-    public boolean subMouseReleased(UIContext context)
+    private void syncReachControls()
     {
-        return super.subMouseReleased(context);
-    }
-
-    /**
-     * Drive freecam look / WASD every frame. LMB is look-only (no world selection).
-     */
-    private void updateFreecamLook(UIContext context)
-    {
-        if (this.orbitCamera == null)
+        if (!this.reach.isFocused() && !this.reach.isDragging())
         {
-            return;
-        }
+            int value = BBSSettings.structurePickerReach.get();
 
-        long window = Minecraft.getInstance().getWindow().handle();
-        boolean lmb = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-        boolean rmb = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
-        boolean overUi = this.isOverSidePanels(context);
-        boolean toolDrag = StructurePickerClient.isScaleDragging() || StructurePickerClient.isPlacementDragging();
-        boolean trackpadDrag = this.isCoordTrackpadDragging();
-        boolean overHandle = StructurePickerClient.isOverPreciseHandle();
-        boolean looking = this.orbitCamera.isDragging();
-
-        if (!lmb)
-        {
-            this.suppressFreecamUntilLmbUp = false;
-        }
-        else if (!looking && (overUi || trackpadDrag))
-        {
-            /* LMB started on UI / trackpad: never steal look until release, even if the
-             * cursor leaves the panel while dragging a size value. */
-            this.suppressFreecamUntilLmbUp = true;
-        }
-
-        /* Once look has started, keep it until LMB release — do not steal to gizmos mid-drag. */
-        boolean canContinueLook = lmb && !rmb && !overUi && !toolDrag && !trackpadDrag && !this.suppressFreecamUntilLmbUp;
-        boolean canStartLook = canContinueLook && !overHandle;
-
-        if (looking && canContinueLook)
-        {
-            this.orbitCamera.drag(context.mouseX, context.mouseY);
-        }
-        else if (canStartLook)
-        {
-            this.orbitCamera.start(0, context.mouseX, context.mouseY);
-            context.unfocus();
-        }
-        else if (looking)
-        {
-            this.orbitCamera.release();
-        }
-
-        /* Held-key sync (not press/release edges) so WASD/Space never stick after release.
-         * Over tools/modes: Shift must not lower the camera (Shift+click buttons). */
-        if (context.isFocused() && !this.orbitCamera.isDragging())
-        {
-            this.orbitCamera.reset();
-        }
-        else
-        {
-            this.orbitCamera.syncFlightFromHeldKeys(overUi);
-        }
-
-        this.orbitCamera.update(context);
-    }
-
-    private boolean isCoordTrackpadDragging()
-    {
-        return this.selectionSizeX.isDragging()
-            || this.selectionSizeY.isDragging()
-            || this.selectionSizeZ.isDragging()
-            || this.placementX.isDragging()
-            || this.placementY.isDragging()
-            || this.placementZ.isDragging()
-            || this.sameBlockLimit.isDragging()
-            || this.brushRadius.isDragging()
-            || this.brushDepth.isDragging();
-    }
-
-    private float getOpenAmount()
-    {
-        UIElement parent = this.getParent();
-
-        if (parent instanceof UIOverlay)
-        {
-            return ((UIOverlay) parent).getOpenTransition();
-        }
-
-        return 1.0F;
-    }
-
-
-    @Override
-    protected void renderBackground(UIContext context)
-    {
-        /* Transparent shell — side panels paint their own fill. */
-    }
-
-    @Override
-    public void render(UIContext context)
-    {
-        this.syncSameLimitBar();
-        this.updateFreecamLook(context);
-        super.render(context);
-    }
-
-    @Override
-    public boolean subKeyPressed(UIContext context)
-    {
-        if (context.isPressed(Keys.CLOSE))
-        {
-            if (StructurePickerClient.isPlacementActive())
+            if ((int) this.reach.getValue() != value)
             {
-                StructurePickerClient.cancelPlacement();
-                StructurePickerClient.clearBoundStructurePath();
-                this.syncPlacementButtons();
-
-                return true;
-            }
-
-            /* Close the whole menu immediately — overlay-only close leaves UIScreen
-               forcing hudHidden=true every frame (looks stuck in F1). */
-            if (this.exitMenu != null)
-            {
-                this.exitMenu.run();
-
-                return true;
-            }
-
-            UIBaseMenu menu = UIScreen.getCurrentMenu();
-
-            if (menu != null)
-            {
-                menu.closeThisMenu();
-
-                return true;
+                this.reach.setValue(value);
             }
         }
 
-        return super.subKeyPressed(context);
+        if (!this.reachExtended.isFocused() && !this.reachExtended.isDragging())
+        {
+            int value = BBSSettings.structurePickerReachExtended.get();
+
+            if ((int) this.reachExtended.getValue() != value)
+            {
+                this.reachExtended.setValue(value);
+            }
+        }
     }
 
-    private boolean isOverSidePanels(UIContext context)
+    private static String buildKeysHelpTip()
     {
-        return this.modesPanel.area.isInside(context) || this.toolsPanel.area.isInside(context);
+        return UIKeys.STRUCTURE_PICKER_KEYS_HELP_TIP.format(
+            Keys.UNDO.getKeyCombo(),
+            Keys.UNDO.label.get(),
+            Keys.REDO.getKeyCombo(),
+            Keys.REDO.label.get(),
+            Keys.STRUCTURE_PICKER_CYCLE_PLANE.getKeyCombo(),
+            Keys.STRUCTURE_PICKER_CYCLE_PLANE.label.get()
+        ).get();
     }
 
-    private void syncSameLimitBar()
+    private void syncModeExtras()
     {
         StructurePickerMode mode = StructurePickerClient.getMode();
-        boolean placing = StructurePickerClient.isPlacementActive();
-        boolean showSame = mode == StructurePickerMode.SAME && !placing;
-        boolean showBrush = mode == StructurePickerMode.BRUSH && !placing;
+        boolean showSame = mode == StructurePickerMode.SAME;
+        boolean showBrush = mode == StructurePickerMode.BRUSH;
 
         this.sameBlockLimit.setVisible(showSame);
         this.brushControls.setVisible(showBrush);
@@ -821,190 +424,59 @@ public class UIStructurePickerPanel extends UIOverlayPanel
                 }
             }
         }
+
+        this.applyBodyHeight();
     }
 
-    private void syncPlacementButtons()
+    private int computeBodyHeight()
     {
-        boolean placing = StructurePickerClient.isPlacementActive();
-        boolean showSize = !placing && StructurePickerClient.hasActiveCubeSelection();
-        boolean canSave = StructurePickerClient.canSaveBoundStructure();
+        int right = RIGHT_COLUMN_CORE;
 
-        this.placeStructureButton.setVisible(!placing);
-        this.saveStructureButton.setVisible(!placing);
-        this.saveStructureButton.setEnabled(canSave);
-
-        if (canSave)
+        if (StructurePickerClient.getMode() == StructurePickerMode.SAME)
         {
-            this.saveStructureButton.removeTooltip();
+            right += SLOT_SAME;
         }
-        else
+        else if (StructurePickerClient.getMode() == StructurePickerMode.BRUSH)
         {
-            this.saveStructureButton.tooltip(UIKeys.STRUCTURE_PICKER_SAVE_STRUCTURE_HINT, Direction.LEFT);
-        }
-        this.placeAndSelectButton.setVisible(placing);
-        this.placeCancelButton.setVisible(placing);
-        this.placementCoords.setVisible(placing);
-        this.selectionSizeCoords.setVisible(showSize);
-        this.removeSelectionButton.setVisible(!placing);
-        this.breakSelectionButton.setVisible(!placing);
-        this.clickOnAirToggle.setVisible(!placing);
-        this.subtractToggle.setVisible(!placing);
-
-        this.modelBlockButton.setEnabled(!placing);
-        this.modePicker.setEnabled(!placing);
-        this.sameBlockLimit.setEnabled(!placing);
-        this.brushControls.setEnabled(!placing);
-        this.nameBox.setEnabled(!placing);
-        this.updateImportButtons();
-        this.syncSameLimitBar();
-
-        if (placing)
-        {
-            this.importFilmButton.setEnabled(false);
-            this.syncPlacementCoords();
-        }
-        else if (showSize)
-        {
-            StructurePickerClient.ensureCubeScaleGizmo();
-            this.syncSelectionSize();
+            right += SLOT_BRUSH;
         }
 
-        this.syncBoundStructureName();
+        return Math.max(MODE_COLUMN_HEIGHT, right);
     }
 
-    private void syncBoundStructureName()
+    private void applyBodyHeight()
     {
-        String path = StructurePickerClient.getBoundStructurePath();
+        int height = this.computeBodyHeight();
 
-        if (path == null || path.isEmpty())
-        {
-            return;
-        }
-
-        String display = StructurePickerExporter.displayNameOf(null, path);
-
-        if (!display.isEmpty())
-        {
-            this.nameBox.setText(display);
-        }
-    }
-
-    private void saveBoundStructure()
-    {
-        if (!StructurePickerClient.canSaveBoundStructure())
-        {
-            return;
-        }
-
-        StructurePickerClient.saveBoundStructure(this.getStructureName());
-    }
-
-    private void syncPlacementCoords()
-    {
-        BlockPos origin = StructurePickerClient.getPlacementOrigin();
-
-        if (origin == null)
-        {
-            return;
-        }
-
-        this.syncingPlacementCoords = true;
-        this.placementX.setValue(origin.getX());
-        this.placementY.setValue(origin.getY());
-        this.placementZ.setValue(origin.getZ());
-        this.syncingPlacementCoords = false;
-    }
-
-    private void syncSelectionSize()
-    {
-        if (!StructurePickerClient.hasActiveCubeSelection())
-        {
-            return;
-        }
-
-        this.syncingSelectionSize = true;
-        this.selectionSizeX.setValue(StructurePickerClient.getActiveSelectionSizeX());
-        this.selectionSizeY.setValue(StructurePickerClient.getActiveSelectionSizeY());
-        this.selectionSizeZ.setValue(StructurePickerClient.getActiveSelectionSizeZ());
-        this.syncingSelectionSize = false;
-    }
-
-    private void applyPlacementCoord()
-    {
-        if (this.syncingPlacementCoords || !StructurePickerClient.isPlacementActive())
-        {
-            return;
-        }
-
-        StructurePickerClient.setPlacementOriginCoords(
-            (int) this.placementX.getValue(),
-            (int) this.placementY.getValue(),
-            (int) this.placementZ.getValue()
-        );
-    }
-
-    private void applySelectionSize()
-    {
-        if (this.syncingSelectionSize || StructurePickerClient.isPlacementActive())
-        {
-            return;
-        }
-
-        StructurePickerClient.setActiveSelectionSize(
-            (int) this.selectionSizeX.getValue(),
-            (int) this.selectionSizeY.getValue(),
-            (int) this.selectionSizeZ.getValue()
-        );
-        this.syncSelectionSize();
-    }
-
-    private void browseStructures()
-    {
-        UIStructureOverlayPanel[] holder = new UIStructureOverlayPanel[1];
-
-        holder[0] = new UIStructureOverlayPanel((Link link) ->
-        {
-            if (link == null)
-            {
-                return;
-            }
-
-            StructurePickerClient.startPlacement(link.toString());
-            this.syncPlacementButtons();
-
-            if (holder[0] != null)
-            {
-                holder[0].close();
-            }
-        }, this.getContext());
-
-        UIOverlay.addOverlay(this.getContext(), holder[0], 280, 0.5F);
+        this.body.h(height);
+        this.horizontalScroll.h(height);
+        this.content.resize();
     }
 
     private void updateImportButtons()
     {
-        UIFilmPanel filmPanel = BBSModClient.getDashboard().getPanel(UIFilmPanel.class);
-        boolean canImport = filmPanel != null && filmPanel.getData() != null;
-
-        this.importFilmButton.setEnabled(canImport);
-
-        if (canImport)
-        {
-            this.importFilmButton.removeTooltip();
-        }
-        else
-        {
-            this.importFilmButton.tooltip(UIKeys.STRUCTURE_PICKER_IMPORT_FILM_DISABLED, Direction.LEFT);
-        }
+        this.updateActionButtons();
     }
 
-    private String getStructureName()
+    private void updateActionButtons()
     {
-        return this.nameBox.getText() == null ? "" : this.nameBox.getText().trim();
+        UIFilmPanel filmPanel = BBSModClient.getDashboard().getPanel(UIFilmPanel.class);
+        boolean canImportFilm = filmPanel != null && filmPanel.getData() != null;
+        boolean canApply = StructurePickerClient.canApplyScopedActions();
+
+        this.modelBlockButton.setEnabled(canApply);
+        this.importFilmButton.setEnabled(canApply && canImportFilm);
+        this.removeSelectionButton.setEnabled(canApply);
+        this.breakSelectionButton.setEnabled(canApply);
     }
 
     private void importSelection(boolean toModelBlock)
     {
+        if (!StructurePickerClient.canApplyScopedActions())
+        {
+            return;
+        }
+
         if (!toModelBlock)
         {
             UIFilmPanel filmPanel = BBSModClient.getDashboard().getPanel(UIFilmPanel.class);
@@ -1015,15 +487,20 @@ public class UIStructurePickerPanel extends UIOverlayPanel
             }
         }
 
-        StructurePickerClient.importSelection(toModelBlock, this.getStructureName());
+        StructurePickerClient.importSelection(toModelBlock);
     }
 
     private void removeSelection()
     {
+        if (!StructurePickerClient.canApplyScopedActions())
+        {
+            return;
+        }
+
         if (Window.isShiftPressed())
         {
             StructurePickerClient.removeSelection();
-            this.syncPlacementButtons();
+            this.close();
 
             return;
         }
@@ -1036,7 +513,7 @@ public class UIStructurePickerPanel extends UIOverlayPanel
                 if (confirmed)
                 {
                     StructurePickerClient.removeSelection();
-                    this.syncPlacementButtons();
+                    this.close();
                 }
             }
         );
@@ -1046,6 +523,11 @@ public class UIStructurePickerPanel extends UIOverlayPanel
 
     private void breakSelection()
     {
+        if (!StructurePickerClient.canApplyScopedActions())
+        {
+            return;
+        }
+
         if (Window.isShiftPressed())
         {
             StructurePickerClient.breakSelection();

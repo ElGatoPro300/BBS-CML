@@ -18,6 +18,15 @@ public class StructurePickerSelection
     public static BlockPos min(BlockPos a, BlockPos b)
     {
         return new BlockPos(
+            Math.min(a.getX(), b.getY()),
+            Math.min(a.getY(), b.getY()),
+            Math.min(a.getZ(), b.getZ())
+        );
+    }
+
+    public static BlockPos min(BlockPos a, BlockPos b, boolean dummy)
+    {
+        return new BlockPos(
             Math.min(a.getX(), b.getX()),
             Math.min(a.getY(), b.getY()),
             Math.min(a.getZ(), b.getZ())
@@ -55,7 +64,7 @@ public class StructurePickerSelection
             return StructurePickerPlane.XZ;
         }
 
-        BlockPos min = StructurePickerSelection.min(first, second);
+        BlockPos min = StructurePickerSelection.min(first, second, true);
         BlockPos max = StructurePickerSelection.max(first, second);
 
         if (min.getY() == max.getY())
@@ -68,7 +77,7 @@ public class StructurePickerSelection
 
     public static StructurePickerAxis inferVerticalAxis(BlockPos first, BlockPos second)
     {
-        BlockPos min = StructurePickerSelection.min(first, second);
+        BlockPos min = StructurePickerSelection.min(first, second, true);
         BlockPos max = StructurePickerSelection.max(first, second);
 
         if (min.getX() == max.getX())
@@ -104,7 +113,7 @@ public class StructurePickerSelection
     public static List<BlockPos> collect(Level world, BlockPos first, BlockPos second, StructurePickerMode mode, boolean includeAir, Direction triangleFacing)
     {
         BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
-        BlockPos min = StructurePickerSelection.min(first, adjusted);
+        BlockPos min = StructurePickerSelection.min(first, adjusted, true);
         BlockPos max = StructurePickerSelection.max(first, adjusted);
         List<BlockPos> blocks = new ArrayList<>();
 
@@ -140,7 +149,7 @@ public class StructurePickerSelection
         }
 
         BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
-        BlockPos min = StructurePickerSelection.min(first, adjusted);
+        BlockPos min = StructurePickerSelection.min(first, adjusted, true);
         BlockPos max = StructurePickerSelection.max(first, adjusted);
         List<BlockPos> blocks = new ArrayList<>();
 
@@ -174,7 +183,7 @@ public class StructurePickerSelection
             case CONE -> StructurePickerSelection.inCone(min, max, x, y, z);
             case SPHERE -> StructurePickerSelection.inSphere(min, max, x, y, z);
             case CYLINDER -> StructurePickerSelection.inCircle(min, max, x, z);
-            case BLOCK, SAME, BRUSH -> x == min.getX() && y == min.getY() && z == min.getZ();
+            case BLOCK, SAME, BRUSH, ERASE -> x == min.getX() && y == min.getY() && z == min.getZ();
         };
     }
 
@@ -385,6 +394,49 @@ public class StructurePickerSelection
         }
 
         return found;
+    }
+
+    /**
+     * Volumetric brush around {@code center}: solid blocks inside the sphere/cube of {@code radius}.
+     * {@code depth} is kept for UI compatibility and enlarges the brush when greater than {@code radius}.
+     */
+    public static List<BlockPos> collectBrushVolume(Level world, BlockPos center, StructurePickerBrushShape shape, int radius, int depth)
+    {
+        LinkedHashSet<BlockPos> blocks = new LinkedHashSet<>();
+
+        if (world == null || center == null || radius < 0)
+        {
+            return new ArrayList<>();
+        }
+
+        int r = Math.max(0, Math.max(radius, depth - 1));
+
+        for (int dx = -r; dx <= r; dx++)
+        {
+            for (int dy = -r; dy <= r; dy++)
+            {
+                for (int dz = -r; dz <= r; dz++)
+                {
+                    if (shape == StructurePickerBrushShape.SPHERE && dx * dx + dy * dy + dz * dz > r * r)
+                    {
+                        continue;
+                    }
+
+                    BlockPos pos = center.offset(dx, dy, dz);
+                    BlockState state = world.getBlockState(pos);
+
+                    if (state.isAir())
+                    {
+                        continue;
+                    }
+
+                    blocks.add(pos.immutable());
+                    StructurePickerSelection.addPlantSupport(world, pos, blocks);
+                }
+            }
+        }
+
+        return new ArrayList<>(blocks);
     }
 
     private static boolean onFlatPlane(BlockPos first, BlockPos second, BlockPos min, BlockPos max, int x, int y, int z)

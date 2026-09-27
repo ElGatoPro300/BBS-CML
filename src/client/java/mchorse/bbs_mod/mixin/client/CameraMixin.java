@@ -44,26 +44,19 @@ public abstract class CameraMixin
     @Inject(method = "alignWithEntity", at = @At("RETURN"))
     private void onAlignWithEntity(float tickDelta, CallbackInfo ci)
     {
-        if (BBSRendering.isIrisShadowPass())
-        {
-            return;
-        }
-
         CameraController controller = BBSModClient.getCameraController();
-
-        if (controller.getCurrent() == null)
-        {
-            return;
-        }
 
         controller.setup(controller.camera, tickDelta);
 
-        Vector3d position = controller.getPosition();
-        float yaw = controller.getYaw();
-        float pitch = controller.getPitch();
+        if (controller.getCurrent() != null)
+        {
+            Vector3d position = controller.getPosition();
+            float yaw = controller.getYaw();
+            float pitch = controller.getPitch();
 
-        this.setPosition(position.x, position.y, position.z);
-        this.setRotation(yaw, pitch);
+            this.setPosition(position.x, position.y, position.z);
+            this.setRotation(yaw, pitch);
+        }
     }
 
     @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true)

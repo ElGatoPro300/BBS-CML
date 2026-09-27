@@ -5,7 +5,6 @@
     "client": [
         "ClientWorldMixin",
         "ClientPlayerInteractionManagerMixin",
-        "StructurePickerEntityHitMixin",
         "CameraMixin",
         "GameRendererMixin",
         "MouseMixin",
@@ -65,6 +64,7 @@
         "iris.ShadowMatricesMixin",
         "iris.CelestialUniformsMixin",
         "audio.CallbackDeviceTrackerMixin",
+        "iris.HandRendererMixin",
         "audio.SoundEngineMixin",
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
