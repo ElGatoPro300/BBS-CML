@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.forms;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.ModelForm;
@@ -10,7 +11,10 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIActionsFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIFormPanel;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIModelConstraintsFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelFormPanel;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIModelIKFormPanel;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIModelPhysicsFormPanel;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
@@ -24,14 +28,30 @@ import org.joml.Matrix4f;
 public class UIModelForm extends UIForm<ModelForm>
 {
     public UIModelFormPanel modelPanel;
+    public UIActionsFormPanel actionsPanel;
+    public UIModelIKFormPanel ikPanel;
+    public UIModelPhysicsFormPanel physicsPanel;
+    public UIModelConstraintsFormPanel constraintsPanel;
 
     public UIModelForm()
     {
         this.modelPanel = new UIModelFormPanel(this);
+        this.actionsPanel = new UIActionsFormPanel(this);
+        this.ikPanel = new UIModelIKFormPanel(this);
+        this.physicsPanel = new UIModelPhysicsFormPanel(this);
+        this.constraintsPanel = new UIModelConstraintsFormPanel(this);
         this.defaultPanel = this.modelPanel;
 
         this.registerPanel(this.defaultPanel, UIKeys.FORMS_EDITORS_MODEL_POSE, Icons.POSE);
-        this.registerPanel(new UIActionsFormPanel(this), UIKeys.FORMS_EDITORS_ACTIONS_TITLE, Icons.MORE);
+        this.registerPanel(this.actionsPanel, UIKeys.FORMS_EDITORS_ACTIONS_TITLE, Icons.MORE);
+
+        if (BBSFeatures.MODEL_IK_UI)
+        {
+            this.registerPanel(this.ikPanel, UIKeys.MODELS_IK_EDITOR, Icons.IK);
+        }
+
+        this.registerPanel(this.physicsPanel, UIKeys.MODELS_PHYS_BONES_EDITOR, Icons.DYNAMIC_BONES);
+        this.registerPanel(this.constraintsPanel, UIKeys.MODELS_CONSTRAINTS_EDITOR, Icons.LOCKED);
         this.registerDefaultPanels();
 
         this.defaultPanel.keys().register(Keys.FORMS_PICK_TEXTURE, () ->
