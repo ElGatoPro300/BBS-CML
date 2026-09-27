@@ -20,6 +20,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
+import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -1709,7 +1710,7 @@ public class StructurePickerClient
         StructurePickerClient.planeCycleKeyDown = cycleDown;
     }
 
-    private static boolean isKeyComboDown(mchorse.bbs_mod.ui.utils.keys.KeyCombo combo)
+    private static boolean isKeyComboDown(KeyCombo combo)
     {
         if (combo == null || combo.keys.isEmpty())
         {

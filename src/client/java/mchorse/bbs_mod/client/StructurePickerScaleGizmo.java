@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.items.StructurePickerAxis;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerSelection;
@@ -795,7 +796,7 @@ public final class StructurePickerScaleGizmo
     {
         if (UIStructurePickerPanel.isOpened())
         {
-            mchorse.bbs_mod.camera.Camera camera = BBSModClient.getCameraController().camera;
+            Camera camera = BBSModClient.getCameraController().camera;
             Vector3f look = Matrices.rotation(camera.rotation.x, MathUtils.PI - camera.rotation.y);
 
             return new Vec3d(look.x, look.y, look.z);

@@ -2,8 +2,6 @@ package mchorse.bbs_mod.items;
 
 import net.minecraft.util.math.BlockPos;
 
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
