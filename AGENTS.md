@@ -87,10 +87,8 @@ Entry points (defined in `fabric.mod.json`):
 - `UIDebugPanel` — in-game drag-and-drop layout builder; exports widget trees to clipboard/file for rapid prototyping
 
 **Addon System** (documented in `docs/ADDONS.md`)
-- Implement `BBSAddonMod` marker interface and subscribe using `@Subscribe` methods
-- Entrypoints: `bbs-addon` (common) and `bbs-client-addon` (client, with `bbs-addon-client` fallback)
-- Central `EventBus` in `mchorse.bbs_mod.api.EventBus` (`BBSMod.events`) for registration hooks and lifecycle events
-- High-performance hooks: `FilmEvents` and `FormRenderEvents` (Fabric array-backed)
+- Extend via `BBSAddon` (server) / `BBSClientAddon` (client)
+- Central `EventBus` in `events/` for registration hooks
 - Addons can register custom Forms, Clips, UI panels, settings, and networking
 
 **Networking** (`network/`)

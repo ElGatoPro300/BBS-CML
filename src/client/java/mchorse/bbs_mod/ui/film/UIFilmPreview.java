@@ -73,20 +73,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class UIFilmPreview extends UIElement
 {
     public static final List<Consumer<UIFilmPreview>> extensions = new ArrayList<>();
-    private static final List<Function<UIFilmPreview, UIElement>> OVERLAYS = new ArrayList<>();
-
-    public static void registerOverlay(Function<UIFilmPreview, UIElement> factory)
-    {
-        if (factory != null)
-        {
-            OVERLAYS.add(factory);
-        }
-    }
 
     private static final int GIZMO_ICON_IDLE = Colors.setA(Colors.WHITE, 0.5F);
     private static final int GIZMO_ICON_HOVER = Colors.WHITE;
@@ -386,11 +376,6 @@ public class UIFilmPreview extends UIElement
         for (Consumer<UIFilmPreview> consumer : extensions)
         {
             consumer.accept(this);
-        }
-
-        for (Function<UIFilmPreview, UIElement> factory : OVERLAYS)
-        {
-            this.add(factory.apply(this));
         }
     }
 
