@@ -41,6 +41,12 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 * User wiki: `bbs-mod-wiki.wiki/`
 * Greenfield rewrite (3.0): [BBS-CML-3.0](https://github.com/ElGatoPro300/BBS-CML-3.0) — bootstrap / code-organization live **there**, not in this folder (older UI-redesign migration drafts were removed from 2.2).
 
+## 3.0 planning
+
+| Doc | Topic |
+|-----|--------|
+| [ik-physics-3.0-master-plan.md](ik-physics-3.0-master-plan.md) | IK/physics master plan deferred from 2.2 (Option C′, UI, `bbs_physics`, phases, git markers) |
+
 ## 2.2 implementation guides
 
 | Doc | Topic |
