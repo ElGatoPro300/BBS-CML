@@ -51,7 +51,9 @@ public final class UIFormPropertyTrackSheets
     private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of(
         "glowing_color", "glow_settings", "glow_intensity", "paint_color",
         /* Deferred to 3.0 modifiers API — keep runtime/migration, hide timeline track. */
-        "shake", "shake_settings", "shake_amount", "shake_active"
+        "shake", "shake_settings", "shake_amount", "shake_active",
+        /* Compound tracks resolution / view_extent replace these separate fields. */
+        "width", "height", "view_extent_x", "view_extent_y"
     );
 
     private static final List<String> MODEL_PROPERTIES = Arrays.asList(
@@ -59,6 +61,7 @@ public final class UIFormPropertyTrackSheets
         "anchor", "illusion", "illusion_transform", "color",
         "color2", "color_mode", "color_grade", "paint", "paint_color", "glow",
         "outline", "outline_color", "outline_thickness", "outline_rainbow", "outline_rainbow_speed", "outline_rainbow_scale",
+        "resolution", "view_extent", "scale", "billboard", "camera_content",
         "texture",
         "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys",
         "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings",
@@ -212,6 +215,12 @@ public final class UIFormPropertyTrackSheets
             return colorProperty instanceof ValueColor;
         }
 
+        if (FormProperties.isFramebufferResolutionChannelKey(path)
+            || FormProperties.isFramebufferViewExtentChannelKey(path))
+        {
+            return FormProperties.formForFramebufferSynthetic(rootForm, path) instanceof mchorse.bbs_mod.forms.forms.FramebufferForm;
+        }
+
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
@@ -247,6 +256,12 @@ public final class UIFormPropertyTrackSheets
                 formProperty = FormUtils.getProperty(form, FormProperties.colorPropertyPathForGrade(key));
             }
 
+            if (formProperty == null && (FormProperties.isFramebufferResolutionChannelKey(key)
+                || FormProperties.isFramebufferViewExtentChannelKey(key)))
+            {
+                formProperty = FormUtils.getProperty(form, FormProperties.framebufferAnchorPropertyPath(key));
+            }
+
             String title = key;
             int colon = key.indexOf(':');
 
@@ -262,6 +277,13 @@ public final class UIFormPropertyTrackSheets
                 {
                     UIKeyframeSheet sheet = new UIKeyframeSheet(key, resolved, UIReplaysEditor.getColor(key), false, channel, formProperty);
 
+                    Object insertDefault = FormProperties.framebufferDefaultInsertValue(form, key);
+
+                    if (insertDefault != null)
+                    {
+                        sheet.defaultInsertValue = insertDefault;
+                    }
+
                     withTrackIcon(sheet, key);
                     sheets.add(sheet);
                     continue;
@@ -269,6 +291,13 @@ public final class UIFormPropertyTrackSheets
             }
 
             UIKeyframeSheet sheet = new UIKeyframeSheet(key, IKey.constant(title), UIReplaysEditor.getColor(key), false, channel, formProperty);
+
+            Object insertDefault = FormProperties.framebufferDefaultInsertValue(form, key);
+
+            if (insertDefault != null)
+            {
+                sheet.defaultInsertValue = insertDefault;
+            }
 
             withTrackIcon(sheet, key);
             sheets.add(sheet);

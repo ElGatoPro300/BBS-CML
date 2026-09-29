@@ -1386,6 +1386,8 @@
     "bbs.ui.film.replay.track.fire": "Fire",
     "bbs.ui.film.replay.track.fire_ticks": "Fire ticks",
     "bbs.ui.film.replay.track.flying": "Flying",
+    "bbs.ui.film.replay.track.framebuffer_resolution": "Resolution",
+    "bbs.ui.film.replay.track.framebuffer_view_extent": "View extent",
     "bbs.ui.film.replay.track.grounded": "Grounded",
     "bbs.ui.film.replay.track.head_yaw": "Head yaw",
     "bbs.ui.film.replay.track.illusion_overlay": "Illusion overlay",

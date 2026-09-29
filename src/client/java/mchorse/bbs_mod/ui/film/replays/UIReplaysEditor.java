@@ -214,6 +214,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("outline_rainbow", 0xff99ff);
         COLORS.put("outline_rainbow_speed", 0xff88ee);
         COLORS.put("outline_rainbow_scale", 0xff77dd);
+        COLORS.put("resolution", 0x66aaff);
+        COLORS.put("view_extent", 0x88ccff);
+        COLORS.put("scale", Colors.GREEN);
+        COLORS.put("billboard", 0xffaa66);
+        COLORS.put("camera_content", 0xff8866);
         COLORS.put("lighting", Colors.YELLOW);
         COLORS.put("illusion", Colors.DEEP_PINK);
         COLORS.put("illusion_overlay", 0xff66aa);
@@ -290,6 +295,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("outline_rainbow", Icons.FAVORITE);
         ICONS.put("outline_rainbow_speed", Icons.TIME);
         ICONS.put("outline_rainbow_scale", Icons.SCALE);
+        ICONS.put("resolution", Icons.FULLSCREEN);
+        ICONS.put("view_extent", Icons.FULLSCREEN);
+        ICONS.put("scale", Icons.SCALE);
+        ICONS.put("billboard", Icons.ALL_DIRECTIONS);
+        ICONS.put("camera_content", Icons.CAMERA);
         ICONS.put("lighting", Icons.LIGHT);
         ICONS.put("illusion", Icons.POSE);
         ICONS.put("illusion_transform", Icons.ALL_DIRECTIONS);
@@ -1607,7 +1617,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "outline", "outline_color", "outline_thickness", "outline_rainbow", "outline_rainbow_speed", "outline_rainbow_scale", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "outline", "outline_color", "outline_thickness", "outline_rainbow", "outline_rainbow_speed", "outline_rainbow_scale", "resolution", "view_extent", "scale", "billboard", "camera_content", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1924,6 +1934,31 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("outline_rainbow_scale"))
         {
             return UIKeys.FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SCALE;
+        }
+
+        if (trackName.equals("resolution"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_FRAMEBUFFER_RESOLUTION;
+        }
+
+        if (trackName.equals("view_extent"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_FRAMEBUFFER_VIEW_EXTENT;
+        }
+
+        if (trackName.equals("scale"))
+        {
+            return UIKeys.TRANSFORMS_SCALE;
+        }
+
+        if (trackName.equals("billboard"))
+        {
+            return UIKeys.FORMS_EDITORS_FRAMEBUFFER_BILLBOARD;
+        }
+
+        if (trackName.equals("camera_content"))
+        {
+            return UIKeys.FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT;
         }
 
         if (trackName.equals("color_grade"))
@@ -2355,6 +2390,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                         formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.colorPropertyPathForGrade(key));
                     }
 
+                    if (formProperty == null && (FormProperties.isFramebufferResolutionChannelKey(key)
+                        || FormProperties.isFramebufferViewExtentChannelKey(key)))
+                    {
+                        formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.framebufferAnchorPropertyPath(key));
+                    }
+
                     String customTitle = this.replay.getCustomSheetTitle(key);
                     Integer customColor = this.replay.getSheetColor(key);
                     int baseColor = getColor(key);
@@ -2373,6 +2414,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
                         ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, property, formProperty)
                         : new UIKeyframeSheet(key, IKey.constant(title), sheetColor, false, property, formProperty);
+
+                    Object insertDefault = FormProperties.framebufferDefaultInsertValue(this.replay.form.get(), key);
+
+                    if (insertDefault != null)
+                    {
+                        sheet.defaultInsertValue = insertDefault;
+                    }
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
@@ -3253,6 +3301,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
 
             return colorProperty instanceof ValueColor;
+        }
+
+        if (FormProperties.isFramebufferResolutionChannelKey(path)
+            || FormProperties.isFramebufferViewExtentChannelKey(path))
+        {
+            return FormProperties.formForFramebufferSynthetic(rootForm, path) instanceof mchorse.bbs_mod.forms.forms.FramebufferForm;
         }
 
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);

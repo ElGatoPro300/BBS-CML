@@ -1070,6 +1070,8 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW = L10n.lang("bbs.ui.film.replay.track.outline_rainbow");
     public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SPEED = L10n.lang("bbs.ui.film.replay.track.outline_rainbow_speed");
     public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SCALE = L10n.lang("bbs.ui.film.replay.track.outline_rainbow_scale");
+    public static final IKey FILM_REPLAY_TRACK_FRAMEBUFFER_RESOLUTION = L10n.lang("bbs.ui.film.replay.track.framebuffer_resolution");
+    public static final IKey FILM_REPLAY_TRACK_FRAMEBUFFER_VIEW_EXTENT = L10n.lang("bbs.ui.film.replay.track.framebuffer_view_extent");
     public static final IKey FILM_REPLAY_OPACITY_NO_SHADING = L10n.lang("bbs.ui.film.replay.opacity.no_shading");
     public static final IKey FILM_REPLAY_TRACK_TEXTURE = L10n.lang("bbs.ui.film.replay.track.texture");
     public static final IKey FILM_REPLAY_TRACK_MODEL = L10n.lang("bbs.ui.film.replay.track.model");

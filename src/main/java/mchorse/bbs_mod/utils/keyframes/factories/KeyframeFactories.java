@@ -36,6 +36,8 @@ public class KeyframeFactories
     public static final LensRadiusSettingsKeyframeFactory LENS_RADIUS_SETTINGS = new LensRadiusSettingsKeyframeFactory();
     public static final ChromaSkyCurveSettingsKeyframeFactory CHROMA_SKY_SETTINGS = new ChromaSkyCurveSettingsKeyframeFactory();
     public static final ShakeSettingsKeyframeFactory SHAKE_SETTINGS = new ShakeSettingsKeyframeFactory();
+    public static final FramebufferResolutionKeyframeFactory FRAMEBUFFER_RESOLUTION = new FramebufferResolutionKeyframeFactory();
+    public static final FramebufferViewExtentKeyframeFactory FRAMEBUFFER_VIEW_EXTENT = new FramebufferViewExtentKeyframeFactory();
 
     public static boolean isNumeric(IKeyframeFactory factory)
     {
@@ -77,5 +79,7 @@ public class KeyframeFactories
         FACTORIES.put("chroma_sky_settings", CHROMA_SKY_SETTINGS);
         FACTORIES.put("shake_settings", SHAKE_SETTINGS);
         FACTORIES.put("shake", SHAKE_SETTINGS);
+        FACTORIES.put("framebuffer_resolution", FRAMEBUFFER_RESOLUTION);
+        FACTORIES.put("framebuffer_view_extent", FRAMEBUFFER_VIEW_EXTENT);
     }
 }
