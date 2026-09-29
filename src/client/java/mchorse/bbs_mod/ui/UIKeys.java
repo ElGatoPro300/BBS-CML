@@ -1710,6 +1710,7 @@ public class UIKeys
     public static final IKey MODELS_UI_SCALE = L10n.lang("bbs.ui.models.ui_scale");
     public static final IKey MORPHING_DEMORPH = L10n.lang("bbs.ui.morphing.demorph");
     public static final IKey MORPHING_FROM_MOB = L10n.lang("bbs.ui.morphing.from_mob");
+    public static final IKey MORPHING_KEYS_TOGGLE_WORLD_PREVIEW = L10n.lang("bbs.ui.morphing.keys.toggle_world_preview");
     public static final IKey MORPHING_MORPH = L10n.lang("bbs.ui.morphing.morph");
 
     public static final IKey MORPHING_TITLE = L10n.lang("bbs.ui.morphing.title");
