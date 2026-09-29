@@ -745,11 +745,16 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     {
         boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        ShaderProgram program = BBSShaders.getVideoProgram();
+        /* Iris world pass must use a vanilla program so the pack can composite the draw.
+         * Custom bbs:video bypasses Iris gbuffers → invisible placeholder / video / gif. */
+        boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !BBSRendering.isIrisShadowPass();
+        ShaderProgram videoProgram = irisWorld ? null : BBSShaders.getVideoProgram();
 
         try
         {
-            Supplier<ShaderProgram> shaderSupplier = program != null ? () -> program : GameRenderer::getPositionTexProgram;
+            Supplier<ShaderProgram> shaderSupplier = videoProgram != null
+                ? () -> videoProgram
+                : GameRenderer::getPositionTexProgram;
 
             RenderSystem.setShader(shaderSupplier);
             RenderSystem.setShaderColor(tint.r, tint.g, tint.b, tint.a);
@@ -758,9 +763,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
              * and can poison the block atlas → black world. */
             RenderSystem.setShaderTexture(0, textureId);
 
-            if (program != null)
+            if (videoProgram != null)
             {
-                GlUniform gradeUniform = program.getUniform("FormColorGrade");
+                GlUniform gradeUniform = videoProgram.getUniform("FormColorGrade");
 
                 if (gradeUniform != null)
                 {
@@ -797,9 +802,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         }
         finally
         {
-            if (program != null)
+            if (videoProgram != null)
             {
-                GlUniform gradeUniform = program.getUniform("FormColorGrade");
+                GlUniform gradeUniform = videoProgram.getUniform("FormColorGrade");
 
                 if (gradeUniform != null)
                 {
