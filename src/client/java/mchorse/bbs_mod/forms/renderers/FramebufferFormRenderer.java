@@ -229,7 +229,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         context.stack.peek().getPositionMatrix().identity();
         context.stack.peek().getNormalMatrix().identity();
 
-        if (this.shouldLookAtCamera(context))
+        if (this.shouldLookAtCameraContent(context))
         {
             /* Pitch in the view (see form from above), form stays world-upright. */
             this.applyLookAtContentOrientation(context.stack, context);
@@ -441,7 +441,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
     {
-        if (this.shouldLookAtCamera(context))
+        if (this.shouldLookAtBillboard(context))
         {
             this.applyLookAtBillboard(matrices, context);
         }
@@ -513,9 +513,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         return context != null && !context.ui && !context.modelRenderer;
     }
 
-    private boolean shouldLookAtCamera(FormRenderingContext context)
+    private boolean shouldLookAtBillboard(FormRenderingContext context)
     {
-        return this.form.lookAt.get() && this.isWorldBillboardPass(context) && context.camera != null;
+        return this.form.billboard.get() && this.isWorldBillboardPass(context) && context.camera != null;
+    }
+
+    private boolean shouldLookAtCameraContent(FormRenderingContext context)
+    {
+        return this.form.cameraContent.get() && this.isWorldBillboardPass(context) && context.camera != null;
     }
 
     private Vector3f resolveFormWorldPosition(FormRenderingContext context)

@@ -19,7 +19,8 @@ public class UIFramebufferFormPanel extends UIFormPanel<FramebufferForm>
     public UITrackpad viewExtentX;
     public UITrackpad viewExtentY;
     public UIIcon viewExtentLink;
-    public UIToggle lookAt;
+    public UIToggle billboard;
+    public UIToggle cameraContent;
 
     private boolean linkResolution = true;
     private boolean linkViewExtents = true;
@@ -54,8 +55,10 @@ public class UIFramebufferFormPanel extends UIFormPanel<FramebufferForm>
         this.viewExtentLink.iconColor(Colors.GRAY).activeColor(Colors.A100 + Colors.ACTIVE);
         this.viewExtentLink.active(this.linkViewExtents);
 
-        this.lookAt = new UIToggle(UIKeys.FORMS_EDITORS_FRAMEBUFFER_LOOK_AT, false, (b) -> this.form.lookAt.set(b.getValue()));
-        this.lookAt.tooltip(UIKeys.FORMS_EDITORS_FRAMEBUFFER_LOOK_AT_TOOLTIP);
+        this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_FRAMEBUFFER_BILLBOARD, false, (b) -> this.form.billboard.set(b.getValue()));
+        this.billboard.tooltip(UIKeys.FORMS_EDITORS_FRAMEBUFFER_BILLBOARD_TOOLTIP);
+        this.cameraContent = new UIToggle(UIKeys.FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT, false, (b) -> this.form.cameraContent.set(b.getValue()));
+        this.cameraContent.tooltip(UIKeys.FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT_TOOLTIP);
 
         this.options.add(
             UI.label(UIKeys.VIDEO_SETTINGS_RESOLUTION),
@@ -64,7 +67,8 @@ public class UIFramebufferFormPanel extends UIFormPanel<FramebufferForm>
             this.scale,
             UI.label(UIKeys.FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT),
             UI.row(this.viewExtentX, this.viewExtentLink, this.viewExtentY),
-            this.lookAt
+            this.billboard,
+            this.cameraContent
         );
     }
 
@@ -78,7 +82,8 @@ public class UIFramebufferFormPanel extends UIFormPanel<FramebufferForm>
         this.scale.setValue(form.scale.get());
         this.viewExtentX.setValue(form.viewExtentX.get());
         this.viewExtentY.setValue(form.viewExtentY.get());
-        this.lookAt.setValue(form.lookAt.get());
+        this.billboard.setValue(form.billboard.get());
+        this.cameraContent.setValue(form.cameraContent.get());
         this.resolutionAspect = this.aspectFrom(form.width.get(), form.height.get());
         this.resolutionLink.active(this.linkResolution);
         this.viewExtentLink.active(this.linkViewExtents);

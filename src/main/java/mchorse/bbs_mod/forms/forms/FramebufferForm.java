@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.forms.forms;
 
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
@@ -17,10 +19,14 @@ public class FramebufferForm extends Form
     public final ValueFloat viewExtentX = new ValueFloat("view_extent_x", 1F, 0.01F, Float.POSITIVE_INFINITY);
     public final ValueFloat viewExtentY = new ValueFloat("view_extent_y", 1F, 0.01F, Float.POSITIVE_INFINITY);
     /**
-     * World only: upright billboard facing the camera + FBO content re-rendered as an
-     * orbit impostor (different sides when walking around). Ideal with low resolution.
+     * World only: display quad faces the camera (yaw + pitch), like Video/Label billboards.
      */
-    public final ValueBoolean lookAt = new ValueBoolean("look_at", false);
+    public final ValueBoolean billboard = new ValueBoolean("billboard", false);
+    /**
+     * World only: FBO content is re-oriented as a camera look-at impostor (different sides
+     * when orbiting). Ideal with low resolution. Independent of {@link #billboard}.
+     */
+    public final ValueBoolean cameraContent = new ValueBoolean("camera_content", false);
 
     public FramebufferForm()
     {
@@ -34,6 +40,28 @@ public class FramebufferForm extends Form
         this.add(this.scale);
         this.add(this.viewExtentX);
         this.add(this.viewExtentY);
-        this.add(this.lookAt);
+        this.add(this.billboard);
+        this.add(this.cameraContent);
+    }
+
+    @Override
+    public void fromData(BaseType data)
+    {
+        boolean legacyLookAt = false;
+
+        if (data instanceof MapType map && map.has("look_at"))
+        {
+            /* Pre-split: one toggle drove both billboard + camera content. */
+            legacyLookAt = map.getBool("look_at");
+            map.remove("look_at");
+        }
+
+        super.fromData(data);
+
+        if (legacyLookAt)
+        {
+            this.billboard.set(true);
+            this.cameraContent.set(true);
+        }
     }
 }
