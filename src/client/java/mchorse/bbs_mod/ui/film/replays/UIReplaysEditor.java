@@ -1938,7 +1938,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (trackName.equals("resolution"))
         {
-            return UIKeys.FILM_REPLAY_TRACK_FRAMEBUFFER_RESOLUTION;
+            return UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION;
         }
 
         if (trackName.equals("view_extent"))
@@ -1953,12 +1953,42 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (trackName.equals("billboard"))
         {
-            return UIKeys.FORMS_EDITORS_FRAMEBUFFER_BILLBOARD;
+            return UIKeys.FORMS_EDITORS_VIDEO_BILLBOARD;
         }
 
         if (trackName.equals("camera_content"))
         {
             return UIKeys.FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT;
+        }
+
+        if (trackName.equals("video"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO;
+        }
+
+        if (trackName.equals("linear"))
+        {
+            return UIKeys.TEXTURES_LINEAR;
+        }
+
+        if (trackName.equals("loop"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_LOOP;
+        }
+
+        if (trackName.equals("paused"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_PAUSED;
+        }
+
+        if (trackName.equals("speed"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_SPEED;
+        }
+
+        if (trackName.equals("time"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_TIME;
         }
 
         if (trackName.equals("color_grade"))
