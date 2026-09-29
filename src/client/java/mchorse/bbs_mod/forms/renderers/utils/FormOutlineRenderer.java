@@ -37,7 +37,9 @@ import java.util.function.Function;
 
 public class FormOutlineRenderer
 {
-    private static final float REFERENCE_DISTANCE = 4F;
+    /* Screen-space thickness: thicker up close, thinner far away — keep a usable floor so
+     * outlines do not vanish around ~10 blocks (old REF=4 / MIN=0.05 made that common). */
+    private static final float REFERENCE_DISTANCE = 8F;
     private static final float MIN_DISTANCE_SCALE = 0.05F;
     private static final float MAX_DISTANCE_SCALE = 5F;
     private static final float MAX_THICKNESS = 64F;
