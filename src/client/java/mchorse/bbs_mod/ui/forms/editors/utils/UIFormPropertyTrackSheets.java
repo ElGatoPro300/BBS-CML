@@ -49,7 +49,9 @@ import java.util.function.ToIntFunction;
 public final class UIFormPropertyTrackSheets
 {
     private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of(
-        "glowing_color", "glow_settings", "glow_intensity", "paint_color"
+        "glowing_color", "glow_settings", "glow_intensity", "paint_color",
+        /* Deferred to 3.0 modifiers API — keep runtime/migration, hide timeline track. */
+        "shake", "shake_settings", "shake_amount", "shake_active"
     );
 
     private static final List<String> MODEL_PROPERTIES = Arrays.asList(
