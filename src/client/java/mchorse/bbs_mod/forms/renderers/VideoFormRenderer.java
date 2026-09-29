@@ -35,6 +35,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -58,6 +59,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 {
     private static final Quad QUAD = new Quad();
     private static final float FACE_Z_BIAS = 0.0005F;
+    /** Opaque sampler for stencil pick — picker_billboard_no_shading discards a < 0.1. */
+    private static final Link PICK_PROXY_TEXTURE = Link.bbs("textures/block/white.png");
     /** Dark waiting tint — never cyan/blue “error screen”. */
     private static final int PLACEHOLDER_COLOR = 0xFF141414;
     private static final Link PLACEHOLDER_TEXTURE = Link.assets("textures/video.png");
@@ -71,6 +74,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     /** Last decoded frame size — used for stencil pick quads (never decode during pick). */
     private float lastFrameW = 16F;
     private float lastFrameH = 9F;
+    /** Last frame GL texture — pick samples its alpha (never decode during pick). */
+    private int lastFrameTextureId = 0;
 
     public VideoFormRenderer(VideoForm form)
     {
@@ -138,7 +143,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     }
 
     /**
-     * Cheap solid quad for entity picking — same aspect as the last decoded frame.
+     * Cheap pick proxy — same aspect as the last decoded frame. Samples that frame's alpha
+     * (no WaterMedia/ffmpeg seek) so highlight matches visible pixels, not the full quad.
      */
     private void renderPickProxy(FormRenderingContext context)
     {
@@ -173,20 +179,65 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             context.stack.peek().getNormalMatrix().identity();
         }
 
-        Color tint = this.resolveTint(context.color);
-
-        if (tint.a <= 0.001F)
-        {
-            tint.a = 1F;
-        }
-
+        /* Must match picker_billboard_no_shading (POSITION_TEXTURE_LIGHT_COLOR). */
         Supplier<ShaderProgram> pickShader = this.getShader(context,
-            GameRenderer::getPositionColorProgram, BBSShaders::getPickerBillboardNoShadingProgram);
+            GameRenderer::getPositionTexColorProgram, BBSShaders::getPickerBillboardNoShadingProgram);
         Matrix4f positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
         Quad localQuad = new Quad();
 
         localQuad.copy(QUAD);
-        this.drawSolidFront(positionMatrix, tint, localQuad, pickShader);
+        this.drawPickFront(positionMatrix, localQuad, pickShader, this.resolvePickTextureId());
+    }
+
+    /**
+     * Prefer the last rendered frame (cached). Peek WaterMedia / ffmpeg only if needed —
+     * never call prepare/bindFrame during pick (seeks the shared player).
+     */
+    private int resolvePickTextureId()
+    {
+        if (this.lastFrameTextureId > 0)
+        {
+            return this.lastFrameTextureId;
+        }
+
+        String path = this.form.video.get();
+        boolean hasPath = path != null && !path.isEmpty() && !path.equalsIgnoreCase("none") && !path.startsWith("<");
+
+        if (hasPath && VideoRenderer.isAvailable())
+        {
+            VideoRenderer.FrameInfo peeked = VideoRenderer.peekFormFrame(path);
+
+            if (peeked != null && peeked.textureId > 0)
+            {
+                this.lastFrameTextureId = peeked.textureId;
+
+                if (peeked.width >= 2 && peeked.height >= 2)
+                {
+                    this.lastFrameW = peeked.width;
+                    this.lastFrameH = peeked.height;
+                }
+
+                return peeked.textureId;
+            }
+        }
+
+        if (hasPath)
+        {
+            int maxLongSide = this.form.getMaxLongSide();
+            VideoFormPlayback playback = VideoFormPlayback.get(path, maxLongSide);
+            Texture last = playback == null ? null : playback.peekTexture();
+
+            if (last != null && last.isValid())
+            {
+                this.lastFrameTextureId = last.id;
+
+                return last.id;
+            }
+        }
+
+        Texture white = BBSModClient.getTextures().getTexture(PICK_PROXY_TEXTURE);
+
+        return white != null ? white.id : 0;
     }
 
     private static long playbackClockMs()
@@ -518,10 +569,15 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             }
         }
 
-        if (textureId > 0 && w >= 2F && h >= 2F)
+        if (textureId > 0)
         {
-            this.lastFrameW = w;
-            this.lastFrameH = h;
+            this.lastFrameTextureId = textureId;
+
+            if (w >= 2F && h >= 2F)
+            {
+                this.lastFrameW = w;
+                this.lastFrameH = h;
+            }
         }
 
         float ratioX = w > h ? h / w : 1F;
@@ -592,7 +648,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             }
             else if (picking && pickShader != null)
             {
-                this.drawSolidFront(positionMatrix, tintSnapshot, localQuad, pickShader);
+                this.drawPickFront(positionMatrix, localQuad, pickShader,
+                    textureIdSnapshot > 0 ? textureIdSnapshot : this.resolvePickTextureId());
             }
             else if (staticPreview)
             {
@@ -766,6 +823,71 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                 RenderSystem.depthMask(false);
             }
         }
+    }
+
+    /**
+     * Stencil pick draw — vertex format must match {@link BBSShaders#getPickerBillboardNoShadingProgram()}.
+     * <p>
+     * Sampler0 must be set via {@link RenderSystem#setShaderTexture(int, int)} (not raw GL bind)
+     * so Alt multi-replay pick does not inherit the previous form's albedo. Prefer the video's
+     * last frame so {@code picker_billboard_no_shading} discards fully transparent pixels.
+     */
+    private void drawPickFront(Matrix4f matrix, Quad quad, Supplier<ShaderProgram> shader, int textureId)
+    {
+        if (textureId <= 0)
+        {
+            return;
+        }
+
+        boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        int light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        Color pickColor = Color.white();
+
+        pickColor.a = 1F;
+
+        try
+        {
+            RenderSystem.setShader(shader);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderTexture(0, textureId);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableCull();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+
+            BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_LIGHT_COLOR);
+
+            /* Same UV winding as {@link #drawVideoFront}. */
+            this.pickVert(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F, light, pickColor);
+            this.pickVert(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, 1F, 1F, light, pickColor);
+            this.pickVert(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F, light, pickColor);
+
+            this.pickVert(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F, light, pickColor);
+            this.pickVert(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F, light, pickColor);
+            this.pickVert(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F, light, pickColor);
+
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
+        }
+        finally
+        {
+            RenderSystem.depthMask(previousDepthMask);
+
+            if (previousCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+        }
+    }
+
+    private void pickVert(BufferBuilder buffer, Matrix4f matrix, float x, float y, float z, float u, float v, int light, Color color)
+    {
+        buffer.vertex(matrix, x, y, z).texture(u, v).light(light).color(color.r, color.g, color.b, color.a);
     }
 
     private void drawSolidFront(Matrix4f matrix, Color color, Quad quad, Supplier<ShaderProgram> shader)
