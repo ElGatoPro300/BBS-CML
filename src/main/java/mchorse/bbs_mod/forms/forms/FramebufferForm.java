@@ -19,12 +19,14 @@ public class FramebufferForm extends Form
     public final ValueFloat viewExtentX = new ValueFloat("view_extent_x", 1F, 0.01F, Float.POSITIVE_INFINITY);
     public final ValueFloat viewExtentY = new ValueFloat("view_extent_y", 1F, 0.01F, Float.POSITIVE_INFINITY);
     /**
-     * World only: display quad faces the camera (yaw + pitch), like Video/Label billboards.
+     * Display quad faces the camera (yaw + pitch), like Video/Label billboards.
+     * Applies in world / film and in the form-editor preview (not UI thumbnails).
      */
     public final ValueBoolean billboard = new ValueBoolean("billboard", false);
     /**
-     * World only: FBO content is re-oriented as a camera look-at impostor (different sides
-     * when orbiting). Ideal with low resolution. Independent of {@link #billboard}.
+     * FBO content is re-oriented as a camera look-at impostor (different sides when orbiting).
+     * Ideal with low resolution. Independent of {@link #billboard}. Applies in world / film
+     * and in the form-editor preview (not UI thumbnails).
      */
     public final ValueBoolean cameraContent = new ValueBoolean("camera_content", false);
 
