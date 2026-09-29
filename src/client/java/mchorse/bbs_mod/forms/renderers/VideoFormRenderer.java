@@ -24,6 +24,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
@@ -663,16 +664,32 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         if (irisPass)
         {
-            /* Draw immediately. Deferring a WaterMedia/VLC texture lets Iris recycle or
-             * rebind samplers before flush → magenta/black-stripe garbage and shader thrash.
-             * Depth test+write in drawVideoFront still keeps the plane behind nearer geometry. */
-            try
+            /* Live Iris + vanilla position_tex only discards a==0 and still depth-writes low
+             * alpha — soft forms behind holes vanish. Defer so bbs:video (cutout + grade) runs
+             * after composite, same contract as soft/BBS redraws. */
+            if (textureIdSnapshot > 0 && !picking)
             {
-                draw.run();
+                float distSq = this.getDistanceSqToCamera(deferContext);
+                Matrix4f capturedMatrix = new Matrix4f(positionMatrix);
+                Color capturedTint = tintSnapshot.copy();
+                Quad capturedQuad = new Quad();
+                int capturedTexture = textureIdSnapshot;
+                boolean capturedLinear = linear;
+
+                capturedQuad.copy(localQuad);
+                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distSq, true, false, () ->
+                    this.drawVideoFront(capturedMatrix, capturedTint, capturedQuad, capturedTexture, capturedLinear));
             }
-            finally
+            else
             {
-                BBSRendering.restoreWorldRenderState();
+                try
+                {
+                    draw.run();
+                }
+                finally
+                {
+                    BBSRendering.restoreWorldRenderState();
+                }
             }
 
             return;
@@ -745,10 +762,12 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     {
         boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        /* Iris world pass must use a vanilla program so the pack can composite the draw.
-         * Custom bbs:video bypasses Iris gbuffers → invisible placeholder / video / gif. */
-        boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !BBSRendering.isIrisShadowPass();
-        ShaderProgram videoProgram = irisWorld ? null : BBSShaders.getVideoProgram();
+        /* Iris live world must not use bbs:video (invisible in gbuffers). During post-deferred
+         * flush the custom program is safe and needed for tex-alpha cutout (< 0.1). */
+        boolean irisLiveWorld = BBSRendering.isIrisWorldModelPass()
+            && !BBSRendering.isIrisShadowPass()
+            && !ShaderOpacityPatch.isFlushingPostDeferred();
+        ShaderProgram videoProgram = irisLiveWorld ? null : BBSShaders.getVideoProgram();
 
         try
         {
