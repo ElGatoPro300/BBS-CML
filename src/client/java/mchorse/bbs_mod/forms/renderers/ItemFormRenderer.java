@@ -201,6 +201,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
             boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
 
+            /* Isolate per-draw tint — static color retained residual mul from prior ItemForms. */
+            BlockFormRenderer.color.set(context.color);
+
             boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
             if (shadowPass)
@@ -272,6 +275,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
                 && !noshadingDefer;
             boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
+            /* Snapshot for RecolorVertexConsumer — must not hold the shared static Color. */
             final Color itemRecolorSource;
 
             if (glowBakedInMainPass)
@@ -280,7 +284,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             }
             else
             {
-                itemRecolorSource = BlockFormRenderer.color;
+                itemRecolorSource = BlockFormRenderer.color.copy();
             }
 
             final Function<VertexConsumer, VertexConsumer> itemMainRecolor = this.getMainConsumer(
@@ -528,6 +532,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
         finally
         {
+            BlockFormRenderer.color.set(1F, 1F, 1F, 1F);
             context.stack.pop();
         }
 
