@@ -733,6 +733,13 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_z-tooltip");
     public static final IKey FORMS_EDITORS_EXTRUDED_TITLE = L10n.lang("bbs.ui.forms.editors.extruded.title");
     public static final IKey FORMS_EDITORS_FRAMEBUFFER_TITLE = L10n.lang("bbs.ui.forms.editors.framebuffer.title");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_RESOLUTION_LINK = L10n.lang("bbs.ui.forms.editors.framebuffer.resolution_link");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT_X = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent_x");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT_Y = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent_y");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT_LINK = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent_link");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_LOOK_AT = L10n.lang("bbs.ui.forms.editors.framebuffer.look_at");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_LOOK_AT_TOOLTIP = L10n.lang("bbs.ui.forms.editors.framebuffer.look_at-tooltip");
     public static final IKey FORMS_EDITORS_VIDEO_TITLE = L10n.lang("bbs.ui.forms.editors.video.title");
     public static final IKey FORMS_EDITORS_VIDEO_PICK_VIDEO = L10n.lang("bbs.ui.forms.editors.video.pick_video");
     public static final IKey FORMS_EDITORS_VIDEO_BILLBOARD = L10n.lang("bbs.ui.forms.editors.video.billboard");
