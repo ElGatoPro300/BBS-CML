@@ -15,6 +15,7 @@ import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlineRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
@@ -74,6 +75,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
@@ -684,6 +686,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             MatrixStack.Entry stackMarker = context.stack.peek();
             boolean skippedLiveDraw = false;
+            Color outlineTint = Color.white();
+            boolean outlineShadowPass = false;
 
             context.stack.push();
 
@@ -763,6 +767,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 && !ShaderOpacityPatch.isFlushingPostDeferred()
                 && !ShaderOpacityPatch.isPostDeferredPhase()
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(tint.a);
+
+            outlineTint = tint;
+            outlineShadowPass = shadowPass;
 
             if (tint.a <= 0.001F && !shadowPass && !context.isPicking())
             {
@@ -866,13 +873,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
             finally
             {
-                currentPose = currentPoseOverlay = null;
-
-                if (prepareLighting)
-                {
-                    BBSRendering.prepareVanillaEntityLighting();
-                }
-
                 try
                 {
                     /* Draw while hijack is still active so the final Immediate flush keeps
@@ -884,6 +884,19 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 }
                 catch (Exception ignored)
                 {
+                }
+
+                /* Outline before pose clear — mask re-draw still needs LivingEntityRendererMixin pose. */
+                if (!context.isPicking() && !outlineShadowPass)
+                {
+                    this.renderOutline(context, outlineTint);
+                }
+
+                currentPose = currentPoseOverlay = null;
+
+                if (prepareLighting)
+                {
+                    BBSRendering.prepareVanillaEntityLighting();
                 }
 
                 CustomVertexConsumerProvider.clearRunnables();
@@ -899,6 +912,117 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 MatrixStackUtils.popUntil(context.stack, stackMarker);
                 RenderSystem.enableDepthTest();
             }
+        }
+    }
+
+    /**
+     * Silhouette outline — same FormOutlineRenderer dilate/composite as ModelForm, but the
+     * mask is a second EntityRenderDispatcher pass with {@code outline_mask} forced on every
+     * RenderLayer (body, armor, held items). Iris defers via {@link ModelVAORenderer#submitOutlineOverlay}.
+     */
+    private void renderOutline(FormRenderingContext context, Color formTint)
+    {
+        if (!this.form.outline.get() || this.entity == null || context.stencilMap != null)
+        {
+            return;
+        }
+
+        if (formTint == null || formTint.a <= 0.001F)
+        {
+            return;
+        }
+
+        Color outlineColor = this.form.outlineColor.get();
+        float thickness = this.form.outlineThickness.get();
+
+        if (outlineColor == null || outlineColor.a <= 0.001F || thickness <= 0F)
+        {
+            return;
+        }
+
+        MatrixStack maskStack = new MatrixStack();
+
+        MatrixStackUtils.multiply(maskStack, context.stack.peek().getPositionMatrix());
+        maskStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
+
+        int light = context.light;
+        float transition = context.getTransition();
+        Color capturedColor = new Color().set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
+        float capturedThickness = thickness;
+        boolean rainbow = this.form.outlineRainbow.get();
+        float rainbowSpeed = this.form.outlineRainbowSpeed.get();
+        float rainbowScale = this.form.outlineRainbowScale.get();
+        Link textureSnapshot = this.form.texture.get();
+        Pose poseSnapshot = currentPose;
+        Pose poseOverlaySnapshot = currentPoseOverlay;
+
+        Consumer<MatrixStack> runOutline = (outlineStack) ->
+        {
+            Pose previousPose = currentPose;
+            Pose previousOverlay = currentPoseOverlay;
+
+            currentPose = poseSnapshot;
+            currentPoseOverlay = poseOverlaySnapshot;
+
+            try
+            {
+                FormOutlineRenderer.render(outlineStack, capturedColor, capturedThickness, rainbow, rainbowSpeed, rainbowScale,
+                    () -> this.drawOutlineMask(outlineStack, light, transition, textureSnapshot));
+            }
+            finally
+            {
+                currentPose = previousPose;
+                currentPoseOverlay = previousOverlay;
+            }
+        };
+
+        if (BBSRendering.isIrisDeferredModelPass())
+        {
+            Matrix4f baked = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+            MatrixStack deferredStack = new MatrixStack();
+
+            MatrixStackUtils.multiply(deferredStack, baked);
+            deferredStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
+
+            ModelVAORenderer.submitOutlineOverlay(
+                new Matrix4f(RenderSystem.getProjectionMatrix()),
+                new Matrix4f(RenderSystem.getModelViewMatrix()),
+                () -> runOutline.accept(deferredStack)
+            );
+        }
+        else
+        {
+            runOutline.accept(maskStack);
+        }
+    }
+
+    private void drawOutlineMask(MatrixStack stack, int light, float transition, Link texture)
+    {
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getMobMorphProvider();
+        EntityRenderDispatcher dispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
+
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            this.bindTexture();
+            RenderSystem.setShader(BBSShaders::getOutlineMask);
+        });
+
+        MobTextureOverride.begin(texture);
+        this.applyPBRTextureIntensity();
+        consumers.setSubstitute(null);
+        dispatcher.setRenderShadows(false);
+
+        try
+        {
+            dispatcher.render(this.entity, 0D, 0D, 0D, 0F, transition, stack, consumers, light);
+            consumers.draw();
+        }
+        finally
+        {
+            dispatcher.setRenderShadows(true);
+            this.clearPBRTextureIntensity();
+            MobTextureOverride.end();
+            CustomVertexConsumerProvider.clearRunnables();
         }
     }
 
