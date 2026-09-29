@@ -49,6 +49,11 @@ public abstract class UIModelRenderer extends UIElement
     protected int timer;
     protected int dragging;
 
+    /** Ignore sub-threshold mouse motion so a plain click does not nudge the camera. */
+    private static final int DRAG_ACTIVATE_PX = 3;
+    /** Accumulated |dx|+|dy| while waiting to treat the press as a real drag. */
+    private int dragSlop;
+
     public Camera camera = new Camera();
 
     public Vector3f pos = new Vector3f();
@@ -146,6 +151,7 @@ public abstract class UIModelRenderer extends UIElement
         if (!this.isDragging() && this.area.isInside(context) && (context.mouseButton == 0 || context.mouseButton == 2))
         {
             this.dragging = Window.isShiftPressed() || context.mouseButton == 2 ? 2 : 1;
+            this.dragSlop = 0;
             this.lastX = context.mouseX;
             this.lastY = context.mouseY;
 
@@ -182,6 +188,7 @@ public abstract class UIModelRenderer extends UIElement
     public boolean subMouseReleased(UIContext context)
     {
         this.dragging = 0;
+        this.dragSlop = 0;
 
         return super.subMouseReleased(context);
     }
@@ -295,6 +302,20 @@ public abstract class UIModelRenderer extends UIElement
 
         if (this.isDragging())
         {
+            int dx = mouseX - (int) this.lastX;
+            int dy = mouseY - (int) this.lastY;
+
+            /* Click vs drag: absorb tiny motion (and click-frame coordinate jitter) so a
+             * stationary press does not nudge the orbit camera (same idea as film free/orbit). */
+            if (this.dragSlop < DRAG_ACTIVATE_PX)
+            {
+                this.dragSlop += Math.abs(dx) + Math.abs(dy);
+                this.lastX = mouseX;
+                this.lastY = mouseY;
+
+                return;
+            }
+
             if (this.isDraggingPosition())
             {
                 if (this.lastX != context.mouseX || this.lastY != context.mouseY)
