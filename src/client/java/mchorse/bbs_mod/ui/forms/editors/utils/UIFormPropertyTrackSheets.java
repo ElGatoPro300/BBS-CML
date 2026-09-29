@@ -57,7 +57,9 @@ public final class UIFormPropertyTrackSheets
     private static final List<String> MODEL_PROPERTIES = Arrays.asList(
         "visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay",
         "anchor", "illusion", "illusion_transform", "color",
-        "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture",
+        "color2", "color_mode", "color_grade", "paint", "paint_color", "glow",
+        "outline", "outline_color", "outline_thickness", "outline_rainbow", "outline_rainbow_speed", "outline_rainbow_scale",
+        "texture",
         "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys",
         "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings",
         "paused", "frequency", "count", "structure_file", "biome_id", "emit_light",
@@ -439,12 +441,14 @@ public final class UIFormPropertyTrackSheets
         String textureParentKey = scopeKey + ":texture";
         String itemStackParentKey = scopeKey + ":item_stack";
         String illusionParentKey = scopeKey + ":illusion";
+        String outlineParentKey = scopeKey + ":outline";
         String colorParentKey = scopeKey + ":color";
         boolean isPbrTrack = trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity");
         boolean isColorChildTrack = trackName.equals("paint") || trackName.equals("paint_color")
             || trackName.equals("glow") || trackName.equals("glow_settings")
             || trackName.equals("color_grade")
             || trackName.equals("color2") || trackName.equals("color_mode");
+        boolean isOutlineChildTrack = isOutlineChildTrack(trackName);
 
         if (isPbrTrack)
         {
@@ -486,6 +490,16 @@ public final class UIFormPropertyTrackSheets
             {
                 sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
             }
+        }
+
+        if (isOutlineChildTrack)
+        {
+            if (collapsed.getOrDefault(outlineParentKey, true))
+            {
+                return;
+            }
+
+            sheet.level += 1;
         }
 
         if (colon != -1)
@@ -605,6 +619,19 @@ public final class UIFormPropertyTrackSheets
             };
 
             after.add(sheet);
+        }
+        else if (trackName.equals("outline"))
+        {
+            boolean expanded = !collapsed.getOrDefault(outlineParentKey, true);
+
+            sheet.expanded = expanded;
+            sheet.toggleExpanded = () ->
+            {
+                collapsed.put(outlineParentKey, !collapsed.getOrDefault(outlineParentKey, true));
+                onRefresh.run();
+            };
+
+            addTrackByPriority(trackName, before, after, sheet);
         }
         else if (isIllusionOverlayTrack(trackName))
         {
@@ -756,6 +783,15 @@ public final class UIFormPropertyTrackSheets
         }
 
         return trackName.startsWith("illusion_overlay") && trackName.length() > "illusion_overlay".length();
+    }
+
+    private static boolean isOutlineChildTrack(String trackName)
+    {
+        return trackName.equals("outline_color")
+            || trackName.equals("outline_thickness")
+            || trackName.equals("outline_rainbow")
+            || trackName.equals("outline_rainbow_speed")
+            || trackName.equals("outline_rainbow_scale");
     }
 
     private static void orderLimbTracks(Form form, List<UIKeyframeSheet> limbs, Map<String, Boolean> collapsed, Runnable onRefresh, String collapseScope)
@@ -1050,15 +1086,21 @@ public final class UIFormPropertyTrackSheets
                 if (name.equals("color_grade")) return 65;
                 if (name.equals("paint_color") || name.equals("paint")) return 66;
                 if (name.equals("glow") || name.equals("glow_settings")) return 67;
-                if (name.equals("texture")) return 68;
-                if (name.equals("pbr_normal_intensity")) return 69;
-                if (name.equals("pbr_specular_intensity")) return 70;
-                if (name.equals("model")) return 71;
-                if (name.equals("item_stack")) return 72;
-                if (name.equals("block_state")) return 73;
-                if (name.equals("breaking")) return 74;
+                if (name.equals("outline")) return 68;
+                if (name.equals("outline_color")) return 69;
+                if (name.equals("outline_thickness")) return 70;
+                if (name.equals("outline_rainbow")) return 71;
+                if (name.equals("outline_rainbow_speed")) return 72;
+                if (name.equals("outline_rainbow_scale")) return 73;
+                if (name.equals("texture")) return 74;
+                if (name.equals("pbr_normal_intensity")) return 75;
+                if (name.equals("pbr_specular_intensity")) return 76;
+                if (name.equals("model")) return 77;
+                if (name.equals("item_stack")) return 78;
+                if (name.equals("block_state")) return 79;
+                if (name.equals("breaking")) return 80;
                 if (name.equals("repeat_x") || name.equals("repeat_y") || name.equals("repeat_z")
-                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 75;
+                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 81;
 
                 return 500;
             };

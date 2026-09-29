@@ -1064,6 +1064,12 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_TRANSFORM = L10n.lang("bbs.ui.film.replay.track.transform");
     public static final IKey FILM_REPLAY_TRACK_ANCHOR = L10n.lang("bbs.ui.film.replay.track.anchor");
     public static final IKey FILM_REPLAY_TRACK_COLOR = L10n.lang("bbs.ui.film.replay.track.color");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE = L10n.lang("bbs.ui.film.replay.track.outline");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_COLOR = L10n.lang("bbs.ui.film.replay.track.outline_color");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_THICKNESS = L10n.lang("bbs.ui.film.replay.track.outline_thickness");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW = L10n.lang("bbs.ui.film.replay.track.outline_rainbow");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SPEED = L10n.lang("bbs.ui.film.replay.track.outline_rainbow_speed");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SCALE = L10n.lang("bbs.ui.film.replay.track.outline_rainbow_scale");
     public static final IKey FILM_REPLAY_OPACITY_NO_SHADING = L10n.lang("bbs.ui.film.replay.opacity.no_shading");
     public static final IKey FILM_REPLAY_TRACK_TEXTURE = L10n.lang("bbs.ui.film.replay.track.texture");
     public static final IKey FILM_REPLAY_TRACK_MODEL = L10n.lang("bbs.ui.film.replay.track.model");
