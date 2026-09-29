@@ -184,10 +184,10 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         int cullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
 
         GL30.glCullFace(GL30.GL_FRONT);
-        /* Keep the world's diffuse lights for FBO content (do not force ±Z). Lighting is
-         * baked once into the texture; the display quad is an unlit blit so we do not
-         * shade again on a flat postcard. */
-        BBSRendering.setupMatchingWorldDiffuseLighting();
+        /* Both lights along Z, one each way. Y-flipped ortho + front-face cull leaves
+         * away-facing limbs on ambient-only (~40%) under Iris/Complementary — that baked
+         * black then punches through underwater translucency. ±Z lights both sides flat. */
+        RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, -1F));
         float[] extents = this.resolveViewExtents();
         float halfX = extents[0];
         float halfY = extents[1];
@@ -221,6 +221,18 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             this.applyLookAtContentOrientation(context.stack, context);
         }
 
+        /* Full bright inside the buffer: the display quad applies the caller's lightmap once.
+         * Baking world light here + dark Iris limbs made Complementary underwater treat those
+         * texels as holes. */
+        int savedLight = context.light;
+
+        context.light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+
+        /* Blending as GL really holds it, not as GlStateManager's cache believes. A shader pack's
+         * per-draw-buffer blend modes are set by Iris with indexed GL calls the cache never sees,
+         * and put back through the cache - which skips the real call when it already thinks the
+         * default is in place. After a pack entity program, alpha factors can leave dst alpha at 0
+         * while RGB paints — black-looking texels that vanish underwater under Complementary. */
         GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
         GL11.glEnable(GL11.GL_BLEND);
         RenderSystem.defaultBlendFunc();
@@ -232,12 +244,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         /* Prefer the outer host (player, actor, parent form entity) so body-part
          * "use target" animates against that entity. Fall back to this FBO's stub
-         * when there is no host (e.g. some UI cells). */
+         * when there is no host (e.g. some UI cells). PREVIEW keeps Iris soft queues off. */
         IEntity host = context.entity != null ? context.entity : this.entity;
-        /* Bake the caller's block/sky lightmap into the FBO (not MAX_LIGHT + re-shade
-         * on the quad — that ignored per-form shading and mismatched the world). */
         FormRenderingContext fboContext = new FormRenderingContext()
             .set(FormRenderType.PREVIEW, host, context.stack, context.light, OverlayTexture.DEFAULT_UV, context.getTransition());
+
         if (context.isPicking())
         {
             fboContext.stencilMap(context.stencilMap);
@@ -258,8 +269,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         finally
         {
             RenderSystem.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-            /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit /
-             * returning to the world pass (NeoForge is strict about this). */
+            context.light = savedLight;
+            /* ModelForm leaves lightmap off inside offscreen; re-arm before the lit blit. */
             BBSRendering.restoreWorldRenderState();
             BBSRendering.prepareVanillaEntityLighting();
         }
@@ -286,10 +297,16 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setProjectionMatrix(projectionMatrix, vertexSorter);
         GL11.glCullFace(cullFace);
 
-        /* Content is already lit; blit without entity lightmap/normals. Picking stays
-         * on the same unlit path (stencil reads color/UVs only). */
-        VertexFormat format = VertexFormats.POSITION_TEXTURE_COLOR;
-        Supplier<ShaderProgram> shader = GameRenderer::getPositionTexColorProgram;
+        /* Lit entity_translucent: content was MAX_LIGHT; caller lightmap shades the postcard
+         * once. Complementary underwater composites this path; unlit position_tex_color
+         * punched dark/low-alpha FBO texels into holes. Picking stays unlit. */
+        boolean shading = !context.isPicking();
+        VertexFormat format = shading
+            ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+            : VertexFormats.POSITION_TEXTURE_COLOR;
+        Supplier<ShaderProgram> shader = shading
+            ? GameRenderer::getRenderTypeEntityTranslucentProgram
+            : GameRenderer::getPositionTexColorProgram;
 
         this.renderModel(framebuffer.getMainTexture(), format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context);
     }
@@ -299,6 +316,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
      * clears {@code isRenderingWorld}, so {@link ModelFormRenderer} disables the lightmap and
      * skips {@link BBSRendering#restoreWorldRenderState()} — under Iris/NeoForge the next limb
      * then samples a dead lightmap and draws black. Same idea as film replay isolation.
+     * Re-assert ±Z diffuse after each prepare — {@link BBSRendering#prepareVanillaEntityLighting}
+     * restores world lights and would undo the flat FBO lighting.
      */
     private void renderIsolatedFboBodyParts(FormRenderingContext context)
     {
@@ -309,19 +328,19 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         List<BodyPart> parts = this.getSortedBodyParts(context);
 
-        BBSRendering.prepareVanillaEntityLighting();
+        this.prepareFboContentLighting();
 
         if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
         {
             BBSRendering.restoreWorldRenderState();
-            BBSRendering.prepareVanillaEntityLighting();
+            this.prepareFboContentLighting();
 
             return;
         }
 
         for (BodyPart part : parts)
         {
-            BBSRendering.prepareVanillaEntityLighting();
+            this.prepareFboContentLighting();
 
             try
             {
@@ -333,7 +352,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             }
         }
 
+        this.prepareFboContentLighting();
+    }
+
+    /** Lightmap + overlay + flat ±Z diffuse for FBO content (not world entity lights). */
+    private void prepareFboContentLighting()
+    {
         BBSRendering.prepareVanillaEntityLighting();
+        RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, -1F));
     }
 
     private void renderModel(Texture texture, VertexFormat format, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
