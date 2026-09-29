@@ -46,6 +46,7 @@ Deep-dives extracted from the Cursor project map. The always-on agent index live
 | Doc | Topic |
 |-----|--------|
 | [ik-physics-3.0-master-plan.md](ik-physics-3.0-master-plan.md) | IK/physics master plan deferred from 2.2 (Option C′, UI, `bbs_physics`, phases, git markers) |
+| [framebuffer-lookat-3.0-master-plan.md](framebuffer-lookat-3.0-master-plan.md) | Framebuffer Billboard + Camera content past ±90° pitch (continuous up + quaternion face-camera) |
 
 ## 2.2 implementation guides
 
