@@ -15,7 +15,7 @@ import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
-import mchorse.bbs_mod.forms.renderers.utils.FormOutlineRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
@@ -75,7 +75,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
@@ -922,41 +921,19 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
      */
     private void renderOutline(FormRenderingContext context, Color formTint)
     {
-        if (!this.form.outline.get() || this.entity == null || context.stencilMap != null)
+        if (this.entity == null || formTint == null)
         {
             return;
         }
 
-        if (formTint == null || formTint.a <= 0.001F)
-        {
-            return;
-        }
-
-        Color outlineColor = this.form.outlineColor.get();
-        float thickness = this.form.outlineThickness.get();
-
-        if (outlineColor == null || outlineColor.a <= 0.001F || thickness <= 0F)
-        {
-            return;
-        }
-
-        MatrixStack maskStack = new MatrixStack();
-
-        MatrixStackUtils.multiply(maskStack, context.stack.peek().getPositionMatrix());
-        maskStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
-
-        int light = context.light;
+        float formAlpha = formTint.a;
         float transition = context.getTransition();
-        Color capturedColor = new Color().set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
-        float capturedThickness = thickness;
-        boolean rainbow = this.form.outlineRainbow.get();
-        float rainbowSpeed = this.form.outlineRainbowSpeed.get();
-        float rainbowScale = this.form.outlineRainbowScale.get();
+        int light = context.light;
         Link textureSnapshot = this.form.texture.get();
         Pose poseSnapshot = currentPose;
         Pose poseOverlaySnapshot = currentPoseOverlay;
 
-        Consumer<MatrixStack> runOutline = (outlineStack) ->
+        FormOutlinePass.run(this.form, context, formAlpha, (outlineStack) ->
         {
             Pose previousPose = currentPose;
             Pose previousOverlay = currentPoseOverlay;
@@ -966,34 +943,14 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             try
             {
-                FormOutlineRenderer.render(outlineStack, capturedColor, capturedThickness, rainbow, rainbowSpeed, rainbowScale,
-                    () -> this.drawOutlineMask(outlineStack, light, transition, textureSnapshot));
+                this.drawOutlineMask(outlineStack, light, transition, textureSnapshot);
             }
             finally
             {
                 currentPose = previousPose;
                 currentPoseOverlay = previousOverlay;
             }
-        };
-
-        if (BBSRendering.isIrisDeferredModelPass())
-        {
-            Matrix4f baked = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
-            MatrixStack deferredStack = new MatrixStack();
-
-            MatrixStackUtils.multiply(deferredStack, baked);
-            deferredStack.peek().getNormalMatrix().set(context.stack.peek().getNormalMatrix());
-
-            ModelVAORenderer.submitOutlineOverlay(
-                new Matrix4f(RenderSystem.getProjectionMatrix()),
-                new Matrix4f(RenderSystem.getModelViewMatrix()),
-                () -> runOutline.accept(deferredStack)
-            );
-        }
-        else
-        {
-            runOutline.accept(maskStack);
-        }
+        });
     }
 
     private void drawOutlineMask(MatrixStack stack, int light, float transition, Link texture)

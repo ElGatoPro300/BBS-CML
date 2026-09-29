@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormOutlineControls;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIItemStack;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -35,6 +36,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
     public UITrackpad glowIntensity;
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
+    public UIFormOutlineControls outlineControls;
     public UIButton modelTransform;
     public UIToggle sameAnimationWhenDropped;
     public UIItemStack itemStackEditor;
@@ -149,6 +151,8 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         this.sameAnimationWhenDropped.tooltip(UIKeys.FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED_TOOLTIP);
         this.itemStackEditor = new UIItemStack((itemStack) -> this.form.stack.set(itemStack.copy()));
 
+        this.outlineControls = new UIFormOutlineControls(() -> this.form, () -> this.options.resize());
+
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
@@ -157,6 +161,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
+            this.outlineControls.createSection().marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_TRANSFORMS),
             this.modelTransform,
             this.sameAnimationWhenDropped,
@@ -195,6 +200,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
 
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
+        this.outlineControls.syncFromForm(form);
         this.modelTransform.label = IKey.constant(form.modelTransform.get().asString());
         this.sameAnimationWhenDropped.setValue(form.sameAnimationWhenDropped.get());
         this.itemStackEditor.setStack(form.stack.get());

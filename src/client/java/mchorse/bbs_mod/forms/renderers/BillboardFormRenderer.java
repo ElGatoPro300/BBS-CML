@@ -14,6 +14,7 @@ import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.SoftFlatFaceSort;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -934,12 +935,46 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         RenderSystem.enableCull();
 
+        if (!shadowPass && (deferContext == null || !deferContext.isPicking()))
+        {
+            this.renderOutline(deferContext, matrices, texture, color.a, overlay, light);
+        }
+
         texture.setFilterMipmap(false, false);
         if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
         {
             gameRenderer.getLightmapTextureManager().disable();
             gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
+    }
+
+    private void renderOutline(FormRenderingContext context, MatrixStack matrices, Texture texture, float formAlpha, int overlay, int light)
+    {
+        boolean linear = this.form.linear.get();
+        boolean mipmap = this.form.mipmap.get();
+        Quad maskQuad = new Quad();
+        Quad maskUv = new Quad();
+
+        maskQuad.copy(quad);
+        maskUv.copy(uvQuad);
+
+        FormOutlinePass.run(this.form, context, formAlpha, matrices, (maskStack) ->
+        {
+            this.drawBillboardFaces(
+                VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
+                texture,
+                BBSShaders::getOutlineMask,
+                maskStack,
+                Color.white(),
+                maskQuad,
+                maskUv,
+                overlay,
+                light,
+                linear,
+                mipmap,
+                false
+            );
+        });
     }
 
     /**

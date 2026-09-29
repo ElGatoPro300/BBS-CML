@@ -13,6 +13,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -528,6 +529,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
+            if (!shadowPass && !context.isPicking())
+            {
+                this.renderOutline(context, BlockFormRenderer.color.a, light, context.overlay, mode, leftHand, itemEntity);
+            }
+
             RenderSystem.defaultBlendFunc();
         }
         finally
@@ -537,6 +543,29 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
 
         RenderSystem.enableDepthTest();
+    }
+
+    private void renderOutline(FormRenderingContext context, float formAlpha, int light, int overlay, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity)
+    {
+        FormOutlinePass.run(this.form, context, formAlpha, (maskStack) ->
+        {
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                RenderSystem.setShader(BBSShaders::getOutlineMask);
+            });
+
+            try
+            {
+                this.renderItem(context, maskStack, consumers, light, overlay, mode, leftHand, itemEntity);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        });
     }
 
     boolean shouldUseDroppedMode(boolean isDropped)

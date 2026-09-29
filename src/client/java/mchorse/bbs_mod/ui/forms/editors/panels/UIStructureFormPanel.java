@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormOutlineControls;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -48,6 +49,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UITrackpad glowIntensity;
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
+    public UIFormOutlineControls outlineControls;
     public UIToggle toggleLight;
     public UITrackpad lightIntensity;
     public UITrackpad scaleX;
@@ -166,6 +168,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
         // Pivot UI removed; calculate center moved to Transform panel
 
+        this.outlineControls = new UIFormOutlineControls(() -> this.form, () -> this.options.resize());
+
         /* Quitar etiquetas; mostrar solo los controles */
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
@@ -174,7 +178,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
-            ).marginTop(4)
+            ).marginTop(4),
+            this.outlineControls.createSection().marginTop(4)
         );
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
@@ -318,6 +323,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
+        this.outlineControls.syncFromForm(form);
         StructureLightSettings s = form.structureLight.get();
         boolean enabled = (s != null) ? s.enabled : form.emitLight.get();
         int intensity = (s != null) ? s.intensity : form.lightIntensity.get();
