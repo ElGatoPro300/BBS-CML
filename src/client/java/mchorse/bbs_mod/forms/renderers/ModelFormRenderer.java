@@ -2260,6 +2260,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private Supplier<ShaderProgram> getModelShader(ModelInstance model)
     {
+        /* FramebufferForm albedo bake must use model.vsh Unlit — not Iris entity programs. */
+        if (BBSRendering.isFramebufferContentUnlit() && model.supportsBbsModelShaderEffects())
+        {
+            return BBSShaders::getModel;
+        }
+
         if (!model.supportsBbsModelShaderEffects())
         {
             return GameRenderer::getRenderTypeEntityTranslucentCullProgram;

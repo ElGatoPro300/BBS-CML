@@ -221,9 +221,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             this.applyLookAtContentOrientation(context.stack, context);
         }
 
-        /* Full bright inside the buffer: the display quad applies the caller's lightmap once.
-         * Baking world light here + dark Iris limbs made Complementary underwater treat those
-         * texels as holes. */
+        /* Full bright UV2 for any path that still samples lightmap; BBS model Unlit
+         * skips diffuse+lightmap entirely (postcard bake). Parent quad shades once. */
         int savedLight = context.light;
 
         context.light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
@@ -264,7 +263,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         try
         {
-            BBSRendering.renderOffscreen(() -> this.renderIsolatedFboBodyParts(fboContext));
+            BBSRendering.runFramebufferContentUnlit(() ->
+                BBSRendering.renderOffscreen(() -> this.renderIsolatedFboBodyParts(fboContext)));
         }
         finally
         {
