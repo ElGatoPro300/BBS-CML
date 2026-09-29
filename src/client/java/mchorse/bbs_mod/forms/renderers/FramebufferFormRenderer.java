@@ -51,6 +51,7 @@ import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -252,15 +253,15 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         try
         {
-            BBSRendering.renderOffscreen(() ->
-            {
-                BBSRendering.prepareVanillaEntityLighting();
-                super.renderBodyParts(fboContext);
-            });
+            BBSRendering.renderOffscreen(() -> this.renderIsolatedFboBodyParts(fboContext));
         }
         finally
         {
             RenderSystem.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+            /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit /
+             * returning to the world pass (NeoForge is strict about this). */
+            BBSRendering.restoreWorldRenderState();
+            BBSRendering.prepareVanillaEntityLighting();
         }
 
         context.stack.pop();
@@ -291,6 +292,48 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         Supplier<ShaderProgram> shader = GameRenderer::getPositionTexColorProgram;
 
         this.renderModel(framebuffer.getMainTexture(), format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context);
+    }
+
+    /**
+     * Draw FBO body parts with per-part lightmap isolation. {@link BBSRendering#renderOffscreen}
+     * clears {@code isRenderingWorld}, so {@link ModelFormRenderer} disables the lightmap and
+     * skips {@link BBSRendering#restoreWorldRenderState()} — under Iris/NeoForge the next limb
+     * then samples a dead lightmap and draws black. Same idea as film replay isolation.
+     */
+    private void renderIsolatedFboBodyParts(FormRenderingContext context)
+    {
+        if (this.form.parts.getAllTyped().isEmpty())
+        {
+            return;
+        }
+
+        List<BodyPart> parts = this.getSortedBodyParts(context);
+
+        BBSRendering.prepareVanillaEntityLighting();
+
+        if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
+        {
+            BBSRendering.restoreWorldRenderState();
+            BBSRendering.prepareVanillaEntityLighting();
+
+            return;
+        }
+
+        for (BodyPart part : parts)
+        {
+            BBSRendering.prepareVanillaEntityLighting();
+
+            try
+            {
+                this.renderBodyPart(part, context);
+            }
+            finally
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
+        }
+
+        BBSRendering.prepareVanillaEntityLighting();
     }
 
     private void renderModel(Texture texture, VertexFormat format, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
