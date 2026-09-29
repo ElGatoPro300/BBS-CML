@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
@@ -212,7 +213,15 @@ public final class UIFormPropertyTrackSheets
             String colorPath = FormProperties.colorPropertyPathForGrade(path);
             BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
 
-            return colorProperty instanceof ValueColor;
+            if (!(colorProperty instanceof ValueColor))
+            {
+                return false;
+            }
+
+            Form owner = FormUtils.getForm(colorProperty);
+
+            /* Tint-only forms: no synthetic color_grade under Color. */
+            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm);
         }
 
         if (FormProperties.isFramebufferResolutionChannelKey(path)
@@ -224,6 +233,12 @@ public final class UIFormPropertyTrackSheets
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
+        {
+            return false;
+        }
+
+        /* Keep timeline in sync with collectPropertyPaths (invisible props stay off the sheet list). */
+        if (!property.isVisible() && !FormUtils.isRenderPropertyPath(path))
         {
             return false;
         }
@@ -597,14 +612,20 @@ public final class UIFormPropertyTrackSheets
         }
         else if (trackName.equals("color"))
         {
-            boolean expanded = !collapsed.getOrDefault(colorParentKey, true);
+            Form colorOwner = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            /* MobForm Color is tint-only — no nested grade/paint/glow to expand. */
+            if (!(colorOwner instanceof MobForm))
             {
-                collapsed.put(colorParentKey, !collapsed.getOrDefault(colorParentKey, true));
-                onRefresh.run();
-            };
+                boolean expanded = !collapsed.getOrDefault(colorParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    collapsed.put(colorParentKey, !collapsed.getOrDefault(colorParentKey, true));
+                    onRefresh.run();
+                };
+            }
 
             addTrackByPriority(trackName, before, after, sheet);
         }
@@ -692,7 +713,7 @@ public final class UIFormPropertyTrackSheets
 
             Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            if (form instanceof LabelForm || form instanceof TrailForm)
+            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm)
             {
                 continue;
             }

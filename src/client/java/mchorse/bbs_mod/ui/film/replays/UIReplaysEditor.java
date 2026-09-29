@@ -28,6 +28,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
@@ -3330,7 +3331,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             String colorPath = FormProperties.colorPropertyPathForGrade(path);
             BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
 
-            return colorProperty instanceof ValueColor;
+            if (!(colorProperty instanceof ValueColor))
+            {
+                return false;
+            }
+
+            Form owner = FormUtils.getForm(colorProperty);
+
+            /* Tint-only forms: no synthetic color_grade under Color. */
+            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm);
         }
 
         if (FormProperties.isFramebufferResolutionChannelKey(path)
@@ -3342,6 +3351,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
+        {
+            return false;
+        }
+
+        /* Keep timeline in sync with collectPropertyPaths (invisible props stay off the sheet list). */
+        if (!property.isVisible() && !FormUtils.isRenderPropertyPath(path))
         {
             return false;
         }
@@ -3605,14 +3620,20 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
         else if (trackName.equals("color"))
         {
-            boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
+            Form colorOwner = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            /* MobForm Color is tint-only — no nested grade/paint/glow to expand. */
+            if (!(colorOwner instanceof MobForm))
             {
-                this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
-                this.updateChannelsList();
-            };
+                boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
+                    this.updateChannelsList();
+                };
+            }
 
             this.addTrackByPriority(trackName, before, after, sheet);
         }
@@ -3710,7 +3731,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            if (form instanceof LabelForm || form instanceof TrailForm)
+            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm)
             {
                 continue;
             }
