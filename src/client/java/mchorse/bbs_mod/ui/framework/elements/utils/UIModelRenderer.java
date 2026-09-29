@@ -51,6 +51,12 @@ public abstract class UIModelRenderer extends UIElement
 
     /** Ignore sub-threshold mouse motion so a plain click does not nudge the camera. */
     private static final int DRAG_ACTIVATE_PX = 3;
+    /**
+     * Match {@link mchorse.bbs_mod.camera.OrbitCamera} Ctrl/Alt ratios (high/normal/low =
+     * 1 / 0.25 / 0.05) while keeping the preview's 1°/px baseline as "normal".
+     */
+    private static final float DRAG_SPEED_CTRL = 4F;
+    private static final float DRAG_SPEED_ALT = 0.2F;
     /** Accumulated |dx|+|dy| while waiting to treat the press as a real drag. */
     private int dragSlop;
 
@@ -321,10 +327,14 @@ public abstract class UIModelRenderer extends UIElement
                 if (this.lastX != context.mouseX || this.lastY != context.mouseY)
                 {
                     Vector3d newPoint = this.calculateOnPlane(context);
+                    float speed = this.getDragSpeedFactor();
 
                     this.pos.set(this.cachedPos);
-                    this.pos.sub((float) newPoint.x, (float) newPoint.y, (float) newPoint.z);
-                    this.pos.add((float) this.cachedPlaneIntersection.x, (float) this.cachedPlaneIntersection.y, (float) this.cachedPlaneIntersection.z);
+                    this.pos.add(
+                        (float) ((this.cachedPlaneIntersection.x - newPoint.x) * speed),
+                        (float) ((this.cachedPlaneIntersection.y - newPoint.y) * speed),
+                        (float) ((this.cachedPlaneIntersection.z - newPoint.z) * speed)
+                    );
 
                     this.lastX = mouseX;
                     this.lastY = mouseY;
@@ -332,13 +342,33 @@ public abstract class UIModelRenderer extends UIElement
             }
             else
             {
-                this.camera.rotation.y -= MathUtils.toRad(this.lastX - mouseX);
-                this.camera.rotation.x -= MathUtils.toRad(this.lastY - mouseY);
+                float speed = this.getDragSpeedFactor();
+
+                this.camera.rotation.y -= MathUtils.toRad((this.lastX - mouseX) * speed);
+                this.camera.rotation.x -= MathUtils.toRad((this.lastY - mouseY) * speed);
 
                 this.lastX = mouseX;
                 this.lastY = mouseY;
             }
         }
+    }
+
+    /**
+     * Ctrl speeds up, Alt slows down — same ratios as film/dashboard {@code OrbitCamera}.
+     */
+    protected float getDragSpeedFactor()
+    {
+        if (Window.isCtrlPressed())
+        {
+            return DRAG_SPEED_CTRL;
+        }
+
+        if (Window.isAltPressed())
+        {
+            return DRAG_SPEED_ALT;
+        }
+
+        return 1F;
     }
 
     public void setupPosition()
