@@ -184,10 +184,24 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         int cullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
 
         GL30.glCullFace(GL30.GL_FRONT);
-        /* Both lights along Z, one each way. Y-flipped ortho + front-face cull leaves
-         * away-facing limbs on ambient-only (~40%) under Iris/Complementary — that baked
-         * black then punches through underwater translucency. ±Z lights both sides flat. */
-        RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, -1F));
+
+        /* Iris pack: bake flat albedo (Unlit) — pack state can black out limbs if we mix_light
+         * inside the FBO; the lit display quad applies world shading once.
+         * No pack: bake matching world diffuse + caller lightmap into the texture (same basis
+         * as model-block / form previews), then blit unlit so shading is not applied twice. */
+        boolean irisPack = BBSRendering.isIrisShadersEnabled();
+        boolean bakeWorldLighting = !irisPack;
+
+        if (bakeWorldLighting)
+        {
+            BBSRendering.setupMatchingWorldDiffuseLighting();
+        }
+        else
+        {
+            /* Flat ±Z only matters if a non-Unlit path still samples diffuse inside the FBO. */
+            RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, -1F));
+        }
+
         float[] extents = this.resolveViewExtents();
         float halfX = extents[0];
         float halfY = extents[1];
@@ -221,11 +235,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             this.applyLookAtContentOrientation(context.stack, context);
         }
 
-        /* Full bright UV2 for any path that still samples lightmap; BBS model Unlit
-         * skips diffuse+lightmap entirely (postcard bake). Parent quad shades once. */
         int savedLight = context.light;
 
-        context.light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        /* Iris Unlit bake: MAX_LIGHT for any residual lightmap sample. Vanilla bake: keep
+         * the caller's block/sky light so interior limbs match nearby world forms. */
+        if (!bakeWorldLighting)
+        {
+            context.light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        }
 
         /* Blending as GL really holds it, not as GlStateManager's cache believes. A shader pack's
          * per-draw-buffer blend modes are set by Iris with indexed GL calls the cache never sees,
@@ -263,14 +280,22 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         try
         {
-            BBSRendering.runFramebufferContentUnlit(() ->
-                BBSRendering.renderOffscreen(() -> this.renderIsolatedFboBodyParts(fboContext)));
+            Runnable fillParts = () -> this.renderIsolatedFboBodyParts(fboContext, bakeWorldLighting);
+
+            if (bakeWorldLighting)
+            {
+                BBSRendering.renderOffscreen(fillParts);
+            }
+            else
+            {
+                BBSRendering.runFramebufferContentUnlit(() -> BBSRendering.renderOffscreen(fillParts));
+            }
         }
         finally
         {
             RenderSystem.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
             context.light = savedLight;
-            /* ModelForm leaves lightmap off inside offscreen; re-arm before the lit blit. */
+            /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit. */
             BBSRendering.restoreWorldRenderState();
             BBSRendering.prepareVanillaEntityLighting();
         }
@@ -297,10 +322,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setProjectionMatrix(projectionMatrix, vertexSorter);
         GL11.glCullFace(cullFace);
 
-        /* Lit entity_translucent: content was MAX_LIGHT; caller lightmap shades the postcard
-         * once. Complementary underwater composites this path; unlit position_tex_color
-         * punched dark/low-alpha FBO texels into holes. Picking stays unlit. */
-        boolean shading = !context.isPicking();
+        /* Vanilla: content already lit → unlit blit. Iris: flat albedo → lit entity_translucent
+         * so the postcard gets world light once (and underwater alpha composites correctly). */
+        boolean shading = !bakeWorldLighting && !context.isPicking();
         VertexFormat format = shading
             ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
             : VertexFormats.POSITION_TEXTURE_COLOR;
@@ -316,10 +340,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
      * clears {@code isRenderingWorld}, so {@link ModelFormRenderer} disables the lightmap and
      * skips {@link BBSRendering#restoreWorldRenderState()} — under Iris/NeoForge the next limb
      * then samples a dead lightmap and draws black. Same idea as film replay isolation.
-     * Re-assert ±Z diffuse after each prepare — {@link BBSRendering#prepareVanillaEntityLighting}
-     * restores world lights and would undo the flat FBO lighting.
+     *
+     * @param bakeWorldLighting when true, re-assert matching world diffuse after each prepare
+     *                          (vanilla path); when false, keep flat ±Z under Iris Unlit fill.
      */
-    private void renderIsolatedFboBodyParts(FormRenderingContext context)
+    private void renderIsolatedFboBodyParts(FormRenderingContext context, boolean bakeWorldLighting)
     {
         if (this.form.parts.getAllTyped().isEmpty())
         {
@@ -328,19 +353,19 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         List<BodyPart> parts = this.getSortedBodyParts(context);
 
-        this.prepareFboContentLighting();
+        this.prepareFboContentLighting(bakeWorldLighting);
 
         if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
         {
             BBSRendering.restoreWorldRenderState();
-            this.prepareFboContentLighting();
+            this.prepareFboContentLighting(bakeWorldLighting);
 
             return;
         }
 
         for (BodyPart part : parts)
         {
-            this.prepareFboContentLighting();
+            this.prepareFboContentLighting(bakeWorldLighting);
 
             try
             {
@@ -352,14 +377,25 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             }
         }
 
-        this.prepareFboContentLighting();
+        this.prepareFboContentLighting(bakeWorldLighting);
     }
 
-    /** Lightmap + overlay + flat ±Z diffuse for FBO content (not world entity lights). */
-    private void prepareFboContentLighting()
+    /**
+     * Lightmap + overlay for FBO content. Vanilla bake uses matching world diffuse;
+     * Iris Unlit fill keeps ±Z only as a safe fallback if Unlit is skipped.
+     */
+    private void prepareFboContentLighting(boolean bakeWorldLighting)
     {
         BBSRendering.prepareVanillaEntityLighting();
-        RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, -1F));
+
+        if (bakeWorldLighting)
+        {
+            BBSRendering.setupMatchingWorldDiffuseLighting();
+        }
+        else
+        {
+            RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, -1F));
+        }
     }
 
     private void renderModel(Texture texture, VertexFormat format, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
