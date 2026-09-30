@@ -42,6 +42,13 @@ public class VideoForm extends Form
         this.paintSettings.invisible();
         this.glowingColor.invisible();
         this.glowSettings.invisible();
+        /* Outline is inherited from Form but VideoForm has no outline pass/UI — hide orphan tracks. */
+        this.outline.invisible();
+        this.outlineColor.invisible();
+        this.outlineThickness.invisible();
+        this.outlineRainbow.invisible();
+        this.outlineRainbowSpeed.invisible();
+        this.outlineRainbowScale.invisible();
 
         this.add(this.video);
         this.add(this.billboard);
