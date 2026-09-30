@@ -47,6 +47,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
@@ -233,13 +234,16 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         /* Iris pack: bake flat albedo (Unlit) — pack state can black out limbs if we mix_light
          * inside the FBO; the lit display quad applies world shading once.
-         * No pack: bake matching world diffuse + caller lightmap into the texture (same basis
-         * as model-block / form previews), then blit unlit so shading is not applied twice.
+         * No pack (root morph / top-level): bake matching world diffuse + caller lightmap into
+         * the texture, then blit unlit so shading is not applied twice.
+         * Body part (bbs-fs): always flat bake + lit postcard so diffuse follows the host bone
+         * (e.g. head pitch darkens like the face) — root morph lighting stays unchanged.
          * General "No-shading": force flat bake + unlit blit so the postcard ignores pack /
          * world lighting (same intent as ModelForm/Billboard noshadingOpacity). */
         boolean noshading = this.form.noshadingOpacity.get();
         boolean irisPack = BBSRendering.isIrisShadersEnabled();
-        boolean bakeWorldLighting = !irisPack && !noshading;
+        boolean asBodyPart = context.isBodyPart();
+        boolean bakeWorldLighting = !irisPack && !noshading && !asBodyPart;
 
         if (bakeWorldLighting)
         {
@@ -373,10 +377,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setProjectionMatrix(projectionMatrix, vertexSorter);
         GL11.glCullFace(cullFace);
 
-        /* Vanilla (shaded): content already lit → unlit blit.
-         * Iris (shaded): flat albedo → lit entity_translucent so the postcard gets pack light once.
+        /* Vanilla root (shaded): content already lit → unlit blit.
+         * Iris / body-part (shaded): flat albedo → lit entity_translucent so the postcard
+         * gets world/pack light once (body-part normals follow the host bone).
          * No-shading (either): flat content + unlit blit — fullbright, no pack/world lighting. */
-        boolean shading = !noshading && irisPack && !context.isPicking();
+        boolean shading = !noshading && !context.isPicking() && (irisPack || asBodyPart);
         VertexFormat format = shading
             ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
             : VertexFormats.POSITION_TEXTURE_COLOR;
@@ -521,21 +526,52 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
         boolean litQuad = format != VertexFormats.POSITION_TEXTURE_COLOR;
+        boolean irisBodyPartLit = litQuad
+            && context != null
+            && context.isBodyPart()
+            && BBSRendering.isIrisShadersEnabled();
 
         if (litQuad)
         {
             gameRenderer.getLightmapTextureManager().enable();
             gameRenderer.getOverlayTexture().setupOverlayColor();
+
+            if (irisBodyPartLit)
+            {
+                /* Re-arm diffuse/lightmap after FBO offscreen fill (Billboard-safe under packs). */
+                BBSRendering.prepareVanillaEntityLighting();
+            }
         }
 
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(true);
         RenderSystem.colorMask(true, true, true, true);
-        RenderSystem.disableCull();
+
+        /* Iris body-part lit: cull like Billboard dual-sided — both faces at z=0 with cull
+         * off lets the pack keep the darker winding. Other FBO blits keep disableCull. */
+        if (irisBodyPartLit)
+        {
+            RenderSystem.enableCull();
+        }
+        else
+        {
+            RenderSystem.disableCull();
+        }
 
         BBSModClient.getTextures().bindTexture(texture);
-        texture.bind();
+
+        if (irisBodyPartLit)
+        {
+            /* Force TU0 — under Iris a raw bind can hit the lightmap unit (bbs-fs billboard). */
+            RenderSystem.activeTexture(GL13.GL_TEXTURE0);
+            RenderSystem.bindTexture(texture.id);
+        }
+        else
+        {
+            texture.bind();
+        }
+
         /* Re-assert every draw: join/Iris/reload can leave LINEAR on the FBO id,
          * which turns intentional low-res pixelation into blur until the size changes. */
         texture.setFilter(GL11.GL_NEAREST);
@@ -543,23 +579,35 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setShaderTexture(0, texture.id);
         RenderSystem.setShader(shader);
 
-        /* Front */
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
+        /* ModelForm hosts apply Y180 before body parts, so local +Z faces the limb back.
+         * Vanilla mix_light needs −Z as the outward face. Iris rebuilds normals from
+         * modelview, so the same −Z reads inverted under packs — keep +Z when Iris is on. */
+        float frontNz = 1F;
 
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
+        if (context != null && context.isBodyPart() && !BBSRendering.isIrisShadersEnabled())
+        {
+            frontNz = -1F;
+        }
+
+        float backNz = -frontNz;
+
+        /* Front */
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, frontNz);
+
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
 
         /* Back */
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, backNz);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
 
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
+        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, backNz);
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
 
         RenderSystem.defaultBlendFunc();
         RenderSystem.enableBlend();
