@@ -385,6 +385,7 @@ public class BBSRendering
         ModelVAORenderer.clearFormColorGrade();
         ModelVAORenderer.clearFormColorTint();
         ModelVAORenderer.clearColorEffectTransform();
+        resetPixelUnpackState();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -393,6 +394,19 @@ public class BBSRendering
             client.gameRenderer.getLightmapTextureManager().enable();
             client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
+    }
+
+    /**
+     * Tightly packed RGBA is the Minecraft default. Leaving {@code GL_UNPACK_ROW_LENGTH}
+     * (or skip/alignment) dirty after a video/WaterMedia/ffmpeg upload blacks out the block
+     * atlas and form/item GUI previews for the rest of the session — worse on NeoForge.
+     */
+    public static void resetPixelUnpackState()
+    {
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
 
     /**
@@ -496,6 +510,7 @@ public class BBSRendering
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         DiffuseLighting.enableGuiDepthLighting();
+        resetPixelUnpackState();
 
         MinecraftClient client = MinecraftClient.getInstance();
 

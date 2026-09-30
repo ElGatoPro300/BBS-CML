@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client.video;
 
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -486,6 +487,8 @@ public class WaterMediaVideoRenderer
 
         if (texture <= 0)
         {
+            BBSRendering.resetPixelUnpackState();
+
             return null;
         }
 
@@ -503,6 +506,8 @@ public class WaterMediaVideoRenderer
             width = 16;
             height = 9;
         }
+
+        BBSRendering.resetPixelUnpackState();
 
         return new FrameInfo(texture, width, height);
     }
@@ -769,6 +774,8 @@ public class WaterMediaVideoRenderer
 
         if (texture <= 0)
         {
+            BBSRendering.resetPixelUnpackState();
+
             return null;
         }
 
@@ -803,6 +810,9 @@ public class WaterMediaVideoRenderer
             width = 16;
             height = 9;
         }
+
+        /* WaterMedia's GL engine may leave UNPACK_ROW_LENGTH set after texture(). */
+        BBSRendering.resetPixelUnpackState();
 
         return new FrameInfo(texture, width, height);
     }

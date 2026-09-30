@@ -297,6 +297,8 @@ public final class FormUIPreviewCache
             ModelFormRenderer.setUIAngleOverride(angleFromBucket(angleBucket));
             FormUtilsClient.renderUI(form, context, 0, 0, renderW, renderH);
             context.batcher.flush();
+            /* Video/WaterMedia may rebind draw FBO mid-bake — force scratch before copy. */
+            scratchFramebuffer.bind();
         }
         finally
         {
@@ -330,6 +332,8 @@ public final class FormUIPreviewCache
             GlStateManager._enableScissorTest();
         }
 
+        /* Stronger than restoreGui alone: lightmap + UNPACK reset (VideoForm list thumbs). */
+        BBSRendering.restoreAfterGuiItemForm();
         BBSRendering.restoreGuiRenderState();
 
         entry.revision = revision;
