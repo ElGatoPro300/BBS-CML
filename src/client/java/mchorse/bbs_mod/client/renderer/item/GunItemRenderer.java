@@ -107,15 +107,6 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                 }
                 finally
                 {
-                    if (mode == ModelTransformationMode.GUI)
-                    {
-                        BBSRendering.restoreAfterGuiItemForm();
-                    }
-                    else
-                    {
-                        BBSRendering.restoreAfterHeldItemForm();
-                    }
-
                     RenderSystem.disableDepthTest();
                 }
 
