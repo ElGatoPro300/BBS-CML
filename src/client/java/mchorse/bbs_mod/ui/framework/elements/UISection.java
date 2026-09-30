@@ -117,27 +117,56 @@ public class UISection extends UIElement
 
     public void setExpanded(boolean expanded)
     {
+        boolean animate = BBSSettings.editorSimplifyAnimations != null && !BBSSettings.editorSimplifyAnimations.get();
+
+        this.setExpanded(expanded, animate);
+    }
+
+    /**
+     * @param animate when false, snaps open/closed (e.g. restoring saved layout prefs)
+     */
+    public void setExpanded(boolean expanded, boolean animate)
+    {
         if (this.open == expanded)
         {
             return;
         }
 
         this.open = expanded;
-
-        boolean animate = BBSSettings.editorSimplifyAnimations != null && !BBSSettings.editorSimplifyAnimations.get();
-
         this.shell.setExpanded(expanded, this.title, animate);
 
         this.resizeClipPanels();
+
         if (this.toggleCallback != null)
         {
             this.toggleCallback.accept(expanded);
         }
     }
 
+    /**
+     * Registers a toggle listener. Multiple calls chain callbacks in order.
+     */
     public UISection onToggle(Consumer<Boolean> callback)
     {
-        this.toggleCallback = callback;
+        if (callback == null)
+        {
+            return this;
+        }
+
+        if (this.toggleCallback == null)
+        {
+            this.toggleCallback = callback;
+        }
+        else
+        {
+            Consumer<Boolean> previous = this.toggleCallback;
+
+            this.toggleCallback = (expanded) ->
+            {
+                previous.accept(expanded);
+                callback.accept(expanded);
+            };
+        }
 
         return this;
     }
