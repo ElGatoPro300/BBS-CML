@@ -279,7 +279,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         boolean noshading = this.form.noshadingOpacity.get();
         boolean irisPack = BBSRendering.isIrisShadersEnabled();
         boolean asBodyPart = context.isBodyPart();
-        boolean bakeWorldLighting = false;
+        boolean bakeWorldLighting = !irisPack && !noshading && !asBodyPart;
 
         if (bakeWorldLighting)
         {
@@ -386,6 +386,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         {
             RenderSystem.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
             context.light = savedLight;
+            /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit. */
+            BBSRendering.restoreWorldRenderState();
+            BBSRendering.prepareVanillaEntityLighting();
             /* End FRONT-face fill before the world postcard blit. */
             GL11.glCullFace(cullFace);
         }
@@ -411,12 +414,13 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         RenderSystem.setProjectionMatrix(projectionMatrix, vertexSorter);
 
-        /* In-world / first-person / third-person / body-part: lit entity_translucent blit
-         * so the postcard receives world/pack light and runs entity vertex discard / overlay teardown.
-         * Inventory / UI previews: unlit blit (position_tex_color) so baked FBO icons are not
-         * darkened by GUI directional diffuse lighting.
-         * No-shading: unlit blit (fullbright). */
-        boolean shading = !noshading && !context.isPicking() && !context.ui;
+        /* Vanilla root (shaded): content already lit → unlit blit.
+         * Iris / body-part (shaded): flat albedo → lit entity_translucent so the postcard
+         * gets world/pack light once (body-part normals follow the host bone).
+         * Inventory / UI thumbs: always unlit blit — pack entity_translucent darkens GUI
+         * ModelBlock previews slightly under Iris even at MAX_LIGHT.
+         * No-shading (either): flat content + unlit blit — fullbright, no pack/world lighting. */
+        boolean shading = !noshading && !context.isPicking() && !context.ui && (irisPack || asBodyPart);
         VertexFormat format = shading
             ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
             : VertexFormats.POSITION_TEXTURE_COLOR;
@@ -580,8 +584,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        RenderSystem.depthMask(false);
+        RenderSystem.depthMask(true);
         RenderSystem.colorMask(true, true, true, true);
 
         /* Dual-sided postcard may disable cull; must restore so sibling StructureForms
@@ -659,8 +662,6 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         }
         finally
         {
-            RenderSystem.depthMask(savedDepthMask);
-
             if (previousCull)
             {
                 RenderSystem.enableCull();
@@ -671,8 +672,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             }
         }
 
-        gameRenderer.getLightmapTextureManager().disable();
-        gameRenderer.getOverlayTexture().teardownOverlayColor();
+        if (litQuad)
+        {
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
+        }
     }
 
     /**

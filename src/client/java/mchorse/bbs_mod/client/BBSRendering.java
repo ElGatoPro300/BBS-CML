@@ -531,8 +531,8 @@ public class BBSRendering
 
         if (client != null && client.gameRenderer != null)
         {
-            client.gameRenderer.getLightmapTextureManager().disable();
-            client.gameRenderer.getOverlayTexture().teardownOverlayColor();
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
 
         clearTextureUnit0();
@@ -562,8 +562,8 @@ public class BBSRendering
 
         if (client != null && client.gameRenderer != null)
         {
-            client.gameRenderer.getLightmapTextureManager().disable();
-            client.gameRenderer.getOverlayTexture().teardownOverlayColor();
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
     }
 

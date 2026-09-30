@@ -96,6 +96,16 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
                 }
                 finally
                 {
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        BBSRendering.restoreAfterGuiItemForm();
+                    }
+                    else
+                    {
+                        /* FP FramebufferForm can leave TU0 / lightmap dirty for the next HUD. */
+                        BBSRendering.restoreAfterHeldItemForm();
+                    }
+
                     RenderSystem.disableDepthTest();
                 }
 
