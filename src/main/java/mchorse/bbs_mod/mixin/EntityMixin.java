@@ -10,12 +10,14 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import org.jetbrains.annotations.Nullable;
@@ -106,10 +108,38 @@ public class EntityMixin
     }
 
     /**
-     * Inject solid model/structure hitboxes into every movement collision list,
-     * including the step-up pass ({@code list2}) which previously only saw block shapes.
+     * Fabric movement-list backup. {@code require = 0} so NeoForge/Connector can skip safely.
      */
-    @Inject(method = "findCollisionsForMovement", at = @At("RETURN"), cancellable = true)
+    @ModifyVariable(
+        method = "adjustMovementForCollisions(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Box;Lnet/minecraft/world/World;Ljava/util/List;)Lnet/minecraft/util/math/Vec3d;",
+        at = @At("HEAD"),
+        argsOnly = true,
+        ordinal = 0,
+        require = 0
+    )
+    private static List<VoxelShape> bbs$appendSolidHitboxesToMovementList(
+        List<VoxelShape> collisions,
+        @Nullable Entity entity,
+        Vec3d movement,
+        Box entityBoundingBox,
+        World world)
+    {
+        if (entity == null || world == null || entityBoundingBox == null || collisions == null)
+        {
+            return collisions;
+        }
+
+        List<VoxelShape> mutable = ModelBlockSolidCollisions.wrapMutable(collisions);
+        Box query = movement != null && movement.lengthSquared() > 1.0E-12D
+            ? entityBoundingBox.stretch(movement)
+            : entityBoundingBox;
+
+        ModelBlockSolidCollisions.appendShapes(entity, query, world, mutable);
+
+        return mutable;
+    }
+
+    @Inject(method = "findCollisionsForMovement", at = @At("RETURN"), cancellable = true, require = 0)
     private static void bbs$appendSolidHitboxes(
         @Nullable Entity entity,
         World world,
