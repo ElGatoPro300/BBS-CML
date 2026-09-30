@@ -198,14 +198,25 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         IEntity previewEntity = this.target == null ? this.entity : this.target;
         int previewLight = BBSRendering.resolveEntityBlockLight(
             previewEntity, LightmapTextureManager.pack(15, 15));
+        /* F7 / world mesh on: seed world stack like ENTITY (player/block pose) and match
+         * Framebuffer look-at to the live world draw. Orbit mesh-only keeps PREVIEW. */
+        boolean worldAlignedGizmos = !this.shouldRenderFormMesh();
+        FormRenderType previewType = worldAlignedGizmos ? FormRenderType.ENTITY : FormRenderType.PREVIEW;
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, previewEntity, context.batcher.getContext().getMatrices(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(previewType, previewEntity, context.batcher.getContext().getMatrices(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer()
             .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
 
-        FramebufferFormRenderer.bindPreviewCamera(this.camera);
+        if (worldAlignedGizmos)
+        {
+            formContext.matchWorldLookAt();
+        }
+        else
+        {
+            FramebufferFormRenderer.bindPreviewCamera(this.camera);
+        }
 
         try
         {

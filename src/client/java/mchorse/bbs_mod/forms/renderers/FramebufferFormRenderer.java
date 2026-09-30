@@ -619,6 +619,21 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         /* Form-editor orbit already multiplies camera.view onto the draw stack. */
         this.lookAtViewSpaceAlready = context.modelRenderer;
 
+        /* F7 world gizmos: keep orbit viewSpaceAlready for the display quad, but drive
+         * camera-content look-at from the game camera so nested origins match the live morph. */
+        if (context.matchWorldLookAt)
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            if (mc != null && mc.gameRenderer != null)
+            {
+                FormRenderingContext tmp = new FormRenderingContext();
+
+                tmp.camera(mc.gameRenderer.getCamera());
+                this.lookAtCamera.copy(tmp.camera);
+            }
+        }
+
         if (context.world != null)
         {
             /* Orientation only — General/transform scale must not enter the FBO ortho
@@ -760,7 +775,10 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         boolean billboard = this.form.billboard.get();
         boolean cameraContent = this.form.cameraContent.get();
         boolean applyLookAt = (billboard || cameraContent) && this.ensureLookAtSample(entity, transition);
-        boolean viewSpaceAlready = this.lookAtViewSpaceAlready || PREVIEW_CAMERA.get() != null;
+        /* Prefer the look-at capture's own view-space flag. PREVIEW_CAMERA only tips
+         * orbit mesh mode when no capture exists yet — never override a world sample. */
+        boolean viewSpaceAlready = this.lookAtViewSpaceAlready
+            || (PREVIEW_CAMERA.get() != null && !this.lookAtSampleValid);
 
         stack.push();
         this.applyTransforms(stack, true, transition);
@@ -847,11 +865,6 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
      */
     private boolean ensureLookAtSample(IEntity entity, float transition)
     {
-        if (PREVIEW_CAMERA.get() != null)
-        {
-            this.lookAtViewSpaceAlready = true;
-        }
-
         if (this.lookAtSampleValid)
         {
             return true;
