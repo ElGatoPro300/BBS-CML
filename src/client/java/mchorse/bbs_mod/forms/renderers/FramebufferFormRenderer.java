@@ -234,9 +234,12 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         /* Iris pack: bake flat albedo (Unlit) — pack state can black out limbs if we mix_light
          * inside the FBO; the lit display quad applies world shading once.
          * No pack: bake matching world diffuse + caller lightmap into the texture (same basis
-         * as model-block / form previews), then blit unlit so shading is not applied twice. */
+         * as model-block / form previews), then blit unlit so shading is not applied twice.
+         * General "No-shading": force flat bake + unlit blit so the postcard ignores pack /
+         * world lighting (same intent as ModelForm/Billboard noshadingOpacity). */
+        boolean noshading = this.form.noshadingOpacity.get();
         boolean irisPack = BBSRendering.isIrisShadersEnabled();
-        boolean bakeWorldLighting = !irisPack;
+        boolean bakeWorldLighting = !irisPack && !noshading;
 
         if (bakeWorldLighting)
         {
@@ -370,9 +373,10 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setProjectionMatrix(projectionMatrix, vertexSorter);
         GL11.glCullFace(cullFace);
 
-        /* Vanilla: content already lit → unlit blit. Iris: flat albedo → lit entity_translucent
-         * so the postcard gets world light once (and underwater alpha composites correctly). */
-        boolean shading = !bakeWorldLighting && !context.isPicking();
+        /* Vanilla (shaded): content already lit → unlit blit.
+         * Iris (shaded): flat albedo → lit entity_translucent so the postcard gets pack light once.
+         * No-shading (either): flat content + unlit blit — fullbright, no pack/world lighting. */
+        boolean shading = !noshading && irisPack && !context.isPicking();
         VertexFormat format = shading
             ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
             : VertexFormats.POSITION_TEXTURE_COLOR;
