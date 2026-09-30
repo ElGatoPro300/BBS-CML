@@ -137,11 +137,9 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
                 {
                     if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
                     {
-                        /* Empty the 1×1 cell when injected mesh voxels are ready. Keeping a
-                         * full cube (old NeoForge fallback) nested the player inside the cell
-                         * whenever the mesh was shorter (slabs/floors) → landing fight. */
-                        if (ModelBlockSolidCollisions.hasSolidCollisionGeometry(model)
-                            && ModelBlockSolidCollisions.preferEmptyBlockCollisionShape())
+                        /* Soft empty only when custom voxels are ready; otherwise keep a cube so
+                         * enabling solid hitbox cannot make the block fully passable. */
+                        if (ModelBlockSolidCollisions.hasSolidCollisionGeometry(model))
                         {
                             return VoxelShapes.empty();
                         }

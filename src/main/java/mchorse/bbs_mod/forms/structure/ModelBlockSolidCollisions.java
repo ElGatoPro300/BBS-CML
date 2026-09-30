@@ -22,8 +22,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -41,46 +39,9 @@ public final class ModelBlockSolidCollisions
 
     private static final Set<ModelBlockEntity> ACTIVE = Collections.newSetFromMap(new WeakHashMap<>());
     private static final Object ACTIVE_LOCK = new Object();
-    /**
-     * Minimum ledge height that triggers step boost. Must stay above typical
-     * floor-penetration epsilons or standing on a solid mesh looks like a climbable
-     * step and the player fights gravity every tick.
-     */
-    private static final double MIN_CLIMB_LEDGE = 0.2D;
-    /**
-     * While &gt; 0, skip solid append in {@code getBlockCollisions} so
-     * {@code canCollide}/{@code isSpaceEmpty}/{@code pushOutOfBlocks} stay vanilla.
-     */
-    private static final ThreadLocal<Integer> VANILLA_BLOCK_COLLISION_ONLY = ThreadLocal.withInitial(() -> 0);
 
     private ModelBlockSolidCollisions()
     {}
-
-    public static void enterVanillaBlockCollisionOnly()
-    {
-        VANILLA_BLOCK_COLLISION_ONLY.set(VANILLA_BLOCK_COLLISION_ONLY.get() + 1);
-    }
-
-    public static void exitVanillaBlockCollisionOnly()
-    {
-        int depth = VANILLA_BLOCK_COLLISION_ONLY.get() - 1;
-
-        VANILLA_BLOCK_COLLISION_ONLY.set(Math.max(0, depth));
-    }
-
-    public static boolean shouldAppendSolidToBlockCollisions()
-    {
-        return VANILLA_BLOCK_COLLISION_ONLY.get() <= 0;
-    }
-
-    /**
-     * When solid form geometry is baked, {@link mchorse.bbs_mod.blocks.ModelBlock#getCollisionShape}
-     * should return empty so only the injected mesh collides.
-     */
-    public static boolean preferEmptyBlockCollisionShape()
-    {
-        return true;
-    }
 
     public static void updateRegistration(ModelBlockEntity entity)
     {
@@ -188,27 +149,9 @@ public final class ModelBlockSolidCollisions
         return hasSolidFormHitbox(entity);
     }
 
-    /**
-     * Padding used only when collecting candidates for Entity movement helpers.
-     * Never inflate the final hit test — {@link CollisionView#getBlockCollisions} consumers
-     * (isSpaceEmpty / canCollide) treat any returned shape as intersecting.
-     */
-    private static final double ENTITY_QUERY_PADDING = 0.25D;
-
     public static void appendShapes(Entity entity, Box swept, World world, List<VoxelShape> collisions)
     {
-        /* Lenient candidate search for Entity mixin paths; add filter stays exact. */
-        appendShapes(entity, swept, world, collisions, ENTITY_QUERY_PADDING);
-    }
-
-    /**
-     * @param queryPadding expands the spatial search only; shapes are added only if they
-     *        intersect {@code swept} exactly (vanilla BlockCollisionSpliterator contract).
-     */
-    public static void appendShapes(Entity entity, Box swept, World world, List<VoxelShape> collisions, double queryPadding)
-    {
-        /* Entity may be null — CollisionView.getBlockCollisions often passes null for space checks. */
-        if (world == null || collisions == null || swept == null)
+        if (entity == null || world == null || collisions == null)
         {
             return;
         }
@@ -220,7 +163,7 @@ public final class ModelBlockSolidCollisions
             return;
         }
 
-        Box query = queryPadding > 0D ? swept.expand(queryPadding) : swept;
+        Box query = swept.expand(0.25D);
 
         for (ModelBlockEntity model : active)
         {
@@ -233,56 +176,16 @@ public final class ModelBlockSolidCollisions
 
             if (form instanceof StructureForm structure && structure.solidHitbox.get())
             {
-                appendStructureShapes(model, structure, query, swept, collisions);
+                appendStructureShapes(model, structure, query, collisions);
             }
             else if (form instanceof ModelForm modelForm && modelForm.solidHitbox.get())
             {
-                appendModelShapes(model, modelForm, query, swept, collisions);
+                appendModelShapes(model, modelForm, query, collisions);
             }
         }
     }
 
-    /**
-     * Merge solid form voxels into a movement collision list. Prefer
-     * {@link net.minecraft.world.World#getEntityCollisions} over {@code getBlockCollisions}:
-     * the latter feeds {@code canCollide}/{@code pushOutOfBlocks} and caused NeoForge landing fight.
-     */
-    public static Iterable<VoxelShape> appendToBlockCollisions(
-        @Nullable Entity entity,
-        Box box,
-        World world,
-        Iterable<VoxelShape> original)
-    {
-        if (world == null || box == null)
-        {
-            return original;
-        }
-
-        List<VoxelShape> extra = new ArrayList<>();
-
-        appendShapes(entity, box, world, extra, 0D);
-
-        if (extra.isEmpty())
-        {
-            return original;
-        }
-
-        List<VoxelShape> combined = new ArrayList<>();
-
-        if (original != null)
-        {
-            for (VoxelShape shape : original)
-            {
-                combined.add(shape);
-            }
-        }
-
-        combined.addAll(extra);
-
-        return combined;
-    }
-
-    private static void appendStructureShapes(ModelBlockEntity entity, StructureForm structure, Box query, Box hitBox, List<VoxelShape> collisions)
+    private static void appendStructureShapes(ModelBlockEntity entity, StructureForm structure, Box query, List<VoxelShape> collisions)
     {
         StructureCollisionData data = StructureCollisionData.get(structure.structureFile.get());
 
@@ -308,14 +211,14 @@ public final class ModelBlockSolidCollisions
         {
             Box worldBox = transformBox(local, matrix);
 
-            if (worldBox.intersects(hitBox) && worldBox.getAverageSideLength() > 1.0E-4D)
+            if (worldBox.intersects(query) && worldBox.getAverageSideLength() > 1.0E-4D)
             {
                 collisions.add(VoxelShapes.cuboid(worldBox));
             }
         });
     }
 
-    private static void appendModelShapes(ModelBlockEntity entity, ModelForm form, Box query, Box hitBox, List<VoxelShape> collisions)
+    private static void appendModelShapes(ModelBlockEntity entity, ModelForm form, Box query, List<VoxelShape> collisions)
     {
         ModelCollisionData data = ModelCollisionData.get(form);
 
@@ -339,7 +242,7 @@ public final class ModelBlockSolidCollisions
 
             for (Box worldBox : worldSlabs)
             {
-                if (worldBox.intersects(hitBox) && worldBox.getAverageSideLength() > 1.0E-4D)
+                if (worldBox.intersects(query) && worldBox.getAverageSideLength() > 1.0E-4D)
                 {
                     collisions.add(VoxelShapes.cuboid(worldBox));
                 }
@@ -355,16 +258,16 @@ public final class ModelBlockSolidCollisions
             return;
         }
 
-        appendBoxes(data.localBoxes, matrix, hitBox, collisions);
+        appendBoxes(data.localBoxes, matrix, query, collisions);
     }
 
-    private static void appendBoxes(List<Box> localBoxes, Matrix4f matrix, Box hitBox, List<VoxelShape> collisions)
+    private static void appendBoxes(List<Box> localBoxes, Matrix4f matrix, Box query, List<VoxelShape> collisions)
     {
         for (Box local : localBoxes)
         {
             Box worldBox = transformBox(local, matrix);
 
-            if (worldBox.intersects(hitBox) && worldBox.getAverageSideLength() > 1.0E-4D)
+            if (worldBox.intersects(query) && worldBox.getAverageSideLength() > 1.0E-4D)
             {
                 collisions.add(VoxelShapes.cuboid(worldBox));
             }
@@ -395,8 +298,7 @@ public final class ModelBlockSolidCollisions
         BlockPos pos = entity.getPos();
         ModelProperties properties = entity.getProperties();
         Transform modelTransform = properties.getTransform().copy();
-        /* Collision must be tick-stable and client/server identical — never apply FormShake. */
-        Transform formTransform = composeFormTransform(form, false);
+        Transform formTransform = composeFormTransform(form, entity.getEntity().getAge());
         Matrix4f matrix = new Matrix4f()
             .translation(pos.getX() + 0.5F, pos.getY(), pos.getZ() + 0.5F);
         Matrix4f modelMat = new Matrix4f();
@@ -410,7 +312,7 @@ public final class ModelBlockSolidCollisions
         return matrix;
     }
 
-    private static Transform composeFormTransform(Form form, boolean applyShake)
+    private static Transform composeFormTransform(Form form, float animTime)
     {
         Transform transform = new Transform();
 
@@ -422,10 +324,7 @@ public final class ModelBlockSolidCollisions
             applyOverlay(transform, overlay.get());
         }
 
-        if (applyShake)
-        {
-            FormShake.apply(transform, form, 0F);
-        }
+        FormShake.apply(transform, form, animTime);
 
         return transform;
     }
@@ -654,14 +553,12 @@ public final class ModelBlockSolidCollisions
         /* Use ledge height above the feet, not full AABB height (rotation inflates AABB). */
         double ledge = worldBox.maxY - feet.minY;
 
-        /* Ignore near-zero ledges: standing slightly inside a floor (common after gravity)
-         * must not look like a step or getStepHeight(0.9) fights landing every tick. */
-        if (ledge < MIN_CLIMB_LEDGE || ledge > CLIMB_STEP_HEIGHT + 0.05D)
+        if (ledge <= 1.0E-3D || ledge > CLIMB_STEP_HEIGHT + 0.05D)
         {
             return false;
         }
 
-        if (worldBox.maxY <= feet.minY + MIN_CLIMB_LEDGE)
+        if (worldBox.maxY <= feet.minY + 1.0E-3D)
         {
             return false;
         }
