@@ -228,8 +228,44 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         Vector3f light1 = RenderSystem.shaderLightDirections[1];
         Matrix4f projectionMatrix = new Matrix4f(RenderSystem.getProjectionMatrix());
         VertexSorter vertexSorter = RenderSystem.getVertexSorting();
+        /* Save both enable + mode — restoring only mode left cull off after the postcard blit
+         * and contaminated later StructureForm leaf / VAO draws (esp. NeoForge). */
+        boolean savedCullEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         int cullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
 
+        try
+        {
+            this.renderFramebufferInner(
+                context, framebuffer, x, y, width, height,
+                prevDraw, prevRead, scissorEnabled, scissorBox, clearColor,
+                light0, light1, projectionMatrix, vertexSorter, cullFace);
+        }
+        finally
+        {
+            if (savedCullEnabled)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
+            GL11.glCullFace(cullFace);
+        }
+    }
+
+    private void renderFramebufferInner(
+        FormRenderingContext context,
+        Framebuffer framebuffer,
+        int x, int y, int width, int height,
+        int prevDraw, int prevRead,
+        boolean scissorEnabled, int[] scissorBox, float[] clearColor,
+        Vector3f light0, Vector3f light1,
+        Matrix4f projectionMatrix, VertexSorter vertexSorter,
+        int cullFace)
+    {
+        /* FRONT cull only for offscreen content fill (Y-flipped ortho). Restored before blit. */
         GL30.glCullFace(GL30.GL_FRONT);
 
         /* Iris pack: bake flat albedo (Unlit) — pack state can black out limbs if we mix_light
@@ -353,6 +389,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit. */
             BBSRendering.restoreWorldRenderState();
             BBSRendering.prepareVanillaEntityLighting();
+            /* End FRONT-face fill before the world postcard blit. */
+            GL11.glCullFace(cullFace);
         }
 
         context.stack.pop();
@@ -375,7 +413,6 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.applyModelViewMatrix();
 
         RenderSystem.setProjectionMatrix(projectionMatrix, vertexSorter);
-        GL11.glCullFace(cullFace);
 
         /* Vanilla root (shaded): content already lit → unlit blit.
          * Iris / body-part (shaded): flat albedo → lit entity_translucent so the postcard
@@ -548,72 +585,90 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.depthMask(true);
         RenderSystem.colorMask(true, true, true, true);
 
-        /* Iris body-part lit: cull like Billboard dual-sided — both faces at z=0 with cull
-         * off lets the pack keep the darker winding. Other FBO blits keep disableCull. */
-        if (irisBodyPartLit)
+        /* Dual-sided postcard may disable cull; must restore so sibling StructureForms
+         * (leaves / translucentCull VAO) do not inherit cull-off for the rest of the frame. */
+        boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+
+        try
         {
-            RenderSystem.enableCull();
+            /* Iris body-part lit: cull like Billboard dual-sided — both faces at z=0 with cull
+             * off lets the pack keep the darker winding. Other FBO blits keep disableCull. */
+            if (irisBodyPartLit)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
+            BBSModClient.getTextures().bindTexture(texture);
+
+            if (irisBodyPartLit)
+            {
+                /* Force TU0 — under Iris a raw bind can hit the lightmap unit (bbs-fs billboard). */
+                RenderSystem.activeTexture(GL13.GL_TEXTURE0);
+                RenderSystem.bindTexture(texture.id);
+            }
+            else
+            {
+                texture.bind();
+            }
+
+            /* Re-assert every draw: join/Iris/reload can leave LINEAR on the FBO id,
+             * which turns intentional low-res pixelation into blur until the size changes. */
+            texture.setFilter(GL11.GL_NEAREST);
+            texture.setParameter(GL30.GL_TEXTURE_MAX_LEVEL, 0);
+            RenderSystem.setShaderTexture(0, texture.id);
+            RenderSystem.setShader(shader);
+
+            /* ModelForm hosts apply Y180 before body parts, so local +Z faces the limb back.
+             * Vanilla mix_light needs −Z as the outward face. Iris rebuilds normals from
+             * modelview, so the same −Z reads inverted under packs — keep +Z when Iris is on. */
+            float frontNz = 1F;
+
+            if (context != null && context.isBodyPart() && !BBSRendering.isIrisShadersEnabled())
+            {
+                frontNz = -1F;
+            }
+
+            float backNz = -frontNz;
+
+            /* Front */
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, frontNz);
+
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
+
+            /* Back */
+            this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
+
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
+
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableBlend();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+            BufferRenderer.drawWithGlobalProgram(builder.end());
         }
-        else
+        finally
         {
-            RenderSystem.disableCull();
+            if (previousCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
         }
-
-        BBSModClient.getTextures().bindTexture(texture);
-
-        if (irisBodyPartLit)
-        {
-            /* Force TU0 — under Iris a raw bind can hit the lightmap unit (bbs-fs billboard). */
-            RenderSystem.activeTexture(GL13.GL_TEXTURE0);
-            RenderSystem.bindTexture(texture.id);
-        }
-        else
-        {
-            texture.bind();
-        }
-
-        /* Re-assert every draw: join/Iris/reload can leave LINEAR on the FBO id,
-         * which turns intentional low-res pixelation into blur until the size changes. */
-        texture.setFilter(GL11.GL_NEAREST);
-        texture.setParameter(GL30.GL_TEXTURE_MAX_LEVEL, 0);
-        RenderSystem.setShaderTexture(0, texture.id);
-        RenderSystem.setShader(shader);
-
-        /* ModelForm hosts apply Y180 before body parts, so local +Z faces the limb back.
-         * Vanilla mix_light needs −Z as the outward face. Iris rebuilds normals from
-         * modelview, so the same −Z reads inverted under packs — keep +Z when Iris is on. */
-        float frontNz = 1F;
-
-        if (context != null && context.isBodyPart() && !BBSRendering.isIrisShadersEnabled())
-        {
-            frontNz = -1F;
-        }
-
-        float backNz = -frontNz;
-
-        /* Front */
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, frontNz);
-
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
-
-        /* Back */
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
-
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
-
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         if (litQuad)
         {
