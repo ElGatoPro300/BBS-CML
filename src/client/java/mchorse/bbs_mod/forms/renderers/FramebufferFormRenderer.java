@@ -82,7 +82,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
     private final Vector3f lookAtTarget = new Vector3f();
     private boolean lookAtWorldValid;
 
-
+    /**
+     * Same model matrix the highlight blit uses (form-editor orbit already includes
+     * {@code camera.view}). Capture pre/post billboard so gizmos reconstruct
+     * {@code parent = F·inv(pre)·post} with {@code S0·parent = post} — matching stencil.
+     */
+    private final Matrix4f capturedPreBillboard = new Matrix4f();
+    private final Matrix4f capturedBillboardMV = new Matrix4f();
+    private boolean hasBillboardCapture;
 
     /**
      * Form-editor / film preview camera for the current UI frame. Set while the pickable
@@ -481,9 +488,23 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
     {
+        this.hasBillboardCapture = false;
+
         if (this.captureLookAtBillboard)
         {
-            this.applyLookAtBillboard(matrices);
+            /* Capture the exact matrices the highlight/stencil blit uses. */
+            if (this.lookAtViewSpaceAlready)
+            {
+                this.capturedPreBillboard.set(matrices.peek().getPositionMatrix());
+            }
+
+            this.applyLookAtBillboard(matrices, this.lookAtCamera, this.lookAtViewSpaceAlready);
+
+            if (this.lookAtViewSpaceAlready)
+            {
+                this.capturedBillboardMV.set(matrices.peek().getPositionMatrix());
+                this.hasBillboardCapture = true;
+            }
         }
 
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
@@ -560,7 +581,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private boolean shouldLookAtBillboard(FormRenderingContext context)
     {
-        return this.form.billboard.get() && (context == null || !context.modelRenderer) && this.isLookAtPass(context);
+        return this.form.billboard.get() && this.isLookAtPass(context);
     }
 
     private boolean shouldLookAtCameraContent(FormRenderingContext context)
@@ -654,10 +675,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
     }
 
     /**
-     * Face the display quad at the camera (yaw + pitch), same bake as Billboard/Label.
-     * Keep translate/scale; reset rotation to identity in camera view space.
+     * Face the display quad at the camera (yaw + pitch), same bake as Video/Label.
+     * Keep translate/scale; replace rotation with {@code camera.view} in world space.
+     *
+     * @param viewSpaceAlready when true (form-editor orbit), the draw/gizmo path already
+     *                         applies {@code camera.view} — identity rotation faces the
+     *                         viewer; baking view again double-transforms and breaks gizmos.
      */
-    private void applyLookAtBillboard(MatrixStack matrices)
+    private void applyLookAtBillboard(MatrixStack matrices, Camera camera, boolean viewSpaceAlready)
     {
         Matrix4f modelMatrix = matrices.peek().getPositionMatrix();
         Vector3f scale = new Vector3f();
@@ -666,6 +691,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         modelMatrix.m00(1).m01(0).m02(0);
         modelMatrix.m10(0).m11(1).m12(0);
         modelMatrix.m20(0).m21(0).m22(1);
+
+        if (!viewSpaceAlready)
+        {
+            modelMatrix.mul(camera.view);
+        }
 
         modelMatrix.scale(scale);
 
@@ -764,9 +794,30 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         stack.push();
         this.applyTransforms(stack, false, transition);
 
-        if (applyLookAt && billboard && !viewSpaceAlready)
+        if (applyLookAt && billboard)
         {
-            this.applyLookAtBillboard(stack);
+            if (viewSpaceAlready && this.hasBillboardCapture)
+            {
+                /*
+                 * Highlight blit matrix is capturedBillboardMV (= post). Gizmo draw does
+                 * S0·parent; choose parent = F·inv(pre)·post so S0·parent = post.
+                 * Do not touch camera/target/world from the content capture.
+                 */
+                Matrix4f formMatrix = new Matrix4f(stack.peek().getPositionMatrix());
+                Matrix4f invPre = new Matrix4f(this.capturedPreBillboard);
+
+                if (Math.abs(invPre.determinant()) > 1.0E-8F)
+                {
+                    invPre.invert();
+                    stack.peek().getPositionMatrix().set(formMatrix).mul(invPre).mul(this.capturedBillboardMV);
+                }
+            }
+            else if (!viewSpaceAlready)
+            {
+                /* World/film: model matrix has no orbit view yet — bake camera.view. */
+                this.applyLookAtBillboard(stack, this.lookAtCamera, false);
+            }
+            /* Editor without capture yet: keep form matrix (one frame). */
         }
 
         matrices.put(prefix, new Matrix4f(stack.peek().getPositionMatrix()), origin);
