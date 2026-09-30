@@ -258,10 +258,10 @@ public class BOBJGPUSkinVAO extends BOBJModelVAO
 
                 boolean allowBone = true;
 
-                if (stencilMap.allowedBones != null && lightBone >= 0)
+                if (lightBone >= 0)
                 {
                     BOBJBone bone = this.getBoneByIndex(lightBone);
-                    allowBone = bone != null && stencilMap.allowedBones.contains(bone.name);
+                    allowBone = bone != null && stencilMap.isBoneAllowed(bone.name);
                 }
 
                 this.tmpLight[i * 2] = Math.max(0, stencilMap.increment ? (allowBone ? lightBone : 0) : 0);

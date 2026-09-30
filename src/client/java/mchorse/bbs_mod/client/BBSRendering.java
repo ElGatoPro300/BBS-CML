@@ -107,6 +107,11 @@ public class BBSRendering
 
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
+    /**
+     * Depth while FramebufferForm fills its offscreen buffer with albedo-only content
+     * (no diffuse/lightmap). The parent display quad applies world lighting once.
+     */
+    private static int framebufferContentUnlitDepth;
     public static int lastAction;
 
     /* Optional IRLights / IRL-editor shadow baker (no hard dependency). */
@@ -1327,6 +1332,33 @@ public class BBSRendering
     public static boolean isRenderingOffscreen()
     {
         return iris && IrisUtils.isRenderingOffscreen();
+    }
+
+    /**
+     * True while {@link #runFramebufferContentUnlit(Runnable)} is active: ModelForm
+     * draws flat albedo into a FramebufferForm (pack-safe; parent quad does lighting).
+     */
+    public static boolean isFramebufferContentUnlit()
+    {
+        return framebufferContentUnlitDepth > 0;
+    }
+
+    /**
+     * Run {@code render} with {@link #isFramebufferContentUnlit()} set so BBS model
+     * shaders skip diffuse + lightmap. Nesting-safe.
+     */
+    public static void runFramebufferContentUnlit(Runnable render)
+    {
+        framebufferContentUnlitDepth += 1;
+
+        try
+        {
+            render.run();
+        }
+        finally
+        {
+            framebufferContentUnlitDepth -= 1;
+        }
     }
 
     public static boolean isIrisShadersEnabled()

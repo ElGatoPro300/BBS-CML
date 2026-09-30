@@ -65,6 +65,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIStructureForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UITrailForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIVanillaParticleForm;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIVideoForm;
+import mchorse.bbs_mod.ui.forms.editors.panels.UIFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.states.UIAnimationStatesOverlayPanel;
 import mchorse.bbs_mod.ui.forms.editors.states.keyframes.UIAnimationStateEditor;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIPickableFormRenderer;
@@ -95,7 +96,6 @@ import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Pair;
-import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -174,11 +174,10 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     public UIIcon openStateEditor;
     public UIIcon openModelEditor;
 
-    /* Gizmo mode toolbar (mirrors the film viewport's transform-mode buttons, plus a toggle
-     * that routes gizmo drags into the selected body part's transform instead of the bone pose) */
+    /* Gizmo mode toolbar (mirrors the film viewport's transform-mode buttons, plus a cycling
+     * target: pose bone / body-part transform / form transform). */
     public UIElement gizmoToolbar;
-    public UIIcon gizmoBodyPart;
-    public UIIcon gizmoTransform;
+    public UIIcon gizmoTargetBtn;
     public UIIcon gizmoMove;
     public UIIcon gizmoScale;
     public UIIcon gizmoRotate;
@@ -190,8 +189,12 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     private final Map<String, UIIcon> gizmoButtonMap = new HashMap<>();
 
-    private boolean gizmoTargetsBodyPart;
-    private boolean gizmoTargetsTransform;
+    public enum GizmoTarget
+    {
+        POSE, FORM
+    }
+
+    private GizmoTarget gizmoTarget = GizmoTarget.POSE;
 
     public Form form;
 
@@ -346,7 +349,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF1E1F23);
                 context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF2A2B2F);
-                UIFormEditor.this.updateBodyPartListButtons();
                 super.render(context);
             }
         };
@@ -578,41 +580,12 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         inspectorResizer.relative(this.rightSidebar).x(0F).y(0.5F).w(6).h(40).anchor(0.5F, 0.5F);
 
         /* Gizmo mode toolbar */
-        this.gizmoBodyPart = new UIIcon(Icons.LIMB, (b) ->
+        this.gizmoTargetBtn = new UIIcon(this::getGizmoTargetIcon, (b) ->
         {
-            this.gizmoTargetsBodyPart = !this.gizmoTargetsBodyPart;
-
-            if (this.gizmoTargetsBodyPart)
-            {
-                this.gizmoTargetsTransform = false;
-            }
-
+            this.cycleGizmoTarget();
             UIUtils.playClick();
         });
-        this.gizmoBodyPart.tooltip(UIKeys.FILM_GIZMO_BODY_PART, Direction.RIGHT);
-        this.gizmoBodyPart.activeBackground(Colors.A50 | Colors.BLUE);
-        this.gizmoTransform = new UIIcon(Icons.GEAR, (b) ->
-        {
-            this.gizmoTargetsTransform = !this.gizmoTargetsTransform;
-
-            if (this.gizmoTargetsTransform)
-            {
-                this.enableFormTransformGizmo();
-            }
-            else
-            {
-                this.disableFormTransformGizmo();
-
-                if (this.editor instanceof UIModelForm modelForm)
-                {
-                    modelForm.showPosePanel();
-                }
-            }
-
-            UIUtils.playClick();
-        });
-        this.gizmoTransform.tooltip(UIKeys.FILM_GIZMO_TRANSFORM, Direction.RIGHT);
-        this.gizmoTransform.activeBackground(Colors.A50 | Colors.BLUE);
+        this.gizmoTargetBtn.tooltip(UIKeys.FILM_GIZMO_TARGET, Direction.RIGHT);
         this.gizmoMove = this.createGizmoModeButton(Icons.ALL_DIRECTIONS, Gizmo.Mode.TRANSLATE, UIKeys.FILM_GIZMO_MOVE);
         this.gizmoScale = this.createGizmoModeButton(Icons.SCALE, Gizmo.Mode.SCALE, UIKeys.FILM_GIZMO_SCALE);
         this.gizmoRotate = this.createGizmoModeButton(Icons.ARC, Gizmo.Mode.ROTATE, UIKeys.FILM_GIZMO_ROTATE);
@@ -646,8 +619,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         });
         this.gizmoTranslateSpeed.tooltip(UIKeys.FILM_GIZMO_TRANSLATE_SPEED, Direction.RIGHT);
 
-        this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.BODY_PART, this.gizmoBodyPart);
-        this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.TRANSFORM, this.gizmoTransform);
+        this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.TARGET, this.gizmoTargetBtn);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.MOVE, this.gizmoMove);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.SCALE, this.gizmoScale);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.ROTATE, this.gizmoRotate);
@@ -667,8 +639,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
                 Gizmo.Mode gizmoMode = Gizmo.INSTANCE.getMode();
 
-                UIFormEditor.this.gizmoBodyPart.active(UIFormEditor.this.gizmoTargetsBodyPart);
-                UIFormEditor.this.gizmoTransform.active(UIFormEditor.this.gizmoTargetsTransform);
+                UIFormEditor.this.refreshGizmoTargetButton();
                 UIFormEditor.this.gizmoMove.active(gizmoMode == Gizmo.Mode.TRANSLATE);
                 UIFormEditor.this.gizmoScale.active(gizmoMode == Gizmo.Mode.SCALE);
                 UIFormEditor.this.gizmoRotate.active(gizmoMode == Gizmo.Mode.ROTATE);
@@ -779,18 +750,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.statesKeyframes.finishGizmoPendingClick();
     }
 
-    /** Which transform the gizmo should drag: the selected body part's transform when the
-     *  toolbar's body-part toggle is on (and a body part is selected), the form's own general
-     *  transform when the toolbar's transform toggle is on, the form/bone pose transform
-     *  otherwise. */
+    /** Which transform the gizmo should drag: the form's own general transform when the
+     *  toolbar target is FORM, the form/bone pose transform otherwise (POSE). */
     private UIPropTransform getGizmoDragTransform()
     {
-        if (this.gizmoTargetsBodyPart && this.bodyPartEditor != null && this.bodyPartEditor.getPart() != null)
-        {
-            return this.bodyPartEditor.transform;
-        }
-
-        if (this.gizmoTargetsTransform && this.editor != null)
+        if (this.gizmoTarget == GizmoTarget.FORM && this.editor != null)
         {
             return this.editor.getEditableTransform();
         }
@@ -821,7 +785,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     /** Pose bone handles (Model Block Edit / form palette Pose), not General or body-part. */
     private boolean isPoseBoneGizmo(UIPropTransform transform)
     {
-        if (transform == null || this.gizmoTargetsBodyPart || this.gizmoTargetsTransform)
+        if (transform == null || this.gizmoTarget != GizmoTarget.POSE)
         {
             return false;
         }
@@ -842,23 +806,130 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     public boolean isGizmoTargetingFormTransform()
     {
-        return this.gizmoTargetsTransform;
+        return this.gizmoTarget == GizmoTarget.FORM;
     }
 
-    /** Enables the toolbar transform gizmo and wires it to the form transform (General need not be open). */
+    private boolean supportsPoseGizmoTarget()
+    {
+        return this.editor instanceof UIModelForm;
+    }
+
+    private boolean isGizmoTargetValid(GizmoTarget target)
+    {
+        if (target == GizmoTarget.POSE)
+        {
+            return this.supportsPoseGizmoTarget();
+        }
+
+        return true;
+    }
+
+    private GizmoTarget nextGizmoTarget(GizmoTarget current)
+    {
+        if (!this.supportsPoseGizmoTarget())
+        {
+            return GizmoTarget.FORM;
+        }
+
+        return current == GizmoTarget.POSE ? GizmoTarget.FORM : GizmoTarget.POSE;
+    }
+
+    private void cycleGizmoTarget()
+    {
+        if (!this.supportsPoseGizmoTarget())
+        {
+            return;
+        }
+
+        GizmoTarget start = this.gizmoTarget;
+        GizmoTarget next = this.nextGizmoTarget(start);
+
+        while (!this.isGizmoTargetValid(next) && next != start)
+        {
+            next = this.nextGizmoTarget(next);
+        }
+
+        if (this.isGizmoTargetValid(next))
+        {
+            this.setGizmoTarget(next);
+        }
+    }
+
+    private void setGizmoTarget(GizmoTarget target)
+    {
+        if (!this.isGizmoTargetValid(target))
+        {
+            return;
+        }
+
+        GizmoTarget previous = this.gizmoTarget;
+
+        this.gizmoTarget = target;
+
+        if (target == GizmoTarget.FORM)
+        {
+            this.enableFormTransformGizmoFromGeneralPanel();
+        }
+        else if (previous == GizmoTarget.FORM)
+        {
+            this.disableFormTransformGizmo();
+
+            if (target == GizmoTarget.POSE && this.editor instanceof UIModelForm modelForm)
+            {
+                modelForm.showPosePanel();
+            }
+        }
+
+        this.refreshGizmoTargetButton();
+    }
+
+    private Icon getGizmoTargetIcon()
+    {
+        if (this.gizmoTarget == GizmoTarget.FORM)
+        {
+            return Icons.GEAR;
+        }
+
+        return Icons.POSE;
+    }
+
+    private IKey getGizmoTargetTooltip()
+    {
+        if (this.gizmoTarget == GizmoTarget.FORM)
+        {
+            return UIKeys.FILM_GIZMO_TRANSFORM;
+        }
+
+        return UIKeys.FILM_GIZMO_POSE;
+    }
+
+    private void refreshGizmoTargetButton()
+    {
+        if (this.gizmoTargetBtn == null)
+        {
+            return;
+        }
+
+        if (this.gizmoTarget == GizmoTarget.POSE && !this.supportsPoseGizmoTarget())
+        {
+            this.gizmoTarget = GizmoTarget.FORM;
+        }
+
+        this.gizmoTargetBtn.tooltip(this.getGizmoTargetTooltip(), Direction.RIGHT);
+        this.gizmoTargetBtn.active(false);
+        this.gizmoTargetBtn.setEnabled(this.supportsPoseGizmoTarget());
+    }
+
+    /** Enables the toolbar form-transform target and wires it to the form transform (General need not be open). */
     public void enableFormTransformGizmo()
     {
-        this.gizmoTargetsTransform = true;
-        this.gizmoTargetsBodyPart = false;
-
-        this.enableFormTransformGizmoFromGeneralPanel();
+        this.setGizmoTarget(GizmoTarget.FORM);
     }
 
     /** Called when the General sidebar tab is selected — avoids re-entering {@link UIForm#setPanel}. */
     public void enableFormTransformGizmoFromGeneralPanel()
     {
-        this.gizmoTargetsTransform = true;
-        this.gizmoTargetsBodyPart = false;
+        this.gizmoTarget = GizmoTarget.FORM;
 
         if (this.editor != null && this.editor.generalPanel != null && this.editor.form != null)
         {
@@ -869,62 +940,24 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         {
             this.modelSettingsEditor.enterFormTransformGizmoMode();
         }
+
+        this.refreshGizmoTargetButton();
     }
 
-    /** Turns off the toolbar transform gizmo and leaves form-transform edit mode in the model editor. */
+    /** Turns off the toolbar form-transform target and leaves form-transform edit mode in the model editor. */
     public void disableFormTransformGizmo()
     {
-        if (!this.gizmoTargetsTransform
-            && (this.modelSettingsEditor == null || !this.modelSettingsEditor.isFormTransformGizmoMode()))
-        {
-            return;
-        }
-
-        this.gizmoTargetsTransform = false;
-
         if (this.modelSettingsEditor != null)
         {
             this.modelSettingsEditor.exitFormTransformGizmoMode();
         }
-    }
 
-    /** Finds the world matrix of the selected body part's attach point (its bone's matrix,
-     *  the part's own transform, and its own form root all composed together), i.e. exactly
-     *  the point the part rotates/scales around - so the gizmo lands where the part is actually
-     *  attached (e.g. on another model's head) instead of wherever the pose bone gizmo happens
-     *  to be. Returns null if it can't be resolved, so the caller can fall back. */
-    private Matrix4f getBodyPartOrigin(float transition)
-    {
-        BodyPart part = this.bodyPartEditor == null ? null : this.bodyPartEditor.getPart();
-        BodyPartManager manager = part == null ? null : part.getManager();
-        Form owner = manager == null ? null : manager.getOwner();
-
-        if (owner == null || this.editor == null)
+        if (this.gizmoTarget == GizmoTarget.FORM)
         {
-            return null;
+            this.gizmoTarget = this.supportsPoseGizmoTarget() ? GizmoTarget.POSE : GizmoTarget.FORM;
         }
 
-        int index = owner.parts.getAllTyped().indexOf(part);
-
-        if (index < 0)
-        {
-            return null;
-        }
-
-        String path = StringUtils.combinePaths(FormUtils.getPath(owner), String.valueOf(index));
-
-        return normalizeOriginBasis(this.editor.getOrigin(transition, path, this.bodyPartEditor.transform.getOrientation()));
-    }
-
-    /** Strips scale/skew/mirroring out of a gizmo origin matrix, leaving only position and a
-     *  right-handed unit-length rotation basis. Body part attach matrices carry the model
-     *  chain's scale (and .bobj armatures can carry mirrored axes); feeding those raw into the
-     *  gizmo distorts its rings into ellipses and skews the drag math - the rotation sweep arc
-     *  runs ahead of the mouse and clicking a ring can kick the value by a large arbitrary
-     *  amount. */
-    private static Matrix4f normalizeOriginBasis(Matrix4f matrix)
-    {
-        return GizmoMatrixUtils.normalizeBasis(matrix);
+        this.refreshGizmoTargetButton();
     }
 
     /* Build a single gizmo transform-mode button that selects its mode and highlights while
@@ -1048,6 +1081,12 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         if (!bone.isEmpty() && this.editor != null)
         {
             this.editor.pickBone(bone);
+
+            /* Selection implies pose context — match gizmos to the picked bone. */
+            if (this.supportsPoseGizmoTarget())
+            {
+                this.setGizmoTarget(GizmoTarget.POSE);
+            }
         }
     }
 
@@ -1605,6 +1644,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.updateLeftSplit();
         this.switchEditor(entry.getForm());
         this.updateBodyPartListButtons();
+        this.refreshGizmoTargetButton();
     }
 
     private void updateBodyPartListButtons()
@@ -1726,6 +1766,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             this.bodyPartEditor.setVisible(false);
             this.outlinerSplitter.setVisible(false);
             this.updateLeftSplit();
+            this.updateBodyPartListButtons();
 
             this.form.clearStatePlayers();
 
@@ -1788,14 +1829,29 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
      * transform. Enable that gizmo target as soon as their panel opens — otherwise the gizmo
      * stays inert until the user visits the General tab once (which calls
      * {@link #enableFormTransformGizmoFromGeneralPanel()}).
+     * <p>
+     * When the editor still supports pose, keep the user's current POSE/FORM choice across
+     * panel rebuilds (tree reselect, undo/redo). Only force FORM when pose is unavailable.
      */
     private void syncFormTransformGizmoForEditor()
     {
-        if (this.editor instanceof UIModelForm)
+        if (this.supportsPoseGizmoTarget())
         {
-            /* Model forms default to pose bones; leave transform-gizmo mode off until the
-             * toolbar gear (or General tab) opts in. */
-            this.gizmoTargetsTransform = false;
+            if (this.gizmoTarget == GizmoTarget.FORM)
+            {
+                this.enableFormTransformGizmoFromGeneralPanel();
+            }
+            else
+            {
+                this.gizmoTarget = GizmoTarget.POSE;
+
+                if (this.modelSettingsEditor != null)
+                {
+                    this.modelSettingsEditor.exitFormTransformGizmoMode();
+                }
+
+                this.refreshGizmoTargetButton();
+            }
 
             return;
         }
@@ -1865,12 +1921,34 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     @Override
     public void applyAllUndoData(MapType data)
     {
-        if (this.editor != null && this.form != null)
+        this.applyUndoUIState(data);
+    }
+
+    /**
+     * Applies cached UI undo data, then restores sidebar scrolls and gizmo target so
+     * Ctrl+Z/Y does not yank the inspector viewport or reset POSE/FORM mode.
+     */
+    public void applyUndoUIState(MapType data)
+    {
+        SidebarScrollSnapshot scrolls = this.captureSidebarScrolls();
+        GizmoTarget preservedTarget = this.gizmoTarget;
+        UIElement root = this.getRoot();
+
+        if (root != null)
         {
-            this.switchEditor(this.form);
+            /* Use the base visitation path so this method is not re-entered via {@link #applyAllUndoData}. */
+            if (root == this)
+            {
+                super.applyAllUndoData(data);
+            }
+            else
+            {
+                root.applyAllUndoData(data);
+            }
         }
 
-        super.applyAllUndoData(data);
+        this.restoreSidebarScrolls(scrolls);
+        this.restoreGizmoTargetAfterUndo(preservedTarget);
     }
 
     @Override
@@ -1900,6 +1978,94 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         }
 
         this.refillState();
+    }
+
+    public boolean isApplyingUndo()
+    {
+        return this.undoHandler != null && this.undoHandler.isApplyingUndo();
+    }
+
+    private static final class SidebarScrollSnapshot
+    {
+        private final double formPanel;
+        private final double bodyPart;
+        private final double modelSections;
+        private final double modelRight;
+
+        private SidebarScrollSnapshot(double formPanel, double bodyPart, double modelSections, double modelRight)
+        {
+            this.formPanel = formPanel;
+            this.bodyPart = bodyPart;
+            this.modelSections = modelSections;
+            this.modelRight = modelRight;
+        }
+    }
+
+    private SidebarScrollSnapshot captureSidebarScrolls()
+    {
+        double formPanel = 0D;
+        double bodyPart = 0D;
+        double modelSections = 0D;
+        double modelRight = 0D;
+
+        if (this.editor != null && this.editor.view instanceof UIFormPanel<?> formPanelView && formPanelView.options != null)
+        {
+            formPanel = formPanelView.options.scroll.getScroll();
+        }
+
+        if (this.bodyPartEditor != null)
+        {
+            bodyPart = this.bodyPartEditor.scroll.getScroll();
+        }
+
+        if (this.modelSettingsEditor != null)
+        {
+            modelSections = this.modelSettingsEditor.getSectionsScroll();
+            modelRight = this.modelSettingsEditor.getRightScroll();
+        }
+
+        return new SidebarScrollSnapshot(formPanel, bodyPart, modelSections, modelRight);
+    }
+
+    private void restoreSidebarScrolls(SidebarScrollSnapshot scrolls)
+    {
+        if (scrolls == null)
+        {
+            return;
+        }
+
+        if (this.editor != null && this.editor.view instanceof UIFormPanel<?> formPanelView && formPanelView.options != null)
+        {
+            formPanelView.options.scroll.setScroll(scrolls.formPanel);
+        }
+
+        if (this.bodyPartEditor != null)
+        {
+            this.bodyPartEditor.scroll.setScroll(scrolls.bodyPart);
+        }
+
+        if (this.modelSettingsEditor != null)
+        {
+            this.modelSettingsEditor.setSectionsScroll(scrolls.modelSections);
+            this.modelSettingsEditor.setRightScroll(scrolls.modelRight);
+        }
+    }
+
+    private void restoreGizmoTargetAfterUndo(GizmoTarget preserved)
+    {
+        if (preserved == null)
+        {
+            return;
+        }
+
+        if (preserved == GizmoTarget.POSE && !this.supportsPoseGizmoTarget())
+        {
+            this.enableFormTransformGizmoFromGeneralPanel();
+
+            return;
+        }
+
+        this.setGizmoTarget(preserved);
     }
 
     public void preFormRender(UIContext context, Form form)
@@ -1947,15 +2113,21 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     }
 
     /**
-     * {@link UIPropTransform} advances gizmo drags from its own {@code render()}. When the
-     * General panel that owns that widget is not mounted, drive the drag here so form
-     * transform values still update without auto-opening that panel.
+     * {@link UIPropTransform} advances gizmo drags from its own {@code render()}. When that
+     * widget is unmounted (FORM target / General closed) or mounted but not painted, drive
+     * the drag here so values still update. Skip when {@code render()} will tick to avoid
+     * double-advancing pointer deltas.
      */
     private void tickDetachedGizmoDrag(UIContext context)
     {
         UIPropTransform transform = this.getGizmoDragTransform();
 
-        if (transform == null || !transform.isGizmoEditing() || transform.getRoot() != null)
+        if (transform == null || !transform.isGizmoEditing())
+        {
+            return;
+        }
+
+        if (transform.getRoot() != null && transform.canBeSeen() && transform.canBeRendered(context.getViewport()))
         {
             return;
         }
@@ -1967,11 +2139,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     {
         Matrix4f result = null;
 
-        if (this.gizmoTargetsBodyPart && this.bodyPartEditor != null && this.bodyPartEditor.getPart() != null)
-        {
-            result = this.getBodyPartOrigin(transition);
-        }
-        else if (this.gizmoTargetsTransform && this.editor != null && this.editor.form != null)
+        if (this.gizmoTarget == GizmoTarget.FORM && this.editor != null && this.editor.form != null)
         {
             /* "#origin" makes UIForm.getOrigin() return the form's own pivot (entry.origin()),
              * i.e. the point its own transform rotates/scales around, ignoring any pose bone -

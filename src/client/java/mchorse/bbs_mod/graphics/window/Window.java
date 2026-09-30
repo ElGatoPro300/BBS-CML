@@ -28,6 +28,9 @@ public class Window
     private static int currentCursorShape = -1;
 
     private static MapType inMemoryClipboard;
+    private static String clipboardCache;
+    private static long clipboardCacheMs;
+    private static final long CLIPBOARD_CACHE_MS = 500L;
 
     public static long getWindow()
     {
@@ -77,6 +80,16 @@ public class Window
 
     public static String getClipboard()
     {
+        long now = System.currentTimeMillis();
+
+        /* GLFW clipboard reads on Windows can spam GL ERROR 65545 when the
+         * clipboard holds non-text / locked data. Cache briefly so UI polls
+         * (button enable, keybinds) do not hammer the OS every frame. */
+        if (clipboardCache != null && now - clipboardCacheMs < CLIPBOARD_CACHE_MS)
+        {
+            return clipboardCache;
+        }
+
         try
         {
             MinecraftClient client = MinecraftClient.getInstance();
@@ -88,17 +101,21 @@ public class Window
 
             String string = GLFW.glfwGetClipboardString(getWindow());
 
-            return string == null ? "" : string;
+            clipboardCache = string == null ? "" : string;
         }
         catch (Exception e)
-        {}
+        {
+            clipboardCache = "";
+        }
 
-        return "";
+        clipboardCacheMs = now;
+
+        return clipboardCache;
     }
 
     public static MapType getClipboardMap()
     {
-        return DataToString.mapFromString(getClipboard());
+        return parseClipboardMap(getClipboard());
     }
 
     /**
@@ -106,37 +123,76 @@ public class Window
      */
     public static MapType getClipboardMap(String verificationKey)
     {
+        /* Prefer in-session copy first — avoids OS clipboard polls for in-app paste checks. */
+        if (inMemoryClipboard != null && inMemoryClipboard.getBool(verificationKey))
+        {
+            return inMemoryClipboard;
+        }
+
         if (BBSSettings.usingInMemoryClipboard.get())
         {
-            return inMemoryClipboard != null && inMemoryClipboard.getBool(verificationKey) ? inMemoryClipboard : null;
+            return null;
         }
-        else
-        {
-            MapType data = DataToString.mapFromString(getClipboard());
 
-            return data != null && data.getBool(verificationKey) ? data : null;
-        }
+        MapType data = parseClipboardMap(getClipboard());
+
+        return data != null && data.getBool(verificationKey) ? data : null;
     }
 
     public static ListType getClipboardList()
     {
-        return DataToString.listFromString(getClipboard());
+        String raw = getClipboard();
+
+        if (!looksLikeBbsList(raw))
+        {
+            return null;
+        }
+
+        return DataToString.listFromStringSilent(raw.trim());
+    }
+
+    /**
+     * Parse OS clipboard text as a BBS map without stderr spam. Rejects non-map payloads
+     * (plain text, log dumps, images-as-failed-string, etc.) before invoking the parser.
+     */
+    private static MapType parseClipboardMap(String raw)
+    {
+        if (!looksLikeBbsMap(raw))
+        {
+            return null;
+        }
+
+        return DataToString.mapFromStringSilent(raw.trim());
+    }
+
+    private static boolean looksLikeBbsMap(String raw)
+    {
+        if (raw == null || raw.isEmpty())
+        {
+            return false;
+        }
+
+        String trimmed = raw.trim();
+
+        return !trimmed.isEmpty() && trimmed.charAt(0) == '{';
+    }
+
+    private static boolean looksLikeBbsList(String raw)
+    {
+        if (raw == null || raw.isEmpty())
+        {
+            return false;
+        }
+
+        String trimmed = raw.trim();
+
+        return !trimmed.isEmpty() && trimmed.charAt(0) == '[';
     }
 
     public static void setClipboard(String string)
     {
-        try
-        {
-            MinecraftClient client = MinecraftClient.getInstance();
-
-            if (client != null && client.keyboard != null)
-            {
-                client.keyboard.setClipboard(string);
-                return;
-            }
-        }
-        catch (Exception ignored)
-        {}
+        clipboardCache = string == null ? "" : string;
+        clipboardCacheMs = System.currentTimeMillis();
 
         if (string.length() > 1024)
         {
@@ -174,11 +230,9 @@ public class Window
         if (data != null)
         {
             data.putBool(verificationKey, true);
-            if (BBSSettings.usingInMemoryClipboard.get())
-            {
-                inMemoryClipboard = data;
-            }
-            else
+            inMemoryClipboard = data;
+
+            if (!BBSSettings.usingInMemoryClipboard.get())
             {
                 setClipboard(DataToString.toString(data, true));
             }

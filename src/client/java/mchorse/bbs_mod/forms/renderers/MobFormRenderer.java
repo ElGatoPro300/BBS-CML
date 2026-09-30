@@ -8,24 +8,34 @@ import mchorse.bbs_mod.client.MobTextureOverride;
 import mchorse.bbs_mod.client.renderer.MorphMobParticles;
 import mchorse.bbs_mod.film.MobItemStats;
 import mchorse.bbs_mod.film.MorphMountSync;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
+import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.PlayerUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
@@ -44,7 +54,10 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -61,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 {
@@ -251,6 +265,51 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     private void clearPBRTextureIntensity()
     {
         BBSRendering.clearPBRTextureIntensity();
+    }
+
+    /**
+     * Form color × context overlay, opacity from {@code color.a}. Same criteria as Block/Item
+     * (no paint/glow bake — MobForm color-only scope).
+     */
+    private Color resolveMobTint(int overlayColor)
+    {
+        Color tint = new Color().set(overlayColor, true);
+        Color stored = this.form.color.get();
+        Color formColor = stored == null ? Color.white() : stored.copyBakingColorGrade();
+
+        tint.mul(formColor);
+        this.form.applyFormOpacity(tint);
+        FormColorEffects.applyShadowPassColorFix(tint, stored, null, null, BBSRendering.isIrisShadowPass());
+
+        return tint;
+    }
+
+    private Function<VertexConsumer, VertexConsumer> createMobRecolor(Color tint)
+    {
+        Color snapshot = tint.copy();
+
+        return (consumer) -> new RecolorVertexConsumer(consumer, snapshot);
+    }
+
+    /** Soft-queue key (farther first) — form origin, same space as BlockForm. */
+    private double computeMobFormSortKey(Matrix4f drawMatrix, FormRenderingContext context)
+    {
+        Vector4f origin = new Vector4f(0F, 0F, 0F, 1F);
+        Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
+
+        viewSpace.transform(origin);
+
+        boolean filmLookAxis = context != null
+            && context.type == FormRenderType.ENTITY
+            && context.camera != null
+            && !context.modelRenderer;
+
+        if (filmLookAxis)
+        {
+            return -origin.z;
+        }
+
+        return origin.x * origin.x + origin.y * origin.y + origin.z * origin.z;
     }
 
     private void ensureEntity()
@@ -537,12 +596,22 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 }
             });
 
+            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+            RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
+
+            Color tint = this.resolveMobTint(Colors.WHITE);
+            Function<VertexConsumer, VertexConsumer> recolor = this.createMobRecolor(tint);
             consumers.setUI(true);
+            consumers.setSubstitute(recolor);
             MobTextureOverride.begin(this.form.texture.get());
             this.applyPBRTextureIntensity();
             try
             {
-                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), stack, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE);
+                if (tint.a > 0.001F)
+                {
+                    MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), stack, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE);
+                }
             }
             finally
             {
@@ -550,6 +619,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 MobTextureOverride.end();
             }
             consumers.draw();
+            consumers.setSubstitute(null);
             consumers.setUI(false);
 
             CustomVertexConsumerProvider.clearRunnables();
@@ -580,11 +650,16 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 forceZeroPickLight = true;
                 /* Re-apply picker shader after every RenderLayer.startDrawing (TAIL mixin),
                  * same as ItemFormRenderer — otherwise eyes/clothing keep their own shader
-                 * or a different lightmap and Alt-hover only highlights one layer. */
+                 * or a different lightmap and Alt-hover only highlights one layer.
+                 * IgnoreLightmap forces totalIndex = Target even when feature layers emit
+                 * fullbright UV2 (pumpkin, eyes, armor) that bypass ModelPartMixin. */
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
                     this.bindTexture();
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    ShaderProgram picker = BBSShaders.getPickerModelsProgram();
+
+                    this.setupTarget(context, picker);
+                    this.setIgnoreLightmap(picker, 1);
                     RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                 });
 
@@ -605,6 +680,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
 
             MatrixStack.Entry stackMarker = context.stack.peek();
+            boolean skippedLiveDraw = false;
+            Color outlineTint = Color.white();
+            boolean outlineShadowPass = false;
 
             context.stack.push();
 
@@ -675,6 +753,23 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             this.applyPBRTextureIntensity();
 
             EntityRenderDispatcher dispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
+            Color tint = this.resolveMobTint(context.color);
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+            boolean localPreview = context.isLocalPreview();
+            boolean softPostDeferred = !localPreview
+                && !context.isPicking()
+                && !shadowPass
+                && !ShaderOpacityPatch.isFlushingPostDeferred()
+                && !ShaderOpacityPatch.isPostDeferredPhase()
+                && ShaderOpacityPatch.shouldDelayUntilPostDeferred(tint.a);
+
+            outlineTint = tint;
+            outlineShadowPass = shadowPass;
+
+            if (tint.a <= 0.001F && !shadowPass && !context.isPicking())
+            {
+                skippedLiveDraw = true;
+            }
 
             try
             {
@@ -686,7 +781,73 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 /* Film draws its own ground shadow; nested vanilla shadow on the morph can
                  * defer the last clothing layer until a late draw with a bad light basis. */
                 dispatcher.setRenderShadows(false);
-                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
+
+                if (!skippedLiveDraw && softPostDeferred)
+                {
+                    boolean irisWorld = BBSRendering.isIrisWorldModelPass();
+                    boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(tint.a);
+                    boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(tint.a);
+                    Matrix4f deferredMatrix = irisWorld
+                        ? new Matrix4f(context.stack.peek().getPositionMatrix())
+                        : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+                    Matrix3f deferredNormal = new Matrix3f(context.stack.peek().getNormalMatrix());
+                    Color tintSnapshot = tint.copy();
+                    int lightSnapshot = light;
+                    float transitionSnapshot = context.getTransition();
+                    Link textureSnapshot = this.form.texture.get();
+                    double formSortKey = this.computeMobFormSortKey(context.stack.peek().getPositionMatrix(), context);
+
+                    Runnable deferredDraw = () ->
+                    {
+                        MatrixStack deferredStack = new MatrixStack();
+
+                        deferredStack.peek().getPositionMatrix().set(deferredMatrix);
+                        deferredStack.peek().getNormalMatrix().set(deferredNormal);
+
+                        CustomVertexConsumerProvider deferredConsumers = FormUtilsClient.getMobMorphProvider();
+                        Function<VertexConsumer, VertexConsumer> recolor = this.createMobRecolor(tintSnapshot);
+
+                        RenderSystem.enableDepthTest();
+                        RenderSystem.depthMask(depthWrite);
+                        ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
+                        deferredConsumers.setSubstitute(recolor);
+                        MobTextureOverride.begin(textureSnapshot);
+                        this.applyPBRTextureIntensity();
+
+                        EntityRenderDispatcher deferredDispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
+
+                        try
+                        {
+                            deferredDispatcher.setRenderShadows(false);
+                            deferredDispatcher.render(this.entity, 0D, 0D, 0D, 0F, transitionSnapshot, deferredStack, deferredConsumers, lightSnapshot);
+                            deferredConsumers.draw();
+                        }
+                        finally
+                        {
+                            deferredDispatcher.setRenderShadows(true);
+                            this.clearPBRTextureIntensity();
+                            MobTextureOverride.end();
+                            deferredConsumers.setSubstitute(null);
+                        }
+                    };
+
+                    if (irisWorld)
+                    {
+                        ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
+                    }
+                    else
+                    {
+                        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
+                    }
+
+                    skippedLiveDraw = true;
+                }
+                else if (!skippedLiveDraw)
+                {
+                    consumers.setSubstitute(this.createMobRecolor(tint));
+                    dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
+                    consumers.setSubstitute(null);
+                }
             }
             finally
             {
@@ -707,22 +868,35 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
             finally
             {
+                try
+                {
+                    /* Draw while hijack is still active so the final Immediate flush keeps
+                     * picker_models + Target + IgnoreLightmap (not a vanilla layer shader). */
+                    if (!skippedLiveDraw)
+                    {
+                        consumers.draw();
+                    }
+                }
+                catch (Exception ignored)
+                {
+                }
+
+                /* Outline before pose clear — mask re-draw still needs LivingEntityRendererMixin pose. */
+                if (!context.isPicking() && !outlineShadowPass)
+                {
+                    this.renderOutline(context, outlineTint);
+                }
+
                 currentPose = currentPoseOverlay = null;
-                CustomVertexConsumerProvider.clearRunnables();
-                forceZeroPickLight = false;
 
                 if (prepareLighting)
                 {
                     BBSRendering.prepareVanillaEntityLighting();
                 }
 
-                try
-                {
-                    consumers.draw();
-                }
-                catch (Exception ignored)
-                {
-                }
+                CustomVertexConsumerProvider.clearRunnables();
+                this.setIgnoreLightmap(BBSShaders.getPickerModelsProgram(), 0);
+                forceZeroPickLight = false;
 
                 if (prepareLighting)
                 {
@@ -733,6 +907,75 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 MatrixStackUtils.popUntil(context.stack, stackMarker);
                 RenderSystem.enableDepthTest();
             }
+        }
+    }
+
+    /**
+     * Silhouette outline — same FormOutlineRenderer dilate/composite as ModelForm, but the
+     * mask is a second EntityRenderDispatcher pass with {@code outline_mask} forced on every
+     * RenderLayer (body, armor, held items). Iris defers via {@link ModelVAORenderer#submitOutlineOverlay}.
+     */
+    private void renderOutline(FormRenderingContext context, Color formTint)
+    {
+        if (this.entity == null || formTint == null)
+        {
+            return;
+        }
+
+        float formAlpha = formTint.a;
+        float transition = context.getTransition();
+        int light = context.light;
+        Link textureSnapshot = this.form.texture.get();
+        Pose poseSnapshot = currentPose;
+        Pose poseOverlaySnapshot = currentPoseOverlay;
+
+        FormOutlinePass.run(this.form, context, formAlpha, (outlineStack) ->
+        {
+            Pose previousPose = currentPose;
+            Pose previousOverlay = currentPoseOverlay;
+
+            currentPose = poseSnapshot;
+            currentPoseOverlay = poseOverlaySnapshot;
+
+            try
+            {
+                this.drawOutlineMask(outlineStack, light, transition, textureSnapshot);
+            }
+            finally
+            {
+                currentPose = previousPose;
+                currentPoseOverlay = previousOverlay;
+            }
+        });
+    }
+
+    private void drawOutlineMask(MatrixStack stack, int light, float transition, Link texture)
+    {
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getMobMorphProvider();
+        EntityRenderDispatcher dispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
+
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            this.bindTexture();
+            RenderSystem.setShader(BBSShaders::getOutlineMask);
+        });
+
+        MobTextureOverride.begin(texture);
+        this.applyPBRTextureIntensity();
+        consumers.setSubstitute(null);
+        dispatcher.setRenderShadows(false);
+
+        try
+        {
+            dispatcher.render(this.entity, 0D, 0D, 0D, 0F, transition, stack, consumers, light);
+            consumers.draw();
+        }
+        finally
+        {
+            dispatcher.setRenderShadows(true);
+            this.clearPBRTextureIntensity();
+            MobTextureOverride.end();
+            CustomVertexConsumerProvider.clearRunnables();
         }
     }
 
@@ -944,6 +1187,21 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     private static class BooleanHolder
     {
         public boolean bool;
+    }
+
+    private void setIgnoreLightmap(ShaderProgram program, int value)
+    {
+        if (program == null)
+        {
+            return;
+        }
+
+        GlUniform ignore = program.getUniform("IgnoreLightmap");
+
+        if (ignore != null)
+        {
+            ignore.set(value);
+        }
     }
 
     public static int getStencilPickOffset(ModelPart part, int light)

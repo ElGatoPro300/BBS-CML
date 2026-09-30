@@ -172,6 +172,23 @@ public interface IUIKeyframeGraph
                     value = sheet.channel.getFactory().createEmpty();
                 }
             }
+            else if (sheet.channel.getFactory() == KeyframeFactories.FRAMEBUFFER_RESOLUTION
+                || sheet.channel.getFactory() == KeyframeFactories.FRAMEBUFFER_VIEW_EXTENT)
+            {
+                if (segment != null)
+                {
+                    value = segment.createInterpolated();
+                    extra = segment.a;
+                }
+                else if (sheet.defaultInsertValue != null)
+                {
+                    value = sheet.channel.getFactory().copy(sheet.defaultInsertValue);
+                }
+                else
+                {
+                    value = sheet.channel.getFactory().createEmpty();
+                }
+            }
             else if (segment != null)
             {
                 value = segment.createInterpolated();

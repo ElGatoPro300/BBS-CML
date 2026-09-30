@@ -268,7 +268,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         );
         UISection displaySection = new UISection(UIKeys.FORMS_EDITORS_GENERAL, displayContent);
 
-        UISection transformSection = new UISection(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS, this.transform);
+        UISection transformSection = new UISection(UIKeys.FORMS_EDITORS_TRANSFORMS, this.transform);
 
         UIElement hitboxContent = UI.column(5, 0,
             this.hitbox,

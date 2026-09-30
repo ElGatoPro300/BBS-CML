@@ -20,6 +20,9 @@ import java.util.Set;
 /**
  * Runtime entry point that compiles form-embedded limb constraints and writes
  * the solved pose onto the live model instance.
+ *
+ * <p>Restored to the classic (pre–tree-solver) path: merges {@code form.ik} with
+ * model {@code limbConstraints}, then {@link SkeletonPoseWriter} / {@link LimbResolver}.
  */
 public final class LimbConstraintProcessor
 {
@@ -50,22 +53,14 @@ public final class LimbConstraintProcessor
         }
 
         IModel model = instance.model;
-        LimbConstraintCompiler.Compiled compiled = null;
-        MapType map = null;
-        Map<String, LimbDynamicParams> controlOverrides = null;
-        Map<String, Float> targetWeights = null;
-        Map<String, Float> poleWeights = null;
+        MapType map = resolveIkMap(instance);
 
-        map = resolveIkMap(instance);
+        if (map == null)
+        {
+            return;
+        }
 
-        if (map != null)
-        {
-            compiled = LimbConstraintCompiler.getFromData(model, map);
-        }
-        else
-        {
-            IKLog.note("this form carries no ik map at all — nothing was ever saved, or the form is not a ModelForm");
-        }
+        LimbConstraintCompiler.Compiled compiled = LimbConstraintCompiler.getFromData(model, map);
 
         if (compiled == null)
         {
@@ -81,7 +76,7 @@ public final class LimbConstraintProcessor
 
         Map<String, JointLimit> boneLimits = JointLimitEnforcer.getJoints(instance);
 
-        SkeletonPoseWriter.apply(model, limbs, compiled.joints(), targets, poles, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
+        SkeletonPoseWriter.apply(model, limbs, targets, poles, null, null, null, boneLimits, tipRotations, tipRotationWeights);
     }
 
     public static List<String> getControllers(ModelInstance instance)
@@ -146,14 +141,8 @@ public final class LimbConstraintProcessor
     }
 
     /**
-     * The IK map actually in effect for this instance: the form's own config merged with
-     * the model's, falling back to the model's alone when the instance carries no
-     * {@link ModelForm}.
-     *
-     * <p>Public because the debug overlay needs the SAME map the solver uses. Reading
-     * {@code form.ik} alone is wrong outside the model editor — a model's IK config lives
-     * in {@code instance.limbConstraints}, and only the editor's
-     * {@code syncSolverConfig} copies it onto the form.
+     * IK map in effect: non-empty {@code form.ik}, else the model's embedded
+     * {@code instance.limbConstraints}.
      */
     public static MapType resolveIkMap(ModelInstance instance)
     {
@@ -175,6 +164,11 @@ public final class LimbConstraintProcessor
         if (form.ik.get() instanceof MapType map && !map.isEmpty())
         {
             return (MapType) map.copy();
+        }
+
+        if (instanceLimbs != null)
+        {
+            return (MapType) instanceLimbs.copy();
         }
 
         return null;

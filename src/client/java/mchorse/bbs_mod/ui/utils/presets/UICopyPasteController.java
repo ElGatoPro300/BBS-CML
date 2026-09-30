@@ -130,6 +130,8 @@ public class UICopyPasteController
             return false;
         }
 
+        /* canPaste is polled from UI enable paths; never let a dirty OS clipboard
+         * throw/parse-spam. Window.getClipboardMap already rejects non-map text silently. */
         return Window.getClipboardMap(this.copyPrefix) != null;
     }
 
