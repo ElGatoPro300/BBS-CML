@@ -37,6 +37,11 @@ public class VideoForm extends Form
         this.offsetX.invisible();
         this.offsetY.invisible();
         this.rotation.invisible();
+        /* Tint/opacity only — same Color UI scope as MobForm / LabelForm (no paint/glow/grade). */
+        this.paintColor.invisible();
+        this.paintSettings.invisible();
+        this.glowingColor.invisible();
+        this.glowSettings.invisible();
 
         this.add(this.video);
         this.add(this.billboard);

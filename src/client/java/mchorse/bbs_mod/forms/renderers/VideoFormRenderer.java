@@ -11,9 +11,6 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
-import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.renderers.utils.SoftFlatFaceSort;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -1164,30 +1161,11 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     {
         Color tint = new Color().set(overlayColor, true);
         Color storedFormColor = this.form.color.get();
-        Color rawFormColor = storedFormColor == null
+        Color formColor = storedFormColor == null
             ? Color.white()
             : (BBSShaders.getVideoProgram() != null
                 ? storedFormColor.copyDeferringColorGrade()
                 : storedFormColor.copyBakingColorGrade());
-        Color formColor = rawFormColor.copy();
-
-        GlowSettings glowSettings = this.form.glowSettings.get();
-        Color legacyGlow = this.form.glowingColor.get();
-        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
-
-        if (glowIntensity != 0F)
-        {
-            FormColorEffects.blendFormGlowBrighten(formColor, glowSettings, legacyGlow);
-        }
-
-        PaintSettings paintSettings = this.form.paintSettings.get();
-        Color legacyPaint = this.form.paintColor.get();
-        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
-
-        if (paintStrength != 0F)
-        {
-            FormColorEffects.applyPaintBlend(formColor, paintSettings, legacyPaint);
-        }
 
         tint.mul(formColor);
         this.form.applyFormOpacity(tint);

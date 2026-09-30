@@ -4,6 +4,7 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LabelForm;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
@@ -131,7 +132,7 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
     {
         Form form = this.getEditingForm();
 
-        return form instanceof LabelForm || form instanceof MobForm;
+        return form instanceof LabelForm || form instanceof MobForm || form instanceof VideoForm;
     }
 
     private void resetAll()
