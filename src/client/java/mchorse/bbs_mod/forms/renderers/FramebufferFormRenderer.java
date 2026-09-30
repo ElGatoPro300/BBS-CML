@@ -672,12 +672,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             }
         }
 
-        /* restoreWorldRenderState() (called from renderFramebufferInner's finally before this
-         * quad) always calls setupOverlayColor(). When litQuad=false the previous guard skipped
-         * teardown, leaving OverlayTexture bound on TU1 for the rest of the frame — HUD shaders
-         * that sample Sampler1 (entity_solid for enchanted items) then discard all pixels. */
-        gameRenderer.getLightmapTextureManager().disable();
-        gameRenderer.getOverlayTexture().teardownOverlayColor();
+        if (litQuad)
+        {
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
+        }
     }
 
     /**

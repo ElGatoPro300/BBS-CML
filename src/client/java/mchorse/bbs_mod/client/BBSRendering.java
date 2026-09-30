@@ -557,6 +557,14 @@ public class BBSRendering
         RenderSystem.defaultBlendFunc();
         resetPixelUnpackState();
         clearTextureUnit0();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        }
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
