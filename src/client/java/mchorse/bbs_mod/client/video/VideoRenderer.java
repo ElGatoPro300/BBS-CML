@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client.video;
 
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
+import mchorse.bbs_mod.camera.clips.misc.VideoOverlay;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -171,6 +172,16 @@ public class VideoRenderer
         }
 
         WaterMediaVideoRenderer.renderClips(stack, batcher, clips, tick, isRunning, viewport, globalArea, context, screenWidth, screenHeight, renderGlobal);
+    }
+
+    public static void renderOverlay(MatrixStack stack, Batcher2D batcher, VideoOverlay overlay, boolean isRunning, Area viewport, int screenWidth, int screenHeight)
+    {
+        if (!isModPresent())
+        {
+            return;
+        }
+
+        WaterMediaVideoRenderer.renderOverlay(stack, batcher, overlay, isRunning, viewport, screenWidth, screenHeight);
     }
 
     public static void render(MatrixStack stack, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)

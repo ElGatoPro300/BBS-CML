@@ -9778,8 +9778,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 return;
             }
 
-            /* Black background for letterboxing within the floating window */
-            this.area.render(context.batcher, 0xFF000000);
+            /* Semi-transparent chrome so Global can be used as a see-through reference. */
+            this.area.render(context.batcher, 0x80000000);
 
             if (this.panel.getData() != null && this.clip != null && this.clip.enabled.get() && this.clip.isInside(this.panel.getCursor()))
             {

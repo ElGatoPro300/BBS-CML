@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client.video;
 
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
+import mchorse.bbs_mod.camera.clips.misc.VideoOverlay;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -135,79 +136,147 @@ public class WaterMediaVideoRenderer
                     continue;
                 }
 
-                Area baseArea = (video.global.get() && globalArea != null) ? globalArea : viewport;
-                int actualW = getVideoWidth(video.video.get());
-                int actualH = getVideoHeight(video.video.get());
-
-                int baseW = baseArea.w;
-                int baseH = baseArea.h;
-
-                if (actualW > 0 && actualH > 0)
-                {
-                    float videoAspect = (float) actualW / actualH;
-                    float areaAspect = (float) baseArea.w / baseArea.h;
-
-                    if (videoAspect > areaAspect)
-                    {
-                        baseH = (int) (baseArea.w / videoAspect);
-                    }
-                    else
-                    {
-                        baseW = (int) (baseArea.h * videoAspect);
-                    }
-                }
-
-                float widthPercent = video.width.get() / 100F;
-                float heightPercent = video.height.get() / 100F;
-
-                if (video.width.get() == 0 && video.height.get() == 0)
-                {
-                    widthPercent = 1F;
-                    heightPercent = 1F;
-                }
-
-                int vw = widthPercent == 0F ? 0 : Math.max(1, Math.round(baseW * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
-                int vh = heightPercent == 0F ? 0 : Math.max(1, Math.round(baseH * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
-
-                int vx = baseArea.x + (baseArea.w - vw) / 2 + video.x.get();
-                int vy = baseArea.y + (baseArea.h - vh) / 2 + video.y.get();
-
+                /* Non-global layered video is drawn via ScreenEffectRenderer (renderOrder). */
                 if (!video.global.get())
                 {
-                    if (context != null)
-                    {
-                        batcher.clip(viewport, context);
-                    }
-                    else
-                    {
-                        batcher.clip(viewport.x, viewport.y, viewport.w, viewport.h, screenWidth, screenHeight);
-                    }
-                }
-                else
-                {
-                    batcher.flush();
+                    continue;
                 }
 
-                render(stack,
-                    video.video.get(),
-                    tick - Math.round(video.tick.get()) + video.offset.get(),
-                    isRunning,
-                    video.volume.get(),
-                    vx, vy, vw, vh, video.opacity.get(),
-                    video.cropX.get(), video.cropY.get(), video.cropWidth.get(), video.cropHeight.get(),
-                    video.loops.get());
+                Area baseArea = (globalArea != null) ? globalArea : viewport;
 
-                if (!video.global.get())
-                {
-                    if (context != null)
-                    {
-                        batcher.unclip(context);
-                    }
-                    else
-                    {
-                        batcher.unclip(screenWidth, screenHeight);
-                    }
-                }
+                renderVideoInArea(stack, batcher, video, tick, isRunning, baseArea, viewport, context, screenWidth, screenHeight, true);
+            }
+        }
+    }
+
+    /**
+     * Draw a non-global {@link VideoOverlay} registered during clip apply, using film viewport size.
+     */
+    public static void renderOverlay(MatrixStack stack, Batcher2D batcher, VideoOverlay overlay, boolean isRunning, Area viewport, int screenWidth, int screenHeight)
+    {
+        if (overlay == null || overlay.path == null || overlay.path.isEmpty() || viewport == null)
+        {
+            return;
+        }
+
+        int actualW = getVideoWidth(overlay.path);
+        int actualH = getVideoHeight(overlay.path);
+        int baseW = viewport.w;
+        int baseH = viewport.h;
+
+        if (actualW > 0 && actualH > 0)
+        {
+            float videoAspect = (float) actualW / actualH;
+            float areaAspect = (float) viewport.w / viewport.h;
+
+            if (videoAspect > areaAspect)
+            {
+                baseH = (int) (viewport.w / videoAspect);
+            }
+            else
+            {
+                baseW = (int) (viewport.h * videoAspect);
+            }
+        }
+
+        float widthPercent = overlay.width / 100F;
+        float heightPercent = overlay.height / 100F;
+
+        if (overlay.width == 0 && overlay.height == 0)
+        {
+            widthPercent = 1F;
+            heightPercent = 1F;
+        }
+
+        int vw = widthPercent == 0F ? 0 : Math.max(1, Math.round(baseW * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
+        int vh = heightPercent == 0F ? 0 : Math.max(1, Math.round(baseH * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
+        int vx = viewport.x + (viewport.w - vw) / 2 + overlay.x;
+        int vy = viewport.y + (viewport.h - vh) / 2 + overlay.y;
+
+        batcher.clip(viewport.x, viewport.y, viewport.w, viewport.h, screenWidth, screenHeight);
+        render(stack,
+            overlay.path,
+            overlay.videoTick,
+            isRunning,
+            overlay.volume,
+            vx, vy, vw, vh, overlay.opacity,
+            overlay.cropX, overlay.cropY, overlay.cropWidth, overlay.cropHeight,
+            overlay.loops);
+        batcher.unclip(screenWidth, screenHeight);
+    }
+
+    private static void renderVideoInArea(MatrixStack stack, Batcher2D batcher, VideoClip video, int tick, boolean isRunning, Area baseArea, Area viewport, UIContext context, int screenWidth, int screenHeight, boolean global)
+    {
+        int actualW = getVideoWidth(video.video.get());
+        int actualH = getVideoHeight(video.video.get());
+
+        int baseW = baseArea.w;
+        int baseH = baseArea.h;
+
+        if (actualW > 0 && actualH > 0)
+        {
+            float videoAspect = (float) actualW / actualH;
+            float areaAspect = (float) baseArea.w / baseArea.h;
+
+            if (videoAspect > areaAspect)
+            {
+                baseH = (int) (baseArea.w / videoAspect);
+            }
+            else
+            {
+                baseW = (int) (baseArea.h * videoAspect);
+            }
+        }
+
+        float widthPercent = video.width.get() / 100F;
+        float heightPercent = video.height.get() / 100F;
+
+        if (video.width.get() == 0 && video.height.get() == 0)
+        {
+            widthPercent = 1F;
+            heightPercent = 1F;
+        }
+
+        int vw = widthPercent == 0F ? 0 : Math.max(1, Math.round(baseW * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
+        int vh = heightPercent == 0F ? 0 : Math.max(1, Math.round(baseH * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
+
+        int vx = baseArea.x + (baseArea.w - vw) / 2 + video.x.get();
+        int vy = baseArea.y + (baseArea.h - vh) / 2 + video.y.get();
+
+        if (!global)
+        {
+            if (context != null)
+            {
+                batcher.clip(viewport, context);
+            }
+            else
+            {
+                batcher.clip(viewport.x, viewport.y, viewport.w, viewport.h, screenWidth, screenHeight);
+            }
+        }
+        else
+        {
+            batcher.flush();
+        }
+
+        render(stack,
+            video.video.get(),
+            tick - Math.round(video.tick.get()) + video.offset.get(),
+            isRunning,
+            video.volume.get(),
+            vx, vy, vw, vh, video.opacity.get(),
+            video.cropX.get(), video.cropY.get(), video.cropWidth.get(), video.cropHeight.get(),
+            video.loops.get());
+
+        if (!global)
+        {
+            if (context != null)
+            {
+                batcher.unclip(context);
+            }
+            else
+            {
+                batcher.unclip(screenWidth, screenHeight);
             }
         }
     }
