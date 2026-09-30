@@ -111,6 +111,37 @@ public final class ModelBlockSolidCollisions
         return false;
     }
 
+    /**
+     * Whether baked solid geometry is available for this model block.
+     * Used so {@link mchorse.bbs_mod.blocks.ModelBlock#getCollisionShape} can fall back to a
+     * full cube instead of becoming fully passable when solid is on but bake failed.
+     */
+    public static boolean hasSolidCollisionGeometry(ModelBlockEntity entity)
+    {
+        if (entity == null)
+        {
+            return false;
+        }
+
+        Form form = entity.getProperties().getForm();
+
+        if (form instanceof StructureForm structure && structure.solidHitbox.get())
+        {
+            StructureCollisionData data = StructureCollisionData.get(structure.structureFile.get());
+
+            return data != null && data.hasBoxes();
+        }
+
+        if (form instanceof ModelForm modelForm && modelForm.solidHitbox.get())
+        {
+            ModelCollisionData data = ModelCollisionData.get(modelForm);
+
+            return data != null && data.hasCollision();
+        }
+
+        return false;
+    }
+
     /** @deprecated use {@link #hasSolidFormHitbox(ModelBlockEntity)} */
     @Deprecated
     public static boolean hasSolidStructureHitbox(ModelBlockEntity entity)
@@ -158,7 +189,7 @@ public final class ModelBlockSolidCollisions
     {
         StructureCollisionData data = StructureCollisionData.get(structure.structureFile.get());
 
-        if (data == null || data.localBoxes.isEmpty())
+        if (data == null || !data.hasBoxes())
         {
             return;
         }
@@ -423,7 +454,7 @@ public final class ModelBlockSolidCollisions
         {
             StructureCollisionData data = StructureCollisionData.get(structure.structureFile.get());
 
-            if (data == null || data.localBoxes.isEmpty())
+            if (data == null || !data.hasBoxes())
             {
                 return false;
             }

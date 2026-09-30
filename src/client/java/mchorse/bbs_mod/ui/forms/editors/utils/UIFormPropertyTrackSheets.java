@@ -14,6 +14,7 @@ import mchorse.bbs_mod.forms.forms.LabelForm;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
@@ -221,7 +222,7 @@ public final class UIFormPropertyTrackSheets
             Form owner = FormUtils.getForm(colorProperty);
 
             /* Tint-only forms: no synthetic color_grade under Color. */
-            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm);
+            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm || owner instanceof VideoForm);
         }
 
         if (FormProperties.isFramebufferResolutionChannelKey(path)
@@ -614,8 +615,8 @@ public final class UIFormPropertyTrackSheets
         {
             Form colorOwner = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            /* MobForm Color is tint-only — no nested grade/paint/glow to expand. */
-            if (!(colorOwner instanceof MobForm))
+            /* Tint-only Color — no nested grade/paint/glow to expand. */
+            if (!(colorOwner instanceof MobForm) && !(colorOwner instanceof VideoForm))
             {
                 boolean expanded = !collapsed.getOrDefault(colorParentKey, true);
 
@@ -713,7 +714,7 @@ public final class UIFormPropertyTrackSheets
 
             Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm)
+            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm || form instanceof VideoForm)
             {
                 continue;
             }
