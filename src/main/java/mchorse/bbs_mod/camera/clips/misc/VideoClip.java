@@ -9,6 +9,8 @@ import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 
 public class VideoClip extends CameraClip
@@ -34,6 +36,8 @@ public class VideoClip extends CameraClip
     public ValueBoolean loops = new ValueBoolean("loops", false);
     public ValueBoolean global = new ValueBoolean("global", false);
 
+    private final VideoOverlay overlay = new VideoOverlay();
+
     public VideoClip()
     {
         super();
@@ -52,6 +56,11 @@ public class VideoClip extends CameraClip
         this.add(this.opacity);
         this.add(this.loops);
         this.add(this.global);
+    }
+
+    public static List<VideoOverlay> getVideos(ClipContext context)
+    {
+        return context.clipData.get("videos", ArrayList::new);
     }
 
     @Override
@@ -79,7 +88,50 @@ public class VideoClip extends CameraClip
 
     @Override
     protected void applyClip(ClipContext context, Position position)
-    {}
+    {
+        /* Global videos keep the floating panel / post-pass path; only layered film video
+         * participates in ScreenEffectRenderer order with images/subtitles/effects. */
+        if (this.global.get())
+        {
+            return;
+        }
+
+        String path = this.video.get();
+
+        if (path == null || path.isEmpty())
+        {
+            return;
+        }
+
+        float t = context.relativeTick + context.transition;
+        float factor = this.envelope.factorEnabled(this.duration.get(), t);
+        float alpha = factor * this.opacity.get();
+
+        if (alpha <= 0F)
+        {
+            return;
+        }
+
+        long videoTick = Math.round(t) + this.offset.get();
+
+        this.overlay.update(
+            path,
+            videoTick,
+            this.volume.get(),
+            this.x.get(),
+            this.y.get(),
+            this.width.get(),
+            this.height.get(),
+            this.cropX.get(),
+            this.cropY.get(),
+            this.cropWidth.get(),
+            this.cropHeight.get(),
+            alpha,
+            this.loops.get(),
+            context.applied
+        );
+        getVideos(context).add(this.overlay);
+    }
 
     @Override
     protected Clip create()

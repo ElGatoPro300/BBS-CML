@@ -135,6 +135,11 @@ public class UIFormUndoHandler
         this.uiData = null;
     }
 
+    public boolean isApplyingUndo()
+    {
+        return this.applyingUndo;
+    }
+
     /**
      * Handle undo/redo. This method primarily updates the UI state, according to
      * the undo/redo changes were done.
@@ -151,10 +156,20 @@ public class UIFormUndoHandler
         if (anotherUndo instanceof ValueChangeUndo)
         {
             ValueChangeUndo change = (ValueChangeUndo) anotherUndo;
-            UIElement root = this.uiElement.getRoot();
-            if (root != null)
+            MapType uiData = change.getUIData(redo);
+
+            if (this.uiElement instanceof UIFormEditor formEditor)
             {
-                root.applyAllUndoData(change.getUIData(redo));
+                formEditor.applyUndoUIState(uiData);
+            }
+            else
+            {
+                UIElement root = this.uiElement.getRoot();
+
+                if (root != null)
+                {
+                    root.applyAllUndoData(uiData);
+                }
             }
         }
     }

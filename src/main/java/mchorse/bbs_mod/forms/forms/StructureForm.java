@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.forms;
 
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
+import mchorse.bbs_mod.forms.structure.StructureCollisionData;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.misc.ValueStructureLightSettings;
@@ -81,6 +82,16 @@ public class StructureForm extends Form
 
         this.solidHitbox.invisible();
         this.add(this.solidHitbox);
+
+        /* Drop stale / unreadable collision cache when the structure path or solid toggle changes. */
+        this.structureFile.postCallback((value, flag) ->
+        {
+            StructureCollisionData.invalidate(this.structureFile.get());
+        });
+        this.solidHitbox.postCallback((value, flag) ->
+        {
+            StructureCollisionData.invalidate(this.structureFile.get());
+        });
     }
 
     @Override

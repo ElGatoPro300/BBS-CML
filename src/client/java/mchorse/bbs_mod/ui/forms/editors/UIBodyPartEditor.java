@@ -85,6 +85,8 @@ public class UIBodyPartEditor extends UIScrollView
 
     public void setPart(BodyPart part, Form form)
     {
+        BodyPart previous = this.part;
+
         this.part = part;
 
         this.removeAll();
@@ -104,12 +106,16 @@ public class UIBodyPartEditor extends UIScrollView
             this.add(boneSection);
         }
 
-        UISection transformSection = new UISection(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS, this.transform);
+        UISection transformSection = new UISection(UIKeys.FORMS_EDITOR_LIMB_TRANSFORMS, this.transform);
         this.add(transformSection);
 
         this.transform.setTransform(part.transform.get());
 
-        this.scroll.setScroll(0);
+        if (previous != part)
+        {
+            this.scroll.setScroll(0);
+        }
+
         this.resize();
     }
 

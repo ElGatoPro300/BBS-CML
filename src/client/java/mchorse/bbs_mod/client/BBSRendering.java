@@ -122,6 +122,11 @@ public class BBSRendering
 
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
+    /**
+     * Depth while FramebufferForm fills its offscreen buffer with albedo-only content
+     * (no diffuse/lightmap). The parent display quad applies world lighting once.
+     */
+    private static int framebufferContentUnlitDepth;
     public static int lastAction;
 
     /* Optional IRLights / IRL-editor shadow baker (no hard dependency). */
@@ -437,6 +442,7 @@ public class BBSRendering
         ModelVAORenderer.clearFormColorGrade();
         ModelVAORenderer.clearFormColorTint();
         ModelVAORenderer.clearColorEffectTransform();
+        resetPixelUnpackState();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -444,6 +450,19 @@ public class BBSRendering
         {
             /* In 1.21.11, lightmap & overlay textures are managed via UBOs / shader pipelines automatically */
         }
+    }
+
+    /**
+     * Tightly packed RGBA is the Minecraft default. Leaving {@code GL_UNPACK_ROW_LENGTH}
+     * (or skip/alignment) dirty after a video/WaterMedia/ffmpeg upload blacks out the block
+     * atlas and form/item GUI previews for the rest of the session — worse on NeoForge.
+     */
+    public static void resetPixelUnpackState()
+    {
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
 
     /**
@@ -551,6 +570,7 @@ public class BBSRendering
         depthMask(true);
         enableBlend();
         defaultBlendFunc();
+        resetPixelUnpackState();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -877,9 +897,9 @@ public class BBSRendering
                     DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, sw, sh);
                     Batcher2D batcher = new Batcher2D(drawContext);
 
-                    VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-
                     ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                    /* Global videos stay above all screen overlays (floating-reference path in editor). */
+                    VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
                     flushGuiRenderState();
                 });
             }
@@ -900,9 +920,8 @@ public class BBSRendering
                     DrawContext drawContext = new DrawContext(mc, mc.gameRenderer.guiState, sw, sh);
                     Batcher2D batcher = new Batcher2D(drawContext);
 
-                    VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-
                     ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                    VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
                     flushGuiRenderState();
                 });
             }
@@ -947,8 +966,6 @@ public class BBSRendering
                             {
                                 context.apply(clip, panel.getRunner().getPosition());
                             }
-
-                            VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, sw, sh, false);
 
                             ScreenEffectRenderer.render(offscreenBatcher, context, fullScreen.w, fullScreen.h);
                             flushGuiRenderState();
@@ -1428,6 +1445,33 @@ public class BBSRendering
     public static boolean isRenderingOffscreen()
     {
         return iris && IrisUtils.isRenderingOffscreen();
+    }
+
+    /**
+     * True while {@link #runFramebufferContentUnlit(Runnable)} is active: ModelForm
+     * draws flat albedo into a FramebufferForm (pack-safe; parent quad does lighting).
+     */
+    public static boolean isFramebufferContentUnlit()
+    {
+        return framebufferContentUnlitDepth > 0;
+    }
+
+    /**
+     * Run {@code render} with {@link #isFramebufferContentUnlit()} set so BBS model
+     * shaders skip diffuse + lightmap. Nesting-safe.
+     */
+    public static void runFramebufferContentUnlit(Runnable render)
+    {
+        framebufferContentUnlitDepth += 1;
+
+        try
+        {
+            render.run();
+        }
+        finally
+        {
+            framebufferContentUnlitDepth -= 1;
+        }
     }
 
     public static boolean isIrisShadersEnabled()
@@ -1983,9 +2027,24 @@ public class BBSRendering
         return getProgram(RenderPipelines.ENTITY_TRANSLUCENT);
     }
 
+    public static ShaderProgram getEntityCutoutProgram()
+    {
+        return getProgram(RenderPipelines.ENTITY_CUTOUT_NO_CULL);
+    }
+
     public static ShaderProgram getPositionTexColorProgram()
     {
         return getProgram(RenderPipelines.GUI_TEXTURED);
+    }
+
+    public static ShaderProgram getPositionTexProgram()
+    {
+        return getProgram(RenderPipelines.GUI_TEXTURED);
+    }
+
+    public static ShaderProgram getPositionColorProgram()
+    {
+        return getProgram(RenderPipelines.GUI);
     }
 
     public static ShaderProgram getGuiProgram()
@@ -2047,6 +2106,12 @@ public class BBSRendering
     public static int getBoundTexture()
     {
         return GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+    }
+
+    public static void setShaderTexture(int unit, int textureId)
+    {
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
+        GlStateManager._bindTexture(textureId);
     }
 
     public static void blendFuncSeparate(int srcRgb, int dstRgb, int srcAlpha, int dstAlpha)

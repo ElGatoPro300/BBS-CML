@@ -15,7 +15,13 @@ import java.util.Set;
 
 public class ValueFormEditorGizmoToolbar extends BaseValue implements IIconToolbarValue
 {
+    /** Cycles pose / form-transform gizmo target (replaces legacy body_part + transform). */
+    public static final String TARGET = "target";
+    /** @deprecated Replaced by {@link #TARGET}; kept for preference migration. */
+    @Deprecated
     public static final String BODY_PART = "body_part";
+    /** @deprecated Replaced by {@link #TARGET}; kept for preference migration. */
+    @Deprecated
     public static final String TRANSFORM = "transform";
     public static final String MOVE = "move";
     public static final String SCALE = "scale";
@@ -27,8 +33,7 @@ public class ValueFormEditorGizmoToolbar extends BaseValue implements IIconToolb
     public static final String TRANSLATE_SPEED = "translate_speed";
 
     public static final List<String> DEFAULT_ORDER = Collections.unmodifiableList(Arrays.asList(
-        BODY_PART,
-        TRANSFORM,
+        TARGET,
         MOVE,
         SCALE,
         ROTATE,
@@ -144,8 +149,58 @@ public class ValueFormEditorGizmoToolbar extends BaseValue implements IIconToolb
         this.resetToDefaults();
     }
 
+    private void migrateLegacyTargetButtons()
+    {
+        int bodyIdx = this.order.indexOf(BODY_PART);
+        int transformIdx = this.order.indexOf(TRANSFORM);
+        boolean hadLegacy = bodyIdx >= 0 || transformIdx >= 0;
+
+        if (!hadLegacy && this.order.contains(TARGET))
+        {
+            return;
+        }
+
+        int insertAt = 0;
+
+        if (bodyIdx >= 0 && transformIdx >= 0)
+        {
+            insertAt = Math.min(bodyIdx, transformIdx);
+        }
+        else if (bodyIdx >= 0)
+        {
+            insertAt = bodyIdx;
+        }
+        else if (transformIdx >= 0)
+        {
+            insertAt = transformIdx;
+        }
+
+        this.order.removeIf((id) -> BODY_PART.equals(id) || TRANSFORM.equals(id));
+
+        if (!this.order.contains(TARGET))
+        {
+            insertAt = Math.max(0, Math.min(insertAt, this.order.size()));
+            this.order.add(insertAt, TARGET);
+        }
+
+        boolean hideTarget = this.hidden.contains(BODY_PART) && this.hidden.contains(TRANSFORM);
+
+        this.hidden.remove(BODY_PART);
+        this.hidden.remove(TRANSFORM);
+
+        if (hideTarget)
+        {
+            this.hidden.add(TARGET);
+        }
+        else if (hadLegacy)
+        {
+            this.hidden.remove(TARGET);
+        }
+    }
+
     private void normalizeOrder()
     {
+        this.migrateLegacyTargetButtons();
         this.order.removeIf((id) -> !DEFAULT_ORDER.contains(id));
 
         for (String id : DEFAULT_ORDER)
@@ -164,11 +219,18 @@ public class ValueFormEditorGizmoToolbar extends BaseValue implements IIconToolb
                 }
             }
         }
+
+        this.hidden.removeIf((id) -> !DEFAULT_ORDER.contains(id));
     }
 
     /** Prefer placing new buttons next to related ones when migrating older toolbar configs. */
     private int preferredInsertIndex(String id)
     {
+        if (TARGET.equals(id))
+        {
+            return 0;
+        }
+
         if (THICKNESS.equals(id))
         {
             int sizeIdx = this.order.indexOf(SIZE);

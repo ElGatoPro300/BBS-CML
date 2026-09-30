@@ -2116,6 +2116,7 @@ public class ModelVAORenderer
         }
 
         BBSUniform.set(shader, "ColorModulator", 1F, 1F, 1F, 1F);
+        BBSUniform.set(shader, "Unlit", BBSRendering.isFramebufferContentUnlit() ? 1F : 0F);
     }
 
     private static float viewOriginLengthSq(Matrix4f view)

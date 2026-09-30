@@ -43,9 +43,7 @@ public class FramebufferPool
             Texture texture = new Texture();
 
             texture.setSize(width, height);
-            texture.setFilter(GL11.GL_NEAREST);
-            texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
-            texture.setParameter(GL30.GL_TEXTURE_MAX_LEVEL, 0);
+            ensurePixelSampling(texture);
 
             Renderbuffer renderbuffer = new Renderbuffer();
 
@@ -69,6 +67,18 @@ public class FramebufferPool
         }
     }
 
+    /**
+     * Form FBOs must stay NEAREST (crisp pixelation at low resolution). Iris / other
+     * reload paths can rewrite sampler state on existing texture ids; re-assert here.
+     */
+    private static void ensurePixelSampling(Texture texture)
+    {
+        texture.bind();
+        texture.setFilter(GL11.GL_NEAREST);
+        texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
+        texture.setParameter(GL30.GL_TEXTURE_MAX_LEVEL, 0);
+    }
+
     public Framebuffer get(int width, int height)
     {
         Iterator<Framebuffer> iterator = this.idle.iterator();
@@ -83,6 +93,7 @@ public class FramebufferPool
                 iterator.remove();
                 this.idleBytes -= getBytes(framebuffer);
                 this.active.add(framebuffer);
+                ensurePixelSampling(texture);
 
                 return framebuffer;
             }

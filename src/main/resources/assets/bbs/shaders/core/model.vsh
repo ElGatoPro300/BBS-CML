@@ -15,6 +15,17 @@ in vec3 Normal;
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
 
+uniform mat4 ModelViewMat;
+uniform mat3 NormalMat;
+uniform mat4 FogMat;
+uniform mat4 ProjMat;
+uniform mat4 FormRootInverse;
+uniform int FogShape;
+
+uniform vec3 Light0_Direction;
+uniform vec3 Light1_Direction;
+/* 1 = FramebufferForm content: skip diffuse/lightmap (flat albedo). */
+uniform float Unlit;
 
 out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
@@ -61,10 +72,21 @@ void main()
     float nLen2 = dot(n, n);
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);
     rawVertexColor = Color;
-    vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, fixNormal, Color);
-    /* Filtered sample (not texelFetch): continuous lightmap UVs keep float lighting
-     * intermediates (brightness 0–1 and fixed levels 0–15 without truncate). */
-    lightMapColor = minecraft_sample_lightmap(Sampler2, UV2);
+
+    if (Unlit > 0.5)
+    {
+        /* Postcard bake for FramebufferForm: no pack/vanilla limb lighting inside the FBO. */
+        vertexColor = Color;
+        lightMapColor = vec4(1.0);
+    }
+    else
+    {
+        vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, fixNormal, Color);
+        /* Filtered sample (not texelFetch): continuous lightmap UVs keep float lighting
+         * intermediates (brightness 0–1 and fixed levels 0–15 without truncate). */
+        lightMapColor = minecraft_sample_lightmap(Sampler2, UV2);
+    }
+
     overlayColor = texelFetch(Sampler1, UV1, 0);
     texCoord0 = UV0;
     normal = ProjMat * ModelViewMat * vec4(Normal, 0.0);

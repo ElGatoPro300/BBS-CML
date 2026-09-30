@@ -30,6 +30,11 @@ public class FormRenderingContext
     public boolean ui;
     public int color;
     public boolean modelRenderer;
+    /**
+     * F7 / world-preview gizmos: orbit stack still has {@code camera.view}, but look-at
+     * content (Framebuffer camera-content, etc.) must match the live world ENTITY draw.
+     */
+    public boolean matchWorldLookAt;
     public boolean relative;
     public boolean isShadowPass;
     public Matrix4f viewMatrix;
@@ -63,6 +68,8 @@ public class FormRenderingContext
         this.stencilMap = null;
         this.ui = false;
         this.color = 0xffffffff;
+        this.modelRenderer = false;
+        this.matchWorldLookAt = false;
         this.relative = false;
         this.isShadowPass = false;
         this.viewMatrix = null;
@@ -144,6 +151,13 @@ public class FormRenderingContext
     public FormRenderingContext modelRenderer()
     {
         this.modelRenderer = true;
+
+        return this;
+    }
+
+    public FormRenderingContext matchWorldLookAt()
+    {
+        this.matchWorldLookAt = true;
 
         return this;
     }

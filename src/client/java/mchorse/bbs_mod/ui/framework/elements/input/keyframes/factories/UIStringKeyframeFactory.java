@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIVideoOverlayPanel;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import net.minecraft.client.MinecraftClient;
@@ -39,8 +40,31 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
         boolean isModel = sheet != null && ("model".equals(sheet.id) || sheet.id.endsWith("/model"));
         boolean isMob = sheet != null && ("mobId".equals(sheet.id) || sheet.id.endsWith("/mobId"));
         boolean isParticle = sheet != null && ("effect".equals(sheet.id) || sheet.id.endsWith("/effect"));
+        boolean isVideo = sheet != null && ("video".equals(sheet.id) || sheet.id.endsWith("/video"));
 
-        if (isStructureFile)
+        if (isVideo)
+        {
+            UIButton pickVideo = new UIButton(UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO, (b) ->
+            {
+                UIVideoOverlayPanel panel = new UIVideoOverlayPanel((value) ->
+                {
+                    String next = value == null ? "" : value;
+
+                    if (next.equals(UIKeys.GENERAL_NONE.get()) || next.equalsIgnoreCase("none"))
+                    {
+                        next = "";
+                    }
+
+                    this.editor.getGraph().setValue(next, true);
+                    this.string.setText(next);
+                }, this.getContext());
+
+                UIOverlay.addOverlay(this.getContext(), panel.set(this.keyframe.getValue()));
+            });
+
+            this.scroll.add(pickVideo);
+        }
+        else if (isStructureFile)
         {
             UIButton pickStructure = new UIButton(UIKeys.FORMS_EDITORS_STRUCTURE_PICK_STRUCTURE, (b) ->
             {
@@ -160,7 +184,8 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
             this.scroll.add(pickParticle);
         }
 
-        if (!isStructureFile && !isBiomeId && !isModel && !isMob && !isParticle)
+        /* Video keeps the textbox for manual path edits; other pickers replace it. */
+        if (isVideo || (!isStructureFile && !isBiomeId && !isModel && !isMob && !isParticle))
         {
             this.scroll.add(this.string);
         }

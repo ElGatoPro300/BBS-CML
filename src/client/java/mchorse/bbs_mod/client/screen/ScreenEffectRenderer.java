@@ -8,6 +8,8 @@ import mchorse.bbs_mod.camera.clips.misc.ImageClip;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
 import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
+import mchorse.bbs_mod.camera.clips.misc.VideoClip;
+import mchorse.bbs_mod.camera.clips.misc.VideoOverlay;
 import mchorse.bbs_mod.camera.clips.screen.ColorClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.EyeClip;
@@ -18,11 +20,13 @@ import mchorse.bbs_mod.camera.clips.screen.LetterboxClip;
 import mchorse.bbs_mod.camera.clips.screen.LetterboxEffect;
 import mchorse.bbs_mod.camera.clips.screen.ScreenNodeEffect;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
 import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
 import mchorse.bbs_mod.ui.film.UIImageRenderer;
 import mchorse.bbs_mod.ui.film.UISubtitleRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -53,11 +57,12 @@ public class ScreenEffectRenderer
         List<HotbarState> hotbars = HotbarClip.getHotbars(context);
         List<ImageOverlay> images = ImageClip.getImages(context);
         List<BossBarState> bossBars = BossBarClip.getBossBars(context);
+        List<VideoOverlay> videos = VideoClip.getVideos(context);
 
         convertNodeEffects(context, effects, grainEffects, letterboxEffects);
 
         if (effects.isEmpty() && letterboxEffects.isEmpty() && grainEffects.isEmpty() && eyeEffects.isEmpty()
-            && subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty())
+            && subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty() && videos.isEmpty())
         {
             return;
         }
@@ -77,9 +82,12 @@ public class ScreenEffectRenderer
         int hotbarIndex = 0;
         int imageIndex = 0;
         int bossBarIndex = 0;
+        int videoIndex = 0;
 
         List<ColorEffect> pendingShaderEffects = new ArrayList<>();
         List<GrainEffect> pendingGrainEffects = new ArrayList<>();
+        Area videoViewport = new Area(0, 0, screenW, screenH);
+        boolean videoPlaying = context.playing;
 
         while (effectIndex < effects.size()
             || letterboxIndex < letterboxEffects.size()
@@ -88,7 +96,8 @@ public class ScreenEffectRenderer
             || subtitleIndex < subtitles.size()
             || hotbarIndex < hotbars.size()
             || imageIndex < images.size()
-            || bossBarIndex < bossBars.size())
+            || bossBarIndex < bossBars.size()
+            || videoIndex < videos.size())
         {
             int effOrder = effectIndex < effects.size() ? effects.get(effectIndex).renderOrder : Integer.MAX_VALUE;
             int letOrder = letterboxIndex < letterboxEffects.size() ? letterboxEffects.get(letterboxIndex).renderOrder : Integer.MAX_VALUE;
@@ -98,10 +107,11 @@ public class ScreenEffectRenderer
             int hotOrder = hotbarIndex < hotbars.size() ? hotbars.get(hotbarIndex).renderOrder : Integer.MAX_VALUE;
             int imgOrder = imageIndex < images.size() ? images.get(imageIndex).renderOrder : Integer.MAX_VALUE;
             int bosOrder = bossBarIndex < bossBars.size() ? bossBars.get(bossBarIndex).renderOrder : Integer.MAX_VALUE;
+            int vidOrder = videoIndex < videos.size() ? videos.get(videoIndex).renderOrder : Integer.MAX_VALUE;
 
             int nextOrder = Math.min(
                 Math.min(Math.min(effOrder, letOrder), Math.min(grnOrder, eyeOrder)),
-                Math.min(Math.min(subOrder, hotOrder), Math.min(imgOrder, bosOrder))
+                Math.min(Math.min(Math.min(subOrder, hotOrder), Math.min(imgOrder, bosOrder)), vidOrder)
             );
 
             boolean hasDirectDraw = (imgOrder == nextOrder)
@@ -110,6 +120,7 @@ public class ScreenEffectRenderer
                 || (bosOrder == nextOrder)
                 || (eyeOrder == nextOrder)
                 || (letOrder == nextOrder)
+                || (vidOrder == nextOrder)
                 || (effOrder == nextOrder && effects.get(effectIndex).hasOverlay);
 
             if (hasDirectDraw && (!pendingShaderEffects.isEmpty() || !pendingGrainEffects.isEmpty()))
@@ -152,6 +163,12 @@ public class ScreenEffectRenderer
                 }
 
                 grainIndex += 1;
+            }
+            else if (vidOrder == nextOrder)
+            {
+                batcher.flush();
+                VideoRenderer.renderOverlay(new MatrixStack(), batcher, videos.get(videoIndex), videoPlaying, videoViewport, screenW, screenH);
+                videoIndex += 1;
             }
             else if (imgOrder == nextOrder)
             {
@@ -196,6 +213,7 @@ public class ScreenEffectRenderer
         grainEffects.clear();
         eyeEffects.clear();
         bossBars.clear();
+        videos.clear();
 
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
         GL11.glEnable(GL11.GL_DEPTH_TEST);

@@ -14,6 +14,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData.BlockEntry;
@@ -559,13 +560,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
                 }
+                }
+
+                BBSRendering.disableBlend();
+                BBSRendering.enableDepthTest();
+                BBSRendering.depthFunc(GL11.GL_LEQUAL);
+
+                if (!shadowPass && !picking)
+                {
+                    this.renderOutline(context, mainTint3D.a, light, context.overlay, vao, shaders);
+                }
             }
-
-
-            BBSRendering.disableBlend();
-            BBSRendering.enableDepthTest();
-            BBSRendering.depthFunc(GL11.GL_LEQUAL);
-        }
 
             CustomVertexConsumerProvider.clearRunnables();
         }
@@ -573,6 +578,35 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             context.stack.pop();
         }
+    }
+
+    private void renderOutline(FormRenderingContext context, float formAlpha, int light, int overlay, IModelVAO vao, boolean shaders)
+    {
+        FormOutlinePass.run(this.form, context, formAlpha, (maskStack) ->
+        {
+            if (vao != null)
+            {
+                BBSRendering.bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+                ModelVAORenderer.render(BBSShaders.getOutlineMask(), vao, maskStack, 1F, 1F, 1F, 1F, light, overlay);
+            }
+
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                BBSRendering.bindProgram(BBSShaders.getOutlineMask());
+            });
+
+            try
+            {
+                this.renderStructureCulledWorld(context, maskStack, consumers, light, overlay, shaders, null, true, false);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        });
     }
 
     /**

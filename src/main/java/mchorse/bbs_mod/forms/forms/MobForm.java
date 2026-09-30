@@ -1,10 +1,12 @@
 package mchorse.bbs_mod.forms.forms;
 
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.pose.Pose;
 
 public class MobForm extends Form
@@ -20,12 +22,19 @@ public class MobForm extends Form
     public final ValuePose pose = new ValuePose("pose", new Pose());
     public final ValuePose poseOverlay = new ValuePose("pose_overlay", new Pose());
 
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+
     public final ValueFloat pbrNormalIntensity = new ValueFloat("pbr_normal_intensity", 1F, 0F, 4F);
     public final ValueFloat pbrSpecularIntensity = new ValueFloat("pbr_specular_intensity", 1F, 0F, 4F);
 
     public MobForm()
     {
         this.slim.invisible();
+        /* Tint/opacity only — MobForm has no paint/glow/grade wiring (same as LabelForm Color UI). */
+        this.paintColor.invisible();
+        this.paintSettings.invisible();
+        this.glowingColor.invisible();
+        this.glowSettings.invisible();
 
         this.add(this.mobID);
         this.add(this.mobNBT);
@@ -33,6 +42,7 @@ public class MobForm extends Form
         this.add(this.playerUuid);
         this.add(this.pose);
         this.add(this.poseOverlay);
+        this.add(this.color);
         this.add(this.texture);
         this.add(this.slim);
         this.add(this.pbrNormalIntensity);
