@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
@@ -49,13 +50,20 @@ import java.util.function.ToIntFunction;
 public final class UIFormPropertyTrackSheets
 {
     private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of(
-        "glowing_color", "glow_settings", "glow_intensity", "paint_color"
+        "glowing_color", "glow_settings", "glow_intensity", "paint_color",
+        /* Deferred to 3.0 modifiers API — keep runtime/migration, hide timeline track. */
+        "shake", "shake_settings", "shake_amount", "shake_active",
+        /* Compound tracks resolution / view_extent replace these separate fields. */
+        "width", "height", "view_extent_x", "view_extent_y"
     );
 
     private static final List<String> MODEL_PROPERTIES = Arrays.asList(
         "visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay",
         "anchor", "illusion", "illusion_transform", "color",
-        "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture",
+        "color2", "color_mode", "color_grade", "paint", "paint_color", "glow",
+        "outline", "outline_color", "outline_thickness", "outline_rainbow", "outline_rainbow_speed", "outline_rainbow_scale",
+        "resolution", "view_extent", "scale", "billboard", "camera_content",
+        "texture",
         "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys",
         "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings",
         "paused", "frequency", "count", "structure_file", "biome_id", "emit_light",
@@ -205,12 +213,32 @@ public final class UIFormPropertyTrackSheets
             String colorPath = FormProperties.colorPropertyPathForGrade(path);
             BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
 
-            return colorProperty instanceof ValueColor;
+            if (!(colorProperty instanceof ValueColor))
+            {
+                return false;
+            }
+
+            Form owner = FormUtils.getForm(colorProperty);
+
+            /* Tint-only forms: no synthetic color_grade under Color. */
+            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm);
+        }
+
+        if (FormProperties.isFramebufferResolutionChannelKey(path)
+            || FormProperties.isFramebufferViewExtentChannelKey(path))
+        {
+            return FormProperties.formForFramebufferSynthetic(rootForm, path) instanceof mchorse.bbs_mod.forms.forms.FramebufferForm;
         }
 
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
+        {
+            return false;
+        }
+
+        /* Keep timeline in sync with collectPropertyPaths (invisible props stay off the sheet list). */
+        if (!property.isVisible() && !FormUtils.isRenderPropertyPath(path))
         {
             return false;
         }
@@ -243,6 +271,12 @@ public final class UIFormPropertyTrackSheets
                 formProperty = FormUtils.getProperty(form, FormProperties.colorPropertyPathForGrade(key));
             }
 
+            if (formProperty == null && (FormProperties.isFramebufferResolutionChannelKey(key)
+                || FormProperties.isFramebufferViewExtentChannelKey(key)))
+            {
+                formProperty = FormUtils.getProperty(form, FormProperties.framebufferAnchorPropertyPath(key));
+            }
+
             String title = key;
             int colon = key.indexOf(':');
 
@@ -258,6 +292,13 @@ public final class UIFormPropertyTrackSheets
                 {
                     UIKeyframeSheet sheet = new UIKeyframeSheet(key, resolved, UIReplaysEditor.getColor(key), false, channel, formProperty);
 
+                    Object insertDefault = FormProperties.framebufferDefaultInsertValue(form, key);
+
+                    if (insertDefault != null)
+                    {
+                        sheet.defaultInsertValue = insertDefault;
+                    }
+
                     withTrackIcon(sheet, key);
                     sheets.add(sheet);
                     continue;
@@ -265,6 +306,13 @@ public final class UIFormPropertyTrackSheets
             }
 
             UIKeyframeSheet sheet = new UIKeyframeSheet(key, IKey.constant(title), UIReplaysEditor.getColor(key), false, channel, formProperty);
+
+            Object insertDefault = FormProperties.framebufferDefaultInsertValue(form, key);
+
+            if (insertDefault != null)
+            {
+                sheet.defaultInsertValue = insertDefault;
+            }
 
             withTrackIcon(sheet, key);
             sheets.add(sheet);
@@ -437,12 +485,14 @@ public final class UIFormPropertyTrackSheets
         String textureParentKey = scopeKey + ":texture";
         String itemStackParentKey = scopeKey + ":item_stack";
         String illusionParentKey = scopeKey + ":illusion";
+        String outlineParentKey = scopeKey + ":outline";
         String colorParentKey = scopeKey + ":color";
         boolean isPbrTrack = trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity");
         boolean isColorChildTrack = trackName.equals("paint") || trackName.equals("paint_color")
             || trackName.equals("glow") || trackName.equals("glow_settings")
             || trackName.equals("color_grade")
             || trackName.equals("color2") || trackName.equals("color_mode");
+        boolean isOutlineChildTrack = isOutlineChildTrack(trackName);
 
         if (isPbrTrack)
         {
@@ -484,6 +534,16 @@ public final class UIFormPropertyTrackSheets
             {
                 sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
             }
+        }
+
+        if (isOutlineChildTrack)
+        {
+            if (collapsed.getOrDefault(outlineParentKey, true))
+            {
+                return;
+            }
+
+            sheet.level += 1;
         }
 
         if (colon != -1)
@@ -552,14 +612,20 @@ public final class UIFormPropertyTrackSheets
         }
         else if (trackName.equals("color"))
         {
-            boolean expanded = !collapsed.getOrDefault(colorParentKey, true);
+            Form colorOwner = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            /* MobForm Color is tint-only — no nested grade/paint/glow to expand. */
+            if (!(colorOwner instanceof MobForm))
             {
-                collapsed.put(colorParentKey, !collapsed.getOrDefault(colorParentKey, true));
-                onRefresh.run();
-            };
+                boolean expanded = !collapsed.getOrDefault(colorParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    collapsed.put(colorParentKey, !collapsed.getOrDefault(colorParentKey, true));
+                    onRefresh.run();
+                };
+            }
 
             addTrackByPriority(trackName, before, after, sheet);
         }
@@ -604,6 +670,19 @@ public final class UIFormPropertyTrackSheets
 
             after.add(sheet);
         }
+        else if (trackName.equals("outline"))
+        {
+            boolean expanded = !collapsed.getOrDefault(outlineParentKey, true);
+
+            sheet.expanded = expanded;
+            sheet.toggleExpanded = () ->
+            {
+                collapsed.put(outlineParentKey, !collapsed.getOrDefault(outlineParentKey, true));
+                onRefresh.run();
+            };
+
+            addTrackByPriority(trackName, before, after, sheet);
+        }
         else if (isIllusionOverlayTrack(trackName))
         {
             if (collapsed.getOrDefault(illusionParentKey, true))
@@ -634,7 +713,7 @@ public final class UIFormPropertyTrackSheets
 
             Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            if (form instanceof LabelForm || form instanceof TrailForm)
+            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm)
             {
                 continue;
             }
@@ -754,6 +833,15 @@ public final class UIFormPropertyTrackSheets
         }
 
         return trackName.startsWith("illusion_overlay") && trackName.length() > "illusion_overlay".length();
+    }
+
+    private static boolean isOutlineChildTrack(String trackName)
+    {
+        return trackName.equals("outline_color")
+            || trackName.equals("outline_thickness")
+            || trackName.equals("outline_rainbow")
+            || trackName.equals("outline_rainbow_speed")
+            || trackName.equals("outline_rainbow_scale");
     }
 
     private static void orderLimbTracks(Form form, List<UIKeyframeSheet> limbs, Map<String, Boolean> collapsed, Runnable onRefresh, String collapseScope)
@@ -1048,15 +1136,21 @@ public final class UIFormPropertyTrackSheets
                 if (name.equals("color_grade")) return 65;
                 if (name.equals("paint_color") || name.equals("paint")) return 66;
                 if (name.equals("glow") || name.equals("glow_settings")) return 67;
-                if (name.equals("texture")) return 68;
-                if (name.equals("pbr_normal_intensity")) return 69;
-                if (name.equals("pbr_specular_intensity")) return 70;
-                if (name.equals("model")) return 71;
-                if (name.equals("item_stack")) return 72;
-                if (name.equals("block_state")) return 73;
-                if (name.equals("breaking")) return 74;
+                if (name.equals("outline")) return 68;
+                if (name.equals("outline_color")) return 69;
+                if (name.equals("outline_thickness")) return 70;
+                if (name.equals("outline_rainbow")) return 71;
+                if (name.equals("outline_rainbow_speed")) return 72;
+                if (name.equals("outline_rainbow_scale")) return 73;
+                if (name.equals("texture")) return 74;
+                if (name.equals("pbr_normal_intensity")) return 75;
+                if (name.equals("pbr_specular_intensity")) return 76;
+                if (name.equals("model")) return 77;
+                if (name.equals("item_stack")) return 78;
+                if (name.equals("block_state")) return 79;
+                if (name.equals("breaking")) return 80;
                 if (name.equals("repeat_x") || name.equals("repeat_y") || name.equals("repeat_z")
-                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 75;
+                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 81;
 
                 return 500;
             };

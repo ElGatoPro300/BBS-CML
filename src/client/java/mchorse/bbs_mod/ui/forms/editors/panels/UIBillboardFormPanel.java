@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormOutlineControls;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.utils.UICropOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -42,6 +43,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
     public UITrackpad glowIntensity;
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
+
+    public UIFormOutlineControls outlineControls;
 
     public UITrackpad offsetX;
     public UITrackpad offsetY;
@@ -153,6 +156,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         });
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
 
+        this.outlineControls = new UIFormOutlineControls(() -> this.form, () -> this.options.resize());
+
         this.offsetX = new UITrackpad((value) -> this.form.offsetX.set(value.floatValue()));
         this.offsetX.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_OFFSET_X);
         this.offsetY = new UITrackpad((value) -> this.form.offsetY.set(value.floatValue()));
@@ -178,6 +183,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
+            this.outlineControls.createSection().marginTop(4),
             this.billboard,
             this.linear,
             this.mipmap,
@@ -222,6 +228,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
 
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
+
+        this.outlineControls.syncFromForm(form);
 
         this.offsetX.setValue(form.offsetX.get());
         this.offsetY.setValue(form.offsetY.get());

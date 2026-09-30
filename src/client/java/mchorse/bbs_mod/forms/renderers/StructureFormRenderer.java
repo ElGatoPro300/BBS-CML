@@ -13,6 +13,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData.BlockEntry;
@@ -621,6 +622,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.disableBlend();
                 RenderSystem.enableDepthTest();
                 RenderSystem.depthFunc(GL11.GL_LEQUAL);
+
+                if (!shadowPass && !picking)
+                {
+                    this.renderOutline(context, mainTint3D.a, light, context.overlay, vao, shaders);
+                }
             }
 
             CustomVertexConsumerProvider.clearRunnables();
@@ -629,6 +635,35 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             context.stack.pop();
         }
+    }
+
+    private void renderOutline(FormRenderingContext context, float formAlpha, int light, int overlay, IModelVAO vao, boolean shaders)
+    {
+        FormOutlinePass.run(this.form, context, formAlpha, (maskStack) ->
+        {
+            if (vao != null)
+            {
+                RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+                ModelVAORenderer.render(BBSShaders.getOutlineMask(), vao, maskStack, 1F, 1F, 1F, 1F, light, overlay);
+            }
+
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                RenderSystem.setShader(BBSShaders::getOutlineMask);
+            });
+
+            try
+            {
+                this.renderStructureCulledWorld(context, maskStack, consumers, light, overlay, shaders, null, true, false);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        });
     }
 
     /**

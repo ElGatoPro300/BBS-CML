@@ -686,6 +686,8 @@ public class UIPoseEditor extends UIElement
         this.column().vertical().stretch();
         boolean categoriesEnabled = BBSSettings.modelBlockCategoriesPanelEnabled != null && BBSSettings.modelBlockCategoriesPanelEnabled.get();
 
+        this.add(UI.label(UIKeys.FORMS_EDITOR_BONES).marginTop(2));
+
         if (categoriesEnabled)
         {
             this.add(UI.row(this.groups, this.categories));
@@ -1353,14 +1355,12 @@ public class UIPoseEditor extends UIElement
 
     /**
      * Bone appearance controls above the transform grid:
-     * section label, bone texture, color + lighting; Color extras (glow/paint/grade) when enabled.
+     * bone texture, color + lighting; Color extras (glow/paint/grade) when enabled.
      */
     public UIElement createPoseFooter()
     {
         boolean pickLimbTexture = BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get();
         UIElement footer = UI.column();
-
-        footer.add(UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_BONE));
 
         if (pickLimbTexture)
         {

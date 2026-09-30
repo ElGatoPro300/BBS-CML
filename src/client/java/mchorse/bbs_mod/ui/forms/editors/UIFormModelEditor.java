@@ -412,6 +412,32 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
         this.rightView.scroll.setScroll(0);
     }
 
+    public double getSectionsScroll()
+    {
+        return this.sectionsView != null ? this.sectionsView.scroll.getScroll() : 0D;
+    }
+
+    public void setSectionsScroll(double scroll)
+    {
+        if (this.sectionsView != null)
+        {
+            this.sectionsView.scroll.setScroll(scroll);
+        }
+    }
+
+    public double getRightScroll()
+    {
+        return this.rightView != null ? this.rightView.scroll.getScroll() : 0D;
+    }
+
+    public void setRightScroll(double scroll)
+    {
+        if (this.rightView != null)
+        {
+            this.rightView.scroll.setScroll(scroll);
+        }
+    }
+
     private void pickBone(String bone)
     {
         /* UIModelPartsSection.selectBone() -> UIPoseEditor.selectBone() -> pickCallback ->

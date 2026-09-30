@@ -28,6 +28,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
@@ -208,6 +209,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("glow", Colors.YELLOW);
         COLORS.put("shake", 0x159e64);
         COLORS.put("color_grade", Colors.PINK);
+        COLORS.put("outline", 0xffcc66);
+        COLORS.put("outline_color", 0xffcc66);
+        COLORS.put("outline_thickness", 0xffbb55);
+        COLORS.put("outline_rainbow", 0xff99ff);
+        COLORS.put("outline_rainbow_speed", 0xff88ee);
+        COLORS.put("outline_rainbow_scale", 0xff77dd);
+        COLORS.put("resolution", 0x66aaff);
+        COLORS.put("view_extent", 0x88ccff);
+        COLORS.put("scale", Colors.GREEN);
+        COLORS.put("billboard", 0xffaa66);
+        COLORS.put("camera_content", 0xff8866);
         COLORS.put("lighting", Colors.YELLOW);
         COLORS.put("illusion", Colors.DEEP_PINK);
         COLORS.put("illusion_overlay", 0xff66aa);
@@ -278,6 +290,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("glow", Icons.LIGHT);
         ICONS.put("shake", Icons.EXCHANGE);
         ICONS.put("color_grade", Icons.FAVORITE);
+        ICONS.put("outline", Icons.OUTLINE);
+        ICONS.put("outline_color", Icons.BUCKET);
+        ICONS.put("outline_thickness", Icons.SCALE);
+        ICONS.put("outline_rainbow", Icons.FAVORITE);
+        ICONS.put("outline_rainbow_speed", Icons.TIME);
+        ICONS.put("outline_rainbow_scale", Icons.SCALE);
+        ICONS.put("resolution", Icons.FULLSCREEN);
+        ICONS.put("view_extent", Icons.FULLSCREEN);
+        ICONS.put("scale", Icons.SCALE);
+        ICONS.put("billboard", Icons.ALL_DIRECTIONS);
+        ICONS.put("camera_content", Icons.CAMERA);
         ICONS.put("lighting", Icons.LIGHT);
         ICONS.put("illusion", Icons.POSE);
         ICONS.put("illusion_transform", Icons.ALL_DIRECTIONS);
@@ -1595,7 +1618,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "shake", "pose", "pose_overlay", "anchor", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "outline", "outline_color", "outline_thickness", "outline_rainbow", "outline_rainbow_speed", "outline_rainbow_scale", "resolution", "view_extent", "scale", "billboard", "camera_content", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1882,6 +1905,91 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("glow") || trackName.equals("glow_settings"))
         {
             return UIKeys.FORMS_EDITORS_GLOW;
+        }
+
+        if (trackName.equals("outline"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OUTLINE;
+        }
+
+        if (trackName.equals("outline_color"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OUTLINE_COLOR;
+        }
+
+        if (trackName.equals("outline_thickness"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OUTLINE_THICKNESS;
+        }
+
+        if (trackName.equals("outline_rainbow"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OUTLINE_RAINBOW;
+        }
+
+        if (trackName.equals("outline_rainbow_speed"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SPEED;
+        }
+
+        if (trackName.equals("outline_rainbow_scale"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SCALE;
+        }
+
+        if (trackName.equals("resolution"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION;
+        }
+
+        if (trackName.equals("view_extent"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_FRAMEBUFFER_VIEW_EXTENT;
+        }
+
+        if (trackName.equals("scale"))
+        {
+            return UIKeys.TRANSFORMS_SCALE;
+        }
+
+        if (trackName.equals("billboard"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_BILLBOARD;
+        }
+
+        if (trackName.equals("camera_content"))
+        {
+            return UIKeys.FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT;
+        }
+
+        if (trackName.equals("video"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO;
+        }
+
+        if (trackName.equals("linear"))
+        {
+            return UIKeys.TEXTURES_LINEAR;
+        }
+
+        if (trackName.equals("loop"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_LOOP;
+        }
+
+        if (trackName.equals("paused"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_PAUSED;
+        }
+
+        if (trackName.equals("speed"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_SPEED;
+        }
+
+        if (trackName.equals("time"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_TIME;
         }
 
         if (trackName.equals("color_grade"))
@@ -2313,6 +2421,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                         formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.colorPropertyPathForGrade(key));
                     }
 
+                    if (formProperty == null && (FormProperties.isFramebufferResolutionChannelKey(key)
+                        || FormProperties.isFramebufferViewExtentChannelKey(key)))
+                    {
+                        formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.framebufferAnchorPropertyPath(key));
+                    }
+
                     String customTitle = this.replay.getCustomSheetTitle(key);
                     Integer customColor = this.replay.getSheetColor(key);
                     int baseColor = getColor(key);
@@ -2331,6 +2445,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
                         ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, property, formProperty)
                         : new UIKeyframeSheet(key, IKey.constant(title), sheetColor, false, property, formProperty);
+
+                    Object insertDefault = FormProperties.framebufferDefaultInsertValue(this.replay.form.get(), key);
+
+                    if (insertDefault != null)
+                    {
+                        sheet.defaultInsertValue = insertDefault;
+                    }
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
@@ -2419,15 +2540,21 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (name.equals("color_grade")) return 65;
                 if (name.equals("paint_color") || name.equals("paint")) return 66;
                 if (name.equals("glow") || name.equals("glow_settings")) return 67;
-                if (name.equals("texture")) return 68;
-                if (name.equals("pbr_normal_intensity")) return 69;
-                if (name.equals("pbr_specular_intensity")) return 70;
-                if (name.equals("model")) return 71;
-                if (name.equals("item_stack")) return 72;
-                if (name.equals("block_state")) return 73;
-                if (name.equals("breaking")) return 74;
+                if (name.equals("outline")) return 68;
+                if (name.equals("outline_color")) return 69;
+                if (name.equals("outline_thickness")) return 70;
+                if (name.equals("outline_rainbow")) return 71;
+                if (name.equals("outline_rainbow_speed")) return 72;
+                if (name.equals("outline_rainbow_scale")) return 73;
+                if (name.equals("texture")) return 74;
+                if (name.equals("pbr_normal_intensity")) return 75;
+                if (name.equals("pbr_specular_intensity")) return 76;
+                if (name.equals("model")) return 77;
+                if (name.equals("item_stack")) return 78;
+                if (name.equals("block_state")) return 79;
+                if (name.equals("breaking")) return 80;
                 if (name.equals("repeat_x") || name.equals("repeat_y") || name.equals("repeat_z")
-                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 75;
+                    || name.equals("repeat_center_x") || name.equals("repeat_center_y") || name.equals("repeat_center_z")) return 81;
 
                 if (name.equals("item_use_time") && sheet.property != null)
                 {
@@ -3204,12 +3331,32 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             String colorPath = FormProperties.colorPropertyPathForGrade(path);
             BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
 
-            return colorProperty instanceof ValueColor;
+            if (!(colorProperty instanceof ValueColor))
+            {
+                return false;
+            }
+
+            Form owner = FormUtils.getForm(colorProperty);
+
+            /* Tint-only forms: no synthetic color_grade under Color. */
+            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm);
+        }
+
+        if (FormProperties.isFramebufferResolutionChannelKey(path)
+            || FormProperties.isFramebufferViewExtentChannelKey(path))
+        {
+            return FormProperties.formForFramebufferSynthetic(rootForm, path) instanceof mchorse.bbs_mod.forms.forms.FramebufferForm;
         }
 
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
+        {
+            return false;
+        }
+
+        /* Keep timeline in sync with collectPropertyPaths (invisible props stay off the sheet list). */
+        if (!property.isVisible() && !FormUtils.isRenderPropertyPath(path))
         {
             return false;
         }
@@ -3305,12 +3452,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         String textureParentKey = scopeKey + ":texture";
         String itemStackParentKey = scopeKey + ":item_stack";
         String illusionParentKey = scopeKey + ":illusion";
+        String outlineParentKey = scopeKey + ":outline";
         String colorParentKey = scopeKey + ":color";
         boolean isPbrTrack = trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity");
         boolean isColorChildTrack = trackName.equals("paint") || trackName.equals("paint_color")
             || trackName.equals("glow") || trackName.equals("glow_settings")
             || trackName.equals("color_grade")
             || trackName.equals("color2") || trackName.equals("color_mode");
+        boolean isOutlineChildTrack = this.isOutlineChildTrack(trackName);
 
         boolean isMaterialTextureTrack = PerLimbService.isMaterialTextureChannel(sheet.id);
 
@@ -3374,6 +3523,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
             }
+        }
+
+        if (isOutlineChildTrack)
+        {
+            if (this.collapsedModelTracks.getOrDefault(outlineParentKey, true))
+            {
+                return;
+            }
+
+            sheet.level += 1;
         }
 
         if (colon != -1)
@@ -3461,14 +3620,20 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
         else if (trackName.equals("color"))
         {
-            boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
+            Form colorOwner = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            sheet.expanded = expanded;
-            sheet.toggleExpanded = () ->
+            /* MobForm Color is tint-only — no nested grade/paint/glow to expand. */
+            if (!(colorOwner instanceof MobForm))
             {
-                this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
-                this.updateChannelsList();
-            };
+                boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
+
+                sheet.expanded = expanded;
+                sheet.toggleExpanded = () ->
+                {
+                    this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
+                    this.updateChannelsList();
+                };
+            }
 
             this.addTrackByPriority(trackName, before, after, sheet);
         }
@@ -3518,6 +3683,19 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             after.add(sheet);
         }
+        else if (trackName.equals("outline"))
+        {
+            boolean expanded = !this.collapsedModelTracks.getOrDefault(outlineParentKey, true);
+
+            sheet.expanded = expanded;
+            sheet.toggleExpanded = () ->
+            {
+                this.collapsedModelTracks.put(outlineParentKey, !this.collapsedModelTracks.getOrDefault(outlineParentKey, true));
+                this.updateChannelsList();
+            };
+
+            this.addTrackByPriority(trackName, before, after, sheet);
+        }
         else if (this.isIllusionOverlayTrack(trackName))
         {
             if (this.collapsedModelTracks.getOrDefault(illusionParentKey, true))
@@ -3553,7 +3731,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            if (form instanceof LabelForm || form instanceof TrailForm)
+            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm)
             {
                 continue;
             }
@@ -3661,6 +3839,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         return trackName.startsWith("illusion_overlay") && trackName.length() > "illusion_overlay".length();
+    }
+
+    private boolean isOutlineChildTrack(String trackName)
+    {
+        return trackName.equals("outline_color")
+            || trackName.equals("outline_thickness")
+            || trackName.equals("outline_rainbow")
+            || trackName.equals("outline_rainbow_speed")
+            || trackName.equals("outline_rainbow_scale");
     }
 
     private void addTrackByPriority(String trackName, List<UIKeyframeSheet> before, List<UIKeyframeSheet> after, UIKeyframeSheet sheet)

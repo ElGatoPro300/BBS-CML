@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.forms.renderers.FramebufferFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -204,6 +205,20 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             .modelRenderer()
             .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
 
+        FramebufferFormRenderer.bindPreviewCamera(this.camera);
+
+        try
+        {
+            this.renderPickablePreview(context, formContext);
+        }
+        finally
+        {
+            FramebufferFormRenderer.unbindPreviewCamera();
+        }
+    }
+
+    private void renderPickablePreview(UIContext context, FormRenderingContext formContext)
+    {
         boolean renderMesh = this.shouldRenderFormMesh();
 
         if (renderMesh)
