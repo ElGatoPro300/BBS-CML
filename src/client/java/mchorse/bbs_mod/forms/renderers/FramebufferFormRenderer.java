@@ -278,25 +278,12 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         context.stack.peek().getPositionMatrix().identity();
         context.stack.peek().getNormalMatrix().identity();
 
-        /* Ortho is Y-flipped (setOrtho halfY → -halfY). Match lighting normals or
-         * bakeWorldLighting shades upright-Y into a flipped image → inverted diffuse. */
-        if (bakeWorldLighting)
-        {
-            context.stack.peek().getNormalMatrix().scale(1F, -1F, 1F);
-        }
-
         this.captureLookAtState(context);
 
         if (this.captureLookAtContent)
         {
             /* Pitch in the view (see form from above), form stays world-upright. */
             this.applyLookAtContentOrientation(context.stack, this.lookAtCamera, this.lookAtTarget, this.lookAtWorldValid ? this.lookAtWorld : null);
-
-            /* lookAt replaces the normal matrix — re-apply ortho Y-flip for lit bake. */
-            if (bakeWorldLighting)
-            {
-                context.stack.peek().getNormalMatrix().scale(1F, -1F, 1F);
-            }
         }
 
         int savedLight = context.light;
@@ -556,28 +543,23 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.setShaderTexture(0, texture.id);
         RenderSystem.setShader(shader);
 
-        /* Lit Iris blit: local −Z is the outward face (matches form pitch vs sky lights —
-         * +Z made face-down bright / face-up dark). Unlit blit ignores nz. */
-        float frontNz = -1F;
-        float backNz = 1F;
-
         /* Front */
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
 
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, frontNz);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
 
         /* Back */
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
+        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
 
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, backNz);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
+        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
+        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
+        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
 
         RenderSystem.defaultBlendFunc();
         RenderSystem.enableBlend();
@@ -721,36 +703,13 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         modelMatrix.scale(scale);
 
-        /* Face normal follows the billboard facing (local −Z after frontNz flip maps to
-         * the column that points toward the viewer). Avoid identity normals: fixed +Z
-         * made sky lighting look inverted when the postcard pitched up/down. Orbit pulse
-         * is preferable to wrong up/down diffuse. */
-        Matrix3f facing = new Matrix3f(modelMatrix);
-        Vector3f sx = new Vector3f();
-        Vector3f sy = new Vector3f();
-        Vector3f sz = new Vector3f();
-
-        facing.getColumn(0, sx);
-        facing.getColumn(1, sy);
-        facing.getColumn(2, sz);
-
-        if (sx.lengthSquared() > 1.0E-12F)
-        {
-            sx.normalize();
-        }
-
-        if (sy.lengthSquared() > 1.0E-12F)
-        {
-            sy.normalize();
-        }
-
-        if (sz.lengthSquared() > 1.0E-12F)
-        {
-            sz.normalize();
-        }
-
-        facing.set(sx, sy, sz);
-        matrices.peek().getNormalMatrix().set(facing);
+        /* Do not bake camera.view into normals (Iris lighting pulse on orbit). */
+        matrices.peek().getNormalMatrix().identity();
+        matrices.peek().getNormalMatrix().scale(
+            MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
+            MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
+            MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
+        );
     }
 
     /**
