@@ -52,9 +52,14 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.noBackground();
         this.palette.canModify();
 
-        /* Same F7 pattern as model blocks: world instance + gizmos optional, no double mesh. */
-        this.palette.editor.keys().register(Keys.MORPHING_TOGGLE_WORLD_PREVIEW,
-            () -> toggleWorldPreview = !toggleWorldPreview);
+        /* Same F7 pattern as model blocks: world instance + gizmos optional, no double mesh.
+         * Live player target only while F7 is on — orbit preview keeps the stub so the form
+         * shows its base pose without player transforms. */
+        this.palette.editor.keys().register(Keys.MORPHING_TOGGLE_WORLD_PREVIEW, () ->
+        {
+            toggleWorldPreview = !toggleWorldPreview;
+            this.syncWorldPreviewTarget();
+        });
         this.palette.editor.renderer.setRenderForm(() ->
             !toggleWorldPreview || BBSSettings.gizmosWorldRendering.get());
         this.palette.editor.renderer.setRenderFormMesh(() -> !toggleWorldPreview);
@@ -106,6 +111,24 @@ public class UIMorphingPanel extends UIDashboardPanel
         }
     }
 
+    /**
+     * F7 gizmos / Framebuffer look-at need the live player entity. Orbit (no F7) must keep
+     * the stub so the preview shows the base form without player-live transforms.
+     */
+    private void syncWorldPreviewTarget()
+    {
+        if (toggleWorldPreview && MinecraftClient.getInstance().player != null)
+        {
+            Morph morph = ((IMorphProvider) MinecraftClient.getInstance().player).getMorph();
+
+            this.palette.editor.renderer.setTarget(morph.entity);
+        }
+        else
+        {
+            this.palette.editor.renderer.setTarget(null);
+        }
+    }
+
     @Override
     public boolean needsBackground()
     {
@@ -144,6 +167,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.setSelected(morph.getForm());
         this.morph.setVisible(!BBSSettings.morphingAutoMorph.get());
         this.palette.list.refreshActionBar();
+        this.syncWorldPreviewTarget();
 
         BBSModClient.getCameraController().add(this.controller);
         MinecraftClient.getInstance().options.setPerspective(Perspective.THIRD_PERSON_BACK);
@@ -155,6 +179,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         super.disappear();
 
         toggleWorldPreview = false;
+        this.palette.editor.renderer.setTarget(null);
         BBSModClient.getCameraController().remove(this.controller);
         MinecraftClient.getInstance().options.setPerspective(Perspective.FIRST_PERSON);
     }
@@ -165,6 +190,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         super.close();
 
         toggleWorldPreview = false;
+        this.palette.editor.renderer.setTarget(null);
         BBSModClient.getCameraController().remove(this.controller);
     }
 }
