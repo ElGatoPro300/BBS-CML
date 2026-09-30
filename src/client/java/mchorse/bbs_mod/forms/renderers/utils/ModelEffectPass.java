@@ -49,12 +49,12 @@ public final class ModelEffectPass
     private record Key(VertexFormat format, VertexFormat.DrawMode mode, boolean picking, boolean depthWrite, boolean cull, boolean overlay, String shader, boolean multiply, boolean additive) {}
 
     private static final Map<Key, RenderPipeline> PIPELINES = new HashMap<>();
-    private static final Map<ShaderProgram, String> PROGRAMS = new WeakHashMap<>();
+    private static final Map<ShaderProgram, String> PROGRAMS = new HashMap<>();
     private static ShaderProgram boundEffects;
 
     public static void bound(ShaderProgram program)
     {
-        boundEffects = PROGRAMS.containsKey(program) ? program : null;
+        boundEffects = program != null && PROGRAMS.containsKey(program) ? program : null;
     }
 
     public static boolean hasBinding()
@@ -64,12 +64,12 @@ public final class ModelEffectPass
 
     public static boolean isEffectProgram(ShaderProgram program)
     {
-        return PROGRAMS.containsKey(program);
+        return program != null && PROGRAMS.containsKey(program);
     }
 
     public static boolean isPickingProgram(ShaderProgram program)
     {
-        String name = PROGRAMS.get(program);
+        String name = program != null ? PROGRAMS.get(program) : null;
 
         return name != null && name.startsWith("picker_");
     }
@@ -83,8 +83,9 @@ public final class ModelEffectPass
     {
         return PIPELINES.computeIfAbsent(key, ignored ->
         {
-            Identifier vertex = Identifier.of("bbs", "core/" + (key.shader.equals("block_glow_overlay") ? "block_paint_overlay" : key.shader));
-            Identifier fragment = Identifier.of("bbs", "core/" + key.shader);
+            String shaderName = key.shader != null ? key.shader : "model";
+            Identifier vertex = Identifier.of("bbs", "core/" + (shaderName.equals("block_glow_overlay") ? "block_paint_overlay" : shaderName));
+            Identifier fragment = Identifier.of("bbs", "core/" + shaderName);
             RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.TRANSFORMS_PROJECTION_FOG_LIGHTING_SNIPPET)
                 .withLocation(Identifier.of("bbs", "pipeline/model_effect_" + PIPELINES.size()))
                 .withVertexShader(vertex).withFragmentShader(fragment)
@@ -99,7 +100,7 @@ public final class ModelEffectPass
                 builder.withSampler("Sampler1").withSampler("Sampler2").withSampler("Sampler3")
                     .withBlend(key.multiply
                         ? new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ZERO, SourceFactor.ZERO, DestFactor.ONE)
-                        : key.additive || key.shader.equals("block_glow_overlay")
+                        : key.additive || shaderName.equals("block_glow_overlay")
                         ? new BlendFunction(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO)
                         : BlendFunction.TRANSLUCENT);
             }
@@ -178,8 +179,9 @@ public final class ModelEffectPass
         int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
         GL13.glActiveTexture(active);
         Identifier id = layerTexture != null ? layerTexture : AdoptedTexture.identifier(texture, width, height, false);
-        boolean picking = PROGRAMS.get(shader).startsWith("picker_");
-        boolean overlay = PROGRAMS.get(shader).endsWith("_overlay") || ModelVAORenderer.isPaintOverlayPass()
+        String shaderName = shader != null ? PROGRAMS.get(shader) : null;
+        boolean picking = shaderName != null && shaderName.startsWith("picker_");
+        boolean overlay = (shaderName != null && shaderName.endsWith("_overlay")) || ModelVAORenderer.isPaintOverlayPass()
             || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
         boolean depthWrite = picking || (!overlay && GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK));
         ShaderProgram parameters = shader;
@@ -217,8 +219,15 @@ public final class ModelEffectPass
             }
 
             BuiltBuffer.DrawParameters draws = buffer.getDrawParameters();
-            RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.mode(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
-                (ModelVAORenderer.isColorTintOverlayPass() || PROGRAMS.get(parameters).endsWith("color_tint_overlay"))
+            String programName = parameters != null ? PROGRAMS.get(parameters) : null;
+
+            if (programName == null)
+            {
+                programName = picking ? "picker_models" : "model";
+            }
+
+            RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.mode(), picking, depthWrite, cull, overlay, programName,
+                (ModelVAORenderer.isColorTintOverlayPass() || programName.endsWith("color_tint_overlay"))
                     && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F, ModelVAORenderer.isGlowEmissionPass()));
             RenderSetup.Builder setup = RenderSetup.builder(pipeline).texture("Sampler0", id);
 
