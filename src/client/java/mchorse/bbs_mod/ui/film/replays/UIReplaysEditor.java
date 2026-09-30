@@ -32,6 +32,7 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -3339,7 +3340,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             Form owner = FormUtils.getForm(colorProperty);
 
             /* Tint-only forms: no synthetic color_grade under Color. */
-            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm);
+            return !(owner instanceof LabelForm || owner instanceof TrailForm || owner instanceof MobForm || owner instanceof VideoForm);
         }
 
         if (FormProperties.isFramebufferResolutionChannelKey(path)
@@ -3622,8 +3623,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             Form colorOwner = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            /* MobForm Color is tint-only — no nested grade/paint/glow to expand. */
-            if (!(colorOwner instanceof MobForm))
+            /* Tint-only Color — no nested grade/paint/glow to expand. */
+            if (!(colorOwner instanceof MobForm) && !(colorOwner instanceof VideoForm))
             {
                 boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
 
@@ -3731,7 +3732,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
 
-            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm)
+            if (form instanceof LabelForm || form instanceof TrailForm || form instanceof MobForm || form instanceof VideoForm)
             {
                 continue;
             }

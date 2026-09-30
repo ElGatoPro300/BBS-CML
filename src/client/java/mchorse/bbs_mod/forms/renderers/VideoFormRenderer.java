@@ -11,9 +11,6 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
-import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.renderers.utils.SoftFlatFaceSort;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -36,7 +33,6 @@ import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -98,31 +94,38 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         stack.push();
 
-        Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
+        try
+        {
+            Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
-        this.applyTransforms(uiMatrix, context.getTransition());
-        MatrixStackUtils.multiply(stack, uiMatrix);
+            this.applyTransforms(uiMatrix, context.getTransition());
+            MatrixStackUtils.multiply(stack, uiMatrix);
 
-        String path = this.form.video.get();
-        boolean hasPath = path != null && !path.isEmpty() && !path.equalsIgnoreCase("none") && !path.startsWith("<");
-        float w = hasPath ? Math.max(1F, this.lastFrameW) : 412F;
-        float h = hasPath ? Math.max(1F, this.lastFrameH) : 344F;
-        float ratioX = w > h ? h / w : 1F;
-        float fullH = ratioX;
-        float translateY = 1.0F - (fullH * 0.75F);
+            String path = this.form.video.get();
+            boolean hasPath = path != null && !path.isEmpty() && !path.equalsIgnoreCase("none") && !path.startsWith("<");
+            float w = hasPath ? Math.max(1F, this.lastFrameW) : 412F;
+            float h = hasPath ? Math.max(1F, this.lastFrameH) : 344F;
+            float ratioX = w > h ? h / w : 1F;
+            float fullH = ratioX;
+            float translateY = 1.0F - (fullH * 0.75F);
 
-        stack.translate(0F, translateY, 0F);
-        stack.scale(1.5F, 1.5F, 1.5F);
-        stack.scale(this.form.uiScale.get(), this.form.uiScale.get(), this.form.uiScale.get());
+            stack.translate(0F, translateY, 0F);
+            stack.scale(1.5F, 1.5F, 1.5F);
+            stack.scale(this.form.uiScale.get(), this.form.uiScale.get(), this.form.uiScale.get());
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
+            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+            RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
 
-        this.renderModel(stack, Colors.WHITE, context.getTransition(), null, true, true, null);
-
-        DiffuseLighting.disableGuiDepthLighting();
-        stack.pop();
+            this.renderModel(stack, Colors.WHITE, context.getTransition(), null, true, true, null);
+        }
+        finally
+        {
+            /* WaterMedia/ffmpeg uploads can leave UNPACK_* / lightmap dirty — NeoForge then
+             * blacks out every subsequent form-list thumb and creative-inventory icon. */
+            BBSRendering.restoreAfterGuiItemForm();
+            stack.pop();
+        }
     }
 
     @Override
@@ -640,6 +643,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         boolean picking = deferContext != null && deferContext.isPicking();
         int lightSnapshot = deferContext != null ? deferContext.light : LightmapTextureManager.MAX_LIGHT_COORDINATE;
         int overlaySnapshot = deferContext != null ? deferContext.overlay : OverlayTexture.DEFAULT_UV;
+        boolean guiPass = isGuiVideoPass(deferContext);
         Supplier<ShaderProgram> pickShader = picking
             ? this.getShader(deferContext, GameRenderer::getPositionTexColorProgram, BBSShaders::getPickerBillboardNoShadingProgram)
             : null;
@@ -649,7 +653,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             if (textureIdSnapshot > 0 && !picking)
             {
                 this.drawVideoFront(positionMatrix, tintSnapshot, localQuad, textureIdSnapshot, linear, true,
-                    lightSnapshot, overlaySnapshot);
+                    lightSnapshot, overlaySnapshot, guiPass);
             }
             else if (picking && pickShader != null)
             {
@@ -703,7 +707,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
             Runnable deferredDraw = () ->
                 this.drawVideoFront(deferredMatrix, capturedTint, capturedQuad, capturedTexture, capturedLinear, capturedDepthWrite,
-                    capturedLight, capturedOverlay);
+                    capturedLight, capturedOverlay, false);
 
             if (irisWorld)
             {
@@ -723,7 +727,43 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         }
         finally
         {
-            BBSRendering.restoreWorldRenderState();
+            /* GUI thumbs must not call restoreWorldRenderState — it re-enables lightmap/overlay
+             * and poisons later form-list / creative previews (NeoForge especially). */
+            if (guiPass)
+            {
+                this.restoreGuiVideoPassState();
+            }
+            else
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
+        }
+    }
+
+    private static boolean isGuiVideoPass(FormRenderingContext context)
+    {
+        return context == null
+            || context.ui
+            || context.type == FormRenderType.ITEM_INVENTORY;
+    }
+
+    /**
+     * Match Billboard/Framebuffer after a lit UI draw: leave lightmap/overlay off for Batcher2D
+     * and subsequent morph thumbs. Also reset UNPACK from WaterMedia uploads.
+     */
+    private void restoreGuiVideoPassState()
+    {
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.defaultBlendFunc();
+        BBSRendering.resetPixelUnpackState();
+        BBSRendering.clearTextureUnit0();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getLightmapTextureManager().disable();
+            client.gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 
@@ -834,7 +874,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
      *                   {@code true} so opaque video still occludes world geometry.
      */
     private void drawVideoFront(Matrix4f matrix, Color tint, Quad quad, int textureId, boolean linear, boolean depthWrite,
-        int light, int overlay)
+        int light, int overlay, boolean guiPass)
     {
         boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -860,7 +900,16 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.enableCull();
             RenderSystem.defaultBlendFunc();
-            BBSRendering.restoreWorldRenderState();
+
+            if (guiPass)
+            {
+                this.restoreGuiVideoPassState();
+            }
+            else
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
+
             RenderSystem.depthMask(previousDepthMask);
 
             if (!previousCull)
@@ -1116,30 +1165,11 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     {
         Color tint = new Color().set(overlayColor, true);
         Color storedFormColor = this.form.color.get();
-        Color rawFormColor = storedFormColor == null
+        Color formColor = storedFormColor == null
             ? Color.white()
             : (BBSShaders.getVideoProgram() != null
                 ? storedFormColor.copyDeferringColorGrade()
                 : storedFormColor.copyBakingColorGrade());
-        Color formColor = rawFormColor.copy();
-
-        GlowSettings glowSettings = this.form.glowSettings.get();
-        Color legacyGlow = this.form.glowingColor.get();
-        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
-
-        if (glowIntensity != 0F)
-        {
-            FormColorEffects.blendFormGlowBrighten(formColor, glowSettings, legacyGlow);
-        }
-
-        PaintSettings paintSettings = this.form.paintSettings.get();
-        Color legacyPaint = this.form.paintColor.get();
-        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
-
-        if (paintStrength != 0F)
-        {
-            FormColorEffects.applyPaintBlend(formColor, paintSettings, legacyPaint);
-        }
 
         tint.mul(formColor);
         this.form.applyFormOpacity(tint);

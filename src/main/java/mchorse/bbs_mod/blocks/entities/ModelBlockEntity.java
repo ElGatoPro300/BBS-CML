@@ -252,6 +252,8 @@ public class ModelBlockEntity extends BlockEntity
             }
             catch (Exception e) {}
         }
+
+        ModelBlockSolidCollisions.updateRegistration(this);
     }
 
     public void updateForm(MapType data, World world)
