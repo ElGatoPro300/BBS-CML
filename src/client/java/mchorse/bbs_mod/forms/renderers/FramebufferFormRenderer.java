@@ -621,7 +621,10 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         if (context.world != null)
         {
-            this.lookAtWorld.set(context.world.peek().getPositionMatrix());
+            /* Orientation only — General/transform scale must not enter the FBO ortho
+             * (would zoom content and look like view extent shrinking). Scale belongs on
+             * the display quad via context.stack. */
+            this.lookAtWorld.set(MatrixStackUtils.stripScale(context.world.peek().getPositionMatrix()));
             this.lookAtWorldValid = true;
         }
         else
@@ -729,7 +732,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         if (worldMatrix != null)
         {
-            content.mul(new Matrix4f(worldMatrix));
+            content.mul(MatrixStackUtils.stripScale(worldMatrix));
         }
 
         content.m30(0F).m31(0F).m32(0F);
