@@ -6,25 +6,29 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
+import mchorse.bbs_mod.ui.framework.elements.utils.UISectionHeaderLabel;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
  * Foldable group of widgets used by clip property panels.
  * Click the header to hide or show {@link #fields}.
+ * Titles wrap up to {@link UISectionHeaderLabel#MAX_LINES} lines before ellipsis.
  */
 public class UISection extends UIElement
 {
     /* Same charcoal as the film workspace chrome (#191a1c), fully opaque. */
     private static final int PANEL = 0xFF191A1C;
     private static final int PANEL_HOVER = 0xFF222326;
-    private static final int BAR_H = 16;
-    private static final int CHEVRON_PAD = 2;
+    private static final int MIN_BAR_H = 16;
+    private static final int BAR_V_PAD = 4;
 
     public UILabel title;
     public UIElement fields;
@@ -32,6 +36,10 @@ public class UISection extends UIElement
     private Consumer<Boolean> toggleCallback;
 
     private boolean open = true;
+    private List<String> wrappedTitleLines = Collections.emptyList();
+    private String lastWrappedTitle;
+    private int lastWrapWidth = -1;
+    private int wrappedBarHeight = MIN_BAR_H;
 
     public UISection()
     {
@@ -50,7 +58,7 @@ public class UISection extends UIElement
                 UISection.this.paintBar(context, this);
             }
         };
-        this.title.h(BAR_H);
+        this.title.h(MIN_BAR_H);
 
         this.fields = new UIElement();
         this.fields.column().stretch().vertical().height(20);
@@ -101,6 +109,8 @@ public class UISection extends UIElement
     public UISection title(IKey title)
     {
         this.title.label = title;
+        this.lastWrappedTitle = null;
+        this.lastWrapWidth = -1;
 
         return this;
     }
@@ -203,23 +213,57 @@ public class UISection extends UIElement
         FontRenderer font = context.batcher.getFont();
         boolean hover = bar.isInside(context);
 
-        context.batcher.box(bar.x, bar.y, bar.ex(), bar.ey(), hover ? PANEL_HOVER : PANEL);
-
         Icon chevron = this.open ? Icons.UNCOLLAPSED : Icons.COLLAPSED;
         int ix = bar.x + 4;
-        int iy = bar.my() - chevron.h / 2;
-
-        context.batcher.icon(chevron, hover ? Colors.WHITE : 0xFFCCCCCC, ix, iy);
-
         int textX = ix + chevron.w + 4;
         int maxW = Math.max(8, bar.ex() - textX - 4);
-        String text = font.limitToWidth(title.label.get(), maxW);
 
-        context.batcher.textShadow(text, textX, bar.my() - font.getHeight() / 2, Colors.WHITE);
+        this.ensureWrappedTitle(font, title, maxW);
+
+        context.batcher.box(bar.x, bar.y, bar.ex(), bar.ey(), hover ? PANEL_HOVER : PANEL);
+        context.batcher.icon(chevron, hover ? Colors.WHITE : 0xFFCCCCCC, ix, bar.my() - chevron.h / 2);
+
+        if (!this.wrappedTitleLines.isEmpty())
+        {
+            int textHeight = UISectionHeaderLabel.textHeight(font, this.wrappedTitleLines.size());
+            int textY = bar.my() - textHeight / 2;
+
+            for (String line : this.wrappedTitleLines)
+            {
+                context.batcher.textShadow(line, textX, textY, Colors.WHITE);
+                textY += UISectionHeaderLabel.LINE_HEIGHT;
+            }
+        }
 
         if (this.open)
         {
             context.batcher.box(bar.x, bar.ey(), bar.ex(), bar.ey() + 1, 0xFF2A2B2F);
         }
+    }
+
+    private void ensureWrappedTitle(FontRenderer font, UILabel title, int maxWidth)
+    {
+        String text = title.label == null ? "" : title.label.get();
+
+        if (text.equals(this.lastWrappedTitle) && maxWidth == this.lastWrapWidth)
+        {
+            return;
+        }
+
+        List<String> lines = UISectionHeaderLabel.wrap(font, text, maxWidth);
+        int height = UISectionHeaderLabel.barHeight(font, lines.isEmpty() ? 1 : lines.size(), MIN_BAR_H, BAR_V_PAD);
+
+        this.wrappedTitleLines = lines;
+        this.lastWrappedTitle = text;
+        this.lastWrapWidth = maxWidth;
+
+        if (height == this.wrappedBarHeight)
+        {
+            return;
+        }
+
+        this.wrappedBarHeight = height;
+        title.h(height);
+        this.resizeClipPanels();
     }
 }
