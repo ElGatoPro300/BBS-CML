@@ -34,6 +34,12 @@ import java.util.function.Consumer;
 public final class StructureCollisionData
 {
     private static final Map<String, StructureCollisionData> CACHE = new ConcurrentHashMap<>();
+    /**
+     * Paths whose NBT could not be read (missing world folder, missing file, etc.).
+     * Kept separate from {@link #CACHE} so a later successful read is not blocked forever,
+     * but still avoids re-opening a missing file on every collision query.
+     */
+    private static final Set<String> UNREADABLE = ConcurrentHashMap.newKeySet();
     private static final int CELL = 4;
     private static final ThreadLocal<BitSet> QUERY_SEEN = ThreadLocal.withInitial(BitSet::new);
 
@@ -48,6 +54,11 @@ public final class StructureCollisionData
         this.spatialGrid = spatialGrid;
     }
 
+    public boolean hasBoxes()
+    {
+        return !this.localBoxes.isEmpty();
+    }
+
     public static StructureCollisionData get(String structurePath)
     {
         if (structurePath == null || structurePath.isEmpty())
@@ -55,15 +66,46 @@ public final class StructureCollisionData
             return null;
         }
 
-        return CACHE.computeIfAbsent(structurePath, StructureCollisionData::build);
+        StructureCollisionData cached = CACHE.get(structurePath);
+
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        if (UNREADABLE.contains(structurePath))
+        {
+            return empty();
+        }
+
+        StructureCollisionData built = build(structurePath);
+
+        /* null = NBT unreadable — do not poison the success cache; allow invalidate/retry. */
+        if (built == null)
+        {
+            UNREADABLE.add(structurePath);
+
+            return empty();
+        }
+
+        CACHE.put(structurePath, built);
+
+        return built;
     }
 
     public static void invalidate(String structurePath)
     {
-        if (structurePath != null)
+        if (structurePath != null && !structurePath.isEmpty())
         {
             CACHE.remove(structurePath);
+            UNREADABLE.remove(structurePath);
         }
+    }
+
+    public static void invalidateAll()
+    {
+        CACHE.clear();
+        UNREADABLE.clear();
     }
 
     /**
@@ -133,13 +175,17 @@ public final class StructureCollisionData
         }
     }
 
+    /**
+     * @return baked collision data, {@link #empty()} when the NBT exists but has no collidable
+     *         blocks, or {@code null} when the NBT could not be read (caller must not cache that).
+     */
     private static StructureCollisionData build(String path)
     {
         NbtCompound root = StructurePickerExporter.readStructureNbt(path);
 
         if (root == null || !root.contains("blocks", NbtElement.LIST_TYPE) || !root.contains("palette", NbtElement.LIST_TYPE))
         {
-            return empty();
+            return null;
         }
 
         List<BlockState> palette = new ArrayList<>();

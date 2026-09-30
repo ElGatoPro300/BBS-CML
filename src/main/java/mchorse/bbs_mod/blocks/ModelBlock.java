@@ -137,7 +137,14 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
                 {
                     if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
                     {
-                        return VoxelShapes.empty();
+                        /* Soft empty only when custom voxels are ready; otherwise keep a cube so
+                         * enabling solid hitbox cannot make the block fully passable. */
+                        if (ModelBlockSolidCollisions.hasSolidCollisionGeometry(model))
+                        {
+                            return VoxelShapes.empty();
+                        }
+
+                        return VoxelShapes.fullCube();
                     }
 
                     Form form = model.getProperties().getForm();
