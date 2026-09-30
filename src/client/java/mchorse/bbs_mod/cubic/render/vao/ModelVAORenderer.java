@@ -2321,6 +2321,13 @@ public class ModelVAORenderer
         }
 
         RenderSystem.setupShaderLights(shader);
+
+        GlUniform unlitUniform = shader.getUniform("Unlit");
+
+        if (unlitUniform != null)
+        {
+            unlitUniform.set(BBSRendering.isFramebufferContentUnlit() ? 1F : 0F);
+        }
     }
 
     private static float viewOriginLengthSq(Matrix4f view)

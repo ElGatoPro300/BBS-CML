@@ -117,19 +117,40 @@ public class DataToString
 
     public static MapType mapFromString(String string)
     {
-        BaseType data = fromString(string);
+        BaseType data = fromString(string, true);
 
         return data instanceof MapType ? (MapType) data : null;
     }
 
     public static ListType listFromString(String string)
     {
-        BaseType data = fromString(string);
+        BaseType data = fromString(string, true);
+
+        return data instanceof ListType ? (ListType) data : null;
+    }
+
+    /** Like {@link #mapFromString} but never prints parse failures (OS clipboard probes). */
+    public static MapType mapFromStringSilent(String string)
+    {
+        BaseType data = fromString(string, false);
+
+        return data instanceof MapType ? (MapType) data : null;
+    }
+
+    /** Like {@link #listFromString} but never prints parse failures (OS clipboard probes). */
+    public static ListType listFromStringSilent(String string)
+    {
+        BaseType data = fromString(string, false);
 
         return data instanceof ListType ? (ListType) data : null;
     }
 
     public static BaseType fromString(String string)
+    {
+        return fromString(string, true);
+    }
+
+    public static BaseType fromString(String string, boolean logErrors)
     {
         if (string == null)
         {
@@ -142,7 +163,10 @@ public class DataToString
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            if (logErrors)
+            {
+                e.printStackTrace();
+            }
         }
 
         return null;

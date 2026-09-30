@@ -107,6 +107,11 @@ public class BBSRendering
 
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
+    /**
+     * Depth while FramebufferForm fills its offscreen buffer with albedo-only content
+     * (no diffuse/lightmap). The parent display quad applies world lighting once.
+     */
+    private static int framebufferContentUnlitDepth;
     public static int lastAction;
 
     /* Optional IRLights / IRL-editor shadow baker (no hard dependency). */
@@ -385,6 +390,7 @@ public class BBSRendering
         ModelVAORenderer.clearFormColorGrade();
         ModelVAORenderer.clearFormColorTint();
         ModelVAORenderer.clearColorEffectTransform();
+        resetPixelUnpackState();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -393,6 +399,19 @@ public class BBSRendering
             client.gameRenderer.getLightmapTextureManager().enable();
             client.gameRenderer.getOverlayTexture().setupOverlayColor();
         }
+    }
+
+    /**
+     * Tightly packed RGBA is the Minecraft default. Leaving {@code GL_UNPACK_ROW_LENGTH}
+     * (or skip/alignment) dirty after a video/WaterMedia/ffmpeg upload blacks out the block
+     * atlas and form/item GUI previews for the rest of the session — worse on NeoForge.
+     */
+    public static void resetPixelUnpackState()
+    {
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
 
     /**
@@ -496,6 +515,7 @@ public class BBSRendering
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         DiffuseLighting.enableGuiDepthLighting();
+        resetPixelUnpackState();
 
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -819,10 +839,9 @@ public class BBSRendering
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
             RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
-
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+            /* Global videos stay above all screen overlays (floating-reference path in editor). */
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             drawContext.draw();
 
@@ -839,10 +858,8 @@ public class BBSRendering
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
             RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
-            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
-
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             RenderSystem.setProjectionMatrix(cache, cacheType);
         }
@@ -868,8 +885,6 @@ public class BBSRendering
                 Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
 
                 RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-                VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
-
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
 
                 drawContext.draw();
@@ -1326,6 +1341,33 @@ public class BBSRendering
     public static boolean isRenderingOffscreen()
     {
         return iris && IrisUtils.isRenderingOffscreen();
+    }
+
+    /**
+     * True while {@link #runFramebufferContentUnlit(Runnable)} is active: ModelForm
+     * draws flat albedo into a FramebufferForm (pack-safe; parent quad does lighting).
+     */
+    public static boolean isFramebufferContentUnlit()
+    {
+        return framebufferContentUnlitDepth > 0;
+    }
+
+    /**
+     * Run {@code render} with {@link #isFramebufferContentUnlit()} set so BBS model
+     * shaders skip diffuse + lightmap. Nesting-safe.
+     */
+    public static void runFramebufferContentUnlit(Runnable render)
+    {
+        framebufferContentUnlitDepth += 1;
+
+        try
+        {
+            render.run();
+        }
+        finally
+        {
+            framebufferContentUnlitDepth -= 1;
+        }
     }
 
     public static boolean isIrisShadersEnabled()

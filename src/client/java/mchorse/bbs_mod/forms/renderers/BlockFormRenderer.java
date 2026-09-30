@@ -12,6 +12,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData;
@@ -568,6 +569,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
+            if (!shadowPass && !context.isPicking())
+            {
+                this.renderOutline(context, color.a, light, context.overlay);
+            }
+
             RenderSystem.defaultBlendFunc();
         }
         finally
@@ -587,6 +593,29 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         RenderSystem.enableDepthTest();
+    }
+
+    private void renderOutline(FormRenderingContext context, float formAlpha, int light, int overlay)
+    {
+        FormOutlinePass.run(this.form, context, formAlpha, (maskStack) ->
+        {
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                RenderSystem.setShader(BBSShaders.getOutlineMask());
+            });
+
+            try
+            {
+                this.renderRepeatedBlocks(context, maskStack, consumers, light, overlay, false, false, false, false, false);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        });
     }
 
     private void applyBlockMainPassHijackLayer(RenderLayer layer, Color shaderTint)

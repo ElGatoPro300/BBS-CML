@@ -1,8 +1,6 @@
 package mchorse.bbs_mod.client.renderer;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
@@ -22,6 +20,7 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
@@ -35,22 +34,14 @@ public class MorphRenderer
     public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
     {
         Morph morph = Morph.getMorph(player);
-        Form playerForm = morph != null ? morph.getForm() : null;
+        boolean localPlayer = player == MinecraftClient.getInstance().player;
+        Form liveEditForm = localPlayer ? resolveLiveEditForm() : null;
 
-        UIBaseMenu menu = UIScreen.getCurrentMenu();
-        if (menu instanceof UIDashboard dashboard)
+        /* Form editor open without F7: orbit preview only — skip world body (avoids double /
+         * stale morph behind the dark scrim). */
+        if (liveEditForm != null && !UIMorphingPanel.toggleWorldPreview)
         {
-            UIDashboardPanel panel = dashboard.getPanels().panel;
-
-            if (panel instanceof UIMorphingPanel morphingPanel && morphingPanel.palette.editor.isEditing())
-            {
-                Form editingForm = morphingPanel.palette.editor.form;
-
-                if (!areFormsEquivalent(editingForm, playerForm))
-                {
-                    return true;
-                }
-            }
+            return true;
         }
 
         if (hidePlayer)
@@ -61,113 +52,109 @@ public class MorphRenderer
             }
         }
 
-        if (morph != null && morph.getForm() != null)
+        /* F7 live preview draws the in-edit form on the local player; otherwise the applied morph. */
+        Form formToRender = liveEditForm != null && UIMorphingPanel.toggleWorldPreview
+            ? liveEditForm
+            : (morph != null ? morph.getForm() : null);
+
+        if (formToRender == null || morph == null)
         {
-            /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
-             * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
-             * so other spectators / F5 see the normal semi-transparent head. */
-            if (player.isSpectator())
-            {
-                return false;
-            }
-
-            if (canRender(playerForm))
-            {
-                RenderSystem.enableDepthTest();
-
-                boolean worldPass = BBSRendering.isRenderingWorld();
-
-                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
-                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
-                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
-                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
-                if (worldPass)
-                {
-                    BBSRendering.setupWorldLevelDiffuseLighting();
-                }
-                else
-                {
-                    DiffuseLighting.method_34742();
-                }
-
-                int overlay = OverlayTexture.DEFAULT_UV;
-
-                matrixStack.push();
-                matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
-
-                FormRenderingContext morphContext = new FormRenderingContext()
-                    .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
-
-                /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
-                if (!worldPass)
-                {
-                    morphContext.inUI();
-                }
-
-                FormUtilsClient.render(morph.getForm(), morphContext);
-
-                if (morph.entity.getFireTicks() > 0)
-                {
-                    MorphFireRenderer.render(
-                        matrixStack,
-                        vertexConsumerProvider,
-                        morph.entity,
-                        morph.getForm(),
-                        g,
-                        MinecraftClient.getInstance().gameRenderer.getCamera(),
-                        false
-                    );
-                }
-
-                matrixStack.pop();
-
-                if (worldPass)
-                {
-                    BBSRendering.restoreWorldRenderState();
-                }
-                else
-                {
-                    /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
-                     * re-enables lightmap/overlay left disabled by form mesh draws without
-                     * touching diffuse lights (already set to GUI 3D above). */
-                    DiffuseLighting.enableGuiDepthLighting();
-                    BBSRendering.restoreWorldRenderState();
-                }
-            }
-
-            return true;
+            return false;
         }
 
-        return false;
-    }
-
-    private static boolean canRender(Form playerForm)
-    {
-        UIBaseMenu menu = UIScreen.getCurrentMenu();
-        
-        if (menu instanceof UIDashboard dashboard)
+        /* Spectator: vanilla only draws a translucent disembodied head. Rendering the
+         * full morph cancels PlayerEntityRenderer and looks like survival. Fall through
+         * so other spectators / F5 see the normal semi-transparent head. */
+        if (player.isSpectator())
         {
-            UIDashboardPanel panel = dashboard.getPanels().panel;
+            return false;
+        }
 
-            if (panel instanceof UIMorphingPanel morphingPanel && morphingPanel.palette.editor.isEditing())
-            {
-                return areFormsEquivalent(morphingPanel.palette.editor.form, playerForm);
-            }
+        RenderSystem.enableDepthTest();
+
+        boolean worldPass = BBSRendering.isRenderingWorld();
+
+        /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
+         * preview, then enableGuiDepthLighting() after. Forms must keep those same
+         * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
+         * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
+        if (worldPass)
+        {
+            BBSRendering.setupWorldLevelDiffuseLighting();
+        }
+        else
+        {
+            DiffuseLighting.method_34742();
+        }
+
+        int overlay = OverlayTexture.DEFAULT_UV;
+
+        matrixStack.push();
+        matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
+
+        FormRenderingContext morphContext = new FormRenderingContext()
+            .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
+            .camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+
+        /* Inventory / non-world drawEntity: soft must draw live (queues never flush). */
+        if (!worldPass)
+        {
+            morphContext.inUI();
+        }
+
+        FormUtilsClient.render(formToRender, morphContext);
+
+        if (morph.entity.getFireTicks() > 0)
+        {
+            MorphFireRenderer.render(
+                matrixStack,
+                vertexConsumerProvider,
+                morph.entity,
+                formToRender,
+                g,
+                MinecraftClient.getInstance().gameRenderer.getCamera(),
+                false
+            );
+        }
+
+        matrixStack.pop();
+
+        if (worldPass)
+        {
+            BBSRendering.restoreWorldRenderState();
+        }
+        else
+        {
+            /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
+             * re-enables lightmap/overlay left disabled by form mesh draws without
+             * touching diffuse lights (already set to GUI 3D above). */
+            DiffuseLighting.enableGuiDepthLighting();
+            BBSRendering.restoreWorldRenderState();
         }
 
         return true;
     }
 
-    private static boolean areFormsEquivalent(Form a, Form b)
+    /**
+     * Form currently being edited in the morphing panel, or {@code null} when not editing.
+     */
+    private static Form resolveLiveEditForm()
     {
-        if (a == b) return true;
-        if (a == null || b == null) return false;
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
 
-        MapType dataA = FormUtils.toData(a);
-        MapType dataB = FormUtils.toData(b);
+        if (!(menu instanceof UIDashboard dashboard))
+        {
+            return null;
+        }
 
-        return dataA != null && dataA.equals(dataB);
+        UIDashboardPanel panel = dashboard.getPanels().panel;
+
+        if (!(panel instanceof UIMorphingPanel morphingPanel) || !morphingPanel.palette.editor.isEditing())
+        {
+            return null;
+        }
+
+        return morphingPanel.palette.editor.form;
     }
 
     public static boolean renderLivingEntity(LivingEntity livingEntity, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
