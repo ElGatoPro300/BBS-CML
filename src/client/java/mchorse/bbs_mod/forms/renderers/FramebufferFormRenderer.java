@@ -417,8 +417,10 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         /* Vanilla root (shaded): content already lit → unlit blit.
          * Iris / body-part (shaded): flat albedo → lit entity_translucent so the postcard
          * gets world/pack light once (body-part normals follow the host bone).
+         * Inventory / UI thumbs: always unlit blit — pack entity_translucent darkens GUI
+         * ModelBlock previews slightly under Iris even at MAX_LIGHT.
          * No-shading (either): flat content + unlit blit — fullbright, no pack/world lighting. */
-        boolean shading = !noshading && !context.isPicking() && (irisPack || asBodyPart);
+        boolean shading = !noshading && !context.isPicking() && !context.ui && (irisPack || asBodyPart);
         VertexFormat format = shading
             ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
             : VertexFormats.POSITION_TEXTURE_COLOR;
