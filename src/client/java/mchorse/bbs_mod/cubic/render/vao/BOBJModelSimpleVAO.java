@@ -132,7 +132,14 @@ public class BOBJModelSimpleVAO extends BOBJModelVAO
         {
             final float pi = (float) Math.PI;
 
-            float rotation = this.joint.transform.rotate.x;
+            /* Elbow/knee sharpening must follow pose as well as animator. After poseTransform
+             * was split out for BOBJ pivot support, pose limb rotations no longer lived on
+             * transform — reading only transform left the joint factor stuck and limbs
+             * flattened when bending via the pose editor. */
+            float rotation = this.joint.transform.rotate.x
+                + this.joint.transform.rotate2.x
+                + this.joint.poseTransform.rotate.x
+                + this.joint.poseTransform.rotate2.x;
             float frontFactor = MathUtils.clamp((rotation + pi / 2F) / pi, 0, 1);
             float backFactor = 1 - frontFactor;
 

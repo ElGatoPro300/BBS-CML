@@ -414,13 +414,28 @@ public class BBSRendering
      * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
      * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
      * Call before {@link InGameHud} and after GUI builtin item forms.
+     * <p>
+     * Also clears the depth buffer: first-person held ModelBlock / FramebufferForm postcards
+     * write deep fragments over the lower screen; without Iris (hand is on the main target)
+     * the leftmost hotbar GUI items then fail the depth test and vanish until a later item
+     * disables depth. Third-person and Iris hand paths do not hit the main depth the same way.
      */
     public static void prepareHudRenderState()
     {
+        ensureMainFramebuffer();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
+
         restoreWorldRenderState();
         DiffuseLighting.enableGuiDepthLighting();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         clearTextureUnit0();
+        RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, MinecraftClient.IS_SYSTEM_MAC);
     }
 
     /**
@@ -543,6 +558,35 @@ public class BBSRendering
         }
 
         clearTextureUnit0();
+    }
+
+    /**
+     * After FIRST_PERSON / THIRD_PERSON / FIXED / etc. builtin form items (ModelBlock, Gun).
+     * FramebufferForm postcards and soft-opacity fills can leave TU0 on an FBO atlas, lightmap
+     * off, or deferred {@link CustomVertexConsumerProvider} runnables — tidy before the rest of
+     * the hand pass / HUD. Depth occlusion for hotbar is handled in {@link #prepareHudRenderState}.
+     */
+    public static void restoreAfterHeldItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        resetPixelUnpackState();
+        clearTextureUnit0();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        }
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */

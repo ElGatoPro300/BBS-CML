@@ -91,10 +91,19 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                 try
                 {
                     int renderLight = mode == ModelTransformationMode.GUI ? LightmapTextureManager.MAX_LIGHT_COORDINATE : light;
+                    FormRenderingContext context = new FormRenderingContext()
+                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getTickDelta());
 
-                    FormUtilsClient.render(form, new FormRenderingContext()
-                        .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, renderLight, overlay, MinecraftClient.getInstance().getTickDelta())
-                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    if (mode == ModelTransformationMode.GUI)
+                    {
+                        context.inUI();
+                    }
+                    else
+                    {
+                        context.camera(MinecraftClient.getInstance().gameRenderer.getCamera());
+                    }
+
+                    FormUtilsClient.render(form, context);
                 }
                 finally
                 {
@@ -104,7 +113,7 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                     }
                     else
                     {
-                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        BBSRendering.restoreAfterHeldItemForm();
                     }
 
                     RenderSystem.disableDepthTest();
