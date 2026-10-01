@@ -1232,6 +1232,20 @@ public class ModelVAORenderer
         }
     }
 
+    public static boolean hasActiveShaderEffects()
+    {
+        return paintPass
+            || paintOverlayPass
+            || colorTintOverlayPass
+            || colorGradeOverlayPass
+            || deferredTranslucentPass
+            || glowEmissionPass
+            || outlineOverlayPass
+            || paintEffectActive
+            || colorEffectActive
+            || glowEffectActive;
+    }
+
     public static boolean isPaintOverlaySynced()
     {
         return paintOverlaySynced;
