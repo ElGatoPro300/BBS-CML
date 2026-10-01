@@ -5,6 +5,7 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import com.mojang.blaze3d.platform.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.util.ArrayList;
@@ -144,17 +145,31 @@ public class Framebuffer
 
     public void resize(int w, int h)
     {
-        for (Texture texture : this.textures)
-        {
-            texture.bind();
-            texture.setSize(w, h);
-        }
+        int previousActive = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
 
-        for (Renderbuffer renderbuffer : this.renderbuffers)
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+
+        int previousBinding = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+
+        try
         {
-            renderbuffer.bind();
-            renderbuffer.resize(w, h);
-            renderbuffer.unbind();
+            for (Texture texture : this.textures)
+            {
+                texture.bind();
+                texture.setSize(w, h);
+            }
+
+            for (Renderbuffer renderbuffer : this.renderbuffers)
+            {
+                renderbuffer.bind();
+                renderbuffer.resize(w, h);
+                renderbuffer.unbind();
+            }
+        }
+        finally
+        {
+            GlStateManager._bindTexture(previousBinding);
+            GlStateManager._activeTexture(previousActive);
         }
     }
 
