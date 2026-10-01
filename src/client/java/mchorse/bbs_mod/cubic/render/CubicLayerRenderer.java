@@ -299,6 +299,7 @@ public class CubicLayerRenderer extends CubicCubeRenderer
                     if (this.stencilMap != null)
                     {
                         BBSUniform.set(this.effectShader, "Target", this.stencilMap.objectIndex);
+                        BBSUniform.set(this.effectShader, "IgnoreLightmap", this.stencilMap.increment ? 0 : 1);
                     }
 
                     boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();

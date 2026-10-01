@@ -410,6 +410,7 @@ public class BOBJModelVAO
             if (stencilMap != null)
             {
                 BBSUniform.set(shader, "Target", stencilMap.objectIndex);
+                BBSUniform.set(shader, "IgnoreLightmap", stencilMap.increment ? 0 : 1);
             }
 
             boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();

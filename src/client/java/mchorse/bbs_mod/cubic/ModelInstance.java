@@ -803,7 +803,7 @@ public class ModelInstance implements IModelInstance
             float ca = color.a * c.a;
 
             ShaderProgram shader = program != null ? program.get() : null;
-            boolean hasEffects = stencilMap != null || (shader != null && ModelEffectPass.isEffectProgram(shader) && ModelVAORenderer.hasActiveShaderEffects());
+            boolean hasEffects = stencilMap != null || shader == BBSShaders.getOutlineMask() || (shader != null && ModelEffectPass.isEffectProgram(shader) && ModelVAORenderer.hasActiveShaderEffects());
 
             CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
 
@@ -833,7 +833,7 @@ public class ModelInstance implements IModelInstance
                 model.getArmature().setupMatrices();
 
                 ShaderProgram shader = program != null ? program.get() : null;
-                boolean hasEffects = stencilMap != null || (shader != null && ModelEffectPass.isEffectProgram(shader) && ModelVAORenderer.hasActiveShaderEffects());
+                boolean hasEffects = stencilMap != null || shader == BBSShaders.getOutlineMask() || (shader != null && ModelEffectPass.isEffectProgram(shader) && ModelVAORenderer.hasActiveShaderEffects());
 
                 /* One draw per mesh; bind that mesh's resolved texture (mesh name = material). */
                 for (BOBJModelVAO vao : vaos)
@@ -846,15 +846,7 @@ public class ModelInstance implements IModelInstance
                     }
 
                     vao.updateMesh(stencilMap);
-
-                    if (stencilMap != null)
-                    {
-                        vao.render(shader != null ? shader : BBSShaders.getPickerModelsProgram(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
-                    }
-                    else
-                    {
-                        vao.renderLayer(stack, color, light, overlay, texture, this.culling, hasEffects ? shader : null, null);
-                    }
+                    vao.renderLayer(stack, color, light, overlay, texture, this.culling, hasEffects ? shader : null, stencilMap);
                 }
 
                 stack.pop();
