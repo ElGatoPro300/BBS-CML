@@ -14,7 +14,9 @@ import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.SoftFlatFaceSort;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
@@ -953,10 +955,11 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         this.irisVert(buffer, entry, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F, tint, overlay, light);
         this.irisVert(buffer, entry, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F, tint, overlay, light);
 
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
+        Identifier adoptedId = AdoptedTexture.identifier(textureId, (int) Math.max(1, this.lastFrameW), (int) Math.max(1, this.lastFrameH), this.form.linear.get());
+        BillboardRenderLayers.draw(buffer.end(), adoptedId, this.form.linear.get(), false, depthWrite, false);
     }
 
-    /** No-shader path: bbs:video (tex discard a &lt; 0.1 + optional FormColorGrade). */
+    /** No-shader path: bbs:video (tex discard a < 0.1 + optional FormColorGrade). */
     private void drawVideoFrontBbs(Matrix4f matrix, Color tint, Quad quad, int textureId, boolean depthWrite)
     {
         ShaderProgram videoProgram = BBSShaders.getVideoProgram();
@@ -990,17 +993,26 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             BBSRendering.enableDepthTest();
             BBSRendering.depthMask(depthWrite);
 
-            BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE);
+            MatrixStack stack = new MatrixStack();
+            stack.peek().getPositionMatrix().set(matrix);
+            stack.peek().getNormalMatrix().identity();
+            MatrixStack.Entry entry = stack.peek();
 
-            this.tex(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F);
-            this.tex(buffer, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, 1F, 1F);
-            this.tex(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F);
+            BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
-            this.tex(buffer, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F);
-            this.tex(buffer, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F);
-            this.tex(buffer, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F);
+            int light = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
 
-            BufferRenderer.drawWithGlobalProgram(buffer.end());
+            this.irisVert(buffer, entry, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F, tint, overlay, light);
+            this.irisVert(buffer, entry, quad.p4.x, quad.p4.y, FACE_Z_BIAS, 1F, 1F, tint, overlay, light);
+            this.irisVert(buffer, entry, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F, tint, overlay, light);
+
+            this.irisVert(buffer, entry, quad.p3.x, quad.p3.y, FACE_Z_BIAS, 0F, 1F, tint, overlay, light);
+            this.irisVert(buffer, entry, quad.p2.x, quad.p2.y, FACE_Z_BIAS, 1F, 0F, tint, overlay, light);
+            this.irisVert(buffer, entry, quad.p1.x, quad.p1.y, FACE_Z_BIAS, 0F, 0F, tint, overlay, light);
+
+            Identifier adoptedId = AdoptedTexture.identifier(textureId, (int) Math.max(1, this.lastFrameW), (int) Math.max(1, this.lastFrameH), this.form.linear.get());
+            BillboardRenderLayers.draw(buffer.end(), adoptedId, this.form.linear.get(), false, depthWrite, false);
         }
         finally
         {

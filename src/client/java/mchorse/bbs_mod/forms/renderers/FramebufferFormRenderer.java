@@ -10,10 +10,12 @@ import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.FramebufferForm;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.FramebufferPool;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -35,6 +37,7 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
@@ -653,7 +656,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             BBSRendering.enableBlend();
             BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
 
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            Identifier adoptedId = AdoptedTexture.identifier(texture.id, texture.width, texture.height, false);
+            BillboardRenderLayers.draw(builder.end(), adoptedId, false, false, true, irisBodyPartLit);
         }
         finally
         {
