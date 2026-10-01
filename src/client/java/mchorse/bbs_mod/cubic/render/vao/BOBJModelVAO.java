@@ -681,6 +681,12 @@ public class BOBJModelVAO
         BBSRendering.bindProgram(shader);
         ModelVAORenderer.setupUniforms(stack, shader);
 
+        if (stencilMap != null)
+        {
+            BBSUniform.set(shader, "Target", stencilMap.objectIndex);
+            BBSUniform.set(shader, "IgnoreLightmap", 0);
+        }
+
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
 

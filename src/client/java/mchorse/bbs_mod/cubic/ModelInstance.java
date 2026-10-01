@@ -846,7 +846,15 @@ public class ModelInstance implements IModelInstance
                     }
 
                     vao.updateMesh(stencilMap);
-                    vao.renderLayer(stack, color, light, overlay, texture, this.culling, hasEffects ? shader : null, stencilMap);
+
+                    if (stencilMap != null)
+                    {
+                        vao.render(shader != null ? shader : BBSShaders.getPickerModelsProgram(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                    }
+                    else
+                    {
+                        vao.renderLayer(stack, color, light, overlay, texture, this.culling, hasEffects ? shader : null, null);
+                    }
                 }
 
                 stack.pop();

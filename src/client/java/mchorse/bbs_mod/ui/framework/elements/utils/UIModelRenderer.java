@@ -24,6 +24,7 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix3d;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -359,6 +360,14 @@ public abstract class UIModelRenderer extends UIElement implements IUITreeEventL
         MatrixStackUtils.multiply(stack, this.camera.view);
         stack.translate(-this.camera.position.x, -this.camera.position.y, -this.camera.position.z);
         MatrixStackUtils.multiply(stack, this.transform);
+
+        /* Keep diffuse normals in model/block space. Baking the orbit camera into NormalMat
+         * made face shading follow the view angle; the world / F7 pass keeps lighting tied to
+         * how the model sits in the world instead. */
+        Matrix3f lightingNormals = new Matrix3f();
+
+        this.transform.normal(lightingNormals);
+        stack.peek().getNormalMatrix().set(lightingNormals);
 
         return stack;
     }

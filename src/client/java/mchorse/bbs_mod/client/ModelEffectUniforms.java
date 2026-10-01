@@ -85,6 +85,7 @@ public final class ModelEffectUniforms
         FIELDS.put("GlowOverlayColor", new Field(1232, "vec4"));
         FIELDS.put("ColorMaskFalloff", new Field(1248, "float"));
         FIELDS.put("PaintMultiplyDarken", new Field(1252, "float"));
+        FIELDS.put("IgnoreLightmap", new Field(1256, "int"));
     }
 
     public static ShaderProgram register(ShaderProgram program)
