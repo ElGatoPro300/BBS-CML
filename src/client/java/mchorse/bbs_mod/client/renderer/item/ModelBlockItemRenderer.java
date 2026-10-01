@@ -91,7 +91,8 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
                     }
                     else
                     {
-                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        /* FP FramebufferForm can leave TU0 / lightmap dirty for the next HUD. */
+                        BBSRendering.restoreAfterHeldItemForm();
                     }
 
                     RenderSystem.disableDepthTest();

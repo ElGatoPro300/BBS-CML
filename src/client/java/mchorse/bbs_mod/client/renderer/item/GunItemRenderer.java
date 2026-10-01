@@ -104,7 +104,7 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                     }
                     else
                     {
-                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        BBSRendering.restoreAfterHeldItemForm();
                     }
 
                     RenderSystem.disableDepthTest();

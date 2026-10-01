@@ -4,6 +4,8 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.function.Consumer;
+
 /**
  * Shared disclosure used by Color grade / Extra and similar form sections:
  * timeline track-group header (accent bar + horizontal fade) with fold icon,
@@ -26,6 +28,7 @@ public class UIFormDisclosureCollapse extends UIElement
     private final UIAnimatedCollapseShell shell;
     private UIElement shellHost;
     private Runnable onExpand;
+    private Consumer<Boolean> toggleCallback;
     private boolean expanded;
 
     public UIFormDisclosureCollapse(IKey label, UIElement body)
@@ -62,6 +65,34 @@ public class UIFormDisclosureCollapse extends UIElement
     public UIFormDisclosureCollapse onExpand(Runnable onExpand)
     {
         this.onExpand = onExpand;
+
+        return this;
+    }
+
+    /**
+     * Fires after expand state changes (open or close). Multiple calls chain.
+     */
+    public UIFormDisclosureCollapse onToggle(Consumer<Boolean> callback)
+    {
+        if (callback == null)
+        {
+            return this;
+        }
+
+        if (this.toggleCallback == null)
+        {
+            this.toggleCallback = callback;
+        }
+        else
+        {
+            Consumer<Boolean> previous = this.toggleCallback;
+
+            this.toggleCallback = (expanded) ->
+            {
+                previous.accept(expanded);
+                callback.accept(expanded);
+            };
+        }
 
         return this;
     }
@@ -116,5 +147,10 @@ public class UIFormDisclosureCollapse extends UIElement
         }
 
         this.shell.setExpanded(expanded, this.shellHost, animate);
+
+        if (this.toggleCallback != null)
+        {
+            this.toggleCallback.accept(expanded);
+        }
     }
 }
