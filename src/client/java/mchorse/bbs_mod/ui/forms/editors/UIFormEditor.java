@@ -714,6 +714,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         UIPropTransform editableTransform = this.getGizmoDragTransform();
 
+        if (editableTransform != null && editableTransform.getTransform() == null)
+        {
+            editableTransform = null;
+        }
+
         this.renderer.setPoseBoneGizmoDrag(this.isPoseBoneGizmo(editableTransform));
 
         if (context.mouseButton == 0 && this.renderer.getGizmoController().tryStartHandleDrag(context, editableTransform))
@@ -2123,7 +2128,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     {
         UIPropTransform transform = this.getGizmoDragTransform();
 
-        if (transform == null || !transform.isGizmoEditing())
+        if (transform == null || transform.getTransform() == null || !transform.isGizmoEditing())
         {
             return;
         }
