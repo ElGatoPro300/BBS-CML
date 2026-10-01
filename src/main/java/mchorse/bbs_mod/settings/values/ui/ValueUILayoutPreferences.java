@@ -30,6 +30,8 @@ public class ValueUILayoutPreferences extends BaseValue
     private float formTreeWidth;
     private float formOutlinerSplit = 0.5F;
     private final Map<String, Float> formPanelWidths = new HashMap<>();
+    /** Form-editor section / disclosure expand state ({@code id → expanded}). */
+    private final Map<String, Boolean> formSectionExpanded = new HashMap<>();
     private int keyframeSidebarWidth;
 
     public ValueUILayoutPreferences(String id)
@@ -102,6 +104,33 @@ public class ValueUILayoutPreferences extends BaseValue
     public void setFormPanelWidth(String panelClassName, float width)
     {
         BaseValue.edit(this, (v) -> this.formPanelWidths.put(panelClassName, width));
+    }
+
+    public boolean hasFormSectionExpanded(String sectionId)
+    {
+        return sectionId != null && this.formSectionExpanded.containsKey(sectionId);
+    }
+
+    public boolean getFormSectionExpanded(String sectionId, boolean defaultExpanded)
+    {
+        if (sectionId == null)
+        {
+            return defaultExpanded;
+        }
+
+        Boolean saved = this.formSectionExpanded.get(sectionId);
+
+        return saved == null ? defaultExpanded : saved;
+    }
+
+    public void setFormSectionExpanded(String sectionId, boolean expanded)
+    {
+        if (sectionId == null || sectionId.isEmpty())
+        {
+            return;
+        }
+
+        BaseValue.edit(this, (v) -> this.formSectionExpanded.put(sectionId, expanded));
     }
 
     public int getKeyframeSidebarWidth(int defaultWidth)
@@ -250,6 +279,18 @@ public class ValueUILayoutPreferences extends BaseValue
             data.put("form_panel_widths", widths);
         }
 
+        if (!this.formSectionExpanded.isEmpty())
+        {
+            MapType sections = new MapType();
+
+            for (Map.Entry<String, Boolean> entry : this.formSectionExpanded.entrySet())
+            {
+                sections.putBool(entry.getKey(), entry.getValue());
+            }
+
+            data.put("form_section_expanded", sections);
+        }
+
         if (this.keyframeSidebarWidth > 0)
         {
             data.putInt("keyframe_sidebar_width", this.keyframeSidebarWidth);
@@ -273,6 +314,7 @@ public class ValueUILayoutPreferences extends BaseValue
         this.filmCollapsedDocked.clear();
         this.filmCollapsedFloating.clear();
         this.formPanelWidths.clear();
+        this.formSectionExpanded.clear();
 
         this.readStringList(map, "film_hidden_panels", this.filmHiddenPanels);
         this.readStringList(map, "film_collapsed_docked", this.filmCollapsedDocked);
@@ -281,6 +323,7 @@ public class ValueUILayoutPreferences extends BaseValue
         this.formTreeWidth = map.getFloat("form_tree_width", 0F);
         this.formOutlinerSplit = map.getFloat("form_outliner_split", 0.5F);
         this.readFormPanelWidths(map);
+        this.readFormSectionExpanded(map);
         this.keyframeSidebarWidth = map.getInt("keyframe_sidebar_width", 0);
     }
 
@@ -368,6 +411,31 @@ public class ValueUILayoutPreferences extends BaseValue
         for (String key : widths.keys())
         {
             this.formPanelWidths.put(key, widths.getFloat(key, 0F));
+        }
+    }
+
+    private void readFormSectionExpanded(MapType map)
+    {
+        if (!map.has("form_section_expanded"))
+        {
+            return;
+        }
+
+        BaseType sectionsData = map.get("form_section_expanded");
+
+        if (sectionsData == null || !sectionsData.isMap())
+        {
+            return;
+        }
+
+        MapType sections = sectionsData.asMap();
+
+        for (String key : sections.keys())
+        {
+            if (key != null && !key.isEmpty())
+            {
+                this.formSectionExpanded.put(key, sections.getBool(key, true));
+            }
         }
     }
 }

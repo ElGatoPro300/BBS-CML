@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -124,11 +125,14 @@ public class UIFormOutlineControls
 
     public UISection createSection()
     {
-        return new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
-            this.outline,
-            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
-            this.outlineRainbow,
-            this.rainbowRow
+        return UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
+                this.outline,
+                UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
+                this.outlineRainbow,
+                this.rainbowRow
+            ),
+            UIFormSectionExpand.SHARED_OUTLINE
         );
     }
 

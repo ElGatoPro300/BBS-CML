@@ -53,6 +53,12 @@ public class FormRenderingContext
      */
     public int trailInstance;
 
+    /**
+     * Depth while drawing a form as another form's body part. FramebufferForm uses this
+     * to switch to lit-postcard shading so diffuse follows the host bone (e.g. head pitch).
+     */
+    public int bodyPartNesting;
+
     public FormRenderingContext()
     {}
 
@@ -77,6 +83,7 @@ public class FormRenderingContext
         this.textureOverride = null;
         this.textureBlendOverride = null;
         this.trailInstance = 0;
+        this.bodyPartNesting = 0;
 
         if (entity != null && (this.type == FormRenderType.ENTITY || this.type == FormRenderType.MODEL_BLOCK))
         {
@@ -173,6 +180,11 @@ public class FormRenderingContext
             || this.modelRenderer
             || this.type == FormRenderType.PREVIEW
             || this.type == FormRenderType.ITEM_INVENTORY;
+    }
+
+    public boolean isBodyPart()
+    {
+        return this.bodyPartNesting > 0;
     }
 
     public FormRenderingContext equipment(boolean renderEquipment)
