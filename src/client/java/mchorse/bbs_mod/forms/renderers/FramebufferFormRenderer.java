@@ -49,6 +49,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -250,7 +251,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         }
         finally
         {
-            BBSRendering.projection.set(savedBbsProjection);
+            BBSRendering.setProjectionMatrix(savedBbsProjection, context.ui ? ProjectionType.ORTHOGRAPHIC : ProjectionType.PERSPECTIVE);
             if (savedCullEnabled)
             {
                 BBSRendering.enableCull();
@@ -314,6 +315,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.getModelViewStack().pushMatrix();
         RenderSystem.getModelViewStack().identity();
         MatrixStackUtils.applyModelViewMatrix();
+
+        GpuTextureView previousColorView = RenderSystem.outputColorTextureOverride;
+        GpuTextureView previousDepthView = RenderSystem.outputDepthTextureOverride;
+        Texture mainTexture = framebuffer.getMainTexture();
+        GpuTextureView fboColorView = AdoptedTexture.textureView(mainTexture.id, mainTexture.width, mainTexture.height);
+
+        RenderSystem.outputColorTextureOverride = fboColorView;
+        RenderSystem.outputDepthTextureOverride = null;
 
         framebuffer.apply();
 
@@ -396,6 +405,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         }
         finally
         {
+            RenderSystem.outputColorTextureOverride = previousColorView;
+            RenderSystem.outputDepthTextureOverride = previousDepthView;
             GL11.glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
             context.light = savedLight;
             /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit. */
@@ -425,20 +436,22 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.getModelViewStack().popMatrix();
         MatrixStackUtils.applyModelViewMatrix();
         RenderSystem.restoreProjectionMatrix();
-        BBSRendering.projection.set(savedBbsProjection);
+        BBSRendering.setProjectionMatrix(savedBbsProjection, context.ui ? ProjectionType.ORTHOGRAPHIC : ProjectionType.PERSPECTIVE);
         GL11.glCullFace(cullFace);
 
-        /* Vanilla root (shaded): content already lit → unlit blit.
+        /* Vanilla root (shaded): content already lit → unlit blit with MAX_LIGHT.
          * Iris / body-part (shaded): flat albedo → lit entity_translucent so the postcard
          * gets world/pack light once (body-part normals follow the host bone).
-         * Inventory / UI thumbs: always unlit blit — pack entity_translucent darkens GUI
+         * Inventory / UI thumbs: always unlit blit with MAX_LIGHT — pack entity_translucent darkens GUI
          * ModelBlock previews slightly under Iris even at MAX_LIGHT.
-         * No-shading (either): flat content + unlit blit — fullbright, no pack/world lighting. */
+         * No-shading (either): flat content + unlit blit with MAX_LIGHT — fullbright, no pack/world lighting. */
         boolean shading = !noshading && !context.isPicking() && !context.ui && (irisPack || asBodyPart);
-        VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
-        ShaderProgram shaderKey = shading ? BBSRendering.getEntityTranslucentProgram() : BBSRendering.getPositionTexColorProgram();
+        VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
+        ShaderProgram shaderKey = BBSRendering.getEntityTranslucentProgram();
+        int blitLight = shading ? context.light : LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        int blitOverlay = shading ? context.overlay : OverlayTexture.DEFAULT_UV;
 
-        this.renderModel(framebuffer.getMainTexture(), format, shaderKey, context.stack, context.overlay, context.light, context.color, context.getTransition(), context);
+        this.renderModel(framebuffer.getMainTexture(), format, shaderKey, context.stack, blitOverlay, blitLight, context.color, context.getTransition(), context);
     }
 
     /**
