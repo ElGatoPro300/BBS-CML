@@ -135,18 +135,24 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
             stack.push();
 
-            this.applyTransforms(uiMatrix, context.getTransition());
-            MatrixStackUtils.multiply(stack, uiMatrix);
-            stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
-            stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
-            stack.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
+            try
+            {
+                this.applyTransforms(uiMatrix, context.getTransition());
+                MatrixStackUtils.multiply(stack, uiMatrix);
+                stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
+                stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
+                stack.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
 
-            this.renderBodyParts(new FormRenderingContext()
-                .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
-                .inUI());
-
-            stack.pop();
-            GlStateManager._depthFunc(GL11.GL_ALWAYS);
+                this.renderBodyParts(new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+                    .inUI());
+            }
+            finally
+            {
+                BBSRendering.restoreAfterGuiItemForm();
+                stack.pop();
+                GlStateManager._depthFunc(GL11.GL_ALWAYS);
+            }
         }
     }
 
@@ -228,6 +234,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, scissorBox);
         GL11.glGetFloatv(GL11.GL_COLOR_CLEAR_VALUE, clearColor);
 
+        Matrix4f savedBbsProjection = new Matrix4f(BBSRendering.projection);
         RenderSystem.backupProjectionMatrix();
         /* Save both enable + mode — restoring only mode left cull off after the postcard blit
          * and contaminated later StructureForm leaf / VAO draws (esp. NeoForge). */
@@ -239,10 +246,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             this.renderFramebufferInner(
                 context, framebuffer, x, y, width, height,
                 prevDraw, prevRead, scissorEnabled, scissorBox, clearColor,
-                cullFace);
+                cullFace, savedBbsProjection);
         }
         finally
         {
+            BBSRendering.projection.set(savedBbsProjection);
             if (savedCullEnabled)
             {
                 BBSRendering.enableCull();
@@ -262,7 +270,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         int x, int y, int width, int height,
         int prevDraw, int prevRead,
         boolean scissorEnabled, int[] scissorBox, float[] clearColor,
-        int cullFace)
+        int cullFace,
+        Matrix4f savedBbsProjection)
     {
         /* FRONT cull only for offscreen content fill (Y-flipped ortho). Restored before blit. */
         GL30.glCullFace(GL30.GL_FRONT);
@@ -416,6 +425,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         RenderSystem.getModelViewStack().popMatrix();
         MatrixStackUtils.applyModelViewMatrix();
         RenderSystem.restoreProjectionMatrix();
+        BBSRendering.projection.set(savedBbsProjection);
         GL11.glCullFace(cullFace);
 
         /* Vanilla root (shaded): content already lit → unlit blit.
