@@ -469,9 +469,23 @@ public class BBSRendering
      * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
      * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
      * Call before {@link InGameHud} and after GUI builtin item forms.
+     * <p>
+     * Also clears the depth buffer: first-person held ModelBlock / FramebufferForm postcards
+     * write deep fragments over the lower screen; without Iris (hand is on the main target)
+     * the leftmost hotbar GUI items then fail the depth test and vanish until a later item
+     * disables depth. Third-person and Iris hand paths do not hit the main depth the same way.
      */
     public static void prepareHudRenderState()
     {
+        ensureMainFramebuffer();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            bindMainFramebuffer(false);
+        }
+
         restoreWorldRenderState();
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -482,6 +496,7 @@ public class BBSRendering
 
         setShaderColor(1F, 1F, 1F, 1F);
         clearTextureUnit0();
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
     }
 
     /**
@@ -579,6 +594,27 @@ public class BBSRendering
             client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
         }
 
+        clearTextureUnit0();
+    }
+
+    /**
+     * After FIRST_PERSON / THIRD_PERSON / FIXED / etc. builtin form items (ModelBlock, Gun).
+     * FramebufferForm postcards and soft-opacity fills can leave TU0 on an FBO atlas, lightmap
+     * off, or deferred {@link CustomVertexConsumerProvider} runnables — tidy before the rest of
+     * the hand pass / HUD. Depth occlusion for hotbar is handled in {@link #prepareHudRenderState}.
+     */
+    public static void restoreAfterHeldItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        setShaderColor(1F, 1F, 1F, 1F);
+        colorMask(true, true, true, true);
+        depthMask(true);
+        enableBlend();
+        defaultBlendFunc();
+        resetPixelUnpackState();
         clearTextureUnit0();
     }
 

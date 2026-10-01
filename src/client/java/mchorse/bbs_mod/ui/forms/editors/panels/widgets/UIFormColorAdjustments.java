@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIFormDisclosureCollapse;
@@ -156,6 +157,7 @@ public class UIFormColorAdjustments extends UIElement
             };
             this.disclosure.shellHost(this);
             this.disclosure.full(this);
+            UIFormSectionExpand.bind(this.disclosure, UIFormSectionExpand.SHARED_COLOR_GRADE);
             this.add(this.disclosure);
         }
         else
@@ -228,6 +230,7 @@ public class UIFormColorAdjustments extends UIElement
     /**
      * Expand Color grade once per editor session (typically the first time Extra opens).
      * Opens instantly so Extra can measure the nested height before its own animation.
+     * Skipped when the user already has a saved Color grade expand preference.
      */
     public void tryAutoExpandOnce()
     {
@@ -237,6 +240,12 @@ public class UIFormColorAdjustments extends UIElement
         }
 
         this.autoExpandPending = false;
+
+        if (UIFormSectionExpand.has(UIFormSectionExpand.SHARED_COLOR_GRADE))
+        {
+            return;
+        }
+
         this.setExpanded(true, false);
     }
 

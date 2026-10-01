@@ -19,6 +19,7 @@ public class BufferRenderer
     private static RenderLayer defaultGuiTexturedLayer;
     private static RenderLayer defaultGuiLayer;
     private static RenderLayer defaultTranslucentParticleLayer;
+    private static RenderLayer defaultEntityTranslucentLayer;
     private static RenderLayer defaultLinesLayer;
     private static RenderLayer defaultDebugQuadsLayer;
 
@@ -68,11 +69,21 @@ public class BufferRenderer
             return defaultLinesLayer;
         }
 
+        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+        {
+            if (defaultEntityTranslucentLayer == null)
+            {
+                defaultEntityTranslucentLayer = RenderLayer.of("bbs_compat_entity_translucent", RenderSetup.builder(RenderPipelines.ENTITY_TRANSLUCENT).useLightmap().useOverlay().build());
+            }
+
+            return defaultEntityTranslucentLayer;
+        }
+
         if (format == VertexFormats.POSITION_TEXTURE_COLOR_LIGHT)
         {
             if (defaultTranslucentParticleLayer == null)
             {
-                defaultTranslucentParticleLayer = RenderLayer.of("bbs_compat_particle", RenderSetup.builder(RenderPipelines.TRANSLUCENT_PARTICLE).build());
+                defaultTranslucentParticleLayer = RenderLayer.of("bbs_compat_particle", RenderSetup.builder(RenderPipelines.TRANSLUCENT_PARTICLE).useLightmap().build());
             }
 
             return defaultTranslucentParticleLayer;

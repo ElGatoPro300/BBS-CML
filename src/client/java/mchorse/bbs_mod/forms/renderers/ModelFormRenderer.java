@@ -95,11 +95,9 @@ import org.lwjgl.opengl.GL11;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -627,21 +625,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             Color stencilFormColor = this.form.color.get().copyBakingColorGrade();
             boolean stencilColorTransformActive = this.canApplyColorTransformMask(model);
-            Set<String> previousExcluded = stencilMap.excludedBones;
-            Set<String> hostBones = this.collectVisibleBodyPartHostBones();
-
-            if (!hostBones.isEmpty())
-            {
-                /* Host bones still register in fillStencilMap for outliner picks, but their
-                 * mesh must not occupy the pick FBO — otherwise body-part MobForms (etc.)
-                 * hover only where the child wins depth over the anchor limb. */
-                Set<String> excluded = previousExcluded == null
-                    ? new HashSet<>()
-                    : new HashSet<>(previousExcluded);
-
-                excluded.addAll(hostBones);
-                stencilMap.excludedBones = excluded;
-            }
 
             try
             {
@@ -656,7 +639,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                 /* Picking must write depth so the closest limb along the cursor ray wins.
                  * Glow/paint passes can leave depthMask false; without this, later-drawn
-                 * bones (often torso) overwrite nearer ones (head) in the pick FBO. */
+                 * bones (often torso) overwrite nearer ones (head) in the pick FBO.
+                 * Body-part meshes draw after the host and win where they are in front —
+                 * do not exclude host bones or anchors with parts become unpickable. */
                 BBSRendering.enableDepthTest();
                 BBSRendering.depthFunc(GL11.GL_LEQUAL);
                 BBSRendering.depthMask(true);
@@ -667,7 +652,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
             finally
             {
-                stencilMap.excludedBones = previousExcluded;
                 this.clearPBRTextureIntensity();
                 ModelVAORenderer.clearColorEffectTransform();
                 ModelVAORenderer.clearFormColorTint();
@@ -3910,34 +3894,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             this.renderBodyPartLayer(context, part);
         }
-    }
-
-    /**
-     * Bones that host a visible body-part form — skipped in the parent pick draw so the
-     * child's pick id fills the hover silhouette (MobForm, ItemForm, …).
-     */
-    private Set<String> collectVisibleBodyPartHostBones()
-    {
-        Set<String> hosts = new HashSet<>();
-
-        for (BodyPart part : this.form.parts.getAllTyped())
-        {
-            Form child = part.getForm();
-
-            if (child == null || !child.visible.get())
-            {
-                continue;
-            }
-
-            String bone = part.bone.get();
-
-            if (bone != null && !bone.isEmpty())
-            {
-                hosts.add(bone);
-            }
-        }
-
-        return hosts;
     }
 
     private void renderBodyPartLayer(FormRenderingContext context, BodyPart part)

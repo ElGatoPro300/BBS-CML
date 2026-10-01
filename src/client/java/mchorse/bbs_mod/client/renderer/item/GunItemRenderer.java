@@ -146,7 +146,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
                     }
                     else
                     {
-                        BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+                        BBSRendering.restoreAfterHeldItemForm();
                     }
 
                     BBSRendering.disableDepthTest();
