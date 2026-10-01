@@ -44,6 +44,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -99,6 +100,59 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
      */
     private static final ThreadLocal<Camera> PREVIEW_CAMERA = new ThreadLocal<>();
 
+    private static Framebuffer activeFramebuffer;
+    private static final Matrix4f activeProjection = new Matrix4f();
+    private static ProjectionType activeProjectionType;
+    private static boolean activeProjectionValid;
+
+    /**
+     * 1.21.4 Immediate/RenderLayer (and Iris program switches) can steal the main client
+     * framebuffer and overwrite the FBO ortho mid-fill. Re-assert BBS FBO + viewport + the
+     * ortho that was set for this postcard bake — without the projection restore, shaders
+     * leave content drawn with the world perspective into the offscreen target.
+     */
+    public static void rebindActive()
+    {
+        if (activeFramebuffer == null)
+        {
+            return;
+        }
+
+        Texture texture = activeFramebuffer.getMainTexture();
+
+        GlStateManager._viewport(0, 0, texture.width, texture.height);
+        activeFramebuffer.bind();
+
+        if (activeProjectionValid && activeProjectionType != null)
+        {
+            RenderSystem.setProjectionMatrix(activeProjection, activeProjectionType);
+        }
+    }
+
+    public static boolean isFboFillActive()
+    {
+        return activeFramebuffer != null;
+    }
+
+    private static void beginActiveFill(Framebuffer framebuffer, Matrix4f projection, ProjectionType projectionType)
+    {
+        activeFramebuffer = framebuffer;
+        activeProjection.set(projection);
+        activeProjectionType = projectionType;
+        activeProjectionValid = true;
+    }
+
+    private static void endActiveFill(Framebuffer previousFramebuffer)
+    {
+        activeFramebuffer = previousFramebuffer;
+
+        if (previousFramebuffer == null)
+        {
+            activeProjectionValid = false;
+            activeProjectionType = null;
+        }
+    }
+
     public FramebufferFormRenderer(FramebufferForm form)
     {
         super(form);
@@ -131,18 +185,24 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
             stack.push();
 
-            this.applyTransforms(uiMatrix, context.getTransition());
-            MatrixStackUtils.multiply(stack, uiMatrix);
-            stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
-            stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
-            stack.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
+            try
+            {
+                this.applyTransforms(uiMatrix, context.getTransition());
+                MatrixStackUtils.multiply(stack, uiMatrix);
+                stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
+                stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
+                stack.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
 
-            this.renderBodyParts(new FormRenderingContext()
-                .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
-                .inUI());
-
-            stack.pop();
-            RenderSystem.depthFunc(GL11.GL_ALWAYS);
+                this.renderBodyParts(new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+                    .inUI());
+            }
+            finally
+            {
+                BBSRendering.restoreAfterGuiItemForm();
+                stack.pop();
+                RenderSystem.depthFunc(GL11.GL_ALWAYS);
+            }
         }
     }
 
@@ -297,7 +357,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         /* Y is flipped like the legacy [-1, 1] / [1, -1] ortho. Frustum follows
          * view extent even when the FBO is capped — then density drops (pixelates)
          * instead of allocating past {@link #MAX_FRAMEBUFFER_EDGE}. */
-        RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(-halfX, halfX, halfY, -halfY, -500F, 500F), ProjectionType.ORTHOGRAPHIC);
+        Matrix4f orthoProjection = new Matrix4f().setOrtho(-halfX, halfX, halfY, -halfY, -500F, 500F);
+
+        RenderSystem.setProjectionMatrix(orthoProjection, ProjectionType.ORTHOGRAPHIC);
         RenderSystem.getModelViewStack().pushMatrix();
         RenderSystem.getModelViewStack().identity();
         MatrixStackUtils.applyModelViewMatrix();
@@ -368,8 +430,11 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         fboContext.renderEquipment = context.renderEquipment;
 
+        Framebuffer prevActive = activeFramebuffer;
+
         try
         {
+            beginActiveFill(framebuffer, orthoProjection, ProjectionType.ORTHOGRAPHIC);
             Runnable fillParts = () -> this.renderIsolatedFboBodyParts(fboContext, bakeWorldLighting);
 
             if (bakeWorldLighting)
@@ -383,6 +448,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         }
         finally
         {
+            endActiveFill(prevActive);
             RenderSystem.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
             context.light = savedLight;
             /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit. */
@@ -394,9 +460,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         context.stack.pop();
 
-        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
-        GL30.glViewport(x, y, width, height);
+        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
+        GlStateManager._viewport(x, y, width, height);
 
         if (scissorEnabled)
         {
@@ -449,11 +515,13 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         List<BodyPart> parts = this.getSortedBodyParts(context);
 
         this.prepareFboContentLighting(bakeWorldLighting);
+        rebindActive();
 
         if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
         {
             BBSRendering.restoreWorldRenderState();
             this.prepareFboContentLighting(bakeWorldLighting);
+            rebindActive();
 
             return;
         }
@@ -461,6 +529,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         for (BodyPart part : parts)
         {
             this.prepareFboContentLighting(bakeWorldLighting);
+            rebindActive();
 
             try
             {
@@ -469,10 +538,12 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             finally
             {
                 BBSRendering.restoreWorldRenderState();
+                rebindActive();
             }
         }
 
         this.prepareFboContentLighting(bakeWorldLighting);
+        rebindActive();
     }
 
     /**

@@ -51,6 +51,12 @@ Related pause/HUD darkness (model-block in hotbar, blur sky/leaves on NeoForge):
 
 The film 3D preview uses `customSize` + `toggleFramebuffer` (offscreen) and `WindowMixin` size spoofing. `prepareWorldPresentState()` must **not** call `ensureMainFramebuffer()` / `beginWrite` while `customSize` is active: that ping-pongs client FB → offscreen at every `renderWorld` HEAD and can leave Iris on NeoForge drawing into the wrong targets (world/forms invisible, godrays/fog still visible, stale silhouettes). Outside the film viewport (`!customSize`), keep the full present-state path for pause freeze.
 
+### 5.2 FramebufferForm offscreen fill + Iris
+
+`FramebufferFormRenderer` bakes body parts into a BBS FBO with an orthographic projection. On 1.21.4, `RenderLayer` / Iris program switches can rebind the client (or gbuffer) target **and** overwrite `RenderSystem` projection mid-fill — vanilla often only loses the FB; with shaders the content is additionally drawn with the world perspective (skewed / wrongly projected postcard).
+
+**Mitigation:** while the fill is active, `FramebufferFormRenderer.rebindActive()` restores FBO bind + viewport + the fill ortho. Hook it from `CustomVertexConsumerProvider.drawLayer`, `RenderLayerMixin.startDrawing` TAIL, `FormUtilsClient.render`, and after each isolated body-part restore in `renderIsolatedFboBodyParts` (same idea as `StencilFormFramebuffer.rebindActive` for pick passes).
+
 ## Related
 
 * Forms: `docs/architecture/forms.md`

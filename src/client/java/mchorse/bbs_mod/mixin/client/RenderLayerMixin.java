@@ -1,7 +1,9 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.forms.renderers.FramebufferFormRenderer;
 import mchorse.bbs_mod.ui.film.UISubtitleRenderer;
+import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
@@ -20,7 +22,10 @@ public class RenderLayerMixin
         if ((Object) this instanceof RenderLayer)
         {
             CustomVertexConsumerProvider.drawLayer((RenderLayer) (Object) this);
-            UISubtitleRenderer.rebindTextTarget();
         }
+
+        StencilFormFramebuffer.rebindActive();
+        UISubtitleRenderer.rebindTextTarget();
+        FramebufferFormRenderer.rebindActive();
     }
 }
