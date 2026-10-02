@@ -18,42 +18,6 @@ public class TextureExtruder
 {
     private Map<Link, ModelVAO> extruded = new HashMap<>();
     private Map<Link, ModelVAOData> meshes = new HashMap<>();
-    private ModelVAOData errorMesh;
-    private ModelVAO errorVAO;
-
-    public ModelVAOData getErrorMesh()
-    {
-        if (this.errorMesh == null)
-        {
-            Pixels pixels = BBSModClient.getTextures().getErrorPixels();
-
-            try
-            {
-                this.errorMesh = this.generate(pixels);
-            }
-            finally
-            {
-                pixels.delete();
-            }
-        }
-
-        return this.errorMesh;
-    }
-
-    public ModelVAO getErrorVAO()
-    {
-        if (this.errorVAO == null)
-        {
-            ModelVAOData mesh = this.getErrorMesh();
-
-            if (mesh != null)
-            {
-                this.errorVAO = new ModelVAO(mesh);
-            }
-        }
-
-        return this.errorVAO;
-    }
 
     /**
      * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
@@ -147,33 +111,19 @@ public class TextureExtruder
             }
         }
 
-        if (this.errorVAO != null)
-        {
-            this.errorVAO.delete();
-            this.errorVAO = null;
-        }
-
-        this.errorMesh = null;
         this.extruded.clear();
         this.meshes.clear();
     }
 
     public ModelVAO get(Link key)
     {
-        if (key == null)
-        {
-            return this.getErrorVAO();
-        }
-
         if (this.extruded.containsKey(key))
         {
-            ModelVAO cached = this.extruded.get(key);
-
-            return cached != null ? cached : this.getErrorVAO();
+            return this.extruded.get(key);
         }
 
         ModelVAOData mesh = this.getMesh(key);
-        ModelVAO buffer = mesh == null ? this.getErrorVAO() : new ModelVAO(mesh);
+        ModelVAO buffer = mesh == null ? null : new ModelVAO(mesh);
 
         this.extruded.put(key, buffer);
 
@@ -182,16 +132,9 @@ public class TextureExtruder
 
     public ModelVAOData getMesh(Link key)
     {
-        if (key == null)
-        {
-            return this.getErrorMesh();
-        }
-
         if (this.meshes.containsKey(key))
         {
-            ModelVAOData cached = this.meshes.get(key);
-
-            return cached != null ? cached : this.getErrorMesh();
+            return this.meshes.get(key);
         }
 
         Pixels pixels = null;
@@ -201,13 +144,15 @@ public class TextureExtruder
             pixels = BBSModClient.getTextures().getPixels(key);
         }
         catch (Exception e)
-        {}
+        {
+            e.printStackTrace();
+        }
 
         if (pixels == null)
         {
             this.meshes.put(key, null);
 
-            return this.getErrorMesh();
+            return null;
         }
 
         try

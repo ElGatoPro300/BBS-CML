@@ -41,46 +41,37 @@ public class TextureManager implements IWatchDogListener
         return this.extruder;
     }
 
-    public Pixels getErrorPixels()
-    {
-        Pixels pixels = Pixels.fromSize(16, 16);
-        Color a = new Color().set(0xff009fe0);
-        Color b = new Color().set(0xffe00073);
-
-        for (int x = 0; x < pixels.width; x++)
-        {
-            for (int y = 0; y < pixels.height; y++)
-            {
-                Color color = a;
-
-                if ((x / 4) % 2 == 0 ^ (y / 4) % 2 == 0)
-                {
-                    color = b;
-                }
-
-                pixels.setColor(x, y, color);
-            }
-        }
-
-        pixels.rewindBuffer();
-
-        return pixels;
-    }
-
     public Texture getError()
     {
         if (this.error == null)
         {
             try
             {
-                Pixels pixels = this.getErrorPixels();
-                Texture texture = new Texture();
+                Pixels pixels = Pixels.fromSize(16, 16);
+                Color a = new Color().set(0xff009fe0);
+                Color b = new Color().set(0xffe00073);
 
+                for (int x = 0; x < pixels.width; x++)
+                {
+                    for (int y = 0; y < pixels.height; y++)
+                    {
+                        Color color = a;
+
+                        if ((x / 4) % 2 == 0 ^ (y / 4) % 2 == 0)
+                        {
+                            color = b;
+                        }
+
+                        pixels.setColor(x, y, color);
+                    }
+                }
+
+                pixels.rewindBuffer();
+
+                Texture texture = new Texture();
                 texture.setFilter(GL11.GL_NEAREST);
                 texture.uploadTexture(pixels);
                 texture.unbind();
-
-                pixels.delete();
 
                 this.error = texture;
             }
