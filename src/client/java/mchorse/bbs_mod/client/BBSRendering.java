@@ -474,18 +474,14 @@ public class BBSRendering
      * write deep fragments over the lower screen; without Iris (hand is on the main target)
      * the leftmost hotbar GUI items then fail the depth test and vanish until a later item
      * disables depth. Third-person and Iris hand paths do not hit the main depth the same way.
+     * <p>
+     * When {@link #isCustomSize()} (film editor 3D viewport), do <b>not</b> rebind or clear the
+     * main framebuffer here: the world pass draws offscreen and {@link #onRenderBeforeScreen()}
+     * copies that target for {@code UIFilmPreview}. {@link #ensureMainFramebuffer()} at HUD HEAD
+     * would flip {@link #toggleFramebuffer} off too early and leave the preview black.
      */
     public static void prepareHudRenderState()
     {
-        ensureMainFramebuffer();
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        if (mc != null && mc.getFramebuffer() != null)
-        {
-            bindMainFramebuffer(false);
-        }
-
         restoreWorldRenderState();
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -496,6 +492,21 @@ public class BBSRendering
 
         setShaderColor(1F, 1F, 1F, 1F);
         clearTextureUnit0();
+
+        if (isCustomSize())
+        {
+            return;
+        }
+
+        ensureMainFramebuffer();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc != null && mc.getFramebuffer() != null)
+        {
+            bindMainFramebuffer(false);
+        }
+
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
     }
 
