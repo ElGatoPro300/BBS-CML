@@ -120,6 +120,12 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
     }
 
     @Override
+    public boolean is3D()
+    {
+        return !this.form.parts.getAll().isEmpty();
+    }
+
+    @Override
     protected void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
         if (this.form.parts.getAll().isEmpty())
