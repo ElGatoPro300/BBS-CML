@@ -115,8 +115,8 @@ public class BBSRendering
     public static final Set<ModelBlockEntity> capturedModelBlocks = new HashSet<>();
 
     /** Vanilla level diffuse basis (same as UIModelRenderer / DiffuseLighting world pass). */
-    private static final Vector3f WORLD_LEVEL_LIGHT_0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
-    private static final Vector3f WORLD_LEVEL_LIGHT_1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
+    public static final Vector3f WORLD_LEVEL_LIGHT_0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
+    public static final Vector3f WORLD_LEVEL_LIGHT_1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
 
     public static boolean canRender;
 

@@ -2021,6 +2021,9 @@ public class ModelVAORenderer
             BBSUniform.set(shader, "Sampler" + i, i);
         }
 
+        BBSUniform.set(shader, "Light0_Direction", BBSRendering.WORLD_LEVEL_LIGHT_0.x, BBSRendering.WORLD_LEVEL_LIGHT_0.y, BBSRendering.WORLD_LEVEL_LIGHT_0.z);
+        BBSUniform.set(shader, "Light1_Direction", BBSRendering.WORLD_LEVEL_LIGHT_1.x, BBSRendering.WORLD_LEVEL_LIGHT_1.y, BBSRendering.WORLD_LEVEL_LIGHT_1.z);
+
         if (cpuPretransformed)
         {
             if (usesCapturedModelView())
