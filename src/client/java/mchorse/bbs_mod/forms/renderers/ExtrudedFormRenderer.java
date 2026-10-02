@@ -80,25 +80,17 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
         BBSRendering.setupLevelLighting();
 
-        BBSRendering.depthFunc(GL11.GL_LEQUAL);
-
-        ShaderProgram modelShader = BBSShaders.getModel();
-
-        if (modelShader != null)
-        {
-            this.renderModel(() -> modelShader,
-                stack,
-                OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
-                context.getTransition(),
-                null,
-                true,
-                false,
-                null,
-                null
-            );
-        }
-
-        BBSRendering.depthFunc(GL11.GL_ALWAYS);
+        this.renderModel(
+            BBSRendering::getEntityTranslucentProgram,
+            stack,
+            OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
+            context.getTransition(),
+            null,
+            true,
+            false,
+            null,
+            null
+        );
 
         stack.pop();
     }
