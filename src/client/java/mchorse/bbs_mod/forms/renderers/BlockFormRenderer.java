@@ -150,7 +150,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             this.applyBlockMainPassHijackLayer(layer, uiNegativeGlowTint);
         });
 
-        BBSRendering.setupLevelLighting();
+        BBSRendering.setupEntityInUiLighting();
 
         Color mainPassPaint = FormColorEffects.defersNegativePaintToOverlay(this.form.paintSettings.get(), this.form.paintColor.get())
             ? null
@@ -908,18 +908,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return;
         }
 
-        int tint = this.resolveBlockTint(blockState, worldPos);
-        float r = tint != -1 ? (float) (tint >> 16 & 0xFF) / 255.0F : 1.0F;
-        float g = tint != -1 ? (float) (tint >> 8 & 0xFF) / 255.0F : 1.0F;
-        float b = tint != -1 ? (float) (tint & 0xFF) / 255.0F : 1.0F;
-
         List<BlockStateModelPart> parts = new ArrayList<>();
         model.collectParts(RandomSource.create(42L), parts);
         VertexConsumer buffer = consumers.getBuffer(this.resolveBlockLayer(blockState));
         QuadInstance instance = new QuadInstance();
-        int color = ((int) (r * 255F) << 16) | ((int) (g * 255F) << 8) | (int) (b * 255F) | 0xFF000000;
 
-        instance.setColor(color);
         instance.setLightCoords(light);
         instance.setOverlayCoords(overlay);
 
@@ -929,16 +922,39 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 for (BakedQuad quad : part.getQuads(direction))
                 {
+                    this.applyQuadTint(instance, blockState, worldPos, quad);
                     buffer.putBakedQuad(stack.last(), quad, instance);
                 }
             }
 
             for (BakedQuad quad : part.getQuads(null))
             {
+                this.applyQuadTint(instance, blockState, worldPos, quad);
                 buffer.putBakedQuad(stack.last(), quad, instance);
             }
         }
     }
+
+    private void applyQuadTint(QuadInstance instance, BlockState blockState, BlockPos worldPos, BakedQuad quad)
+    {
+        if (quad.materialInfo().isTinted())
+        {
+            int tint = this.resolveBlockTint(blockState, worldPos, quad.materialInfo().tintIndex());
+
+            if (tint != -1)
+            {
+                int r = (tint >> 16) & 0xFF;
+                int g = (tint >> 8) & 0xFF;
+                int b = tint & 0xFF;
+
+                instance.setColor(0xFF000000 | (r << 16) | (g << 8) | b);
+                return;
+            }
+        }
+
+        instance.setColor(0xFFFFFFFF);
+    }
+
 
     private RenderType resolveBlockLayer(BlockState state)
     {
@@ -988,11 +1004,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         return Sheets.cutoutBlockSheet();
     }
 
-    private int resolveBlockTint(BlockState state, BlockPos worldPos)
+    private int resolveBlockTint(BlockState state, BlockPos worldPos, int tintIndex)
     {
         String biomeId = this.form.biomeId.get();
         boolean hasBiomeOverride = biomeId != null && !biomeId.isEmpty();
-        BlockTintSource tintSource = Minecraft.getInstance().getBlockColors().getTintSource(state, 0);
+        BlockTintSource tintSource = Minecraft.getInstance().getBlockColors().getTintSource(state, tintIndex);
 
         if (tintSource == null)
         {

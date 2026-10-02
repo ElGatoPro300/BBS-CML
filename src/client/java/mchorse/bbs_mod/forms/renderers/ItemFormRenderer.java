@@ -31,6 +31,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
 import org.joml.Matrix3f;
@@ -111,10 +112,18 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         ItemDisplayContext mode = this.form.modelTransform.get();
 
+        /* Show a stick preview when no item has been chosen yet */
+        if (this.form.stack.get().isEmpty())
+        {
+            this.form.stack.setRuntimeValue(new ItemStack(Items.STICK));
+        }
+
         consumers.setSubstitute(this.getMainConsumer(set, mainPassPaint));
         consumers.setUI(true);
         this.renderItem(null, matrices, consumers, LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, mode, false, null);
         consumers.draw();
+
+        this.form.stack.setRuntimeValue(null);
 
         if (colorTransformWanted)
         {
