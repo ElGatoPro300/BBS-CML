@@ -19,12 +19,10 @@ import mchorse.bbs_mod.cubic.constraints.JointLimitEnforcer;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.ik.LimbConstraintProcessor;
-import mchorse.bbs_mod.cubic.ik.ModelIKDebug;
 import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.physics.DynamicBoneOrchestrator;
-import mchorse.bbs_mod.cubic.physics.ModelPhysicsDebug;
 import mchorse.bbs_mod.cubic.render.ShapeKeyGlowPass;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.data.types.MapType;
@@ -44,6 +42,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.renderers.utils.BbsHeadItemSpace;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.FormOutlineRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
@@ -641,7 +640,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                 /* Picking must write depth so the closest limb along the cursor ray wins.
                  * Glow/paint passes can leave depthMask false; without this, later-drawn
-                 * bones (often torso) overwrite nearer ones (head) in the pick FBO. */
+                 * bones (often torso) overwrite nearer ones (head) in the pick FBO.
+                 * Body-part meshes draw after the host and win where they are in front —
+                 * do not exclude host bones or anchors with parts become unpickable. */
                 BBSRendering.enableDepthTest();
                 BBSRendering.depthFunc(GL11.GL_LEQUAL);
                 BBSRendering.depthMask(true);
@@ -1803,27 +1804,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.clearGlowing();
         }
 
-        /* IK overlay, over the finished geometry and only in the visible pass — the
-         * picking pass gets its own markers in updateStencilMap. Drawn wherever the form
-         * renders, viewport and world alike; BBSSettings.ikDebug.enabled is the switch.
-         *
-         * The map comes from the PROCESSOR, not from this.form.ik: a model's IK config
-         * lives in instance.limbConstraints, and only the model editor copies it onto the
-         * form — reading form.ik alone is why the overlay used to appear nowhere else. */
-        MapType ikMap = stencilMap == null ? LimbConstraintProcessor.resolveIkMap(model) : null;
-
-        if (ikMap != null && !ikMap.isEmpty())
-        {
-            ModelIKDebug.render(newStack, model.model, ikMap, "");
-        }
-
-        MapType springsMap = stencilMap == null ? DynamicBoneOrchestrator.resolveSpringsMap(model) : null;
-
-        if (springsMap != null && !springsMap.isEmpty())
-        {
-            ModelPhysicsDebug.render(newStack, model.model, springsMap, target == null ? 0 : target.getAge(), "");
-        }
-
         BBSRendering.disableBlend();
         BBSRendering.defaultBlendFunc();
 
@@ -2251,6 +2231,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private Supplier<GlProgram> getModelShader(ModelInstance model)
     {
+        /* FramebufferForm albedo bake must use model.vsh Unlit — not Iris entity programs. */
+        if (BBSRendering.isFramebufferContentUnlit() && model.supportsBbsModelShaderEffects())
+        {
+            return BBSShaders::getModel;
+        }
+
         if (!model.supportsBbsModelShaderEffects())
         {
             return BBSRendering::getEntityTranslucentProgram;
@@ -3734,51 +3720,23 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
      */
     private void renderOutline(FormRenderingContext context, ModelInstance model, Link texture, Color color)
     {
-        if (!this.form.outline.get() || context.stencilMap != null)
+        if (model == null || FormOutlinePass.shouldSkip(this.form, context, color.a))
         {
             return;
         }
 
-        if (context.isShadowPass || BBSRendering.isIrisShadowPass() || color.a <= 0.001F)
-        {
-            return;
-        }
-
-        Color outlineColor = this.form.outlineColor.get();
+        Color outlineColor = FormOutlinePass.resolveOutlineColor(this.form, color.a);
         float thickness = this.form.outlineThickness.get();
-
-        if (outlineColor == null || outlineColor.a <= 0.001F || thickness <= 0F)
-        {
-            return;
-        }
-
-        /* Immediate path (vanilla / model-editor): entity-local transform only.
-         * setupUniforms computes:  ModelViewMat = RenderSystem.getModelViewMatrix() * stack.last()
-         *                                       = camera * entity_local  →  correct. */
-        PoseStack maskStack = new PoseStack();
-
-        MatrixStackUtils.multiply(maskStack, context.stack.last().pose());
-        maskStack.last().normal().set(context.stack.last().normal());
-
-        ShapeKeys shapeKeys = this.form.shapeKeys.get();
-        Function<String, Link> textureResolver = this.getTextureResolver(model, texture);
-        int light = context.light;
-        Color capturedColor = new Color().set(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a);
-        float capturedThickness = thickness;
         boolean rainbow = this.form.outlineRainbow.get();
         float rainbowSpeed = this.form.outlineRainbowSpeed.get();
         float rainbowScale = this.form.outlineRainbowScale.get();
-
+        ShapeKeys shapeKeys = this.form.shapeKeys.get();
+        Function<String, Link> textureResolver = this.getTextureResolver(model, texture);
+        int light = context.light;
         List<FormOutlineRenderer.BodyPartData> bodyParts = this.captureBodyPartsOutlineData(context);
 
-        /* When Iris shaders are active and we are inside its entity/gbuffer world pass,
-         * Iris intercepts RenderSystem.setShader() and replaces our custom outline_mask
-         * shader with its own gbuffer program — the outline mask buffer never gets written.
-         * Defer to after Iris compositing (the same slot used for paint overlays) where our
-         * shaders run unintercepted on the final vanilla framebuffer.
-         *
-         * Outside an Iris world pass (vanilla render or model-editor preview) run immediately
-         * so the outline depth-tests correctly against the scene that just rendered. */
+        /* ModelInstance mask uses the dedicated FormOutlineRenderer overload (pose / body parts).
+         * Iris must defer — setShader is intercepted during the world gbuffer pass. */
         if (BBSRendering.isIrisDeferredModelPass())
         {
             /* Deferred path: the paint overlay queue calls pushIdentityModelView() before
@@ -3792,13 +3750,24 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             MatrixStackUtils.multiply(deferredStack, baked);
             deferredStack.last().normal().set(context.stack.last().normal());
 
+            Color colorSnapshot = outlineColor.copy();
+            float thicknessSnapshot = thickness;
+            boolean rainbowSnapshot = rainbow;
+            float speedSnapshot = rainbowSpeed;
+            float scaleSnapshot = rainbowScale;
+
             ModelVAORenderer.submitOutlineOverlay(
-                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, rainbow, rainbowSpeed, rainbowScale, bodyParts)
+                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, colorSnapshot, thicknessSnapshot, rainbowSnapshot, speedSnapshot, scaleSnapshot, bodyParts)
             );
         }
         else
         {
-            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, capturedColor, capturedThickness, rainbow, rainbowSpeed, rainbowScale, bodyParts);
+            PoseStack maskStack = new PoseStack();
+
+            MatrixStackUtils.multiply(maskStack, context.stack.last().pose());
+            maskStack.last().normal().set(context.stack.last().normal());
+
+            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, outlineColor, thickness, rainbow, rainbowSpeed, rainbowScale, bodyParts);
         }
     }
 
@@ -3887,23 +3856,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         model.fillStencilMap(context.stencilMap, this.form);
-
-        /* After the bones, so the goal markers' ids fall right after theirs — clicking
-         * a controller or pole handle then selects its (usually mesh-less) bone. Same
-         * merged map as the visual pass, for the same reason. */
-        MapType ikMap = LimbConstraintProcessor.resolveIkMap(model);
-
-        if (ikMap != null && !ikMap.isEmpty())
-        {
-            ModelIKDebug.renderStencil(context.stack, model.model, ikMap, context.stencilMap, this.form);
-        }
-
-        MapType springsMap = DynamicBoneOrchestrator.resolveSpringsMap(model);
-
-        if (springsMap != null && !springsMap.isEmpty())
-        {
-            ModelPhysicsDebug.renderStencil(context.stack, model.model, springsMap, context.stencilMap, this.form);
-        }
     }
 
     private void captureMatrices(ModelInstance model)

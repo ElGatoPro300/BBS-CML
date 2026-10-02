@@ -19,6 +19,11 @@ public class StencilMap
     public Map<Integer, Pair<Form, String>> indexMap = new HashMap<>();
     public boolean increment = true;
     public Set<String> allowedBones;
+    /**
+     * Bones skipped during the pick draw (e.g. ModelForm anchors that host a body part).
+     * Checked after {@link #allowedBones}: an excluded bone is never drawn for picking.
+     */
+    public Set<String> excludedBones;
 
     public void setIncrement(boolean increment)
     {
@@ -34,6 +39,7 @@ public class StencilMap
          * handles), so a).getPicked() != null for every handle id and b) picking never collides
          * with a bone/form's own picking id. */
         this.indexMap.clear();
+        this.excludedBones = null;
         this.indexMap.put(Gizmo.STENCIL_X, new Pair<>(null, "x"));
         this.indexMap.put(Gizmo.STENCIL_Y, new Pair<>(null, "y"));
         this.indexMap.put(Gizmo.STENCIL_Z, new Pair<>(null, "z"));
@@ -88,6 +94,11 @@ public class StencilMap
 
     public boolean isBoneAllowed(String bone)
     {
+        if (this.excludedBones != null && this.excludedBones.contains(bone))
+        {
+            return false;
+        }
+
         return this.allowedBones == null || this.allowedBones.contains(bone);
     }
 

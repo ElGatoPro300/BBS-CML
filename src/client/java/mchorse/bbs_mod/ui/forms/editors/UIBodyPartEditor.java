@@ -6,6 +6,7 @@ import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -85,6 +86,8 @@ public class UIBodyPartEditor extends UIScrollView
 
     public void setPart(BodyPart part, Form form)
     {
+        BodyPart previous = this.part;
+
         this.part = part;
 
         this.removeAll();
@@ -95,21 +98,34 @@ public class UIBodyPartEditor extends UIScrollView
         this.bone.sort();
         this.bone.setCurrentScroll(part.bone.get());
 
-        UISection formSection = new UISection(UIKeys.FORMS_EDITOR_FORM, this.pick, this.useTarget);
+        UISection formSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITOR_FORM, this.pick, this.useTarget),
+            UIFormSectionExpand.BODY_FORM
+        );
         this.add(formSection);
 
         if (!this.bone.getList().isEmpty())
         {
-            UISection boneSection = new UISection(UIKeys.FORMS_EDITOR_BONE, this.boneSearch);
+            UISection boneSection = UIFormSectionExpand.bind(
+                new UISection(UIKeys.FORMS_EDITOR_BONE, this.boneSearch),
+                UIFormSectionExpand.BODY_BONE
+            );
             this.add(boneSection);
         }
 
-        UISection transformSection = new UISection(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS, this.transform);
+        UISection transformSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITOR_LIMB_TRANSFORMS, this.transform),
+            UIFormSectionExpand.BODY_TRANSFORM
+        );
         this.add(transformSection);
 
         this.transform.setTransform(part.transform.get());
 
-        this.scroll.setScroll(0);
+        if (previous != part)
+        {
+            this.scroll.setScroll(0);
+        }
+
         this.resize();
     }
 

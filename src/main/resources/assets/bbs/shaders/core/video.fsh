@@ -115,7 +115,8 @@ void main()
 {
     vec4 color = texture(Sampler0, texCoord0);
 
-    if (color.a == 0.0)
+    /* Match model.fsh / pickers — near-zero alpha still wrote depth and punched soft forms. */
+    if (color.a < 0.1)
     {
         discard;
     }

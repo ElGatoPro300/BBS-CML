@@ -159,6 +159,8 @@ public abstract class Form extends ValueGroup
         this.add(this.name);
         this.add(this.transform);
         this.add(this.transformOverlay);
+        /* Hidden from form/replay timeline UI — shake returns as a 3.0 modifier instead. */
+        this.shake.invisible();
         this.add(this.shake);
 
         for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)

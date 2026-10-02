@@ -536,7 +536,16 @@ public abstract class FormRenderer <T extends Form>
                     MatrixStackUtils.applyTransform(context.world, part.transform.get());
                 }
 
-                FormUtilsClient.render(part.getForm(), context);
+                context.bodyPartNesting += 1;
+
+                try
+                {
+                    FormUtilsClient.render(part.getForm(), context);
+                }
+                finally
+                {
+                    context.bodyPartNesting -= 1;
+                }
             }
             finally
             {

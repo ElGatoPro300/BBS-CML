@@ -140,6 +140,9 @@ public class Keys
     public static final KeyCombo RECORDING_GROUP_POS_ROT = new KeyCombo("pos_rot", UIKeys.FILM_GROUPS_ONLY_POS_ROT, GLFW.GLFW_KEY_9).categoryKey("recording_groups");
     public static final KeyCombo RECORDING_GROUP_OUTSIDE = new KeyCombo("outside", UIKeys.FILM_GROUPS_OUTSIDE, GLFW.GLFW_KEY_R).categoryKey("recording_groups");
 
+    /* Morphing */
+    public static final KeyCombo MORPHING_TOGGLE_WORLD_PREVIEW = new KeyCombo("toggle_world_preview", UIKeys.MORPHING_KEYS_TOGGLE_WORLD_PREVIEW, GLFW.GLFW_KEY_F7).categoryKey("morphing");
+
     /* Model block editor */
     public static final KeyCombo MODEL_BLOCKS_MOVE_TO = new KeyCombo("move_to", UIKeys.MODEL_BLOCKS_KEYS_MOVE_TO, GLFW.GLFW_KEY_G, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("model_blocks");
     public static final KeyCombo MODEL_BLOCKS_TOGGLE_RENDERING = new KeyCombo("toggle_rendering", UIKeys.MODEL_BLOCKS_KEYS_TOGGLE_RENDERING, GLFW.GLFW_KEY_F7).categoryKey("model_blocks");

@@ -16,6 +16,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIModelPoseEditor;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -325,7 +326,10 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         }
         modelContent.add(this.toggleSolidHitbox);
 
-        UISection modelSection = new UISection(UIKeys.MODELS_TITLE, modelContent);
+        UISection modelSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.MODELS_TITLE, modelContent),
+            UIFormSectionExpand.MODEL_PICK
+        );
 
         UIElement shadingContent = UI.column(5, 0,
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
@@ -335,16 +339,25 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4)
         );
-        UISection shadingSection = new UISection(UIKeys.FORMS_EDITORS_COLORS_AND_GLOW, shadingContent);
-
-        UISection outlineSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
-            this.outline,
-            UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
-            this.outlineRainbow,
-            this.rainbowRow
+        UISection shadingSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_COLORS_AND_GLOW, shadingContent),
+            UIFormSectionExpand.MODEL_SHADING
         );
 
-        UISection poseSection = new UISection(UIKeys.FORMS_EDITORS_MODEL_POSE, this.poseEditor);
+        UISection outlineSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_MODEL_OUTLINE,
+                this.outline,
+                UIFormColorLayout.colorValueRow(this.outlineColor, this.outlineThickness),
+                this.outlineRainbow,
+                this.rainbowRow
+            ),
+            UIFormSectionExpand.SHARED_OUTLINE
+        );
+
+        UISection poseSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_MODEL_POSE, this.poseEditor),
+            UIFormSectionExpand.MODEL_POSE
+        );
 
         this.options.add(
             modelSection,

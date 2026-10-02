@@ -82,6 +82,8 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.LENS_RADIUS_SETTINGS, UILensRadiusSettingsKeyframeFactory::new);
         register(KeyframeFactories.CHROMA_SKY_SETTINGS, UIChromaSkyCurveSettingsKeyframeFactory::new);
         register(KeyframeFactories.SHAKE_SETTINGS, UIShakeSettingsKeyframeFactory::new);
+        register(KeyframeFactories.FRAMEBUFFER_RESOLUTION, UIFramebufferResolutionKeyframeFactory::new);
+        register(KeyframeFactories.FRAMEBUFFER_VIEW_EXTENT, UIFramebufferViewExtentKeyframeFactory::new);
     }
 
     public static <T> void register(IKeyframeFactory<T> clazz, IUIKeyframeFactoryFactory<T> factory)

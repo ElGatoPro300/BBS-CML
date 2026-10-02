@@ -132,11 +132,18 @@ public class ModelBlock extends Block implements EntityBlock, SimpleWaterloggedB
             {
                 BlockEntity be = w.getBlockEntity(pos);
 
-                if (be instanceof ModelBlockEntity model && model.getProperties().isHitbox())
+                if (be instanceof ModelBlockEntity model)
                 {
-                    if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
+                    if (model.getProperties().isHitbox())
                     {
-                        return Shapes.empty();
+                        /* Soft empty only when custom voxels are ready; otherwise keep a cube so
+                         * enabling solid hitbox cannot make the block fully passable. */
+                        if (ModelBlockSolidCollisions.hasSolidCollisionGeometry(model))
+                        {
+                            return Shapes.empty();
+                        }
+
+                        return Shapes.block();
                     }
 
                     Form form = model.getProperties().getForm();

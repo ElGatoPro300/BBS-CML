@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.render.BufferRenderer;
 import mchorse.bbs_mod.client.renderer.LightTexture;
@@ -10,10 +11,12 @@ import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.FramebufferForm;
+import mchorse.bbs_mod.forms.renderers.utils.BillboardRenderLayers;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.FramebufferPool;
+import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -22,11 +25,17 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.platform.Lighting;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.Identifier;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.ProjectionType;
@@ -34,6 +43,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -43,11 +53,13 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
+import java.util.List;
 import java.util.Map;
 
 public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
@@ -57,9 +69,60 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private IEntity entity = new StubEntity();
 
+    /**
+     * Last non-UI look-at capture. {@link #collectMatrices} has no render context, so it
+     * replays these (or a bound preview camera) so gizmos / bone origins match the
+     * billboard + camera-content bake used while filling / blitting the FBO.
+     */
+    private boolean captureLookAtBillboard;
+    private boolean captureLookAtContent;
+    private boolean lookAtSampleValid;
+    /**
+     * True when the last look-at sample came from a pass whose MatrixStack already includes
+     * {@code camera.view} (form-editor orbit preview). Billboard must not bake view again —
+     * identity rotation already faces the viewer, and gizmos get view applied when drawn.
+     */
+    private boolean lookAtViewSpaceAlready;
+    private final Camera lookAtCamera = new Camera();
+    private final Matrix4f lookAtWorld = new Matrix4f();
+    private final Vector3f lookAtTarget = new Vector3f();
+    private boolean lookAtWorldValid;
+
+    /**
+     * Same model matrix the highlight blit uses (form-editor orbit already includes
+     * {@code camera.view}). Capture pre/post billboard so gizmos reconstruct
+     * {@code parent = F·inv(pre)·post} with {@code S0·parent = post} — matching stencil.
+     */
+    private final Matrix4f capturedPreBillboard = new Matrix4f();
+    private final Matrix4f capturedBillboardMV = new Matrix4f();
+    private boolean hasBillboardCapture;
+
+    /**
+     * Form-editor / film preview camera for the current UI frame. Set while the pickable
+     * viewport renders so {@link #collectMatrices} can resolve look-at even before a world
+     * draw has populated {@link #lookAtSampleValid}.
+     */
+    private static final ThreadLocal<Camera> PREVIEW_CAMERA = new ThreadLocal<>();
+
     public FramebufferFormRenderer(FramebufferForm form)
     {
         super(form);
+    }
+
+    public static void bindPreviewCamera(Camera camera)
+    {
+        PREVIEW_CAMERA.set(camera);
+    }
+
+    public static void unbindPreviewCamera()
+    {
+        PREVIEW_CAMERA.remove();
+    }
+
+    @Override
+    public boolean is3D()
+    {
+        return !this.form.parts.getAll().isEmpty();
     }
 
     @Override
@@ -79,18 +142,24 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
             stack.pushPose();
 
-            this.applyTransforms(uiMatrix, context.getTransition());
-            MatrixStackUtils.multiply(stack, uiMatrix);
-            stack.mulPose(Axis.YN.rotationDegrees(180F));
-            stack.last().normal().getScale(Vectors.EMPTY_3F);
-            stack.last().normal().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
+            try
+            {
+                this.applyTransforms(uiMatrix, context.getTransition());
+                MatrixStackUtils.multiply(stack, uiMatrix);
+                stack.mulPose(Axis.YN.rotationDegrees(180F));
+                stack.last().normal().getScale(Vectors.EMPTY_3F);
+                stack.last().normal().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
 
-            this.renderBodyParts(new FormRenderingContext()
-                .set(FormRenderType.ENTITY, this.entity, stack, LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
-                .inUI());
-
-            stack.popPose();
-            GlStateManager._depthFunc(GL11.GL_ALWAYS);
+                this.renderBodyParts(new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, this.entity, stack, LightTexture.pack(15, 15), OverlayTexture.NO_OVERLAY, context.getTransition())
+                    .inUI());
+            }
+            finally
+            {
+                BBSRendering.restoreAfterGuiItemForm();
+                stack.popPose();
+                GlStateManager._depthFunc(GL11.GL_ALWAYS);
+            }
         }
     }
 
@@ -98,7 +167,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
     public void renderBodyParts(FormRenderingContext context)
     {
         FramebufferPool pool = BBSModClient.getFramebuffers().getFormFramebuffers();
-        Framebuffer framebuffer = pool.get(MathUtils.clamp(this.form.width.get(), 2, 4096), MathUtils.clamp(this.form.height.get(), 2, 4096));
+        int[] size = this.resolveFramebufferSize();
+        Framebuffer framebuffer = pool.get(size[0], size[1]);
 
         try
         {
@@ -108,6 +178,39 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         {
             pool.release(framebuffer);
         }
+    }
+
+    /**
+     * Soft cap for allocated FBO edges. Ideal size is {@code resolution × extent};
+     * past this the buffer stops growing and the picture pixelates instead of
+     * allocating huge (laggy) textures.
+     */
+    private static final int MAX_FRAMEBUFFER_EDGE = 4096;
+
+    /**
+     * FBO pixels ≈ base resolution × view extent, capped at
+     * {@link #MAX_FRAMEBUFFER_EDGE}. Ortho and the world quad always follow the
+     * full view extent so crop area keeps expanding; density only drops after
+     * the pixel budget is exhausted.
+     */
+    private int[] resolveFramebufferSize()
+    {
+        int baseW = MathUtils.clamp(this.form.width.get(), 2, MAX_FRAMEBUFFER_EDGE);
+        int baseH = MathUtils.clamp(this.form.height.get(), 2, MAX_FRAMEBUFFER_EDGE);
+        float halfX = safeViewExtent(this.form.viewExtentX.get());
+        float halfY = safeViewExtent(this.form.viewExtentY.get());
+        int fboW = MathUtils.clamp(Math.round(baseW * halfX), 2, MAX_FRAMEBUFFER_EDGE);
+        int fboH = MathUtils.clamp(Math.round(baseH * halfY), 2, MAX_FRAMEBUFFER_EDGE);
+
+        return new int[] {fboW, fboH};
+    }
+
+    private float[] resolveViewExtents()
+    {
+        return new float[] {
+            safeViewExtent(this.form.viewExtentX.get()),
+            safeViewExtent(this.form.viewExtentY.get())
+        };
     }
 
     private void renderFramebuffer(FormRenderingContext context, Framebuffer framebuffer)
@@ -138,14 +241,94 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, scissorBox);
         GL11.glGetFloatv(GL11.GL_COLOR_CLEAR_VALUE, clearColor);
 
-        GpuBufferSlice savedLights = RenderSystem.getShaderLights();
+        Matrix4f savedBbsProjection = new Matrix4f(BBSRendering.projection);
         RenderSystem.backupProjectionMatrix();
+        /* Save both enable + mode — restoring only mode left cull off after the postcard blit
+         * and contaminated later StructureForm leaf / VAO draws (esp. NeoForge). */
+        boolean savedCullEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        int cullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
 
+        try
+        {
+            this.renderFramebufferInner(
+                context, framebuffer, x, y, width, height,
+                prevDraw, prevRead, scissorEnabled, scissorBox, clearColor,
+                cullFace, savedBbsProjection);
+        }
+        finally
+        {
+            BBSRendering.setProjectionMatrix(savedBbsProjection, context.ui ? ProjectionType.ORTHOGRAPHIC : ProjectionType.PERSPECTIVE);
+            if (savedCullEnabled)
+            {
+                BBSRendering.enableCull();
+            }
+            else
+            {
+                BBSRendering.disableCull();
+            }
+
+            GL11.glCullFace(cullFace);
+        }
+    }
+
+    private void renderFramebufferInner(
+        FormRenderingContext context,
+        Framebuffer framebuffer,
+        int x, int y, int width, int height,
+        int prevDraw, int prevRead,
+        boolean scissorEnabled, int[] scissorBox, float[] clearColor,
+        int cullFace,
+        Matrix4f savedBbsProjection)
+    {
+        /* FRONT cull only for offscreen content fill (Y-flipped ortho). Restored before blit. */
         GL30.glCullFace(GL30.GL_FRONT);
-        BBSRendering.setProjectionMatrix(new Matrix4f().setOrtho(-1F, 1F, 1F, -1F, -500F, 500F), ProjectionType.ORTHOGRAPHIC);
+        /* Iris pack: bake flat albedo (Unlit) — pack state can black out limbs if we mix_light
+         * inside the FBO; the lit display quad applies world shading once.
+         * No pack (root morph / top-level): bake matching world diffuse + caller lightmap into
+         * the texture, then blit unlit so shading is not applied twice.
+         * Body part (bbs-fs): always flat bake + lit postcard so diffuse follows the host bone
+         * (e.g. head pitch darkens like the face) — root morph lighting stays unchanged.
+         * General "No-shading": force flat bake + unlit blit so the postcard ignores pack /
+         * world lighting (same intent as ModelForm/Billboard noshadingOpacity). */
+        boolean noshading = this.form.noshadingOpacity.get();
+        boolean irisPack = BBSRendering.isIrisShadersEnabled();
+        boolean asBodyPart = context.isBodyPart();
+        boolean bakeWorldLighting = !irisPack && !noshading && !asBodyPart;
+
+        if (bakeWorldLighting)
+        {
+            BBSRendering.setupMatchingWorldDiffuseLighting();
+        }
+        else
+        {
+            /* Flat ±Z only matters if a non-Unlit path still samples diffuse inside the FBO. */
+            Minecraft client = Minecraft.getInstance();
+
+            if (client != null && client.gameRenderer != null && client.gameRenderer.getLighting() != null)
+            {
+                client.gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
+            }
+        }
+
+        float[] extents = this.resolveViewExtents();
+        float halfX = extents[0];
+        float halfY = extents[1];
+
+        /* Y is flipped like the legacy [-1, 1] / [1, -1] ortho. Frustum follows
+         * view extent even when the FBO is capped — then density drops (pixelates)
+         * instead of allocating past {@link #MAX_FRAMEBUFFER_EDGE}. */
+        BBSRendering.setProjectionMatrix(new Matrix4f().setOrtho(-halfX, halfX, halfY, -halfY, -500F, 500F), ProjectionType.ORTHOGRAPHIC);
         RenderSystem.getModelViewStack().pushMatrix();
         RenderSystem.getModelViewStack().identity();
         MatrixStackUtils.applyModelViewMatrix();
+
+        GpuTextureView previousColorView = RenderSystem.outputColorTextureOverride;
+        GpuTextureView previousDepthView = RenderSystem.outputDepthTextureOverride;
+        Texture mainTexture = framebuffer.getMainTexture();
+        GpuTextureView fboColorView = AdoptedTexture.textureView(mainTexture.id, mainTexture.width, mainTexture.height);
+
+        RenderSystem.outputColorTextureOverride = fboColorView;
+        RenderSystem.outputDepthTextureOverride = null;
 
         framebuffer.apply();
 
@@ -162,11 +345,28 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         context.stack.last().pose().identity();
         context.stack.last().normal().identity();
 
-        /* Full bright on the way in: the quad that draws the finished picture applies the
-         * caller's lightmap once, so letting it shade the parts inside the buffer too would
-         * land the very same shading on them twice. */
-        int light = context.light;
+        this.captureLookAtState(context);
 
+        if (this.captureLookAtContent)
+        {
+            /* Pitch in the view (see form from above), form stays world-upright. */
+            this.applyLookAtContentOrientation(context.stack, this.lookAtCamera, this.lookAtTarget, this.lookAtWorldValid ? this.lookAtWorld : null);
+        }
+
+        int savedLight = context.light;
+
+        /* Iris Unlit bake: MAX_LIGHT for any residual lightmap sample. Vanilla bake: keep
+         * the caller's block/sky light so interior limbs match nearby world forms. */
+        if (!bakeWorldLighting)
+        {
+            context.light = LightTexture.FULL_BRIGHT;
+        }
+
+        /* Blending as GL really holds it, not as GlStateManager's cache believes. A shader pack's
+         * per-draw-buffer blend modes are set by Iris with indexed GL calls the cache never sees,
+         * and put back through the cache - which skips the real call when it already thinks the
+         * default is in place. After a pack entity program, alpha factors can leave dst alpha at 0
+         * while RGB paints — black-looking texels that vanish underwater under Complementary. */
         GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
         GL11.glEnable(GL11.GL_BLEND);
         GlStateManager._enableBlend();
@@ -176,8 +376,12 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
 
+        /* Prefer the outer host (player, actor, parent form entity) so body-part
+         * "use target" animates against that entity. Fall back to this FBO's stub
+         * when there is no host (e.g. some UI cells). PREVIEW keeps Iris soft queues off. */
+        IEntity host = context.entity != null ? context.entity : this.entity;
         FormRenderingContext fboContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, context.stack, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, context.getTransition());
+            .set(FormRenderType.PREVIEW, host, context.stack, context.light, OverlayTexture.NO_OVERLAY, context.getTransition());
 
         if (context.isPicking())
         {
@@ -194,11 +398,28 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         try
         {
-            BBSRendering.renderOffscreen(() -> super.renderBodyParts(fboContext));
+            Runnable fillParts = () -> this.renderIsolatedFboBodyParts(fboContext, bakeWorldLighting);
+
+            if (bakeWorldLighting)
+            {
+                BBSRendering.renderOffscreen(fillParts);
+            }
+            else
+            {
+                BBSRendering.runFramebufferContentUnlit(() -> BBSRendering.renderOffscreen(fillParts));
+            }
         }
         finally
         {
+            RenderSystem.outputColorTextureOverride = previousColorView;
+            RenderSystem.outputDepthTextureOverride = previousDepthView;
             GL11.glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+            context.light = savedLight;
+            /* ModelForm leaves lightmap off inside offscreen; re-arm before the blit. */
+            BBSRendering.restoreWorldRenderState();
+            BBSRendering.prepareVanillaEntityLighting();
+            /* End FRONT-face fill before the world postcard blit. */
+            GL11.glCullFace(cullFace);
         }
 
         context.stack.popPose();
@@ -217,23 +438,97 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
             GlStateManager._disableScissorTest();
         }
 
-        if (savedLights != null)
-        {
-            RenderSystem.setShaderLights(savedLights);
-        }
+        BBSRendering.setupMatchingWorldDiffuseLighting();
         RenderSystem.getModelViewStack().popMatrix();
         MatrixStackUtils.applyModelViewMatrix();
         RenderSystem.restoreProjectionMatrix();
-        GL30.glCullFace(GL30.GL_BACK);
+        BBSRendering.setProjectionMatrix(savedBbsProjection, context.ui ? ProjectionType.ORTHOGRAPHIC : ProjectionType.PERSPECTIVE);
+        GL11.glCullFace(cullFace);
 
-        boolean shading = !context.isPicking();
-        VertexFormat format = shading ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.POSITION_TEX_COLOR;
-        GlProgram shaderKey = shading ? BBSRendering.getEntityTranslucentProgram() : BBSRendering.getPositionTexColorProgram();
+        /* Vanilla root (shaded): content already lit → unlit blit with MAX_LIGHT.
+         * Iris / body-part (shaded): flat albedo → lit entity_translucent so the postcard
+         * gets world/pack light once (body-part normals follow the host bone).
+         * Inventory / UI thumbs: always unlit blit with MAX_LIGHT — pack entity_translucent darkens GUI
+         * ModelBlock previews slightly under Iris even at MAX_LIGHT.
+         * No-shading (either): flat content + unlit blit with MAX_LIGHT — fullbright, no pack/world lighting. */
+        boolean shading = !noshading && !context.isPicking() && !context.ui && (irisPack || asBodyPart);
+        VertexFormat format = DefaultVertexFormat.ENTITY;
+        GlProgram shaderKey = BBSRendering.getEntityTranslucentProgram();
+        int blitLight = shading ? context.light : LightTexture.FULL_BRIGHT;
+        int blitOverlay = shading ? context.overlay : OverlayTexture.NO_OVERLAY;
 
-        this.renderModel(framebuffer.getMainTexture(), format, shaderKey, context.stack, context.overlay, context.light, context.color, context.getTransition());
+        this.renderModel(framebuffer.getMainTexture(), format, shaderKey, context.stack, blitOverlay, blitLight, context.color, context.getTransition(), context);
     }
 
-    private void renderModel(Texture texture, VertexFormat format, GlProgram shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition)
+    /**
+     * Draw FBO body parts with per-part lightmap isolation. {@link BBSRendering#renderOffscreen}
+     * clears {@code isRenderingWorld}, so {@link ModelFormRenderer} disables the lightmap and
+     * skips {@link BBSRendering#restoreWorldRenderState()} — under Iris/NeoForge the next limb
+     * then samples a dead lightmap and draws black. Same idea as film replay isolation.
+     *
+     * @param bakeWorldLighting when true, re-assert matching world diffuse after each prepare
+     *                          (vanilla path); when false, keep flat ±Z under Iris Unlit fill.
+     */
+    private void renderIsolatedFboBodyParts(FormRenderingContext context, boolean bakeWorldLighting)
+    {
+        if (this.form.parts.getAllTyped().isEmpty())
+        {
+            return;
+        }
+
+        List<BodyPart> parts = this.getSortedBodyParts(context);
+
+        this.prepareFboContentLighting(bakeWorldLighting);
+
+        if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
+        {
+            BBSRendering.restoreWorldRenderState();
+            this.prepareFboContentLighting(bakeWorldLighting);
+
+            return;
+        }
+
+        for (BodyPart part : parts)
+        {
+            this.prepareFboContentLighting(bakeWorldLighting);
+
+            try
+            {
+                this.renderBodyPart(part, context);
+            }
+            finally
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
+        }
+
+        this.prepareFboContentLighting(bakeWorldLighting);
+    }
+
+    /**
+     * Lightmap + overlay for FBO content. Vanilla bake uses matching world diffuse;
+     * Iris Unlit fill keeps ±Z only as a safe fallback if Unlit is skipped.
+     */
+    private void prepareFboContentLighting(boolean bakeWorldLighting)
+    {
+        BBSRendering.prepareVanillaEntityLighting();
+
+        if (bakeWorldLighting)
+        {
+            BBSRendering.setupMatchingWorldDiffuseLighting();
+        }
+        else
+        {
+            Minecraft client = Minecraft.getInstance();
+
+            if (client != null && client.gameRenderer != null && client.gameRenderer.getLighting() != null)
+            {
+                client.gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
+            }
+        }
+    }
+
+    private void renderModel(Texture texture, VertexFormat format, GlProgram shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
     {
         float w = texture.width;
         float h = texture.height;
@@ -250,12 +545,17 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         uvQuad.p3.set(uvTLx, uvBRy, 0F);
         uvQuad.p4.set(uvBRx, uvBRy, 0F);
 
-        /* Calculate quad's size (vertices, not UV). The scale sizes the quad the framebuffer is
-         * shown on, not what is drawn into it — the body parts always fill the whole texture,
-         * so raising it can't push them past the framebuffer's own edges. */
+        /* World quad grows with view extent (base aspect × scale × extent) so
+         * content keeps the same world size while more crop area becomes visible.
+         * FBO pixels already grew with extent, so density stays on width/height. */
+        float baseW = MathUtils.clamp(this.form.width.get(), 2, MAX_FRAMEBUFFER_EDGE);
+        float baseH = MathUtils.clamp(this.form.height.get(), 2, MAX_FRAMEBUFFER_EDGE);
+        float[] extents = this.resolveViewExtents();
+        float halfX = extents[0];
+        float halfY = extents[1];
         float scale = this.form.scale.get() * 2F;
-        float ratioX = (w > h ? h / w : 1F) * scale;
-        float ratioY = (h > w ? w / h : 1F) * scale;
+        float ratioX = (baseW > baseH ? baseH / baseW : 1F) * scale * halfY;
+        float ratioY = (baseH > baseW ? baseW / baseH : 1F) * scale * halfX;
         float TLx = (uvTLx - 0.5F) * ratioY;
         float TLy = -(uvTLy - 0.5F) * ratioX;
         float BRx = (uvBRx - 0.5F) * ratioY;
@@ -266,11 +566,30 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         quad.p3.set(TLx, BRy, 0F);
         quad.p4.set(BRx, BRy, 0F);
 
-        this.renderQuad(format, texture, shader, matrices, overlay, light, overlayColor, transition);
+        this.renderQuad(format, texture, shader, matrices, overlay, light, overlayColor, transition, context);
     }
 
-    private void renderQuad(VertexFormat format, Texture texture, GlProgram shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition)
+    private void renderQuad(VertexFormat format, Texture texture, GlProgram shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition, FormRenderingContext context)
     {
+        this.hasBillboardCapture = false;
+
+        if (this.captureLookAtBillboard)
+        {
+            /* Capture the exact matrices the highlight/stencil blit uses. */
+            if (this.lookAtViewSpaceAlready)
+            {
+                this.capturedPreBillboard.set(matrices.last().pose());
+            }
+
+            this.applyLookAtBillboard(matrices, this.lookAtCamera, this.lookAtViewSpaceAlready);
+
+            if (this.lookAtViewSpaceAlready)
+            {
+                this.capturedBillboardMV.set(matrices.last().pose());
+                this.hasBillboardCapture = true;
+            }
+        }
+
         BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, format);
         Color color = Color.white();
         PoseStack.Pose entry = matrices.last();
@@ -278,37 +597,299 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         color.mul(overlayColor);
 
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._depthMask(true);
+        boolean litQuad = format != DefaultVertexFormat.POSITION_TEX_COLOR;
+        boolean irisBodyPartLit = litQuad
+            && context != null
+            && context.isBodyPart()
+            && BBSRendering.isIrisShadersEnabled();
+
+        if (litQuad && irisBodyPartLit)
+        {
+            /* Re-arm diffuse/lightmap after FBO offscreen fill (Billboard-safe under packs). */
+            BBSRendering.prepareVanillaEntityLighting();
+        }
+
+        BBSRendering.enableDepthTest();
+        BBSRendering.depthFunc(GL11.GL_LEQUAL);
+        BBSRendering.depthMask(true);
         BBSRendering.colorMask(true, true, true, true);
-        GlStateManager._disableCull();
 
-        BBSModClient.getTextures().bindTexture(texture);
-        texture.bind();
-        BBSRendering.bindProgram(shader);
+        /* Dual-sided postcard may disable cull; must restore so sibling StructureForms
+         * (leaves / translucentCull VAO) do not inherit cull-off for the rest of the frame. */
+        boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
-        /* Front */
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
+        try
+        {
+            /* Iris body-part lit: cull like Billboard dual-sided — both faces at z=0 with cull
+             * off lets the pack keep the darker winding. Other FBO blits keep disableCull. */
+            if (irisBodyPartLit)
+            {
+                BBSRendering.enableCull();
+            }
+            else
+            {
+                BBSRendering.disableCull();
+            }
 
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
+            BBSModClient.getTextures().bindTexture(texture);
 
-        /* Back */
-        this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+            if (irisBodyPartLit)
+            {
+                /* Force TU0 — under Iris a raw bind can hit the lightmap unit (bbs-fs billboard). */
+                GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+                GlStateManager._bindTexture(texture.id);
+            }
+            else
+            {
+                texture.bind();
+            }
 
-        this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
-        this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+            /* Re-assert every draw: join/Iris/reload can leave LINEAR on the FBO id,
+             * which turns intentional low-res pixelation into blur until the size changes. */
+            texture.setFilter(GL11.GL_NEAREST);
+            texture.setParameter(GL30.GL_TEXTURE_MAX_LEVEL, 0);
+            BBSRendering.setShaderTexture(0, texture.id);
+            BBSRendering.bindProgram(shader);
 
-        BBSRendering.defaultBlendFunc();
-        BBSRendering.enableBlend();
-        BufferRenderer.drawWithGlobalProgram(builder.buildOrThrow());
+            /* ModelForm hosts apply Y180 before body parts, so local +Z faces the limb back.
+             * Vanilla mix_light needs −Z as the outward face. Iris rebuilds normals from
+             * modelview, so the same −Z reads inverted under packs — keep +Z when Iris is on. */
+            float frontNz = 1F;
+
+            if (context != null && context.isBodyPart() && !BBSRendering.isIrisShadersEnabled())
+            {
+                frontNz = -1F;
+            }
+
+            float backNz = -frontNz;
+
+            /* Front */
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, frontNz);
+
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, frontNz);
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, frontNz);
+
+            /* Back */
+            this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
+
+            this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, backNz);
+            this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, backNz);
+
+            BBSRendering.defaultBlendFunc();
+            BBSRendering.enableBlend();
+            BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+
+            Identifier adoptedId = AdoptedTexture.identifier(texture.id, texture.width, texture.height, false);
+            BillboardRenderLayers.draw(builder.buildOrThrow(), adoptedId, false, false, true, irisBodyPartLit);
+        }
+        finally
+        {
+            if (previousCull)
+            {
+                BBSRendering.enableCull();
+            }
+            else
+            {
+                BBSRendering.disableCull();
+            }
+        }
+
+
+    }
+
+    /**
+     * Look-at applies in world / film / form-editor preview (any pass with a real camera).
+     * Skipped only for UI thumbnails ({@code context.ui}), where there is no orbit camera.
+     */
+    private boolean isLookAtPass(FormRenderingContext context)
+    {
+        return context != null && !context.ui && context.camera != null;
+    }
+
+    private boolean shouldLookAtBillboard(FormRenderingContext context)
+    {
+        return this.form.billboard.get() && this.isLookAtPass(context);
+    }
+
+    private boolean shouldLookAtCameraContent(FormRenderingContext context)
+    {
+        return this.form.cameraContent.get() && this.isLookAtPass(context);
+    }
+
+    /**
+     * Snapshot look-at inputs from this draw so {@link #collectMatrices} can match the
+     * billboard / camera-content bake. Non-UI passes with toggles off clear the sample so
+     * matrices do not keep a stale look-at after the user disables the toggles.
+     */
+    private void captureLookAtState(FormRenderingContext context)
+    {
+        this.captureLookAtBillboard = this.shouldLookAtBillboard(context);
+        this.captureLookAtContent = this.shouldLookAtCameraContent(context);
+
+        if (!this.isLookAtPass(context))
+        {
+            return;
+        }
+
+        if (!this.captureLookAtBillboard && !this.captureLookAtContent)
+        {
+            this.lookAtSampleValid = false;
+            this.lookAtWorldValid = false;
+            this.lookAtViewSpaceAlready = false;
+
+            return;
+        }
+
+        this.lookAtCamera.copy(context.camera);
+        this.lookAtTarget.set(this.resolveFormWorldPosition(context));
+        this.lookAtSampleValid = true;
+        /* Form-editor orbit already multiplies camera.view onto the draw stack. */
+        this.lookAtViewSpaceAlready = context.modelRenderer;
+
+        /* F7 world gizmos: keep orbit viewSpaceAlready for the display quad, but drive
+         * camera-content look-at from the game camera so nested origins match the live morph. */
+        if (context.matchWorldLookAt)
+        {
+            Minecraft mc = Minecraft.getInstance();
+
+            if (mc != null && mc.gameRenderer != null)
+            {
+                FormRenderingContext tmp = new FormRenderingContext();
+
+                tmp.camera(mc.gameRenderer.getMainCamera());
+                this.lookAtCamera.copy(tmp.camera);
+            }
+        }
+
+        if (context.world != null)
+        {
+            /* Orientation only — General/transform scale must not enter the FBO ortho
+             * (would zoom content and look like view extent shrinking). Scale belongs on
+             * the display quad via context.stack. */
+            this.lookAtWorld.set(MatrixStackUtils.stripScale(context.world.last().pose()));
+            this.lookAtWorldValid = true;
+        }
+        else
+        {
+            this.lookAtWorld.identity();
+            this.lookAtWorldValid = false;
+        }
+    }
+
+    private Vector3f resolveFormWorldPosition(FormRenderingContext context)
+    {
+        if (context.world != null)
+        {
+            return context.world.last().pose().getTranslation(new Vector3f());
+        }
+
+        if (context.entity != null)
+        {
+            float transition = context.getTransition();
+
+            return new Vector3f(
+                (float) Lerps.lerp(context.entity.getPrevX(), context.entity.getX(), transition),
+                (float) Lerps.lerp(context.entity.getPrevY(), context.entity.getY(), transition),
+                (float) Lerps.lerp(context.entity.getPrevZ(), context.entity.getZ(), transition)
+            );
+        }
+
+        return new Vector3f(
+            (float) context.camera.position.x,
+            (float) context.camera.position.y,
+            (float) context.camera.position.z
+        );
+    }
+
+    /**
+     * Face the display quad at the camera (yaw + pitch), same bake as Video/Label.
+     * Keep translate/scale; replace rotation with {@code camera.view} in world space.
+     *
+     * @param viewSpaceAlready when true (form-editor orbit), the draw/gizmo path already
+     *                         applies {@code camera.view} — identity rotation faces the
+     *                         viewer; baking view again double-transforms and breaks gizmos.
+     */
+    private void applyLookAtBillboard(PoseStack matrices, Camera camera, boolean viewSpaceAlready)
+    {
+        Matrix4f modelMatrix = matrices.last().pose();
+        Vector3f scale = new Vector3f();
+
+        modelMatrix.getScale(scale);
+        modelMatrix.m00(1).m01(0).m02(0);
+        modelMatrix.m10(0).m11(1).m12(0);
+        modelMatrix.m20(0).m21(0).m22(1);
+
+        if (!viewSpaceAlready)
+        {
+            modelMatrix.mul(camera.view);
+        }
+
+        modelMatrix.scale(scale);
+
+        /* Do not bake camera.view into normals (Iris lighting pulse on orbit). */
+        matrices.last().normal().identity();
+        matrices.last().normal().scale(
+            MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
+            MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
+            MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
+        );
+    }
+
+    /**
+     * FBO content = camera looking at the form with <b>world up</b>, so pitch changes
+     * the viewing angle (top of head when looking down) without tipping the subject.
+     * Camera-up would roll with pitch; flattening the eye would leave only a tilted
+     * postcard via the billboard. Degenerate zenith/nadir uses camera yaw for screen-up.
+     */
+    private void applyLookAtContentOrientation(PoseStack stack, Camera camera, Vector3f target, Matrix4f worldMatrix)
+    {
+        float eyeX = (float) camera.position.x;
+        float eyeY = (float) camera.position.y;
+        float eyeZ = (float) camera.position.z;
+        float dx = target.x - eyeX;
+        float dy = target.y - eyeY;
+        float dz = target.z - eyeZ;
+
+        if (dx * dx + dy * dy + dz * dz < 1.0E-8F)
+        {
+            return;
+        }
+
+        Vector3f up = new Vector3f(0F, 1F, 0F);
+        float horizSq = dx * dx + dz * dz;
+
+        if (horizSq < 1.0E-6F)
+        {
+            float yaw = camera.rotation.y;
+
+            up.set((float) Math.sin(yaw), 0F, (float) -Math.cos(yaw));
+
+            if (up.lengthSquared() < 1.0E-8F)
+            {
+                up.set(0F, 0F, -1F);
+            }
+        }
+
+        Matrix4f content = new Matrix4f().lookAt(eyeX, eyeY, eyeZ, target.x, target.y, target.z, up.x, up.y, up.z);
+
+        if (worldMatrix != null)
+        {
+            content.mul(MatrixStackUtils.stripScale(worldMatrix));
+        }
+
+        content.m30(0F).m31(0F).m32(0F);
+        stack.last().pose().mul(content);
+
+        Matrix3f normal = new Matrix3f();
+
+        content.normal(normal);
+        stack.last().normal().set(normal);
     }
 
     private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, PoseStack.Pose entry, float nz)
@@ -329,6 +910,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
     @Override
     public void collectMatrices(IEntity entity, PoseStack stack, MatrixCache matrices, String prefix, float transition)
     {
+        boolean billboard = this.form.billboard.get();
+        boolean cameraContent = this.form.cameraContent.get();
+        boolean applyLookAt = (billboard || cameraContent) && this.ensureLookAtSample(entity, transition);
+        /* Prefer the look-at capture's own view-space flag. PREVIEW_CAMERA only tips
+         * orbit mesh mode when no capture exists yet — never override a world sample. */
+        boolean viewSpaceAlready = this.lookAtViewSpaceAlready
+            || (PREVIEW_CAMERA.get() != null && !this.lookAtSampleValid);
+
         stack.pushPose();
         this.applyTransforms(stack, true, transition);
         Matrix4f origin = new Matrix4f(stack.last().pose());
@@ -336,20 +925,51 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
         stack.pushPose();
         this.applyTransforms(stack, false, transition);
+        if (applyLookAt && billboard)
+        {
+            if (viewSpaceAlready && this.hasBillboardCapture)
+            {
+                /*
+                 * Highlight blit matrix is capturedBillboardMV (= post). Gizmo draw does
+                 * S0·parent; choose parent = F·inv(pre)·post so S0·parent = post.
+                 * Do not touch camera/target/world from the content capture.
+                 */
+                Matrix4f formMatrix = new Matrix4f(stack.last().pose());
+                Matrix4f invPre = new Matrix4f(this.capturedPreBillboard);
+
+                if (Math.abs(invPre.determinant()) > 1.0E-8F)
+                {
+                    invPre.invert();
+                    stack.last().pose().set(formMatrix).mul(invPre).mul(this.capturedBillboardMV);
+                }
+            }
+            else if (!viewSpaceAlready)
+            {
+                /* World/film: model matrix has no orbit view yet — bake camera.view. */
+                this.applyLookAtBillboard(stack, this.lookAtCamera, false);
+            }
+            /* Editor without capture yet: keep form matrix (one frame). */
+        }
+
         matrices.put(prefix, new Matrix4f(stack.last().pose()), origin);
 
-        float width = MathUtils.clamp(this.form.width.get(), 2, 4096);
-        float height = MathUtils.clamp(this.form.height.get(), 2, 4096);
         float scale = this.form.scale.get();
+        float baseW = MathUtils.clamp(this.form.width.get(), 2, MAX_FRAMEBUFFER_EDGE);
+        float baseH = MathUtils.clamp(this.form.height.get(), 2, MAX_FRAMEBUFFER_EDGE);
 
         Matrix4f parent = new Matrix4f(stack.last().pose());
         PoseStack childStack = new PoseStack();
         MatrixCache children = new MatrixCache();
 
-        /* The body parts live in the framebuffer's ortho box (-1..1 across the whole texture),
-         * and the quad that shows it is that box times the scale and the aspect ratio. */
-        float scaleX = scale * (height > width ? width / height : 1F);
-        float scaleY = scale * (width > height ? height / width : 1F);
+        /* Same camera-content bake as the FBO fill (highlight path) — uses render capture. */
+        if (applyLookAt && cameraContent)
+        {
+            this.applyLookAtContentOrientation(childStack, this.lookAtCamera, this.lookAtTarget, this.lookAtWorldValid ? this.lookAtWorld : null);
+        }
+
+        /* Quad grows with extent; 1 FBO unit stays one world unit (base aspect × scale). */
+        float scaleX = scale * (baseH > baseW ? baseW / baseH : 1F);
+        float scaleY = scale * (baseW > baseH ? baseH / baseW : 1F);
 
         for (BodyPart part : this.form.parts.getAllTyped())
         {
@@ -376,6 +996,73 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         }
     }
 
+    /**
+     * Keep the render-pass look-at capture intact (camera content depends on it).
+     * Only fall back to preview/game camera when nothing was drawn yet this frame.
+     */
+    private boolean ensureLookAtSample(IEntity entity, float transition)
+    {
+        if (this.lookAtSampleValid)
+        {
+            return true;
+        }
+
+        Camera preview = PREVIEW_CAMERA.get();
+
+        if (preview != null)
+        {
+            this.lookAtCamera.copy(preview);
+            this.lookAtViewSpaceAlready = true;
+
+            return this.fillLookAtTargetFromEntity(entity, transition);
+        }
+
+        Minecraft mc = Minecraft.getInstance();
+
+        if (mc == null || mc.gameRenderer == null)
+        {
+            return false;
+        }
+
+        FormRenderingContext tmp = new FormRenderingContext();
+
+        tmp.camera(mc.gameRenderer.getMainCamera());
+        this.lookAtCamera.copy(tmp.camera);
+        this.lookAtViewSpaceAlready = false;
+
+        return this.fillLookAtTargetFromEntity(entity, transition);
+    }
+
+    private boolean fillLookAtTargetFromEntity(IEntity entity, float transition)
+    {
+        if (entity != null)
+        {
+            this.lookAtTarget.set(
+                (float) Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
+                (float) Lerps.lerp(entity.getPrevY(), entity.getY(), transition),
+                (float) Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition)
+            );
+
+            this.lookAtWorld.identity();
+            this.lookAtWorld.translate(this.lookAtTarget.x, this.lookAtTarget.y, this.lookAtTarget.z);
+            this.lookAtWorld.rotate(Axis.YP.rotationDegrees(
+                -Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition)));
+            this.lookAtWorldValid = true;
+        }
+        else
+        {
+            this.lookAtTarget.set(
+                (float) this.lookAtCamera.position.x,
+                (float) this.lookAtCamera.position.y,
+                (float) this.lookAtCamera.position.z
+            );
+            this.lookAtWorld.identity();
+            this.lookAtWorldValid = false;
+        }
+
+        return true;
+    }
+
     private Matrix4f projectOrigin(Matrix4f parent, Matrix4f child, float scaleX, float scaleY)
     {
         if (child == null)
@@ -387,5 +1074,14 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         Matrix4f projected = new Matrix4f(child).setTranslation(child.m30() * scaleX, child.m31() * scaleY, 0F);
 
         return new Matrix4f(parent).mul(projected);
+    }
+
+    /**
+     * Keep the ortho matrix invertible. FBO edge budget is capped separately;
+     * extents themselves are not hard-capped so crop can grow freely.
+     */
+    private static float safeViewExtent(float extent)
+    {
+        return extent < 0.01F ? 0.01F : extent;
     }
 }

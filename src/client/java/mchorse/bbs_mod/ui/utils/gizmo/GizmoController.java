@@ -49,7 +49,7 @@ public class GizmoController
      */
     public boolean tryStartHandleDrag(UIContext context, UIPropTransform transform)
     {
-        if (transform == null || !Gizmo.isInteractive() || context == null || context.mouseButton != 0)
+        if (transform == null || transform.getTransform() == null || !Gizmo.isInteractive() || context == null || context.mouseButton != 0)
         {
             return false;
         }
@@ -143,8 +143,10 @@ public class GizmoController
 
     private void tickPendingTrackball()
     {
-        if (!this.pendingTrackball || this.pendingTransform == null)
+        if (!this.pendingTrackball || this.pendingTransform == null || this.pendingTransform.getTransform() == null)
         {
+            this.clearPendingTrackball();
+
             return;
         }
 
@@ -196,7 +198,7 @@ public class GizmoController
 
     private boolean hitsTrackball(UIContext context, UIPropTransform transform)
     {
-        if (context == null || transform == null || !Gizmo.INSTANCE.isTrackballPickable())
+        if (context == null || transform == null || transform.getTransform() == null || !Gizmo.INSTANCE.isTrackballPickable())
         {
             return false;
         }

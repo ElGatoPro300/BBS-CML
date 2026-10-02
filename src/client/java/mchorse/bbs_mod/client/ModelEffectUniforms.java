@@ -85,6 +85,7 @@ public final class ModelEffectUniforms
         FIELDS.put("GlowOverlayColor", new Field(1232, "vec4"));
         FIELDS.put("ColorMaskFalloff", new Field(1248, "float"));
         FIELDS.put("PaintMultiplyDarken", new Field(1252, "float"));
+        FIELDS.put("IgnoreLightmap", new Field(1256, "int"));
     }
 
     public static GlProgram register(GlProgram program)
@@ -129,23 +130,36 @@ public final class ModelEffectUniforms
 
     public static boolean contains(GlProgram program, String name)
     {
-        return VALUES.containsKey(program) && FIELDS.containsKey(name);
+        return program != null && VALUES.containsKey(program) && FIELDS.containsKey(name);
     }
 
     public static float value(GlProgram program, String name)
     {
-        return contains(program, name) ? VALUES.get(program).getFloat(FIELDS.get(name).offset) : 0F;
+        if (program == null || !contains(program, name))
+        {
+            return 0F;
+        }
+
+        ByteBuffer buffer = VALUES.get(program);
+        Field field = FIELDS.get(name);
+
+        return (buffer != null && field != null) ? buffer.getFloat(field.offset) : 0F;
     }
 
     public static boolean set(GlProgram program, String name, float... values)
     {
-        if (!contains(program, name))
+        if (program == null || !contains(program, name))
         {
             return false;
         }
 
         ByteBuffer data = VALUES.get(program);
         Field field = FIELDS.get(name);
+
+        if (data == null || field == null)
+        {
+            return false;
+        }
 
         for (int i = 0; i < values.length; i++)
         {
@@ -182,6 +196,18 @@ public final class ModelEffectUniforms
 
     public static ByteBuffer data(GlProgram program)
     {
-        return VALUES.get(program).duplicate();
+        ByteBuffer buffer = program != null ? VALUES.get(program) : null;
+
+        if (buffer == null)
+        {
+            buffer = createDefaults();
+
+            if (program != null && program != GlProgram.INVALID_PROGRAM)
+            {
+                VALUES.put(program, buffer);
+            }
+        }
+
+        return buffer.duplicate();
     }
 }

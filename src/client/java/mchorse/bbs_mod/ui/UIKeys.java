@@ -434,6 +434,8 @@ public class UIKeys
     public static final IKey FILM_GIZMO_THICKNESS = L10n.lang("bbs.ui.film.gizmo.thickness");
     public static final IKey FILM_GIZMO_TRANSLATE_SPEED = L10n.lang("bbs.ui.film.gizmo.translate_speed");
     public static final IKey FILM_GIZMO_BODY_PART = L10n.lang("bbs.ui.film.gizmo.body_part");
+    public static final IKey FILM_GIZMO_POSE = L10n.lang("bbs.ui.film.gizmo.pose");
+    public static final IKey FILM_GIZMO_TARGET = L10n.lang("bbs.ui.film.gizmo.target");
     public static final IKey FILM_GIZMO_TRANSFORM = L10n.lang("bbs.ui.film.gizmo.transform");
     public static final IKey FILM_OPEN_HISTORY = L10n.lang("bbs.ui.film.open_history");
     public static final IKey FILM_OPEN_REPLAY_EDITOR = L10n.lang("bbs.ui.film.open_replay_editor");
@@ -732,6 +734,15 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_z-tooltip");
     public static final IKey FORMS_EDITORS_EXTRUDED_TITLE = L10n.lang("bbs.ui.forms.editors.extruded.title");
     public static final IKey FORMS_EDITORS_FRAMEBUFFER_TITLE = L10n.lang("bbs.ui.forms.editors.framebuffer.title");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_RESOLUTION_LINK = L10n.lang("bbs.ui.forms.editors.framebuffer.resolution_link");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT_X = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent_x");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT_Y = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent_y");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_VIEW_EXTENT_LINK = L10n.lang("bbs.ui.forms.editors.framebuffer.view_extent_link");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_BILLBOARD = L10n.lang("bbs.ui.forms.editors.framebuffer.billboard");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_BILLBOARD_TOOLTIP = L10n.lang("bbs.ui.forms.editors.framebuffer.billboard-tooltip");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT = L10n.lang("bbs.ui.forms.editors.framebuffer.camera_content");
+    public static final IKey FORMS_EDITORS_FRAMEBUFFER_CAMERA_CONTENT_TOOLTIP = L10n.lang("bbs.ui.forms.editors.framebuffer.camera_content-tooltip");
     public static final IKey FORMS_EDITORS_VIDEO_TITLE = L10n.lang("bbs.ui.forms.editors.video.title");
     public static final IKey FORMS_EDITORS_VIDEO_PICK_VIDEO = L10n.lang("bbs.ui.forms.editors.video.pick_video");
     public static final IKey FORMS_EDITORS_VIDEO_BILLBOARD = L10n.lang("bbs.ui.forms.editors.video.billboard");
@@ -870,6 +881,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL_VISIBLE = L10n.lang("bbs.ui.forms.editors.general.visible");
     public static final IKey FORMS_EDITORS_ITEM_TITLE = L10n.lang("bbs.ui.forms.editors.item.title");
     public static final IKey FORMS_EDITORS_ITEM_TRANSFORMS = L10n.lang("bbs.ui.forms.editors.item.transforms");
+    public static final IKey FORMS_EDITORS_TRANSFORMS = L10n.lang("bbs.ui.forms.editors.transforms");
+    public static final IKey FORMS_EDITOR_LIMB_TRANSFORMS = L10n.lang("bbs.ui.forms.editor.limb_transforms");
     public static final IKey FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED = L10n.lang("bbs.ui.forms.editors.item.same_animation_when_dropped");
     public static final IKey FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED_TOOLTIP = L10n.lang("bbs.ui.forms.editors.item.same_animation_when_dropped-tooltip");
     public static final IKey FORMS_EDITORS_LABEL_ANCHOR = L10n.lang("bbs.ui.forms.editors.label.anchor");
@@ -1009,6 +1022,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_SHAPE_TEXTURE_SCROLL_X = L10n.lang("bbs.ui.forms.editors.shape.texture_scroll_x");
     public static final IKey FORMS_EDITORS_SHAPE_TEXTURE_SCROLL_Y = L10n.lang("bbs.ui.forms.editors.shape.texture_scroll_y");
     public static final IKey FORMS_EDITOR_BONE = L10n.lang("bbs.ui.forms.editor.bone");
+    public static final IKey FORMS_EDITOR_BONES = L10n.lang("bbs.ui.forms.editor.bones");
     public static final IKey FORMS_EDITOR_FORM = L10n.lang("bbs.ui.forms.editor.form");
     public static final IKey FORMS_EDITOR_KEYFRAMES = L10n.lang("bbs.ui.forms.editor.keyframes");
     public static final IKey FORMS_EDITOR_KEYFRAMES_NONE_SELECTED = L10n.lang("bbs.ui.forms.editor.keyframes.none_selected");
@@ -1051,6 +1065,14 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_TRANSFORM = L10n.lang("bbs.ui.film.replay.track.transform");
     public static final IKey FILM_REPLAY_TRACK_ANCHOR = L10n.lang("bbs.ui.film.replay.track.anchor");
     public static final IKey FILM_REPLAY_TRACK_COLOR = L10n.lang("bbs.ui.film.replay.track.color");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE = L10n.lang("bbs.ui.film.replay.track.outline");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_COLOR = L10n.lang("bbs.ui.film.replay.track.outline_color");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_THICKNESS = L10n.lang("bbs.ui.film.replay.track.outline_thickness");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW = L10n.lang("bbs.ui.film.replay.track.outline_rainbow");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SPEED = L10n.lang("bbs.ui.film.replay.track.outline_rainbow_speed");
+    public static final IKey FILM_REPLAY_TRACK_OUTLINE_RAINBOW_SCALE = L10n.lang("bbs.ui.film.replay.track.outline_rainbow_scale");
+    public static final IKey FILM_REPLAY_TRACK_FRAMEBUFFER_RESOLUTION = L10n.lang("bbs.ui.film.replay.track.framebuffer_resolution");
+    public static final IKey FILM_REPLAY_TRACK_FRAMEBUFFER_VIEW_EXTENT = L10n.lang("bbs.ui.film.replay.track.framebuffer_view_extent");
     public static final IKey FILM_REPLAY_OPACITY_NO_SHADING = L10n.lang("bbs.ui.film.replay.opacity.no_shading");
     public static final IKey FILM_REPLAY_TRACK_TEXTURE = L10n.lang("bbs.ui.film.replay.track.texture");
     public static final IKey FILM_REPLAY_TRACK_MODEL = L10n.lang("bbs.ui.film.replay.track.model");
@@ -1697,6 +1719,7 @@ public class UIKeys
     public static final IKey MODELS_UI_SCALE = L10n.lang("bbs.ui.models.ui_scale");
     public static final IKey MORPHING_DEMORPH = L10n.lang("bbs.ui.morphing.demorph");
     public static final IKey MORPHING_FROM_MOB = L10n.lang("bbs.ui.morphing.from_mob");
+    public static final IKey MORPHING_KEYS_TOGGLE_WORLD_PREVIEW = L10n.lang("bbs.ui.morphing.keys.toggle_world_preview");
     public static final IKey MORPHING_MORPH = L10n.lang("bbs.ui.morphing.morph");
 
     public static final IKey MORPHING_TITLE = L10n.lang("bbs.ui.morphing.title");

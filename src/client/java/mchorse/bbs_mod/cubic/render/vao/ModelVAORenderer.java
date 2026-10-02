@@ -1231,6 +1231,20 @@ public class ModelVAORenderer
         }
     }
 
+    public static boolean hasActiveShaderEffects()
+    {
+        return paintPass
+            || paintOverlayPass
+            || colorTintOverlayPass
+            || colorGradeOverlayPass
+            || deferredTranslucentPass
+            || glowEmissionPass
+            || outlineOverlayPass
+            || paintEffectActive
+            || colorEffectActive
+            || glowEffectActive;
+    }
+
     public static boolean isPaintOverlaySynced()
     {
         return paintOverlaySynced;
@@ -2115,6 +2129,7 @@ public class ModelVAORenderer
         }
 
         BBSUniform.set(shader, "ColorModulator", 1F, 1F, 1F, 1F);
+        BBSUniform.set(shader, "Unlit", BBSRendering.isFramebufferContentUnlit() ? 1F : 0F);
     }
 
     private static float viewOriginLengthSq(Matrix4f view)

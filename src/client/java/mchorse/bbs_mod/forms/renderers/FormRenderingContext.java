@@ -31,6 +31,11 @@ public class FormRenderingContext
     public boolean ui;
     public int color;
     public boolean modelRenderer;
+    /**
+     * F7 / world-preview gizmos: orbit stack still has {@code camera.view}, but look-at
+     * content (Framebuffer camera-content, etc.) must match the live world ENTITY draw.
+     */
+    public boolean matchWorldLookAt;
     public boolean relative;
     public boolean isShadowPass;
     public Matrix4f viewMatrix;
@@ -49,6 +54,12 @@ public class FormRenderingContext
      */
     public int trailInstance;
 
+    /**
+     * Depth while drawing a form as another form's body part. FramebufferForm uses this
+     * to switch to lit-postcard shading so diffuse follows the host bone (e.g. head pitch).
+     */
+    public int bodyPartNesting;
+
     public FormRenderingContext()
     {}
 
@@ -64,6 +75,8 @@ public class FormRenderingContext
         this.stencilMap = null;
         this.ui = false;
         this.color = 0xffffffff;
+        this.modelRenderer = false;
+        this.matchWorldLookAt = false;
         this.relative = false;
         this.isShadowPass = false;
         this.viewMatrix = null;
@@ -71,6 +84,7 @@ public class FormRenderingContext
         this.textureOverride = null;
         this.textureBlendOverride = null;
         this.trailInstance = 0;
+        this.bodyPartNesting = 0;
 
         if (entity != null && (this.type == FormRenderType.ENTITY || this.type == FormRenderType.MODEL_BLOCK))
         {
@@ -149,6 +163,13 @@ public class FormRenderingContext
         return this;
     }
 
+    public FormRenderingContext matchWorldLookAt()
+    {
+        this.matchWorldLookAt = true;
+
+        return this;
+    }
+
     /**
      * Orbit UI, form/model-block pickable preview, and inventory GUI items: draw soft live.
      * World post-deferred / Iris soft queues are never flushed for those passes — translucent
@@ -160,6 +181,11 @@ public class FormRenderingContext
             || this.modelRenderer
             || this.type == FormRenderType.PREVIEW
             || this.type == FormRenderType.ITEM_INVENTORY;
+    }
+
+    public boolean isBodyPart()
+    {
+        return this.bodyPartNesting > 0;
     }
 
     public FormRenderingContext equipment(boolean renderEquipment)

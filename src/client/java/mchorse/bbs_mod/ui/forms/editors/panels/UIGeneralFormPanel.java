@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -251,6 +252,7 @@ public class UIGeneralFormPanel extends UIFormPanel
                 this.illusionTransformEditor.resize();
             }
         });
+        UIFormSectionExpand.bind(this.illusionSection, UIFormSectionExpand.GENERAL_ILLUSION);
 
         UIElement displayContent = UI.column(5, 0,
             UI.label(UIKeys.FORMS_EDITORS_GENERAL_DISPLAY),
@@ -266,9 +268,15 @@ public class UIGeneralFormPanel extends UIFormPanel
             this.shaderShadow,
             this.filmInvulnerable.marginTop(4)
         );
-        UISection displaySection = new UISection(UIKeys.FORMS_EDITORS_GENERAL, displayContent);
+        UISection displaySection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_GENERAL, displayContent),
+            UIFormSectionExpand.GENERAL_DISPLAY
+        );
 
-        UISection transformSection = new UISection(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS, this.transform);
+        UISection transformSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_TRANSFORMS, this.transform),
+            UIFormSectionExpand.GENERAL_TRANSFORM
+        );
 
         UIElement hitboxContent = UI.column(5, 0,
             this.hitbox,
@@ -278,7 +286,10 @@ public class UIGeneralFormPanel extends UIFormPanel
             UI.label(UIKeys.FORMS_EDITORS_GENERAL_HITBOX_EYE_HEIGHT),
             this.hitboxEyeHeight
         );
-        UISection hitboxSection = new UISection(UIKeys.FORMS_EDITORS_GENERAL_HITBOX, hitboxContent);
+        UISection hitboxSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_GENERAL_HITBOX, hitboxContent),
+            UIFormSectionExpand.GENERAL_HITBOX
+        );
 
         UIElement statsContent = UI.column(5, 0,
             UI.label(UIKeys.FORMS_EDITORS_GENERAL_HP),
@@ -288,7 +299,10 @@ public class UIGeneralFormPanel extends UIFormPanel
             UI.label(UIKeys.FORMS_EDITORS_GENERAL_STEP_HEIGHT),
             this.stepHeight
         );
-        UISection statsSection = new UISection(UIKeys.FORMS_EDITORS_GENERAL_HP, statsContent);
+        UISection statsSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITORS_GENERAL_HP, statsContent),
+            UIFormSectionExpand.GENERAL_STATS
+        );
 
         this.options.add(
             displaySection,

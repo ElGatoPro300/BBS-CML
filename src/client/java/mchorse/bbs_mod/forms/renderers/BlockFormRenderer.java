@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.BBSUniform;
 import mchorse.bbs_mod.client.renderer.LightTexture;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
@@ -13,6 +14,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData;
 import mchorse.bbs_mod.forms.renderers.utils.VirtualBlockRenderView;
@@ -63,6 +65,7 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.QuadInstance;
@@ -217,8 +220,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    BBSRendering.bindProgram(BBSShaders.getPickerModelsProgram());
+                    GlProgram picker = BBSShaders.getPickerModelsProgram();
+
+                    this.setupTarget(context, picker);
+                    BBSUniform.set(picker, "IgnoreLightmap", 1);
+                    BBSRendering.bindProgram(picker);
                     BBSRendering.bindTexture(TextureAtlas.LOCATION_BLOCKS);
                     /* Unit pick cubes need both faces; culling clipped the volume to a flat slab. */
                     BBSRendering.disableCull();
@@ -569,6 +575,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
+            if (!shadowPass && !context.isPicking())
+            {
+                this.renderOutline(context, color.a, light, context.overlay);
+            }
+
             BBSRendering.defaultBlendFunc();
         }
         finally
@@ -581,6 +592,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             if (context.isPicking())
             {
+                BBSUniform.set(BBSShaders.getPickerModelsProgram(), "IgnoreLightmap", 0);
                 BBSRendering.enableCull();
             }
 
@@ -588,6 +600,29 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         BBSRendering.enableDepthTest();
+    }
+
+    private void renderOutline(FormRenderingContext context, float formAlpha, int light, int overlay)
+    {
+        FormOutlinePass.run(this.form, context, formAlpha, (maskStack) ->
+        {
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                BBSRendering.bindProgram(BBSShaders.getOutlineMask());
+            });
+
+            try
+            {
+                this.renderRepeatedBlocks(context, maskStack, consumers, light, overlay, false, false, false, false, false);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        });
     }
 
     private void applyBlockMainPassHijackLayer(RenderType layer, Color shaderTint)

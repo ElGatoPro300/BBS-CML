@@ -63,4 +63,5 @@ layout(std140) uniform BbsModelEffects
     vec4 GlowOverlayColor;
     float ColorMaskFalloff;
     float PaintMultiplyDarken;
+    int IgnoreLightmap;
 };

@@ -4,7 +4,6 @@
 
 uniform sampler2D Sampler0;
 
-
 in vec4 vertexColor;
 in vec2 texCoord0;
 flat in ivec2 texCoord2;
@@ -20,7 +19,9 @@ void main()
         discard;
     }
 
-    int totalIndex = Target + texCoord2.x;
+    /* MobForm pick sets IgnoreLightmap so feature layers (eyes, pumpkin, armor) that
+     * emit non-zero UV2 still share one Target id. ModelForm bone pick leaves it 0. */
+    int totalIndex = Target + (IgnoreLightmap != 0 ? 0 : texCoord2.x);
     float r = float(totalIndex & 0xff) / 255.0;
     float g = float((totalIndex >> 8) & 0xff) / 255.0;
     float b = float((totalIndex >> 16) & 0xff) / 255.0;

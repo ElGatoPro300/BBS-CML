@@ -316,8 +316,7 @@ public class UIForms extends UIList<UIForms.FormEntry>
 
                 if (!filtering && this.sorting && this.canDragSelection())
                 {
-                    this.dragging = index;
-                    this.dragTime = System.currentTimeMillis();
+                    this.beginDrag(index, context.mouseX, context.mouseY);
                 }
 
                 List<FormEntry> current = this.getCurrent();

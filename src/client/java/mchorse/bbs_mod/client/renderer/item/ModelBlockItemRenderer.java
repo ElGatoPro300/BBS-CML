@@ -29,8 +29,11 @@ import net.minecraft.world.item.ItemStack;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.MapCodec;
+
+import org.lwjgl.opengl.GL11;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -119,7 +122,18 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                 }
                 finally
                 {
-                    BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
+                    if (mode == ItemDisplayContext.GUI)
+                    {
+                        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
+                        BBSRendering.restoreAfterGuiItemForm();
+                        BBSRendering.depthMask(true);
+                        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+                    }
+                    else
+                    {
+                        /* FP FramebufferForm can leave TU0 / lightmap dirty for the next HUD. */
+                        BBSRendering.restoreAfterHeldItemForm();
+                    }
                     BBSRendering.disableDepthTest();
                 }
                 matrices.popPose();

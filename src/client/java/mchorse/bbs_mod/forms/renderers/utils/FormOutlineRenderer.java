@@ -92,7 +92,22 @@ public class FormOutlineRenderer
      */
     public static void render(PoseStack stack, ModelInstance model, ShapeKeys shapeKeys, Function<String, Link> textureResolver, int light, Color outlineColor, float thickness, boolean rainbow, float rainbowSpeed, float rainbowScale, List<BodyPartData> bodyParts)
     {
-        if (rendering || model == null || thickness <= 0F || outlineColor == null || outlineColor.a <= 0.001F)
+        if (model == null)
+        {
+            return;
+        }
+
+        render(stack, outlineColor, thickness, rainbow, rainbowSpeed, rainbowScale,
+            () -> renderMaskGeometry(stack, model, shapeKeys, textureResolver, light, bodyParts));
+    }
+
+    /**
+     * Silhouette outline with a custom mask pass (e.g. MobForm entity re-draw into the mask FB).
+     * Same dilate/composite pipeline as the ModelInstance path.
+     */
+    public static void render(PoseStack stack, Color outlineColor, float thickness, boolean rainbow, float rainbowSpeed, float rainbowScale, Runnable maskDraw)
+    {
+        if (rendering || maskDraw == null || thickness <= 0F || outlineColor == null || outlineColor.a <= 0.001F)
         {
             return;
         }
@@ -187,7 +202,7 @@ public class FormOutlineRenderer
 
             try
             {
-                renderMaskGeometry(stack, model, shapeKeys, textureResolver, light, bodyParts);
+                maskDraw.run();
             }
             finally
             {

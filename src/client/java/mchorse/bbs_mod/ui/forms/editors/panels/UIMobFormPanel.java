@@ -7,12 +7,14 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextarea;
 import mchorse.bbs_mod.ui.framework.elements.input.text.utils.TextLine;
+import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
@@ -27,6 +29,7 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
     private static List<String> mobIDs;
 
     public UIButton pick;
+    public UIColor color;
     public UIToggle slim;
     public UITrackpad pbrNormalIntensity;
     public UITrackpad pbrSpecularIntensity;
@@ -48,6 +51,16 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
     public UIMobFormPanel(UIForm editor)
     {
         super(editor);
+
+        this.color = new UIColor((c) ->
+        {
+            Color color = this.form.color.get().copy();
+            Color value = Color.rgba(c);
+
+            color.set(value.r, value.g, value.b, value.a);
+            this.form.color.set(color);
+        }).withAlpha();
+        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
 
         this.pick = new UIButton(UIKeys.FORMS_EDITOR_MODEL_PICK_TEXTURE, (b) ->
         {
@@ -74,7 +87,7 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
         this.mobNBT.background().h(160);
         this.mobNBT.wrap();
 
-        this.options.add(this.pick, this.slim);
+        this.options.add(this.color, this.pick, this.slim);
         if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
         {
             this.options.add(this.pbrNormalIntensity, this.pbrSpecularIntensity);
@@ -87,6 +100,7 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
     {
         super.startEdit(form);
 
+        this.color.setColor(form.color.get().getARGBColor());
         this.slim.setValue(this.form.slim.get());
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());
         this.pbrSpecularIntensity.setValue(form.pbrSpecularIntensity.get());
