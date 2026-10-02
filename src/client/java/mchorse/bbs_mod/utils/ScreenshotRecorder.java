@@ -8,6 +8,7 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
 import java.awt.Image;
 import java.awt.Toolkit;
@@ -55,13 +56,30 @@ public class ScreenshotRecorder
      */
     public void takeScreenshot(File output, int texture, int width, int height)
     {
+        int prevPbo = GL11.glGetInteger(GL30.GL_PIXEL_PACK_BUFFER_BINDING);
+        int prevPackAlignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
+        int prevPackRowLength = GL11.glGetInteger(GL11.GL_PACK_ROW_LENGTH);
+
         FloatBuffer pixelData = BufferUtils.createFloatBuffer(width * height * 4);
 
-        GlStateManager._bindTexture(texture);
-        GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
-        pixelData.rewind();
+        try
+        {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
+            GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, 0);
 
-        this.saveScreenshot(pixelData, output, width, height);
+            GlStateManager._bindTexture(texture);
+            GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
+            pixelData.rewind();
+
+            this.saveScreenshot(pixelData, output, width, height);
+        }
+        finally
+        {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, prevPbo);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, prevPackAlignment);
+            GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, prevPackRowLength);
+        }
     }
 
     /**
@@ -69,12 +87,29 @@ public class ScreenshotRecorder
      */
     public void takeScreenshot(File output, int width, int height)
     {
+        int prevPbo = GL11.glGetInteger(GL30.GL_PIXEL_PACK_BUFFER_BINDING);
+        int prevPackAlignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
+        int prevPackRowLength = GL11.glGetInteger(GL11.GL_PACK_ROW_LENGTH);
+
         FloatBuffer pixelData = BufferUtils.createFloatBuffer(width * height * 4);
 
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
-        pixelData.rewind();
+        try
+        {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
+            GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, 0);
 
-        this.saveScreenshot(pixelData, output, width, height);
+            GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_FLOAT, pixelData);
+            pixelData.rewind();
+
+            this.saveScreenshot(pixelData, output, width, height);
+        }
+        finally
+        {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, prevPbo);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, prevPackAlignment);
+            GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, prevPackRowLength);
+        }
     }
 
     private void saveScreenshot(FloatBuffer pixelData, File output, int width, int height)
