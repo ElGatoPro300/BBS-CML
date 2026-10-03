@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.BodyPartManager;
@@ -348,9 +349,9 @@ public class UIForms extends UIList<UIForms.FormEntry>
 
             y -= 10;
 
-            Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
+            BBSRendering.setupLevelLighting();
             FormUtilsClient.renderUI(form, context, x, y, x + 40, y + 40);
-            Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.LEVEL);
+            BBSRendering.setupItemsFlatLighting();
 
             context.batcher.unclip(context);
         }

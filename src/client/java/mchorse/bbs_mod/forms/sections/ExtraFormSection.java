@@ -43,6 +43,7 @@ public class ExtraFormSection extends FormSection
     private FormCategory mobsMisc;
     private FormCategory extra;
     private List<FormCategory> categories;
+    private ItemForm itemForm;
 
     public ExtraFormSection(FormCategories parent)
     {
@@ -98,6 +99,8 @@ public class ExtraFormSection extends FormSection
         billboard.texture.set(Link.assets("textures/error.png"));
         extruded.texture.set(Link.assets("textures/error.png"));
         block.blockState.set(Blocks.GRASS_BLOCK.defaultBlockState());
+
+        this.itemForm = item;
 
         try
         {
@@ -163,6 +166,16 @@ public class ExtraFormSection extends FormSection
     @Override
     public List<FormCategory> getCategories()
     {
+        if (this.itemForm != null && this.itemForm.stack.get().isEmpty())
+        {
+            try
+            {
+                this.itemForm.stack.set(new ItemStack(Items.STICK));
+            }
+            catch (Throwable ignored)
+            {}
+        }
+
         return this.categories;
     }
 

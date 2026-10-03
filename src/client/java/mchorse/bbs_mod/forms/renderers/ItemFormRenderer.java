@@ -108,22 +108,14 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             ? null
             : resolvedPaint;
 
-        BBSRendering.setupLevelLighting();
+        BBSRendering.setupItems3DLighting();
 
         ItemDisplayContext mode = this.form.modelTransform.get();
 
-        /* Show a stick preview when no item has been chosen yet */
-        if (this.form.stack.get().isEmpty())
-        {
-            this.form.stack.setRuntimeValue(new ItemStack(Items.STICK));
-        }
-
         consumers.setSubstitute(this.getMainConsumer(set, mainPassPaint));
         consumers.setUI(true);
-        this.renderItem(null, matrices, consumers, LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, mode, false, null);
+        this.renderItem(null, matrices, consumers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, mode, false, null);
         consumers.draw();
-
-        this.form.stack.setRuntimeValue(null);
 
         if (colorTransformWanted)
         {
@@ -154,6 +146,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         consumers.setSubstitute(null);
 
         matrices.popPose();
+        BBSRendering.setupItemsFlatLighting();
         BBSRendering.restoreGuiRenderState();
     }
 

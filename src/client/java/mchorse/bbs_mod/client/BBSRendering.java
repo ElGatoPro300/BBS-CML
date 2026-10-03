@@ -2079,6 +2079,26 @@ public class BBSRendering
         }
     }
 
+    public static void setupItems3DLighting()
+    {
+        Minecraft client = Minecraft.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.getLighting() != null)
+        {
+            client.gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_3D);
+        }
+    }
+
+    public static void setupItemsFlatLighting()
+    {
+        Minecraft client = Minecraft.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.getLighting() != null)
+        {
+            client.gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
+        }
+    }
+
     public static void colorMask(boolean red, boolean green, boolean blue, boolean alpha)
     {
         int mask = (red ? ColorTargetState.WRITE_RED : 0) | (green ? ColorTargetState.WRITE_GREEN : 0) | (blue ? ColorTargetState.WRITE_BLUE : 0) | (alpha ? ColorTargetState.WRITE_ALPHA : 0);

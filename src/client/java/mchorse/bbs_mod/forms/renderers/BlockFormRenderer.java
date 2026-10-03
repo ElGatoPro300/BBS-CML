@@ -150,7 +150,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             this.applyBlockMainPassHijackLayer(layer, uiNegativeGlowTint);
         });
 
-        BBSRendering.setupEntityInUiLighting();
+        BBSRendering.setupLevelLighting();
 
         Color mainPassPaint = FormColorEffects.defersNegativePaintToOverlay(this.form.paintSettings.get(), this.form.paintColor.get())
             ? null
@@ -158,7 +158,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         consumers.setSubstitute(this.getBlockMainConsumer(set, mainPassPaint));
         consumers.setUI(true);
-        this.renderRepeatedBlocks(null, matrices, consumers, LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, false, true, false, false, false);
+        this.renderRepeatedBlocks(null, matrices, consumers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, false, true, false, false, false);
 
         consumers.draw();
         BBSRendering.setShaderColor(1F, 1F, 1F, 1F);
@@ -189,6 +189,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         consumers.setUI(false);
         consumers.setSubstitute(null);
+        BBSRendering.setupItemsFlatLighting();
         matrices.popPose();
     }
 
