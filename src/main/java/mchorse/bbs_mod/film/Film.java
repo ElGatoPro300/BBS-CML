@@ -18,6 +18,7 @@ import java.util.List;
 
 public class Film extends ValueGroup
 {
+    public final ValueInt schemaVersion = new ValueInt("schema_version", 2);
     public final Clips camera = new Clips("camera", BBSMod.getFactoryCameraClips());
     public final Clips screen = new Clips("screen", BBSMod.getFactoryScreenClips());
     public final Replays replays = new Replays("replays");
@@ -44,6 +45,7 @@ public class Film extends ValueGroup
     {
         super("");
 
+        this.add(this.schemaVersion);
         this.add(this.camera);
         this.add(this.screen);
         this.add(this.replays);
