@@ -6,7 +6,7 @@ public class LightTexture
 {
     public static final int FULL_BRIGHT = LightCoordsUtil.FULL_BRIGHT;
     public static final int FULL_SKY = LightCoordsUtil.FULL_SKY;
-    public static final int FULL_BLOCK = LightCoordsUtil.pack(0, 0);
+    public static final int FULL_BLOCK = LightCoordsUtil.pack(15, 0);
 
     public static int pack(int block, int sky)
     {

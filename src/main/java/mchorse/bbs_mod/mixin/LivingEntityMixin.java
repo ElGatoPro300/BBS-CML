@@ -6,6 +6,7 @@ import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.network.ServerNetwork;
 
@@ -150,6 +151,22 @@ public class LivingEntityMixin
 
                 info.setReturnValue(shaped.withEyeHeight(eyeHeight));
             }
+        }
+    }
+
+    /**
+     * LivingEntity overrides {@link Entity#maxUpStep()}, so the boost must live here
+     * (not on Entity) or players never receive the higher step for short solid hitboxes.
+     */
+    @Inject(method = "maxUpStep", at = @At("RETURN"), cancellable = true)
+    private void bbs$boostSolidHitboxStepHeight(CallbackInfoReturnable<Float> info)
+    {
+        Entity entity = (Entity) (Object) this;
+        float boosted = ModelBlockSolidCollisions.boostStepHeight(entity, info.getReturnValueF());
+
+        if (boosted > info.getReturnValueF())
+        {
+            info.setReturnValue(boosted);
         }
     }
 }

@@ -338,6 +338,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
             case "compatibility": return Icons.SAVE;
             case "audio": return Icons.SOUND;
             case "cdn": return Icons.USER;
+            case "storage": return Icons.FOLDER;
             default: return Icons.SETTINGS;
         }
     }

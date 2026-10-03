@@ -25,6 +25,7 @@ import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.physics.DynamicBoneOrchestrator;
 import mchorse.bbs_mod.cubic.render.ShapeKeyGlowPass;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
@@ -41,6 +42,8 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.renderers.utils.BbsHeadItemSpace;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlineRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -80,7 +83,6 @@ import net.minecraft.world.level.block.AbstractSkullBlock;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlProgram;
@@ -123,9 +125,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private int lastUiAnimTick = Integer.MIN_VALUE;
 
     private IEntity entity = new StubEntity();
-
-    /* Transient additive pose applied by the film "Look at" constraint */
-    private Pose lookAtPose;
 
     @Override
     protected void applyTransforms(PoseStack stack, boolean origin, float transition)
@@ -312,22 +311,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.applyPose(pose, newPose.get());
         }
 
-        if (this.lookAtPose != null)
-        {
-            this.applyPose(pose, this.lookAtPose);
-        }
-
         return pose;
-    }
-
-    /**
-     * Sets a transient additive pose used by the film controller's "Look at"
-     * constraint (per bone lock weights). It's set right before rendering an
-     * entity and cleared right after, so it never gets serialized.
-     */
-    public void setLookAtPose(Pose pose)
-    {
-        this.lookAtPose = pose;
     }
 
     private void applyPose(Pose targetPose, Pose pose)
@@ -656,7 +640,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                 /* Picking must write depth so the closest limb along the cursor ray wins.
                  * Glow/paint passes can leave depthMask false; without this, later-drawn
-                 * bones (often torso) overwrite nearer ones (head) in the pick FBO. */
+                 * bones (often torso) overwrite nearer ones (head) in the pick FBO.
+                 * Body-part meshes draw after the host and win where they are in front —
+                 * do not exclude host bones or anchors with parts become unpickable. */
                 BBSRendering.enableDepthTest();
                 BBSRendering.depthFunc(GL11.GL_LEQUAL);
                 BBSRendering.depthMask(true);
@@ -1873,81 +1859,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         this.ikAppliedThisRender = true;
         model.form = this.form;
-
-        boolean hasOverrides = baseTransform != null && this.form != null
-            && (!this.form.ikTargetOverrides.isEmpty()
-                || !this.form.poleTargetOverrides.isEmpty()
-                || !this.form.ikTipRotationOverrides.isEmpty()
-                || !this.form.limbParamOverrides.isEmpty());
-
-        if (!hasOverrides)
-        {
-            LimbConstraintProcessor.process(model, null, null);
-            return;
-        }
-
-        Matrix4f inv = new Matrix4f(baseTransform).invert();
-        Map<String, Vector3f> local = toModelSpace(this.form.ikTargetOverrides, inv);
-        Map<String, Vector3f> poleLocal = toModelSpace(this.form.poleTargetOverrides, inv);
-        Map<String, Quaternionf> tipLocal = toModelSpaceRotation(this.form.ikTipRotationOverrides, inv);
-
-        if (local.isEmpty() && poleLocal.isEmpty() && tipLocal.isEmpty() && this.form.limbParamOverrides.isEmpty())
-        {
-            LimbConstraintProcessor.process(model, null, null);
-            return;
-        }
-
-        LimbConstraintProcessor.process(
-            model,
-            local.isEmpty() ? null : local,
-            poleLocal.isEmpty() ? null : poleLocal,
-            tipLocal.isEmpty() ? null : tipLocal,
-            null
-        );
-    }
-
-    private static Map<String, Quaternionf> toModelSpaceRotation(Map<String, Quaternionf> world, Matrix4f inv)
-    {
-        Map<String, Quaternionf> local = new HashMap<>(world.size() * 2);
-        Quaternionf invRot = inv.getNormalizedRotation(new Quaternionf());
-
-        for (Map.Entry<String, Quaternionf> entry : world.entrySet())
-        {
-            String key = entry.getKey();
-            Quaternionf worldRot = entry.getValue();
-
-            if (key == null || key.isEmpty() || worldRot == null)
-            {
-                continue;
-            }
-
-            local.put(key, invRot.mul(worldRot, new Quaternionf()));
-        }
-
-        return local;
-    }
-
-    /** World-space target overrides into the model's local space (the space the solver and pivot frames use). */
-    private static Map<String, Vector3f> toModelSpace(Map<String, Vector3f> world, Matrix4f inv)
-    {
-        Map<String, Vector3f> local = new HashMap<>(world.size() * 2);
-
-        for (Map.Entry<String, Vector3f> entry : world.entrySet())
-        {
-            String key = entry.getKey();
-            Vector3f worldPos = entry.getValue();
-
-            if (key == null || key.isEmpty() || worldPos == null)
-            {
-                continue;
-            }
-
-            Vector3f pos = new Vector3f(worldPos);
-            inv.transformPosition(pos);
-            local.put(key, pos);
-        }
-
-        return local;
+        LimbConstraintProcessor.process(model, null, null);
     }
 
     private void applyPhysicsOnce(IEntity target, ModelInstance model, float transition, Matrix4f baseTransform)
@@ -2319,6 +2231,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private Supplier<GlProgram> getModelShader(ModelInstance model)
     {
+        /* FramebufferForm albedo bake must use model.vsh Unlit — not Iris entity programs. */
+        if (BBSRendering.isFramebufferContentUnlit() && model.supportsBbsModelShaderEffects())
+        {
+            return BBSShaders::getModel;
+        }
+
         if (!model.supportsBbsModelShaderEffects())
         {
             return BBSRendering::getEntityTranslucentProgram;
@@ -3786,7 +3704,144 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     ShaderOpacityPatch.endShadowForm();
                 }
             }
+
+            this.renderOutline(context, model, texture, color);
         }
+    }
+
+    /**
+     * Silhouette outline pass — draws a single outer-edge-only outline around this model's
+     * currently rendered geometry (see {@link FormOutlineRenderer}), self-contained and
+     * immediate (no dependency on world render events, so this works identically in the
+     * model editor preview as it does in the actual world). Skipped for UI/picking/shadow
+     * passes and whenever the form itself is invisible, since an invisible model has no
+     * silhouette to trace.
+     */
+    private void renderOutline(FormRenderingContext context, ModelInstance model, Link texture, Color color)
+    {
+        if (model == null || FormOutlinePass.shouldSkip(this.form, context, color.a))
+        {
+            return;
+        }
+
+        Color outlineColor = FormOutlinePass.resolveOutlineColor(this.form, color.a);
+        float thickness = this.form.outlineThickness.get();
+        boolean rainbow = this.form.outlineRainbow.get();
+        float rainbowSpeed = this.form.outlineRainbowSpeed.get();
+        float rainbowScale = this.form.outlineRainbowScale.get();
+        ShapeKeys shapeKeys = this.form.shapeKeys.get();
+        Function<String, Link> textureResolver = this.getTextureResolver(model, texture);
+        int light = context.light;
+        List<FormOutlineRenderer.BodyPartData> bodyParts = this.captureBodyPartsOutlineData(context);
+
+        /* ModelInstance mask uses the dedicated FormOutlineRenderer overload (pose / body parts).
+         * Iris must defer — setShader is intercepted during the world gbuffer pass. */
+        if (BBSRendering.isIrisDeferredModelPass())
+        {
+            /* Deferred path: the paint overlay queue calls pushIdentityModelView() before
+             * running our Runnable, so RenderSystem.getModelViewMatrix() will be IDENTITY.
+             * Bake camera * entity_local into the stack now so that:
+             *   ModelViewMat = identity * (camera * entity_local) = correct world transform. */
+            Matrix4f baked = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.last().pose()));
+
+            PoseStack deferredStack = new PoseStack();
+
+            MatrixStackUtils.multiply(deferredStack, baked);
+            deferredStack.last().normal().set(context.stack.last().normal());
+
+            Color colorSnapshot = outlineColor.copy();
+            float thicknessSnapshot = thickness;
+            boolean rainbowSnapshot = rainbow;
+            float speedSnapshot = rainbowSpeed;
+            float scaleSnapshot = rainbowScale;
+
+            ModelVAORenderer.submitOutlineOverlay(
+                () -> FormOutlineRenderer.render(deferredStack, model, shapeKeys, textureResolver, light, colorSnapshot, thicknessSnapshot, rainbowSnapshot, speedSnapshot, scaleSnapshot, bodyParts)
+            );
+        }
+        else
+        {
+            PoseStack maskStack = new PoseStack();
+
+            MatrixStackUtils.multiply(maskStack, context.stack.last().pose());
+            maskStack.last().normal().set(context.stack.last().normal());
+
+            FormOutlineRenderer.render(maskStack, model, shapeKeys, textureResolver, light, outlineColor, thickness, rainbow, rainbowSpeed, rainbowScale, bodyParts);
+        }
+    }
+
+    private List<FormOutlineRenderer.BodyPartData> captureBodyPartsOutlineData(FormRenderingContext context)
+    {
+        List<BodyPart> parts = this.form.parts.getAllTyped();
+
+        if (parts.isEmpty())
+        {
+            return Collections.emptyList();
+        }
+
+        List<FormOutlineRenderer.BodyPartData> list = new ArrayList<>(parts.size());
+        float transition = context != null ? context.getTransition() : 0F;
+        IEntity entity = context != null ? context.entity : this.entity;
+
+        for (BodyPart part : parts)
+        {
+            Form partForm = part.getForm();
+
+            if (partForm instanceof ModelForm partModelForm)
+            {
+                FormRenderer<?> renderer = FormUtilsClient.getRenderer(partModelForm);
+
+                if (renderer instanceof ModelFormRenderer partModelRenderer)
+                {
+                    partModelRenderer.ensureAnimator(transition);
+                    ModelInstance partModel = partModelRenderer.getModel();
+
+                    if (partModel != null && partModel.getModel() != null)
+                    {
+                        PoseStack partStack = new PoseStack();
+                        MatrixCacheEntry entry = this.bones.get(part.bone.get());
+
+                        if (entry != null && entry.matrix() != null)
+                        {
+                            MatrixStackUtils.multiply(partStack, entry.matrix());
+                        }
+                        else
+                        {
+                            partStack.mulPose(Axis.YP.rotation(MathUtils.PI));
+                        }
+
+                        MatrixStackUtils.applyTransform(partStack, part.transform.get());
+                        partModelRenderer.applyTransforms(partStack, false, transition);
+                        partStack.mulPose(Axis.YP.rotation(MathUtils.PI));
+
+                        Matrix4f rel = new Matrix4f(partStack.last().pose());
+                        Link link = partModelForm.texture.get();
+                        Link partTexture = link == null ? partModel.texture : link;
+                        Function<String, Link> partResolver = partModelRenderer.getTextureResolver(partModel, partTexture);
+                        ShapeKeys partKeys = partModelForm.shapeKeys.get();
+
+                        IEntity partEntity = part.useTarget.get() ? entity : part.getEntity();
+
+                        partModel.model.resetPose();
+
+                        if (partModelRenderer.animator != null)
+                        {
+                            partModelRenderer.animator.applyActions(partEntity, partModel, transition);
+                        }
+
+                        Pose partPose = partModelRenderer.getPose();
+
+                        partModel.model.applyPose(partPose);
+
+                        List<FormOutlineRenderer.BodyPartData> childParts = partModelRenderer.captureBodyPartsOutlineData(context);
+
+                        list.add(new FormOutlineRenderer.BodyPartData(rel, partModel, partKeys, partResolver, partPose != null ? partPose.copy() : null, childParts));
+                    }
+                }
+            }
+        }
+
+        return list;
     }
 
     @Override

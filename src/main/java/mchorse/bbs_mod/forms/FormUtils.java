@@ -6,6 +6,7 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.FramebufferForm;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
@@ -299,6 +300,13 @@ public class FormUtils
             {
                 properties.add(StringUtils.combinePaths(prefix, property.getId()));
             }
+        }
+
+        /* Synthetic compound tracks — form keeps separate Value fields for the editor panel. */
+        if (form instanceof FramebufferForm)
+        {
+            properties.add(StringUtils.combinePaths(prefix, "resolution"));
+            properties.add(StringUtils.combinePaths(prefix, "view_extent"));
         }
 
         List<BodyPart> all = form.parts.getAllTyped();

@@ -14,6 +14,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormOutlinePass;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -31,6 +32,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
 import org.joml.Matrix3f;
@@ -107,13 +109,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             ? null
             : resolvedPaint;
 
-        BBSRendering.setupLevelLighting();
+        BBSRendering.setupItems3DLighting();
 
         ItemDisplayContext mode = this.form.modelTransform.get();
 
         consumers.setSubstitute(this.getMainConsumer(set, mainPassPaint));
         consumers.setUI(true);
-        this.renderItem(null, matrices, consumers, LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, mode, false, null);
+        this.renderItem(null, matrices, consumers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, mode, false, null);
         consumers.draw();
 
         if (colorTransformWanted)
@@ -145,6 +147,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         consumers.setSubstitute(null);
 
         matrices.popPose();
+        BBSRendering.setupItemsFlatLighting();
+        BBSRendering.restoreGuiRenderState();
     }
 
     @Override
@@ -200,6 +204,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             Color formColor = rawFormColor.copy();
             boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
             boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
+
+            /* Isolate per-draw tint — static color retained residual mul from prior ItemForms. */
+            BlockFormRenderer.color.set(context.color);
 
             boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
@@ -276,6 +283,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
                 && !noshadingDefer;
             boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
+            /* Snapshot for RecolorVertexConsumer — must not hold the shared static Color. */
             final Color itemRecolorSource;
 
             if (glowBakedInMainPass)
@@ -284,7 +292,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             }
             else
             {
-                itemRecolorSource = BlockFormRenderer.color;
+                itemRecolorSource = BlockFormRenderer.color.copy();
             }
 
             final Function<VertexConsumer, VertexConsumer> itemMainRecolor = this.getMainConsumer(
@@ -529,14 +537,43 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
+            if (!shadowPass && !context.isPicking())
+            {
+                this.renderOutline(context, BlockFormRenderer.color.a, light, context.overlay, mode, leftHand, itemEntity);
+            }
+
             BBSRendering.defaultBlendFunc();
         }
         finally
         {
+            BlockFormRenderer.color.set(1F, 1F, 1F, 1F);
             context.stack.popPose();
         }
 
         BBSRendering.enableDepthTest();
+    }
+
+    private void renderOutline(FormRenderingContext context, float formAlpha, int light, int overlay, ItemDisplayContext mode, boolean leftHand, LivingEntity itemEntity)
+    {
+        FormOutlinePass.run(this.form, context, formAlpha, (maskStack) ->
+        {
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                BBSRendering.bindProgram(BBSShaders.getOutlineMask());
+            });
+
+            try
+            {
+                this.renderItem(context, maskStack, consumers, light, overlay, mode, leftHand, itemEntity);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        });
     }
 
     boolean shouldUseDroppedMode(boolean isDropped)

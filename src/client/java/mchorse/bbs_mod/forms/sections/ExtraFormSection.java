@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
 import mchorse.bbs_mod.forms.forms.FluidForm;
+import mchorse.bbs_mod.forms.forms.FramebufferForm;
 import mchorse.bbs_mod.forms.forms.ItemForm;
 import mchorse.bbs_mod.forms.forms.LabelForm;
 import mchorse.bbs_mod.forms.forms.LightForm;
@@ -16,6 +17,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 
@@ -41,6 +43,7 @@ public class ExtraFormSection extends FormSection
     private FormCategory mobsMisc;
     private FormCategory extra;
     private List<FormCategory> categories;
+    private ItemForm itemForm;
 
     public ExtraFormSection(FormCategories parent)
     {
@@ -53,6 +56,7 @@ public class ExtraFormSection extends FormSection
         FormCategory extra = new FormCategory(UIKeys.FORMS_CATEGORIES_EXTRA, this.parent.visibility.get("extra"));
         AnchorForm anchor = new AnchorForm();
         BillboardForm billboard = new BillboardForm();
+        VideoForm video = new VideoForm();
         LabelForm label = new LabelForm();
         ExtrudedForm extruded = new ExtrudedForm();
         BlockForm block = new BlockForm();
@@ -96,6 +100,8 @@ public class ExtraFormSection extends FormSection
         extruded.texture.set(Link.assets("textures/error.png"));
         block.blockState.set(Blocks.GRASS_BLOCK.defaultBlockState());
 
+        this.itemForm = item;
+
         try
         {
             item.stack.set(new ItemStack(Items.STICK));
@@ -105,6 +111,7 @@ public class ExtraFormSection extends FormSection
 
         extra.addForm(anchor);
         extra.addForm(billboard);
+        extra.addForm(video);
         extra.addForm(label);
         extra.addForm(extruded);
         extra.addForm(block);
@@ -115,6 +122,7 @@ public class ExtraFormSection extends FormSection
         extra.addForm(shape);
         extra.addForm(fluid);
         extra.addForm(light);
+        extra.addForm(new FramebufferForm());
 
         this.mobsAnimals = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_ANIMALS, this.parent.visibility.get("mobs_animals"));
         this.mobsNeutral = new FormCategory(UIKeys.FORMS_CATEGORIES_MOBS_NEUTRAL, this.parent.visibility.get("mobs_neutral"));
@@ -158,6 +166,16 @@ public class ExtraFormSection extends FormSection
     @Override
     public List<FormCategory> getCategories()
     {
+        if (this.itemForm != null && this.itemForm.stack.get().isEmpty())
+        {
+            try
+            {
+                this.itemForm.stack.set(new ItemStack(Items.STICK));
+            }
+            catch (Throwable ignored)
+            {}
+        }
+
         return this.categories;
     }
 

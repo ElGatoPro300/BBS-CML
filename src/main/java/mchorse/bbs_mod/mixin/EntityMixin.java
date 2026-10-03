@@ -2,18 +2,26 @@ package mchorse.bbs_mod.mixin;
 
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.morphing.Morph;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 @Mixin(Entity.class)
 public class EntityMixin
@@ -109,5 +117,27 @@ public class EntityMixin
                 info.setReturnValue(false);
             }
         }
+    }
+
+    /**
+     * Inject solid model/structure hitboxes into every movement collision list,
+     * including the step-up pass ({@code list2}) which previously only saw block shapes.
+     */
+    @Inject(method = "collectAllColliders", at = @At("RETURN"), cancellable = true)
+    private static void bbs$appendSolidHitboxes(
+        @Nullable Entity entity,
+        Level world,
+        AABB movingEntityBoundingBox,
+        CallbackInfoReturnable<List<VoxelShape>> info)
+    {
+        if (entity == null || world == null || movingEntityBoundingBox == null)
+        {
+            return;
+        }
+
+        List<VoxelShape> mutable = ModelBlockSolidCollisions.wrapMutable(info.getReturnValue());
+
+        ModelBlockSolidCollisions.appendShapes(entity, movingEntityBoundingBox, world, mutable);
+        info.setReturnValue(mutable);
     }
 }

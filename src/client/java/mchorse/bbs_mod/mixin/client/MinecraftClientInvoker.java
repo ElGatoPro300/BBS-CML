@@ -13,4 +13,7 @@ public interface MinecraftClientInvoker
 
     @Invoker("startUseItem")
     void bbs$invokeDoItemUse();
+
+    @Invoker("getRunningThread")
+    Thread bbs$getRunningThread();
 }

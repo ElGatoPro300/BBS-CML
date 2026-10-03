@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIBlockStateEditor;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormOutlineControls;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -44,6 +45,7 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
     public UITrackpad glowIntensity;
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
+    public UIFormOutlineControls outlineControls;
     public UIBlockStateEditor stateEditor;
     public UIButton pickBiome;
     public UIToggle toggleLight;
@@ -165,6 +167,8 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.repeatCenterZ = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z, (b) -> this.form.repeatCenterZ.set(b.getValue()));
         this.repeatCenterZ.tooltip(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP);
 
+        this.outlineControls = new UIFormOutlineControls(() -> this.form, () -> this.options.resize());
+
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
@@ -173,6 +177,7 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
             ).marginTop(4),
+            this.outlineControls.createSection().marginTop(4),
             this.stateEditor
         );
         this.options.add(this.pickBiome);
@@ -280,6 +285,7 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
 
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
+        this.outlineControls.syncFromForm(form);
         this.stateEditor.setBlockState(blockState);
         this.breaking.setValue(form.breaking.get());
         this.repeatX.setValue(form.repeatX.get());

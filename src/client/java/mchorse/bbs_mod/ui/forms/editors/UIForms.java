@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.BodyPartManager;
@@ -316,8 +317,7 @@ public class UIForms extends UIList<UIForms.FormEntry>
 
                 if (!filtering && this.sorting && this.canDragSelection())
                 {
-                    this.dragging = index;
-                    this.dragTime = System.currentTimeMillis();
+                    this.beginDrag(index, context.mouseX, context.mouseY);
                 }
 
                 List<FormEntry> current = this.getCurrent();

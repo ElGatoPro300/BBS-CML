@@ -6,12 +6,12 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
+import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.morphing.camera.ImmersiveMorphingCameraController;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
@@ -21,6 +21,12 @@ import net.minecraft.client.Minecraft;
 
 public class UIMorphingPanel extends UIDashboardPanel
 {
+    /**
+     * When true while the nested form editor is open, hide the orbit mesh and show the
+     * live world with the in-edit form drawn on the local player (F7).
+     */
+    public static boolean toggleWorldPreview;
+
     public UIFormPalette palette;
     public UIIcon morph;
     public UIIcon demorph;
@@ -45,6 +51,18 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.editor.renderer.full(dashboard.getRoot());
         this.palette.noBackground();
         this.palette.canModify();
+
+        /* Same F7 pattern as model blocks: world instance + gizmos optional, no double mesh.
+         * Live player target only while F7 is on — orbit preview keeps the stub so the form
+         * shows its base pose without player transforms. */
+        this.palette.editor.keys().register(Keys.MORPHING_TOGGLE_WORLD_PREVIEW, () ->
+        {
+            toggleWorldPreview = !toggleWorldPreview;
+            this.syncWorldPreviewTarget();
+        });
+        this.palette.editor.renderer.setRenderForm(() ->
+            !toggleWorldPreview || BBSSettings.gizmosWorldRendering.get());
+        this.palette.editor.renderer.setRenderFormMesh(() -> !toggleWorldPreview);
 
         this.morph = new UIIcon(Icons.USER, (b) ->
         {
@@ -93,18 +111,36 @@ public class UIMorphingPanel extends UIDashboardPanel
         }
     }
 
+    /**
+     * F7 gizmos / Framebuffer look-at need the live player entity. Orbit (no F7) must keep
+     * the stub so the preview shows the base form without player-live transforms.
+     */
+    private void syncWorldPreviewTarget()
+    {
+        if (toggleWorldPreview && Minecraft.getInstance().player != null)
+        {
+            Morph morph = ((IMorphProvider) Minecraft.getInstance().player).getMorph();
+
+            this.palette.editor.renderer.setTarget(morph.entity);
+        }
+        else
+        {
+            this.palette.editor.renderer.setTarget(null);
+        }
+    }
+
     @Override
     public boolean needsBackground()
     {
         /* Nested form editor uses its own orbit view; otherwise keep the world
-         * behind a dark palette scrim (see UIFormPalette). Hide when F7 real world mode is active. */
-        return this.palette.editor.isEditing() && !UIModelBlockPanel.toggleRendering;
+         * behind a dark palette scrim (see UIFormPalette). Clear when F7 live world is on. */
+        return this.palette.editor.isEditing() && !toggleWorldPreview;
     }
 
     @Override
     public boolean needsWorldRender()
     {
-        return !this.palette.editor.isEditing() || UIModelBlockPanel.toggleRendering;
+        return !this.palette.editor.isEditing() || toggleWorldPreview;
     }
 
     @Override
@@ -131,6 +167,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.setSelected(morph.getForm());
         this.morph.setVisible(!BBSSettings.morphingAutoMorph.get());
         this.palette.list.refreshActionBar();
+        this.syncWorldPreviewTarget();
 
         BBSModClient.getCameraController().add(this.controller);
         Minecraft.getInstance().options.setCameraType(CameraType.THIRD_PERSON_BACK);
@@ -141,6 +178,8 @@ public class UIMorphingPanel extends UIDashboardPanel
     {
         super.disappear();
 
+        toggleWorldPreview = false;
+        this.palette.editor.renderer.setTarget(null);
         BBSModClient.getCameraController().remove(this.controller);
         Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON);
     }
@@ -150,6 +189,8 @@ public class UIMorphingPanel extends UIDashboardPanel
     {
         super.close();
 
+        toggleWorldPreview = false;
+        this.palette.editor.renderer.setTarget(null);
         BBSModClient.getCameraController().remove(this.controller);
     }
 }

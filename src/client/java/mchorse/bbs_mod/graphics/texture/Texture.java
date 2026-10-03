@@ -38,11 +38,28 @@ public class Texture
             return null;
         }
 
+        int prevPbo = GL11.glGetInteger(GL30.GL_PIXEL_PACK_BUFFER_BINDING);
+        int prevPackAlignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
+        int prevPackRowLength = GL11.glGetInteger(GL11.GL_PACK_ROW_LENGTH);
+
         ByteBuffer buffer = MemoryUtil.memAlloc(texture.width * texture.height * 4);
 
-        texture.bind();
-        GL11.glGetTexImage(texture.target, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
-        texture.unbind();
+        try
+        {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 4);
+            GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, 0);
+
+            texture.bind();
+            GL11.glGetTexImage(texture.target, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
+            texture.unbind();
+        }
+        finally
+        {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, prevPbo);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, prevPackAlignment);
+            GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH, prevPackRowLength);
+        }
 
         return new Pixels(buffer, texture.width, texture.height);
     }
@@ -108,11 +125,21 @@ public class Texture
 
     public void bind()
     {
+        if (this.id <= 0)
+        {
+            return;
+        }
+
         GlStateManager._bindTexture(this.id);
     }
 
     public void bind(int unit)
     {
+        if (this.id <= 0)
+        {
+            return;
+        }
+
         GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
         GlStateManager._bindTexture(this.id);
     }
@@ -232,11 +259,23 @@ public class Texture
 
     public void uploadTexture(int target, int level, int w, int h, ByteBuffer buffer)
     {
-        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, w);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        try
+        {
+            GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, w);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
 
-        GL11.glTexImage2D(target, level, this.format.internal, w, h, 0, this.format.format, this.format.type, buffer);
+            GL11.glTexImage2D(target, level, this.format.internal, w, h, 0, this.format.format, this.format.type, buffer);
+        }
+        finally
+        {
+            /* Leaving ROW_LENGTH = w blacks out the block atlas / GUI icons (same class of
+             * leak as VideoForm ffmpeg uploads — see VideoFormEngine). */
+            GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+        }
 
         if (level == 0)
         {

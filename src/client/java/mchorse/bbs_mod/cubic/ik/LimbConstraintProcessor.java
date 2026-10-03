@@ -20,6 +20,9 @@ import java.util.Set;
 /**
  * Runtime entry point that compiles form-embedded limb constraints and writes
  * the solved pose onto the live model instance.
+ *
+ * <p>Restored to the classic (pre–tree-solver) path: merges {@code form.ik} with
+ * model {@code limbConstraints}, then {@link SkeletonPoseWriter} / {@link LimbResolver}.
  */
 public final class LimbConstraintProcessor
 {
@@ -50,34 +53,14 @@ public final class LimbConstraintProcessor
         }
 
         IModel model = instance.model;
-        LimbConstraintCompiler.Compiled compiled = null;
-        MapType map = null;
-        Map<String, LimbDynamicParams> controlOverrides = null;
-        Map<String, Float> targetWeights = null;
-        Map<String, Float> poleWeights = null;
+        MapType map = resolveIkMap(instance);
 
-        if (instance.form instanceof ModelForm form)
+        if (map == null)
         {
-            map = mergeIkMap(form, instance.limbConstraints);
-            controlOverrides = form.limbParamOverrides;
-            targetWeights = form.ikTargetWeights;
-            poleWeights = form.poleTargetWeights;
-
-            if (tipRotations == null && !form.ikTipRotationOverrides.isEmpty())
-            {
-                tipRotations = form.ikTipRotationOverrides;
-                tipRotationWeights = form.ikTipRotationWeights;
-            }
-        }
-        else if (instance.limbConstraints != null)
-        {
-            map = instance.limbConstraints;
+            return;
         }
 
-        if (map != null)
-        {
-            compiled = LimbConstraintCompiler.getFromData(model, map);
-        }
+        LimbConstraintCompiler.Compiled compiled = LimbConstraintCompiler.getFromData(model, map);
 
         if (compiled == null)
         {
@@ -93,7 +76,7 @@ public final class LimbConstraintProcessor
 
         Map<String, JointLimit> boneLimits = JointLimitEnforcer.getJoints(instance);
 
-        SkeletonPoseWriter.apply(model, limbs, targets, poles, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
+        SkeletonPoseWriter.apply(model, limbs, targets, poles, null, null, null, boneLimits, tipRotations, tipRotationWeights);
     }
 
     public static List<String> getControllers(ModelInstance instance)
@@ -147,16 +130,7 @@ public final class LimbConstraintProcessor
             return null;
         }
 
-        MapType map = null;
-
-        if (instance.form instanceof ModelForm form)
-        {
-            map = mergeIkMap(form, instance.limbConstraints);
-        }
-        else if (instance.limbConstraints != null)
-        {
-            map = instance.limbConstraints;
-        }
+        MapType map = resolveIkMap(instance);
 
         if (map != null)
         {
@@ -166,37 +140,37 @@ public final class LimbConstraintProcessor
         return null;
     }
 
+    /**
+     * IK map in effect: non-empty {@code form.ik}, else the model's embedded
+     * {@code instance.limbConstraints}.
+     */
+    public static MapType resolveIkMap(ModelInstance instance)
+    {
+        if (instance == null)
+        {
+            return null;
+        }
+
+        if (instance.form instanceof ModelForm form)
+        {
+            return mergeIkMap(form, instance.limbConstraints);
+        }
+
+        return instance.limbConstraints;
+    }
+
     private static MapType mergeIkMap(ModelForm form, MapType instanceLimbs)
     {
-        MapType base = null;
-
         if (form.ik.get() instanceof MapType map && !map.isEmpty())
         {
-            base = (MapType) map.copy();
-        }
-        else if (instanceLimbs != null)
-        {
-            base = (MapType) instanceLimbs.copy();
+            return (MapType) map.copy();
         }
 
-        if (form.inverseKinematicsLimbs == null || form.inverseKinematicsLimbs.isEmpty())
+        if (instanceLimbs != null)
         {
-            return base;
+            return (MapType) instanceLimbs.copy();
         }
 
-        if (base == null)
-        {
-            base = new MapType();
-        }
-
-        for (String key : form.inverseKinematicsLimbs.keys())
-        {
-            if (!base.has(key))
-            {
-                base.put(key, form.inverseKinematicsLimbs.get(key).copy());
-            }
-        }
-
-        return base;
+        return null;
     }
 }

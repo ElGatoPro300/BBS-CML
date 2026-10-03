@@ -16,10 +16,13 @@ import mchorse.bbs_mod.cubic.model.View;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.physics.PhysBoneDefinition;
 import mchorse.bbs_mod.cubic.render.CubicCpuGlowOverlayRenderer;
+import mchorse.bbs_mod.cubic.render.CubicCpuGroupDrawRenderer;
+import mchorse.bbs_mod.cubic.render.CubicCubeRenderer;
 import mchorse.bbs_mod.cubic.render.CubicLayerRenderer;
 import mchorse.bbs_mod.cubic.render.CubicMatrixRenderer;
 import mchorse.bbs_mod.cubic.render.CubicRenderer;
 import mchorse.bbs_mod.cubic.render.CubicVAOBuilderRenderer;
+import mchorse.bbs_mod.cubic.render.CubicVAORenderer;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
@@ -30,6 +33,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
+import mchorse.bbs_mod.forms.renderers.utils.ModelEffectPass;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
@@ -798,18 +802,18 @@ public class ModelInstance implements IModelInstance
             float cb = color.b * c.b;
             float ca = color.a * c.a;
 
-            CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
-            boolean effects = stencilMap != null || ModelVAORenderer.isPaintOverlayPass()
-                || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass() || !BBSRendering.isIrisShadersEnabled()
-                || RenderSystem.outputColorTextureOverride != null;
+            GlProgram shader = program != null ? program.get() : null;
+            boolean hasEffects = stencilMap != null || shader == BBSShaders.getOutlineMask() || (shader != null && ModelEffectPass.isEffectProgram(shader) && ModelVAORenderer.hasActiveShaderEffects());
 
-            if (effects)
-            {
-                renderer.setEffects(stencilMap != null ? BBSShaders.getPickerModelsProgram() : BBSShaders.getModel(),
-                    new Matrix4f(stack.last().pose()).invert(), stencilMap);
-            }
+            CubicLayerRenderer renderer = new CubicLayerRenderer(light, overlay, keys, textureResolver, this.texture, this.culling);
 
             renderer.setColor(cr, cg, cb, ca);
+
+            if (hasEffects)
+            {
+                renderer.setEffects(shader, new Matrix4f(stack.last().pose()).invert(), stencilMap);
+            }
+
             renderer.renderModel(stack, model);
 
             if (stencilMap != null)
@@ -828,25 +832,21 @@ public class ModelInstance implements IModelInstance
 
                 model.getArmature().setupMatrices();
 
+                GlProgram shader = program != null ? program.get() : null;
+                boolean hasEffects = stencilMap != null || shader == BBSShaders.getOutlineMask() || (shader != null && ModelEffectPass.isEffectProgram(shader) && ModelVAORenderer.hasActiveShaderEffects());
+
                 /* One draw per mesh; bind that mesh's resolved texture (mesh name = material). */
                 for (BOBJModelVAO vao : vaos)
                 {
                     Link texture = textureResolver != null ? textureResolver.apply(vao.data.mesh.name) : null;
+
                     if (texture == null)
                     {
                         texture = this.texture;
                     }
 
-                    if (stencilMap == null && !ModelVAORenderer.isPaintOverlayPass() && !ModelVAORenderer.isColorTintOverlayPass() && !ModelVAORenderer.isColorGradeOverlayPass() && !ModelVAORenderer.isGlowEmissionPass()
-                        && BBSRendering.isIrisShadersEnabled() && RenderSystem.outputColorTextureOverride == null)
-                    {
-                        vao.renderLayer(stack, color, light, overlay, texture, this.culling);
-                    }
-                    else
-                    {
-                        vao.renderLayer(stack, color, light, overlay, texture, this.culling,
-                            stencilMap != null ? BBSShaders.getPickerModelsProgram() : BBSShaders.getModel(), stencilMap);
-                    }
+                    vao.updateMesh(stencilMap);
+                    vao.renderLayer(stack, color, light, overlay, texture, this.culling, hasEffects ? shader : null, stencilMap);
                 }
 
                 stack.popPose();

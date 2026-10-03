@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormOutlineControls;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -48,12 +49,14 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UITrackpad glowIntensity;
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
+    public UIFormOutlineControls outlineControls;
     public UIToggle toggleLight;
     public UITrackpad lightIntensity;
     public UITrackpad scaleX;
     public UITrackpad scaleY;
     public UITrackpad scaleZ;
     public UIToggle toggleFluid;
+    public UIToggle toggleSolidHitbox;
     /* Pivot controls removed per request; structure pivots automatically */
 
     public UIStructureFormPanel(UIForm editor)
@@ -153,6 +156,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
                 .integer()
                 .limit(1D, 15D);
         this.toggleFluid = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_FLUID, false, (t) -> this.form.renderFluid.set(t.getValue()));
+        this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX, false, (t) -> this.form.solidHitbox.set(t.getValue()));
+        this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP);
 
         this.scaleX = new UITrackpad((v) -> this.form.scaleX.set(v.floatValue())).limit(0.01D, 100D);
         this.scaleX.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_SCALE_X);
@@ -163,6 +168,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
         // Pivot UI removed; calculate center moved to Transform panel
 
+        this.outlineControls = new UIFormOutlineControls(() -> this.form, () -> this.options.resize());
+
         /* Quitar etiquetas; mostrar solo los controles */
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
@@ -171,12 +178,14 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
                 this.colorAdjustments.marginTop(4)
-            ).marginTop(4)
+            ).marginTop(4),
+            this.outlineControls.createSection().marginTop(4)
         );
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
         this.options.add(this.toggleLight);
         this.options.add(this.toggleFluid);
+        this.options.add(this.toggleSolidHitbox);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT_INTENSITY_LABEL).marginTop(6), this.lightIntensity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_SIZE).marginTop(10));
         this.options.add(UI.row(this.scaleX, this.scaleY, this.scaleZ));
@@ -314,6 +323,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
+        this.outlineControls.syncFromForm(form);
         StructureLightSettings s = form.structureLight.get();
         boolean enabled = (s != null) ? s.enabled : form.emitLight.get();
         int intensity = (s != null) ? s.intensity : form.lightIntensity.get();
@@ -324,6 +334,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.scaleY.setValue((double) form.scaleY.get());
         this.scaleZ.setValue((double) form.scaleZ.get());
         this.toggleFluid.setValue(form.renderFluid.get());
+        this.toggleSolidHitbox.setValue(form.solidHitbox.get());
         // Pivot controls removed
     }
 }

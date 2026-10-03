@@ -212,6 +212,9 @@ public class BBSSettings
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
 
+    public static ValueInt structurePickerReach;
+    public static ValueInt structurePickerReachExtended;
+
     public static ValueBoolean renderAllModelBlocks;
     public static ValueBoolean clickModelBlocks;
     public static ValueBoolean modelBlockCategoriesPanelEnabled;
@@ -282,6 +285,9 @@ public class BBSSettings
     public static ValueBoolean autoSpectatorInEditors;
 
     public static ValueBoolean usingInMemoryClipboard;
+
+    public static ValueBoolean globalAssetsEnabled;
+    public static ValueString globalAssetsPath;
     public static ValueBoolean discordPresence;
     public static ValueString discordApplicationId;
 
@@ -855,6 +861,11 @@ public class BBSSettings
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
         recordingCameraPreviewFutureCount = builder.getInt("camera_preview_future_count", 3, 1, 8);
 
+        builder.category("structure_picker");
+        structurePickerReach = builder.getInt("reach", 50, 1, 300);
+        structurePickerReachExtended = builder.getInt("reach_extended", 200, 1, 300);
+        builder.getCategory().invisible();
+
         builder.category("model_blocks");
         renderAllModelBlocks = builder.getBoolean("render_all", true);
         clickModelBlocks = builder.getBoolean("click", true);
@@ -906,6 +917,10 @@ public class BBSSettings
         builder.category("cdn");
         cdnUrl = builder.getString("url", "");
         cdnToken = builder.getString("token", "");
+
+        builder.category("storage");
+        globalAssetsEnabled = builder.getBoolean("global_assets_enabled", false);
+        globalAssetsPath = builder.getString("global_assets_path", "");
 
         BBSMod.events.post(new RegisterBBSSettingsEvent(builder));
         syncAppliedAppearance();

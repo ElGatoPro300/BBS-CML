@@ -172,7 +172,7 @@ public final class ModelEffectPass
 
     public static void bound(GlProgram program)
     {
-        boundEffects = PROGRAMS.containsKey(program) ? program : null;
+        boundEffects = program != null && PROGRAMS.containsKey(program) ? program : null;
     }
 
     public static boolean hasBinding()
@@ -182,12 +182,12 @@ public final class ModelEffectPass
 
     public static boolean isEffectProgram(GlProgram program)
     {
-        return PROGRAMS.containsKey(program);
+        return program != null && PROGRAMS.containsKey(program);
     }
 
     public static boolean isPickingProgram(GlProgram program)
     {
-        String name = PROGRAMS.get(program);
+        String name = program != null ? PROGRAMS.get(program) : null;
 
         return name != null && name.startsWith("picker_");
     }
@@ -201,8 +201,9 @@ public final class ModelEffectPass
             return existing;
         }
 
-        Identifier vertex = Identifier.fromNamespaceAndPath("bbs", "core/" + (key.shader().equals("block_glow_overlay") ? "block_paint_overlay" : key.shader()));
-        Identifier fragment = Identifier.fromNamespaceAndPath("bbs", "core/" + key.shader());
+        String shaderName = key.shader() != null ? key.shader() : "model";
+        Identifier vertex = Identifier.fromNamespaceAndPath("bbs", "core/" + (shaderName.equals("block_glow_overlay") ? "block_paint_overlay" : shaderName));
+        Identifier fragment = Identifier.fromNamespaceAndPath("bbs", "core/" + shaderName);
         BindGroupLayout.Builder layoutBuilder = BindGroupLayout.builder()
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform("BbsModelEffects", UniformType.UNIFORM_BUFFER)
@@ -315,8 +316,9 @@ public final class ModelEffectPass
         int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
         GL13.glActiveTexture(active);
         Identifier id = layerTexture != null ? layerTexture : AdoptedTexture.identifier(texture, width, height, false);
-        boolean picking = PROGRAMS.get(shader).startsWith("picker_");
-        boolean overlay = PROGRAMS.get(shader).endsWith("_overlay") || ModelVAORenderer.isPaintOverlayPass()
+        String shaderName = shader != null ? PROGRAMS.get(shader) : null;
+        boolean picking = shaderName != null && shaderName.startsWith("picker_");
+        boolean overlay = (shaderName != null && shaderName.endsWith("_overlay")) || ModelVAORenderer.isPaintOverlayPass()
             || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass();
         boolean depthWrite = picking || (!overlay && GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK));
         GlProgram parameters = shader;
@@ -375,8 +377,15 @@ public final class ModelEffectPass
             }
 
             MeshData.DrawState draws = buffer.drawState();
-            RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.primitiveTopology(), picking, depthWrite, cull, overlay, PROGRAMS.get(parameters),
-                (ModelVAORenderer.isColorTintOverlayPass() || PROGRAMS.get(parameters).endsWith("color_tint_overlay"))
+            String programName = parameters != null ? PROGRAMS.get(parameters) : null;
+
+            if (programName == null)
+            {
+                programName = picking ? "picker_models" : "model";
+            }
+
+            RenderPipeline pipeline = pipeline(new Key(draws.format(), draws.primitiveTopology(), picking, depthWrite, cull, overlay, programName,
+                (ModelVAORenderer.isColorTintOverlayPass() || programName.endsWith("color_tint_overlay"))
                     && ModelEffectUniforms.value(parameters, "ColorGradeActive") < 0.5F, ModelVAORenderer.isGlowEmissionPass()));
             RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline).withTexture("Sampler0", id);
 
@@ -410,15 +419,19 @@ public final class ModelEffectPass
             GpuDevice device = RenderSystem.getDevice();
             ByteBuffer vbData = buffer.vertexBuffer();
             GpuBuffer vertices = device.createBuffer(PASS_LABEL, GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, vbData);
-            GpuBuffer indices;
+            GpuBuffer indices = null;
             boolean customIb = false;
-            IndexType indexType;
+            IndexType indexType = null;
 
             if (buffer.indexBuffer() == null)
             {
                 RenderSystem.AutoStorageIndexBuffer sequential = RenderSystem.getSequentialBuffer(draws.primitiveTopology());
-                indices = sequential.getBuffer(draws.indexCount());
-                indexType = sequential.type();
+
+                if (sequential != null && draws.indexCount() > 0)
+                {
+                    indices = sequential.getBuffer(draws.indexCount());
+                    indexType = sequential.type();
+                }
             }
             else
             {
@@ -445,14 +458,25 @@ public final class ModelEffectPass
                 RenderSystem.bindDefaultUniforms(pass);
                 pass.setUniform("BbsModelEffects", uniforms);
                 pass.setVertexBuffer(0, vertices.slice());
-                pass.setIndexBuffer(indices, indexType);
+
+                if (indices != null && draws.indexCount() > 0)
+                {
+                    pass.setIndexBuffer(indices, indexType);
+                }
 
                 for (PreparedRenderType.Texture texture : textures)
                 {
                     pass.bindTexture(texture.name(), texture.textureView(), texture.sampler());
                 }
 
-                pass.drawIndexed(draws.indexCount(), 1, 0, 0, 0);
+                if (indices != null && draws.indexCount() > 0)
+                {
+                    pass.drawIndexed(draws.indexCount(), 1, 0, 0, 0);
+                }
+                else
+                {
+                    pass.draw(0, draws.vertexCount(), 1, 0);
+                }
             }
             finally
             {

@@ -189,14 +189,12 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         {
             MorphFireRenderer.render(
                 matrices,
-                FormUtilsClient.getProvider(),
                 livingEntity.getWrappingEntity(),
                 livingEntity.getForm(),
                 animDelta,
                 Minecraft.getInstance().gameRenderer.mainCamera(),
                 false
             );
-            FormUtilsClient.getProvider().draw();
         }
 
         BBSRendering.restoreWorldRenderState();

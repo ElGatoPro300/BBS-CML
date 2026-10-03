@@ -6,13 +6,14 @@ import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
-import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.Pair;
 
 public class UIBodyPartEditor extends UIScrollView
@@ -74,7 +75,7 @@ public class UIBodyPartEditor extends UIScrollView
 
         this.pick.keys().register(Keys.FORMS_EDIT, this.pick::clickItself);
 
-        this.column(5).vertical().stretch().scroll().padding(10);
+        this.column(8).vertical().stretch().scroll().padding(10);
         this.scroll.cancelScrolling();
     }
 
@@ -85,6 +86,8 @@ public class UIBodyPartEditor extends UIScrollView
 
     public void setPart(BodyPart part, Form form)
     {
+        BodyPart previous = this.part;
+
         this.part = part;
 
         this.removeAll();
@@ -95,18 +98,34 @@ public class UIBodyPartEditor extends UIScrollView
         this.bone.sort();
         this.bone.setCurrentScroll(part.bone.get());
 
+        UISection formSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITOR_FORM, this.pick, this.useTarget),
+            UIFormSectionExpand.BODY_FORM
+        );
+        this.add(formSection);
+
         if (!this.bone.getList().isEmpty())
         {
-            this.add(this.pick, this.useTarget, UI.label(UIKeys.FORMS_EDITOR_BONE).marginTop(8), this.boneSearch, this.transform);
+            UISection boneSection = UIFormSectionExpand.bind(
+                new UISection(UIKeys.FORMS_EDITOR_BONE, this.boneSearch),
+                UIFormSectionExpand.BODY_BONE
+            );
+            this.add(boneSection);
         }
-        else
-        {
-            this.add(this.pick, this.useTarget, this.transform);
-        }
+
+        UISection transformSection = UIFormSectionExpand.bind(
+            new UISection(UIKeys.FORMS_EDITOR_LIMB_TRANSFORMS, this.transform),
+            UIFormSectionExpand.BODY_TRANSFORM
+        );
+        this.add(transformSection);
 
         this.transform.setTransform(part.transform.get());
 
-        this.scroll.setScroll(0);
+        if (previous != part)
+        {
+            this.scroll.setScroll(0);
+        }
+
         this.resize();
     }
 

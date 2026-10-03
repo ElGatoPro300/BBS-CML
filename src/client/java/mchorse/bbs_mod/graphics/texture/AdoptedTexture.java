@@ -14,6 +14,8 @@ import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
 
+import com.mojang.blaze3d.textures.GpuTextureView;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -24,7 +26,7 @@ import java.util.WeakHashMap;
  */
 public final class AdoptedTexture extends AbstractTexture
 {
-    private static final int USAGE = GpuTexture.USAGE_TEXTURE_BINDING;
+    private static final int USAGE = GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_SRC;
 
     private static final Map<Texture, Cached> REGISTRY = new WeakHashMap<>();
     private static final Map<Integer, Cached> GLID_REGISTRY = new HashMap<>();
@@ -103,6 +105,20 @@ public final class AdoptedTexture extends AbstractTexture
         GLID_REGISTRY.put(glId, new Cached(id, safeW, safeH, linear, mipmap));
 
         return id;
+    }
+
+    public static GpuTextureView textureView(int glId, int width, int height)
+    {
+        if (glId < 0)
+        {
+            return null;
+        }
+
+        int safeW = Math.max(1, width);
+        int safeH = Math.max(1, height);
+        AdoptedGlTexture glTexture = new AdoptedGlTexture(glId, "bbs_adopted_view_" + glId, safeW, safeH);
+
+        return new AdoptedGlTextureView(glTexture);
     }
 
     private AdoptedTexture(int glId, String label, int width, int height, boolean linear, boolean mipmap)

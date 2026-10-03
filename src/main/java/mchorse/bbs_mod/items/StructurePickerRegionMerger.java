@@ -3,6 +3,7 @@ package mchorse.bbs_mod.items;
 import net.minecraft.core.BlockPos;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,6 +12,16 @@ public class StructurePickerRegionMerger
 {
     public static List<MergedRegion> merge(Set<BlockPos> blocks)
     {
+        return StructurePickerRegionMerger.merge((Collection<BlockPos>) blocks);
+    }
+
+    public static List<MergedRegion> merge(Collection<BlockPos> blocks)
+    {
+        if (blocks == null || blocks.isEmpty())
+        {
+            return List.of();
+        }
+
         Set<BlockPos> open = new HashSet<>(blocks);
         List<MergedRegion> merged = new ArrayList<>();
 

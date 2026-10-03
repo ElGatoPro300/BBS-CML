@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.utils.interps;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.IOUtils;
@@ -18,26 +19,25 @@ public class CustomInterpolationManager
     private Map<String, CustomInterpolation> interpolations = new HashMap<>();
 
     public CustomInterpolationManager()
-    {
-        this.folder = new File("config/bbs/settings/presets/interpolations");
-    }
+    {}
 
     public File getFolder()
     {
-        return this.folder;
+        return BBSMod.getSettingsPath("presets/interpolations");
     }
 
     public void load()
     {
         this.interpolations.clear();
+        File folder = this.getFolder();
         
-        if (!this.folder.exists())
+        if (!folder.exists())
         {
-            this.folder.mkdirs();
+            folder.mkdirs();
             return;
         }
 
-        File[] files = this.folder.listFiles();
+        File[] files = folder.listFiles();
         
         if (files == null)
         {
@@ -67,12 +67,14 @@ public class CustomInterpolationManager
 
     public void save(CustomInterpolation interp)
     {
-        if (!this.folder.exists())
+        File folder = this.getFolder();
+
+        if (!folder.exists())
         {
-            this.folder.mkdirs();
+            folder.mkdirs();
         }
         
-        File file = new File(this.folder, interp.getKey() + ".json");
+        File file = new File(folder, interp.getKey() + ".json");
         
         try
         {

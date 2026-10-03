@@ -12,6 +12,7 @@ import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup.Provider;
@@ -155,6 +156,8 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
+        ModelBlockSolidCollisions.updateRegistration(blockEntity);
+
         if (!world.isClientSide())
         {
             int target = blockEntity.properties.getLightLevel();
@@ -261,6 +264,8 @@ public class ModelBlockEntity extends BlockEntity
             }
             catch (Exception e) {}
         }
+
+        ModelBlockSolidCollisions.updateRegistration(this);
     }
 
     public void updateForm(MapType data, Level world)
@@ -292,6 +297,7 @@ public class ModelBlockEntity extends BlockEntity
 
         this.setChanged();
         world.blockEntityChanged(pos);
+        ModelBlockSolidCollisions.updateRegistration(this);
 
         if (blockState != newState)
         {
@@ -301,5 +307,12 @@ public class ModelBlockEntity extends BlockEntity
         {
             world.sendBlockUpdated(pos, blockState, newState, Block.UPDATE_CLIENTS);
         }
+    }
+
+    @Override
+    public void setRemoved()
+    {
+        ModelBlockSolidCollisions.unregister(this);
+        super.setRemoved();
     }
 }

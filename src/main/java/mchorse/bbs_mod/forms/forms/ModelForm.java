@@ -2,10 +2,8 @@ package mchorse.bbs_mod.forms.forms;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
-import mchorse.bbs_mod.cubic.ik.LimbDynamicParams;
 import mchorse.bbs_mod.cubic.physics.SpringDynamicParams;
 import mchorse.bbs_mod.cubic.physics.WindDynamicParams;
-import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.values.ValueActionsConfig;
 import mchorse.bbs_mod.forms.values.ValueShapeKeys;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -16,11 +14,11 @@ import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueLinks;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.settings.values.core.ValueString;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.pose.Pose;
 
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
@@ -39,6 +37,7 @@ public class ModelForm extends Form
     public final ValuePose poseOverlay = new ValuePose("pose_overlay", new Pose());
     public final ValueActionsConfig actions = new ValueActionsConfig("actions", new ActionsConfig());
     public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+    public final ValueBoolean solidHitbox = new ValueBoolean("solid_hitbox", false);
     public final ValueShapeKeys shapeKeys = new ValueShapeKeys("shape_keys", new ShapeKeys());
     public final ValueData ik = new ValueData("ik");
     public final ValueData springs = new ValueData("springs");
@@ -54,15 +53,6 @@ public class ModelForm extends Form
      */
     public final transient Map<String, Link> materialTextureOverrides = new HashMap<>();
 
-    public final transient Map<String, Vector3f> ikTargetOverrides = new HashMap<>();
-    public final transient Map<String, Vector3f> poleTargetOverrides = new HashMap<>();
-    public final transient Map<String, Float> ikTargetWeights = new HashMap<>();
-    public final transient Map<String, Float> poleTargetWeights = new HashMap<>();
-    public final transient Map<String, LimbDynamicParams> limbParamOverrides = new HashMap<>();
-    public final transient Map<String, Quaternionf> ikTipRotationOverrides = new HashMap<>();
-    public final transient Map<String, Float> ikTipRotationWeights = new HashMap<>();
-    /** Per-frame limb entries generated from the inverse kinematics track for bones without model IK config. */
-    public transient MapType inverseKinematicsLimbs;
     public final transient Map<String, Vector3f> springTargetOverrides = new HashMap<>();
     public final transient Map<String, Float> springTargetWeights = new HashMap<>();
     public final transient Map<String, SpringDynamicParams> springParamsOverrides = new HashMap<>();
@@ -92,6 +82,8 @@ public class ModelForm extends Form
 
         this.add(this.actions);
         this.add(this.color);
+        this.solidHitbox.invisible();
+        this.add(this.solidHitbox);
         this.add(this.shapeKeys);
 
         this.ik.invisible();

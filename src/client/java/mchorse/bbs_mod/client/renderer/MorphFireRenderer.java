@@ -41,7 +41,7 @@ public final class MorphFireRenderer
     private MorphFireRenderer()
     {}
 
-    public static void render(PoseStack matrices, MultiBufferSource consumers, IEntity morph, Form form, float tickDelta, Camera camera, boolean relative)
+    public static void render(PoseStack matrices, IEntity morph, Form form, float tickDelta, Camera camera, boolean relative)
     {
         if (morph.getFireTicks() <= 0)
         {

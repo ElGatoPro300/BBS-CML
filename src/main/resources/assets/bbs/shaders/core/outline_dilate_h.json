@@ -1,0 +1,15 @@
+{
+    "vertex": "bbs:core/outline_composite",
+    "fragment": "bbs:core/outline_dilate_h",
+    "attributes": [
+        "Position",
+        "UV0"
+    ],
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "uniforms": [
+        { "name": "TexelSize", "type": "float", "count": 2, "values": [ 0.001, 0.001 ] },
+        { "name": "Thickness", "type": "float", "count": 1, "values": [ 2.0 ] }
+    ]
+}

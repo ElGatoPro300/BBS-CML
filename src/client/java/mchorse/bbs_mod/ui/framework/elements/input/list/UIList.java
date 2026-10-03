@@ -61,8 +61,15 @@ public abstract class UIList <T> extends UIElement
     private String filter = "";
     protected List<Pair<T, Integer>> filtered = new ArrayList<>();
 
+    /** Pixels of mouse travel required (after the time delay) before reorder drag starts. */
+    protected static final int DRAG_THRESHOLD = 3;
+
     protected int dragging = -1;
     protected long dragTime;
+    protected int dragStartX;
+    protected int dragStartY;
+    /** Latched once the press exceeds time + distance thresholds. */
+    protected boolean dragMoved;
 
     public UIList(Consumer<List<T>> callback)
     {
@@ -485,7 +492,54 @@ public abstract class UIList <T> extends UIElement
 
     public boolean isDragging()
     {
-        return this.exists(this.dragging) && System.currentTimeMillis() - this.dragTime > 100;
+        return this.exists(this.dragging) && this.dragMoved;
+    }
+
+    /**
+     * Updates the distance latch from the current mouse position, then returns whether
+     * reorder drag is active (time delay + {@link #DRAG_THRESHOLD} pixels).
+     */
+    public boolean isDragging(int mouseX, int mouseY)
+    {
+        this.updateDragMoved(mouseX, mouseY);
+
+        return this.isDragging();
+    }
+
+    protected void beginDrag(int index, int mouseX, int mouseY)
+    {
+        this.dragging = index;
+        this.dragTime = System.currentTimeMillis();
+        this.dragStartX = mouseX;
+        this.dragStartY = mouseY;
+        this.dragMoved = false;
+    }
+
+    protected void clearDrag()
+    {
+        this.dragging = -1;
+        this.dragMoved = false;
+    }
+
+    protected void updateDragMoved(int mouseX, int mouseY)
+    {
+        if (this.dragMoved || !this.exists(this.dragging))
+        {
+            return;
+        }
+
+        if (System.currentTimeMillis() - this.dragTime <= 100)
+        {
+            return;
+        }
+
+        int dx = mouseX - this.dragStartX;
+        int dy = mouseY - this.dragStartY;
+
+        if (dx * dx + dy * dy >= DRAG_THRESHOLD * DRAG_THRESHOLD)
+        {
+            this.dragMoved = true;
+        }
     }
 
     public int getDraggingIndex()
@@ -543,8 +597,7 @@ public abstract class UIList <T> extends UIElement
 
                 if (!filtering && this.sorting && this.current.size() == 1)
                 {
-                    this.dragging = index;
-                    this.dragTime = System.currentTimeMillis();
+                    this.beginDrag(index, context.mouseX, context.mouseY);
                 }
 
                 List<T> current = this.getCurrent();
@@ -572,7 +625,7 @@ public abstract class UIList <T> extends UIElement
     {
         if (this.sorting && !this.isFiltering())
         {
-            if (this.isDragging())
+            if (this.isDragging(context.mouseX, context.mouseY))
             {
                 int index = this.scroll.getIndex(context.mouseX, context.mouseY);
 
@@ -589,7 +642,7 @@ public abstract class UIList <T> extends UIElement
         }
 
         /* Always clear any in-progress drag on release so a picked-up row can never stay floating */
-        this.dragging = -1;
+        this.clearDrag();
 
         this.scroll.mouseReleased(context);
 
@@ -608,6 +661,7 @@ public abstract class UIList <T> extends UIElement
     public void render(UIContext context)
     {
         this.scroll.drag(context);
+        this.updateDragMoved(context.mouseX, context.mouseY);
 
         if (Colors.getA(this.background) > 0)
         {

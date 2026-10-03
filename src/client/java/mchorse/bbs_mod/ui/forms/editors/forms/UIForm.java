@@ -21,7 +21,6 @@ import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
 import org.joml.Matrix4f;
@@ -49,10 +48,9 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
     {
         super.setPanel(panel);
 
-        if (panel == this.generalPanel && this.editor != null)
+        if (panel == this.generalPanel && this.editor != null && !this.editor.isApplyingUndo())
         {
             this.editor.enableFormTransformGizmoFromGeneralPanel();
-            this.generalPanel.refreshFilmOnlySectionsVisibility();
         }
     }
 
@@ -183,7 +181,8 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
     @Override
     protected void renderBackground(UIContext context, int x, int y, int w, int h)
     {
-        context.batcher.box(x, y, x + w, y + h, Colors.A100);
+        context.batcher.box(x, y, x + w, y + h, 0xFF161719);
+        context.batcher.box(x + w - 1, y, x + w, y + h, 0xFF2A2B2F);
     }
 
     @Override
@@ -193,14 +192,8 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
 
         int panelIndex = this.panels.indexOf(this.view);
         data.putInt("panel", panelIndex);
-
-        double scroll = 0D;
-        if (this.view != null && this.view.options != null)
-        {
-            scroll = this.view.options.scroll.getScroll();
-        }
-
-        data.putDouble("scroll", scroll);
+        /* Scroll is intentionally not snapshotted: undo/redo must not yank the inspector
+         * viewport back to an older offset while the user is still reading the panel. */
     }
 
     @Override
@@ -209,18 +202,20 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
         super.applyUndoData(data);
 
         int panelIndex = data.getInt("panel");
+        UIFormPanel<T> next = null;
+
         if (panelIndex >= 0 && panelIndex < this.panels.size())
         {
-            this.setPanel(this.panels.get(panelIndex));
+            next = this.panels.get(panelIndex);
         }
         else
         {
-            this.setPanel(this.defaultPanel);
+            next = this.defaultPanel;
         }
 
-        if (this.view != null && this.view.options != null)
+        if (next != null && next != this.view)
         {
-            this.view.options.scroll.setScroll(data.getDouble("scroll"));
+            this.setPanel(next);
         }
     }
 }

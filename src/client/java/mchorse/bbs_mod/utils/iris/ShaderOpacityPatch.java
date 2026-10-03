@@ -771,6 +771,7 @@ public class ShaderOpacityPatch
 
         int width = targets.getCurrentWidth();
         int height = targets.getCurrentHeight();
+        int liveDepth = getTextureId(targets.getDepthTexture());
         int opaqueDepth = getTextureId(targets.getDepthTextureNoTranslucents());
 
         if ((width <= 0 || height <= 0) && paintWidth > 0 && paintHeight > 0)
@@ -779,9 +780,11 @@ public class ShaderOpacityPatch
             height = paintHeight;
         }
 
-        if (opaqueDepth > 0)
+        int depthToCopy = liveDepth > 0 ? liveDepth : opaqueDepth;
+
+        if (depthToCopy > 0)
         {
-            copyDepthTextureToPaintTarget(opaqueDepth, width, height);
+            copyDepthTextureToPaintTarget(depthToCopy, width, height);
         }
     }
 

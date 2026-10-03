@@ -7,13 +7,17 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.FramebufferForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.FormLighting;
+import mchorse.bbs_mod.forms.forms.utils.FramebufferResolutionSettings;
+import mchorse.bbs_mod.forms.forms.utils.FramebufferViewExtentSettings;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.resources.Link;
@@ -97,6 +101,28 @@ public class FormProperties extends ValueGroup
             return null;
         }
 
+        /* Framebuffer resolution / view extent — compound tracks over separate Value fields. */
+        if (isFramebufferResolutionChannelKey(key) || isFramebufferViewExtentChannelKey(key))
+        {
+            Form target = formForFramebufferSynthetic(form, key);
+
+            if (target instanceof FramebufferForm)
+            {
+                IKeyframeFactory factory = isFramebufferResolutionChannelKey(key)
+                    ? KeyframeFactories.FRAMEBUFFER_RESOLUTION
+                    : KeyframeFactories.FRAMEBUFFER_VIEW_EXTENT;
+                KeyframeChannel channel = new KeyframeChannel(key, factory);
+
+                channel.setModel(true);
+                this.properties.put(key, channel);
+                this.add(channel);
+
+                return channel;
+            }
+
+            return null;
+        }
+
         if (PerLimbService.isMaterialTextureChannel(key))
         {
             KeyframeChannel channel = new KeyframeChannel(key, KeyframeFactories.LINK);
@@ -143,6 +169,118 @@ public class FormProperties extends ValueGroup
         String path = colon == -1 ? key : key.substring(0, colon);
 
         return path.equals("color_grade") || path.endsWith("/color_grade");
+    }
+
+    public static boolean isFramebufferResolutionChannelKey(String key)
+    {
+        return isFramebufferSyntheticChannelKey(key, "resolution");
+    }
+
+    public static boolean isFramebufferViewExtentChannelKey(String key)
+    {
+        return isFramebufferSyntheticChannelKey(key, "view_extent");
+    }
+
+    private static boolean isFramebufferSyntheticChannelKey(String key, String suffix)
+    {
+        if (key == null || key.isEmpty() || suffix == null || suffix.isEmpty())
+        {
+            return false;
+        }
+
+        int colon = key.indexOf(':');
+        String path = colon == -1 ? key : key.substring(0, colon);
+
+        return path.equals(suffix) || path.endsWith("/" + suffix);
+    }
+
+    /**
+     * Anchor form property for UI sheets (panel storage fields stay separate).
+     */
+    public static String framebufferAnchorPropertyPath(String syntheticKey)
+    {
+        if (isFramebufferResolutionChannelKey(syntheticKey))
+        {
+            return replaceFramebufferSyntheticSuffix(syntheticKey, "resolution", "width");
+        }
+
+        if (isFramebufferViewExtentChannelKey(syntheticKey))
+        {
+            return replaceFramebufferSyntheticSuffix(syntheticKey, "view_extent", "view_extent_x");
+        }
+
+        return syntheticKey;
+    }
+
+    private static String replaceFramebufferSyntheticSuffix(String key, String from, String to)
+    {
+        int colon = key.indexOf(':');
+        String path = colon == -1 ? key : key.substring(0, colon);
+        String replaced;
+
+        if (path.equals(from))
+        {
+            replaced = to;
+        }
+        else if (path.endsWith("/" + from))
+        {
+            replaced = path.substring(0, path.length() - from.length()) + to;
+        }
+        else
+        {
+            replaced = path;
+        }
+
+        return colon == -1 ? replaced : replaced + key.substring(colon);
+    }
+
+    public static Form formForFramebufferSynthetic(Form root, String key)
+    {
+        if (root == null || key == null)
+        {
+            return null;
+        }
+
+        int colon = key.indexOf(':');
+        String path = colon == -1 ? key : key.substring(0, colon);
+
+        if (path.equals("resolution") || path.equals("view_extent"))
+        {
+            return root;
+        }
+
+        String suffix = isFramebufferResolutionChannelKey(key) ? "resolution" : "view_extent";
+
+        if (!path.endsWith("/" + suffix))
+        {
+            return null;
+        }
+
+        String formPath = path.substring(0, path.length() - suffix.length() - 1);
+
+        return FormUtils.getForm(root, formPath);
+    }
+
+    public static Object framebufferDefaultInsertValue(Form root, String key)
+    {
+        Form target = formForFramebufferSynthetic(root, key);
+
+        if (!(target instanceof FramebufferForm framebuffer))
+        {
+            return null;
+        }
+
+        if (isFramebufferResolutionChannelKey(key))
+        {
+            return FramebufferResolutionSettings.of(framebuffer.width.get(), framebuffer.height.get());
+        }
+
+        if (isFramebufferViewExtentChannelKey(key))
+        {
+            return FramebufferViewExtentSettings.of(framebuffer.viewExtentX.get(), framebuffer.viewExtentY.get());
+        }
+
+        return null;
     }
 
     private static boolean isWorldLightingChannelKey(String key)
@@ -390,6 +528,10 @@ public class FormProperties extends ValueGroup
             {
                 this.applyColorGradeProperty(tick, form, value, blend);
             }
+            else if (isFramebufferResolutionChannelKey(id) || isFramebufferViewExtentChannelKey(id))
+            {
+                this.applyFramebufferSyntheticProperty(tick, form, value, blend);
+            }
 
             return;
         }
@@ -518,6 +660,85 @@ public class FormProperties extends ValueGroup
         else
         {
             property.setRuntimeValue(FormLighting.clampBrightness(settings.brightness));
+        }
+    }
+
+    /**
+     * Apply compound framebuffer resolution / view-extent channels onto the form's
+     * separate width/height or view_extent_x/y runtime values (panel storage unchanged).
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void applyFramebufferSyntheticProperty(float tick, Form form, KeyframeChannel channel, float blend)
+    {
+        Form target = formForFramebufferSynthetic(form, channel.getId());
+
+        if (!(target instanceof FramebufferForm framebuffer))
+        {
+            return;
+        }
+
+        KeyframeSegment segment = channel.find(tick);
+        boolean resolution = isFramebufferResolutionChannelKey(channel.getId());
+
+        if (segment == null)
+        {
+            if (resolution)
+            {
+                framebuffer.width.setRuntimeValue(null);
+                framebuffer.height.setRuntimeValue(null);
+            }
+            else
+            {
+                framebuffer.viewExtentX.setRuntimeValue(null);
+                framebuffer.viewExtentY.setRuntimeValue(null);
+            }
+
+            return;
+        }
+
+        Object interpolated = segment.createInterpolated();
+
+        if (resolution)
+        {
+            FramebufferResolutionSettings settings = interpolated instanceof FramebufferResolutionSettings value
+                ? value.copy()
+                : new FramebufferResolutionSettings();
+
+            if (blend < 1F)
+            {
+                FramebufferResolutionSettings base = FramebufferResolutionSettings.of(
+                    framebuffer.width.get(), framebuffer.height.get());
+                IKeyframeFactory factory = channel.getFactory();
+                Object mixed = factory.interpolate(base, base, settings, settings, Interpolations.LINEAR, MathUtils.clamp(blend, 0F, 1F));
+
+                settings = mixed instanceof FramebufferResolutionSettings value
+                    ? value.copy()
+                    : settings;
+            }
+
+            framebuffer.width.setRuntimeValue(settings.width);
+            framebuffer.height.setRuntimeValue(settings.height);
+        }
+        else
+        {
+            FramebufferViewExtentSettings settings = interpolated instanceof FramebufferViewExtentSettings value
+                ? value.copy()
+                : new FramebufferViewExtentSettings();
+
+            if (blend < 1F)
+            {
+                FramebufferViewExtentSettings base = FramebufferViewExtentSettings.of(
+                    framebuffer.viewExtentX.get(), framebuffer.viewExtentY.get());
+                IKeyframeFactory factory = channel.getFactory();
+                Object mixed = factory.interpolate(base, base, settings, settings, Interpolations.LINEAR, MathUtils.clamp(blend, 0F, 1F));
+
+                settings = mixed instanceof FramebufferViewExtentSettings value
+                    ? value.copy()
+                    : settings;
+            }
+
+            framebuffer.viewExtentX.setRuntimeValue(settings.x);
+            framebuffer.viewExtentY.setRuntimeValue(settings.y);
         }
     }
 
@@ -1446,8 +1667,8 @@ public class FormProperties extends ValueGroup
                  "paint", "paint_settings", "glow", "glow_settings",
                  "structure_light_settings", "structure_light",
                  "shadow", "shadow_settings", "chroma_sky_settings",
-                 "particle_settings", "look_at", "inverse_kinematics",
-                 "illusion", "mount_link" -> true;
+                 "particle_settings",
+                 "illusion", "mount_link", "shake_settings", "shake" -> true;
             default -> false;
         };
     }
@@ -1724,6 +1945,151 @@ public class FormProperties extends ValueGroup
                 {
                     this.properties.remove("light_intensity");
                     this.remove(intensity);
+                }
+            }
+        }
+        catch (Throwable ignored) {}
+
+        /* Migration: merge legacy shake / shake_amount float channels into shake_settings */
+        try
+        {
+            KeyframeChannel<?> shakeAny = this.properties.get("shake");
+            KeyframeChannel<?> amountAny = this.properties.get("shake_amount");
+            KeyframeChannel<?> activeAny = this.properties.get("shake_active");
+            boolean modernShake = shakeAny != null
+                && !shakeAny.isEmpty()
+                && shakeAny.getFactory() == KeyframeFactories.SHAKE_SETTINGS;
+
+            if (modernShake)
+            {
+                if (amountAny != null)
+                {
+                    this.properties.remove("shake_amount");
+                    this.remove(amountAny);
+                }
+
+                if (activeAny != null)
+                {
+                    this.properties.remove("shake_active");
+                    this.remove(activeAny);
+                }
+            }
+            else if (shakeAny != null || amountAny != null || activeAny != null)
+            {
+                @SuppressWarnings("unchecked")
+                KeyframeChannel<ShakeSettings> merged = shakeAny != null
+                    && shakeAny.getFactory() == KeyframeFactories.SHAKE_SETTINGS
+                    ? (KeyframeChannel<ShakeSettings>) shakeAny
+                    : new KeyframeChannel<>("shake", KeyframeFactories.SHAKE_SETTINGS);
+
+                if (shakeAny == null || shakeAny.getFactory() != KeyframeFactories.SHAKE_SETTINGS)
+                {
+                    merged.setModel(true);
+                    this.properties.put("shake", merged);
+                    this.add(merged);
+                }
+
+                TreeSet<Float> ticks = new TreeSet<>();
+
+                if (shakeAny != null)
+                {
+                    for (Object kfObj : shakeAny.getKeyframes())
+                    {
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
+                    }
+                }
+
+                if (amountAny != null)
+                {
+                    for (Object kfObj : amountAny.getKeyframes())
+                    {
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
+                    }
+                }
+
+                if (activeAny != null)
+                {
+                    for (Object kfObj : activeAny.getKeyframes())
+                    {
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
+                    }
+                }
+
+                for (float t : ticks)
+                {
+                    float shake = 0F;
+                    float shakeAmount = 0F;
+                    int active = 0b0011000;
+
+                    if (shakeAny != null)
+                    {
+                        KeyframeSegment seg = shakeAny.find(t);
+
+                        if (seg != null)
+                        {
+                            Object v = seg.createInterpolated();
+
+                            if (v instanceof ShakeSettings settings)
+                            {
+                                shake = settings.shake;
+                                shakeAmount = settings.shakeAmount;
+                                active = settings.active;
+                            }
+                            else if (v instanceof Number n)
+                            {
+                                shake = n.floatValue();
+                            }
+                        }
+                    }
+
+                    if (amountAny != null)
+                    {
+                        KeyframeSegment seg = amountAny.find(t);
+
+                        if (seg != null)
+                        {
+                            Object v = seg.createInterpolated();
+
+                            if (v instanceof Number n)
+                            {
+                                shakeAmount = n.floatValue();
+                            }
+                        }
+                    }
+
+                    if (activeAny != null)
+                    {
+                        KeyframeSegment seg = activeAny.find(t);
+
+                        if (seg != null)
+                        {
+                            Object v = seg.createInterpolated();
+
+                            if (v instanceof Number n)
+                            {
+                                active = n.intValue() & 0b1111111;
+                            }
+                        }
+                    }
+
+                    merged.insert(t, new ShakeSettings(shake, shakeAmount, active));
+                }
+
+                if (amountAny != null)
+                {
+                    this.properties.remove("shake_amount");
+                    this.remove(amountAny);
+                }
+
+                if (activeAny != null)
+                {
+                    this.properties.remove("shake_active");
+                    this.remove(activeAny);
+                }
+
+                if (shakeAny != null && shakeAny.getFactory() != KeyframeFactories.SHAKE_SETTINGS)
+                {
+                    this.remove(shakeAny);
                 }
             }
         }
@@ -2068,6 +2434,154 @@ public class FormProperties extends ValueGroup
             }
         }
         catch (Throwable ignored) {}
+
+        /* Migration: merge legacy width/height and view_extent_x/y into compound tracks. */
+        try
+        {
+            this.migrateFramebufferCompoundChannels();
+        }
+        catch (Throwable ignored) {}
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void migrateFramebufferCompoundChannels()
+    {
+        this.migrateFramebufferPair("width", "height", "resolution", KeyframeFactories.FRAMEBUFFER_RESOLUTION, true);
+        this.migrateFramebufferPair("view_extent_x", "view_extent_y", "view_extent", KeyframeFactories.FRAMEBUFFER_VIEW_EXTENT, false);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void migrateFramebufferPair(String aKey, String bKey, String compoundKey, IKeyframeFactory factory, boolean ints)
+    {
+        ArrayList<String> prefixes = new ArrayList<>();
+
+        prefixes.add("");
+
+        for (String key : new ArrayList<>(this.properties.keySet()))
+        {
+            if (key.equals(aKey) || key.equals(bKey) || key.endsWith("/" + aKey) || key.endsWith("/" + bKey))
+            {
+                String prefix = "";
+
+                if (key.endsWith("/" + aKey))
+                {
+                    prefix = key.substring(0, key.length() - aKey.length());
+                }
+                else if (key.endsWith("/" + bKey))
+                {
+                    prefix = key.substring(0, key.length() - bKey.length());
+                }
+
+                if (!prefixes.contains(prefix))
+                {
+                    prefixes.add(prefix);
+                }
+            }
+        }
+
+        for (String prefix : prefixes)
+        {
+            String fullA = prefix + aKey;
+            String fullB = prefix + bKey;
+            String fullCompound = prefix + compoundKey;
+            KeyframeChannel channelA = this.properties.get(fullA);
+            KeyframeChannel channelB = this.properties.get(fullB);
+
+            if (channelA == null && channelB == null)
+            {
+                continue;
+            }
+
+            if (this.properties.containsKey(fullCompound)
+                && this.properties.get(fullCompound).getFactory() == factory
+                && !this.properties.get(fullCompound).isEmpty())
+            {
+                if (channelA != null)
+                {
+                    this.remove(channelA);
+                    this.properties.remove(fullA);
+                }
+
+                if (channelB != null)
+                {
+                    this.remove(channelB);
+                    this.properties.remove(fullB);
+                }
+
+                continue;
+            }
+
+            KeyframeChannel<Object> merged = new KeyframeChannel<>(fullCompound, factory);
+
+            merged.setModel(true);
+
+            TreeSet<Float> ticks = new TreeSet<>();
+
+            if (channelA != null)
+            {
+                for (Object kfObj : channelA.getKeyframes())
+                {
+                    ticks.add(((Keyframe) kfObj).getTick());
+                }
+            }
+
+            if (channelB != null)
+            {
+                for (Object kfObj : channelB.getKeyframes())
+                {
+                    ticks.add(((Keyframe) kfObj).getTick());
+                }
+            }
+
+            for (Float t : ticks)
+            {
+                float ax;
+                float ay;
+
+                if (channelA != null)
+                {
+                    KeyframeSegment seg = channelA.find(t);
+
+                    ax = seg != null && seg.createInterpolated() instanceof Number n ? n.floatValue() : (ints ? 512F : 1F);
+                }
+                else
+                {
+                    ax = ints ? 512F : 1F;
+                }
+
+                if (channelB != null)
+                {
+                    KeyframeSegment seg = channelB.find(t);
+
+                    ay = seg != null && seg.createInterpolated() instanceof Number n ? n.floatValue() : ax;
+                }
+                else
+                {
+                    ay = ax;
+                }
+
+                Object value = ints
+                    ? FramebufferResolutionSettings.of(Math.round(ax), Math.round(ay))
+                    : FramebufferViewExtentSettings.of(ax, ay);
+
+                merged.insert(t, value);
+            }
+
+            this.properties.put(fullCompound, merged);
+            this.add(merged);
+
+            if (channelA != null)
+            {
+                this.remove(channelA);
+                this.properties.remove(fullA);
+            }
+
+            if (channelB != null)
+            {
+                this.remove(channelB);
+                this.properties.remove(fullB);
+            }
+        }
     }
 
     /**

@@ -127,6 +127,11 @@ public class BBSRendering
 
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
+    /**
+     * Depth while FramebufferForm fills its offscreen buffer with albedo-only content
+     * (no diffuse/lightmap). The parent display quad applies world lighting once.
+     */
+    private static int framebufferContentUnlitDepth;
     public static int lastAction;
 
     /* Optional IRLights / IRL-editor shadow baker (no hard dependency). */
@@ -481,6 +486,7 @@ public class BBSRendering
         ModelVAORenderer.clearFormColorGrade();
         ModelVAORenderer.clearFormColorTint();
         ModelVAORenderer.clearColorEffectTransform();
+        resetPixelUnpackState();
 
         Minecraft client = Minecraft.getInstance();
 
@@ -491,9 +497,32 @@ public class BBSRendering
     }
 
     /**
+     * Tightly packed RGBA is the Minecraft default. Leaving {@code GL_UNPACK_ROW_LENGTH}
+     * (or skip/alignment) dirty after a video/WaterMedia/ffmpeg upload blacks out the block
+     * atlas and form/item GUI previews for the rest of the session — worse on NeoForge.
+     */
+    public static void resetPixelUnpackState()
+    {
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+    }
+
+    /**
      * World / form draws (and pause-menu present) can leave {@code setShaderColor}, lightmap,
      * or BBS color-mask uniforms dirty — hotbar widgets and GUI model-block items then go dark.
-     * Call before {@link Gui} and after GUI builtin item forms.
+     * Call before {@link net.minecraft.client.gui.Gui} and after GUI builtin item forms.
+     * <p>
+     * Also clears the depth buffer: first-person held ModelBlock / FramebufferForm postcards
+     * write deep fragments over the lower screen; without Iris (hand is on the main target)
+     * the leftmost hotbar GUI items then fail the depth test and vanish until a later item
+     * disables depth. Third-person and Iris hand paths do not hit the main depth the same way.
+     * <p>
+     * When {@link #isCustomSize()} (film editor 3D viewport), do <b>not</b> rebind or clear the
+     * main framebuffer here: the world pass draws offscreen and {@link #onRenderBeforeScreen()}
+     * copies that target for {@code UIFilmPreview}. {@link #ensureMainFramebuffer()} at HUD HEAD
+     * would flip {@link #toggleFramebuffer} off too early and leave the preview black.
      */
     public static void prepareHudRenderState()
     {
@@ -507,6 +536,22 @@ public class BBSRendering
 
         setShaderColor(1F, 1F, 1F, 1F);
         clearTextureUnit0();
+
+        if (isCustomSize())
+        {
+            return;
+        }
+
+        ensureMainFramebuffer();
+
+        Minecraft mc = Minecraft.getInstance();
+
+        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.mainRenderTarget() != null)
+        {
+            bindMainFramebuffer(false);
+        }
+
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
     }
 
     /**
@@ -595,6 +640,7 @@ public class BBSRendering
         depthMask(true);
         enableBlend();
         defaultBlendFunc();
+        resetPixelUnpackState();
 
         Minecraft client = Minecraft.getInstance();
 
@@ -603,6 +649,27 @@ public class BBSRendering
             client.gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_FLAT);
         }
 
+        clearTextureUnit0();
+    }
+
+    /**
+     * After FIRST_PERSON / THIRD_PERSON / FIXED / etc. builtin form items (ModelBlock, Gun).
+     * FramebufferForm postcards and soft-opacity fills can leave TU0 on an FBO atlas, lightmap
+     * off, or deferred {@link CustomVertexConsumerProvider} runnables — tidy before the rest of
+     * the hand pass / HUD. Depth occlusion for hotbar is handled in {@link #prepareHudRenderState}.
+     */
+    public static void restoreAfterHeldItemForm()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        ModelVAORenderer.clearFormColorTint();
+        ModelVAORenderer.clearColorEffectTransform();
+        CustomVertexConsumerProvider.clearRunnables();
+        setShaderColor(1F, 1F, 1F, 1F);
+        colorMask(true, true, true, true);
+        depthMask(true);
+        enableBlend();
+        defaultBlendFunc();
+        resetPixelUnpackState();
         clearTextureUnit0();
     }
 
@@ -1237,7 +1304,6 @@ public class BBSRendering
         }
 
         BBSModClient.getFilms().render(worldRenderContext);
-        StructurePickerRenderer.render(worldRenderContext);
     }
 
     public static boolean isOptifinePresent()
@@ -1408,6 +1474,61 @@ public class BBSRendering
     public static boolean isIrisLoaded()
     {
         return iris;
+    }
+
+    public static void renderOffscreen(Runnable render)
+    {
+        boolean world = renderingWorld;
+
+        try
+        {
+            renderingWorld = false;
+
+            if (iris)
+            {
+                IrisUtils.renderOffscreen(render);
+            }
+            else
+            {
+                render.run();
+            }
+        }
+        finally
+        {
+            renderingWorld = world;
+        }
+    }
+
+    public static boolean isRenderingOffscreen()
+    {
+        return iris && IrisUtils.isRenderingOffscreen();
+    }
+
+    /**
+     * True while {@link #runFramebufferContentUnlit(Runnable)} is active: ModelForm
+     * draws flat albedo into a FramebufferForm (pack-safe; parent quad does lighting).
+     */
+    public static boolean isFramebufferContentUnlit()
+    {
+        return framebufferContentUnlitDepth > 0;
+    }
+
+    /**
+     * Run {@code render} with {@link #isFramebufferContentUnlit()} set so BBS model
+     * shaders skip diffuse + lightmap. Nesting-safe.
+     */
+    public static void runFramebufferContentUnlit(Runnable render)
+    {
+        framebufferContentUnlitDepth += 1;
+
+        try
+        {
+            render.run();
+        }
+        finally
+        {
+            framebufferContentUnlitDepth -= 1;
+        }
     }
 
     public static boolean isIrisShadersEnabled()
@@ -1963,9 +2084,24 @@ public class BBSRendering
         return getProgram(RenderPipelines.ENTITY_TRANSLUCENT);
     }
 
+    public static GlProgram getEntityCutoutProgram()
+    {
+        return getProgram(RenderPipelines.ENTITY_CUTOUT);
+    }
+
     public static GlProgram getPositionTexColorProgram()
     {
         return getProgram(RenderPipelines.GUI_TEXTURED);
+    }
+
+    public static GlProgram getPositionTexProgram()
+    {
+        return getProgram(RenderPipelines.GUI_TEXTURED);
+    }
+
+    public static GlProgram getPositionColorProgram()
+    {
+        return getProgram(RenderPipelines.GUI);
     }
 
     public static GlProgram getGuiProgram()
@@ -1995,6 +2131,26 @@ public class BBSRendering
         if (client.gameRenderer != null && client.gameRenderer.lighting() != null)
         {
             client.gameRenderer.lighting().setupFor(Lighting.Entry.LEVEL);
+        }
+    }
+
+    public static void setupItems3DLighting()
+    {
+        Minecraft client = Minecraft.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.lighting() != null)
+        {
+            client.gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_3D);
+        }
+    }
+
+    public static void setupItemsFlatLighting()
+    {
+        Minecraft client = Minecraft.getInstance();
+
+        if (client.gameRenderer != null && client.gameRenderer.lighting() != null)
+        {
+            client.gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_FLAT);
         }
     }
 
@@ -2028,6 +2184,12 @@ public class BBSRendering
     public static int getBoundTexture()
     {
         return GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+    }
+
+    public static void setShaderTexture(int unit, int textureId)
+    {
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
+        GlStateManager._bindTexture(textureId);
     }
 
     public static void blendFuncSeparate(int srcRgb, int dstRgb, int srcAlpha, int dstAlpha)

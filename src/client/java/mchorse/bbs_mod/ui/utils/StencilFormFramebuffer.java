@@ -274,9 +274,14 @@ public class StencilFormFramebuffer
 
         int glId = ((GlTexture) this.colorTexture).glId();
         int previousReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int prevPbo = GL11.glGetInteger(GL30.GL_PIXEL_PACK_BUFFER_BINDING);
+        int prevPackAlignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
 
         try (MemoryStack stack = MemoryStack.stackPush())
         {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
+
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
             GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, glId, 0);
             GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
@@ -294,6 +299,8 @@ public class StencilFormFramebuffer
         }
         finally
         {
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, prevPbo);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, prevPackAlignment);
             GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousReadFbo);
         }
     }

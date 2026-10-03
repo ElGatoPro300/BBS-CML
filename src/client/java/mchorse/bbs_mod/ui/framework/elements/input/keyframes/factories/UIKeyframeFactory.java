@@ -57,8 +57,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     {
         register(KeyframeFactories.ANCHOR, UIAnchorKeyframeFactory::new);
         register(KeyframeFactories.MOUNT_LINK, UIMountLinkKeyframeFactory::new);
-        register(KeyframeFactories.LOOK_AT, UILookAtKeyframeFactory::new);
-        register(KeyframeFactories.INVERSE_KINEMATICS, UIInverseKinematicsKeyframeFactory::new);
         register(KeyframeFactories.ILLUSION, UIIllusionKeyframeFactory::new);
         register(KeyframeFactories.BOOLEAN, UIBooleanKeyframeFactory::new);
         register(KeyframeFactories.COLOR, UIColorKeyframeFactory::new);
@@ -83,6 +81,9 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.SHADOW_SETTINGS, UIShadowSettingsKeyframeFactory::new);
         register(KeyframeFactories.LENS_RADIUS_SETTINGS, UILensRadiusSettingsKeyframeFactory::new);
         register(KeyframeFactories.CHROMA_SKY_SETTINGS, UIChromaSkyCurveSettingsKeyframeFactory::new);
+        register(KeyframeFactories.SHAKE_SETTINGS, UIShakeSettingsKeyframeFactory::new);
+        register(KeyframeFactories.FRAMEBUFFER_RESOLUTION, UIFramebufferResolutionKeyframeFactory::new);
+        register(KeyframeFactories.FRAMEBUFFER_VIEW_EXTENT, UIFramebufferViewExtentKeyframeFactory::new);
     }
 
     public static <T> void register(IKeyframeFactory<T> clazz, IUIKeyframeFactoryFactory<T> factory)
@@ -141,6 +142,27 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
                 return new UIUsingItemKeyframeFactory(doubleKeyframe, editor);
+            }
+
+            if (sheet != null && "target".equals(sheet.id))
+            {
+                @SuppressWarnings("unchecked")
+                Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
+
+                return new UITrackerTargetKeyframeFactory(doubleKeyframe, editor);
+            }
+        }
+
+        if (keyframe.getFactory() == KeyframeFactories.STRING && editor != null)
+        {
+            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+
+            if (sheet != null && "attachment".equals(sheet.id))
+            {
+                @SuppressWarnings("unchecked")
+                Keyframe<String> stringKeyframe = (Keyframe<String>) keyframe;
+
+                return new UITrackerAttachmentKeyframeFactory(stringKeyframe, editor);
             }
         }
 

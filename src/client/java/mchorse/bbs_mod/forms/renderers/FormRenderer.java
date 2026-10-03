@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSUniform;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -61,6 +62,8 @@ public abstract class FormRenderer <T extends Form>
     {
         return renderToTexture;
     }
+
+    private float animTime = 0F;
 
     public FormRenderer(T form)
     {
@@ -328,6 +331,8 @@ public abstract class FormRenderer <T extends Form>
 
     public final void render(FormRenderingContext context)
     {
+        this.animTime = context.entity != null ? context.entity.getAge() + context.transition : context.transition;
+
         /* Transparent forms skip casting via opacity / vertex alpha in the shadow path.
          * Color-track paint/blend/grade must not disable Form.shaderShadow. */
         if (!this.form.shaderShadow.get() && BBSRendering.isIrisShadowPass())
@@ -423,6 +428,8 @@ public abstract class FormRenderer <T extends Form>
         {
             this.applyTransform(transform, t.get());
         }
+
+        FormShake.apply(transform, this.form, this.animTime);
 
         return transform;
     }
@@ -529,7 +536,16 @@ public abstract class FormRenderer <T extends Form>
                     MatrixStackUtils.applyTransform(context.world, part.transform.get());
                 }
 
-                FormUtilsClient.render(part.getForm(), context);
+                context.bodyPartNesting += 1;
+
+                try
+                {
+                    FormUtilsClient.render(part.getForm(), context);
+                }
+                finally
+                {
+                    context.bodyPartNesting -= 1;
+                }
             }
             finally
             {

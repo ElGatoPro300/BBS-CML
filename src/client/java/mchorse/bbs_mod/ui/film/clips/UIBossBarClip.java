@@ -177,7 +177,7 @@ public class UIBossBarClip extends UIClip<BossBarClip>
 
     private int getClipTick()
     {
-        return Mth.clamp(this.editor.getCursor() - this.clip.tick.get(), 0, this.clip.duration.get());
+        return Mth.clamp(this.editor.getCursor() - Math.round(this.clip.tick.get()), 0, this.clip.duration.get());
     }
 
     @Override

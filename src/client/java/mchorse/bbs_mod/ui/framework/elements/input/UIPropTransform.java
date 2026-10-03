@@ -658,6 +658,12 @@ public class UIPropTransform extends UITransform
             (float) (axis == Axis.Y ? factor : 0D),
             (float) (axis == Axis.Z ? (this.shouldInvertTranslateZ() ? -factor : factor) : 0D)
         );
+
+        if (this.transform == null)
+        {
+            return vector3f;
+        }
+
         /* I have no fucking idea why I have to rotate it 180 degrees by X axis... but it works! */
         Matrix3f matrix = new Matrix3f()
             .rotateX(this.model ? MathUtils.PI : 0F)
@@ -1052,7 +1058,7 @@ public class UIPropTransform extends UITransform
      */
     public void tickGizmoDrag(UIContext context)
     {
-        if (this.editing)
+        if (this.editing && this.transform != null)
         {
             this.processDragFrame(context);
         }
@@ -1429,7 +1435,7 @@ public class UIPropTransform extends UITransform
 
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1476,7 +1482,7 @@ public class UIPropTransform extends UITransform
 
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1510,7 +1516,7 @@ public class UIPropTransform extends UITransform
 
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1549,7 +1555,7 @@ public class UIPropTransform extends UITransform
     {
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1582,7 +1588,7 @@ public class UIPropTransform extends UITransform
     {
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1615,7 +1621,7 @@ public class UIPropTransform extends UITransform
     {
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1663,7 +1669,7 @@ public class UIPropTransform extends UITransform
     {
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1701,7 +1707,7 @@ public class UIPropTransform extends UITransform
     {
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1750,7 +1756,7 @@ public class UIPropTransform extends UITransform
     {
         UIContext context = this.resolveDragContext();
 
-        if (context == null)
+        if (context == null || this.transform == null)
         {
             return;
         }
@@ -1781,6 +1787,11 @@ public class UIPropTransform extends UITransform
 
     private void initializeTrackball()
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         Vector3f rotation = this.getTrackballRotationValue();
 
         /* Mirrors Transform#createRotationMatrix's Rz * Ry * Rx composition order, so the
@@ -1795,6 +1806,11 @@ public class UIPropTransform extends UITransform
 
     private Vector3f getTrackballRotationValue()
     {
+        if (this.transform == null)
+        {
+            return new Vector3f();
+        }
+
         /* Film pose arcball writes to rotate (same channel as the axis rings). */
         if (this.filmArcballTrackball)
         {
@@ -1853,6 +1869,11 @@ public class UIPropTransform extends UITransform
 
     private Vector3f getValue()
     {
+        if (this.transform == null)
+        {
+            return new Vector3f();
+        }
+
         if (this.mode == 1)
         {
             return this.transform.scale;
@@ -1867,6 +1888,11 @@ public class UIPropTransform extends UITransform
 
     private void restore(boolean fully)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         if (this.mode == 0 || fully) this.setT(null, this.cache.translate.x, this.cache.translate.y, this.cache.translate.z);
         if (this.mode == 1 || fully) this.setS(null, this.cache.scale.x, this.cache.scale.y, this.cache.scale.z);
         if (this.mode == 2 || fully)
@@ -1964,6 +1990,11 @@ public class UIPropTransform extends UITransform
     @Override
     protected void internalSetT(double x, Axis axis)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         if (this.isLocal())
         {
             try
@@ -1990,6 +2021,11 @@ public class UIPropTransform extends UITransform
     @Override
     public void setT(Axis axis, double x, double y, double z)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         this.preCallback();
         this.transform.translate.set((float) x, (float) y, (float) z);
         this.postCallback();
@@ -1998,6 +2034,11 @@ public class UIPropTransform extends UITransform
     @Override
     public void setS(Axis axis, double x, double y, double z)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         this.preCallback();
         this.transform.scale.set((float) x, (float) y, (float) z);
         this.postCallback();
@@ -2006,6 +2047,11 @@ public class UIPropTransform extends UITransform
     @Override
     public void setR(Axis axis, double x, double y, double z)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         this.preCallback();
         this.transform.rotate.set(MathUtils.toRad((float) x), MathUtils.toRad((float) y), MathUtils.toRad((float) z));
         this.postCallback();
@@ -2014,6 +2060,11 @@ public class UIPropTransform extends UITransform
     @Override
     public void setR2(Axis axis, double x, double y, double z)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         this.preCallback();
         this.transform.rotate2.set(MathUtils.toRad((float) x), MathUtils.toRad((float) y), MathUtils.toRad((float) z));
         this.postCallback();
@@ -2022,6 +2073,11 @@ public class UIPropTransform extends UITransform
     @Override
     public void setP(Axis axis, double x, double y, double z)
     {
+        if (this.transform == null)
+        {
+            return;
+        }
+
         this.preCallback();
         this.transform.pivot.set((float) x, (float) y, (float) z);
         this.postCallback();
@@ -2081,6 +2137,13 @@ public class UIPropTransform extends UITransform
          * It gets updated outside the window only when one of mouse buttons is
          * being held! */
         GLFW.glfwGetCursorPos(Window.getWindow(), CURSOR_X, CURSOR_Y);
+
+        if (this.transform == null)
+        {
+            this.disable();
+
+            return;
+        }
 
         Minecraft mc = Minecraft.getInstance();
         int w = mc.getWindow().getScreenWidth();
@@ -2446,6 +2509,13 @@ public class UIPropTransform extends UITransform
 
     private boolean initializeRayDrag(UIContext context)
     {
+        if (this.transform == null)
+        {
+            this.rayDragInitialized = false;
+
+            return false;
+        }
+
         if (!Gizmo.INSTANCE.isDragging())
         {
             this.rayDragInitialized = false;
@@ -2772,7 +2842,7 @@ public class UIPropTransform extends UITransform
 
     private boolean applyRayDrag(UIContext context)
     {
-        if (!Gizmo.INSTANCE.isDragging())
+        if (this.transform == null || !Gizmo.INSTANCE.isDragging())
         {
             return false;
         }
@@ -3034,6 +3104,11 @@ public class UIPropTransform extends UITransform
      */
     private boolean applyTrackballDrag(UIContext context)
     {
+        if (this.transform == null)
+        {
+            return false;
+        }
+
         if (this.filmArcballTrackball)
         {
             return this.applyFilmArcballTrackballDrag(context);
@@ -3047,6 +3122,11 @@ public class UIPropTransform extends UITransform
 
     private boolean applyTrackballDragDelta(UIContext context, int dx, int dy)
     {
+        if (this.transform == null)
+        {
+            return false;
+        }
+
         if (dx != 0 || dy != 0)
         {
             Vector3f right = new Vector3f(1F, 0F, 0F);

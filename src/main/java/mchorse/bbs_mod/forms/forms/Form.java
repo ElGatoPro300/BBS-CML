@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.forms;
 
-import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -12,18 +11,15 @@ import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
-import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
-import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.forms.states.AnimationStates;
 import mchorse.bbs_mod.forms.states.StatePlayer;
 import mchorse.bbs_mod.forms.values.ValueAnchor;
 import mchorse.bbs_mod.forms.values.ValueIllusion;
-import mchorse.bbs_mod.forms.values.ValueInverseKinematics;
-import mchorse.bbs_mod.forms.values.ValueLookAt;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -31,6 +27,7 @@ import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.settings.values.misc.ValueGlowSettings;
 import mchorse.bbs_mod.settings.values.misc.ValuePaintSettings;
+import mchorse.bbs_mod.settings.values.misc.ValueShakeSettings;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
@@ -59,10 +56,9 @@ public abstract class Form extends ValueGroup
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
+    public final ValueShakeSettings shake = new ValueShakeSettings("shake", new ShakeSettings());
     public final ValueFloat uiScale = new ValueFloat("uiScale", 1F);
     public final ValueAnchor anchor = new ValueAnchor("anchor", new Anchor());
-    public final ValueLookAt lookAt = new ValueLookAt("look_at", new LookAt());
-    public final ValueInverseKinematics inverseKinematics = new ValueInverseKinematics("inverse_kinematics", new InverseKinematics());
     public final ValueBoolean shaderShadow = new ValueBoolean("shaderShadow", true);
     /**
      * When true under Iris, this form uses the clean deferred opacity path for its
@@ -78,6 +74,15 @@ public abstract class Form extends ValueGroup
     /* FS-style additive glow: glowingColor is RGB only; glowSettings controls brightness and spread */
     public final ValueColor glowingColor = new ValueColor("glowing_color", new Color().set(1F, 1F, 1F, 1F));
     public final ValueGlowSettings glowSettings = new ValueGlowSettings("glow", new GlowSettings());
+
+    /** Silhouette outline settings — a screen-space outline traced around the outer visible
+     * edge of the whole rendered form (see {@code FormOutlineRenderer} on the client). */
+    public final ValueBoolean outline = new ValueBoolean("outline", false);
+    public final ValueColor outlineColor = new ValueColor("outline_color", new Color().set(1F, 0.85F, 0F, 1F));
+    public final ValueFloat outlineThickness = new ValueFloat("outline_thickness", 2F);
+    public final ValueBoolean outlineRainbow = new ValueBoolean("outline_rainbow", false);
+    public final ValueFloat outlineRainbowSpeed = new ValueFloat("outline_rainbow_speed", 1F);
+    public final ValueFloat outlineRainbowScale = new ValueFloat("outline_rainbow_scale", 1F);
 
     /* Illusions: purely visual duplicates of this form that spread away from it in
      * the picked directions (no extra entities, so they're cheap to render) */
@@ -154,6 +159,9 @@ public abstract class Form extends ValueGroup
         this.add(this.name);
         this.add(this.transform);
         this.add(this.transformOverlay);
+        /* Hidden from form/replay timeline UI — shake returns as a 3.0 modifier instead. */
+        this.shake.invisible();
+        this.add(this.shake);
 
         for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
         {
@@ -165,20 +173,18 @@ public abstract class Form extends ValueGroup
 
         this.add(this.uiScale);
         this.add(this.anchor);
-        this.add(this.lookAt);
-        this.add(this.inverseKinematics);
         this.add(this.shaderShadow);
-
-        if (!BBSFeatures.isFormIkLookAtUiEnabled())
-        {
-            this.lookAt.invisible();
-            this.inverseKinematics.invisible();
-        }
         this.add(this.noshadingOpacity);
         this.add(this.paintColor);
         this.add(this.paintSettings);
         this.add(this.glowingColor);
         this.add(this.glowSettings);
+        this.add(this.outline);
+        this.add(this.outlineColor);
+        this.add(this.outlineThickness);
+        this.add(this.outlineRainbow);
+        this.add(this.outlineRainbowSpeed);
+        this.add(this.outlineRainbowScale);
 
         this.add(this.illusion);
         this.add(this.illusionOverlay);
@@ -508,6 +514,37 @@ public abstract class Form extends ValueGroup
             /* Drop removed render-depth feature keys from older morphs/films. */
             map.remove("render_depth");
             map.remove("render_depth_enabled");
+
+            if (map.has("shake_amount") || map.has("shake_active"))
+            {
+                ShakeSettings settings = this.shake.get().copy();
+
+                if (map.has("shake_amount"))
+                {
+                    BaseType amount = map.get("shake_amount");
+
+                    if (amount.isNumeric())
+                    {
+                        settings.shakeAmount = (float) amount.asNumeric().doubleValue();
+                    }
+
+                    map.remove("shake_amount");
+                }
+
+                if (map.has("shake_active"))
+                {
+                    settings.active = map.getInt("shake_active", settings.active);
+                    map.remove("shake_active");
+                }
+
+                if (map.has("shake") && map.get("shake").isNumeric())
+                {
+                    settings.shake = (float) map.get("shake").asNumeric().doubleValue();
+                    map.remove("shake");
+                }
+
+                this.shake.set(settings);
+            }
         }
 
         super.fromData(data);

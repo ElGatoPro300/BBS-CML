@@ -1,572 +1,327 @@
 package mchorse.bbs_mod.client.video;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
-import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.camera.clips.misc.VideoOverlay;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
-import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.Minecraft;
+import net.fabricmc.loader.api.FabricLoader;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import org.watermedia.api.player.videolan.VideoPlayer;
-import org.watermedia.videolan4j.factory.MediaPlayerFactory;
-
+/**
+ * Soft-dependency facade for WaterMedia video playback.
+ * <p>
+ * {@link WaterMediaVideoRenderer} hard-references WaterMedia APIs. Loading that class
+ * without the watermedia mod installed crashes with {@code NoClassDefFoundError}.
+ * This facade never touches {@link WaterMediaVideoRenderer} unless watermedia is present,
+ * so the rest of BBS keeps working (VideoForm falls back to ffmpeg / placeholders).
+ */
 public class VideoRenderer
 {
-    private static class PlayerWrapper
-    {
-        public VideoPlayer player;
-        public long lastBbsTime = -1;
-        public long lastSeekTime = 0;
-        public Boolean wasPlaying = null;
-        public int lastVolume = -1;
-        public Boolean lastLoops = null;
-        public long lastVideoTime = -1;
-        public long lastRenderTime = 0;
+    private static final String WATERMEDIA_MOD_ID = "watermedia";
 
-        public PlayerWrapper(VideoPlayer player)
+    private static Boolean modPresent;
+
+    public static final class FrameInfo
+    {
+        public final int textureId;
+        public final int width;
+        public final int height;
+
+        public FrameInfo(int textureId, int width, int height)
         {
-            this.player = player;
+            this.textureId = textureId;
+            this.width = width;
+            this.height = height;
         }
     }
 
-    private static final Map<String, PlayerWrapper> PLAYERS = new HashMap<>();
-    private static MediaPlayerFactory FACTORY;
-    private static boolean factoryFailed;
+    private VideoRenderer()
+    {}
 
-    public static void renderClip(PoseStack stack, Batcher2D batcher, VideoClip video, int tick, boolean isRunning, Area area, UIContext context)
+    public static boolean isModPresent()
     {
-        if (!video.enabled.get() || !video.isInside(tick))
+        if (modPresent == null)
+        {
+            modPresent = FabricLoader.getInstance().isModLoaded(WATERMEDIA_MOD_ID);
+        }
+
+        return modPresent.booleanValue();
+    }
+
+    public static boolean isAvailable()
+    {
+        if (!isModPresent())
+        {
+            return false;
+        }
+
+        try
+        {
+            return WaterMediaVideoRenderer.isAvailable();
+        }
+        catch (Throwable t)
+        {
+            return false;
+        }
+    }
+
+    public static void update()
+    {
+        if (!isModPresent())
         {
             return;
         }
 
-        Area baseArea = area;
-        int actualW = getVideoWidth(video.video.get());
-        int actualH = getVideoHeight(video.video.get());
-
-        int baseW = baseArea.w;
-        int baseH = baseArea.h;
-
-        if (actualW > 0 && actualH > 0)
-        {
-            float videoAspect = (float) actualW / actualH;
-            float areaAspect = (float) baseArea.w / baseArea.h;
-
-            if (videoAspect > areaAspect)
-            {
-                baseH = (int) (baseArea.w / videoAspect);
-            }
-            else
-            {
-                baseW = (int) (baseArea.h * videoAspect);
-            }
-        }
-
-        float widthPercent = video.width.get() / 100F;
-        float heightPercent = video.height.get() / 100F;
-
-        if (video.width.get() == 0 && video.height.get() == 0)
-        {
-            widthPercent = 1F;
-            heightPercent = 1F;
-        }
-
-        int vw = widthPercent == 0F ? 0 : Math.max(1, Math.round(baseW * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
-        int vh = heightPercent == 0F ? 0 : Math.max(1, Math.round(baseH * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
-
-        int vx = baseArea.x + (baseArea.w - vw) / 2 + video.x.get();
-        int vy = baseArea.y + (baseArea.h - vh) / 2 + video.y.get();
-
-        batcher.flush();
-
-        render(stack, batcher,
-            video.video.get(),
-            tick - video.tick.get() + video.offset.get(),
-            isRunning,
-            video.volume.get(),
-            vx, vy, vw, vh, video.opacity.get(),
-            video.cropX.get(), video.cropY.get(), video.cropWidth.get(), video.cropHeight.get(),
-            video.loops.get());
+        WaterMediaVideoRenderer.update();
     }
 
-    public static void renderClips(PoseStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
+    public static void stopAll()
     {
-        for (Clip clip : clips)
+        if (!isModPresent())
         {
-            if (clip instanceof VideoClip && clip.isInside(tick) && clip.enabled.get())
-            {
-                VideoClip video = (VideoClip) clip;
-
-                if (video.global.get() != renderGlobal)
-                {
-                    continue;
-                }
-
-                Area baseArea = (video.global.get() && globalArea != null) ? globalArea : viewport;
-                int actualW = getVideoWidth(video.video.get());
-                int actualH = getVideoHeight(video.video.get());
-
-                int baseW = baseArea.w;
-                int baseH = baseArea.h;
-
-                if (actualW > 0 && actualH > 0)
-                {
-                    float videoAspect = (float) actualW / actualH;
-                    float areaAspect = (float) baseArea.w / baseArea.h;
-
-                    if (videoAspect > areaAspect)
-                    {
-                        baseH = (int) (baseArea.w / videoAspect);
-                    }
-                    else
-                    {
-                        baseW = (int) (baseArea.h * videoAspect);
-                    }
-                }
-
-                float widthPercent = video.width.get() / 100F;
-                float heightPercent = video.height.get() / 100F;
-
-                if (video.width.get() == 0 && video.height.get() == 0)
-                {
-                    widthPercent = 1F;
-                    heightPercent = 1F;
-                }
-
-                int vw = widthPercent == 0F ? 0 : Math.max(1, Math.round(baseW * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
-                int vh = heightPercent == 0F ? 0 : Math.max(1, Math.round(baseH * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
-
-                int vx = baseArea.x + (baseArea.w - vw) / 2 + video.x.get();
-                int vy = baseArea.y + (baseArea.h - vh) / 2 + video.y.get();
-
-                if (!video.global.get() && context != null)
-                {
-                    batcher.clip(viewport, context);
-                }
-
-                render(stack, batcher,
-                    video.video.get(),
-                    tick - video.tick.get() + video.offset.get(),
-                    isRunning,
-                    video.volume.get(),
-                    vx, vy, vw, vh, video.opacity.get(),
-                    video.cropX.get(), video.cropY.get(), video.cropWidth.get(), video.cropHeight.get(),
-                    video.loops.get());
-
-                if (!video.global.get() && context != null)
-                {
-                    batcher.unclip(context);
-                }
-            }
+            return;
         }
+
+        WaterMediaVideoRenderer.stopAll();
     }
 
-    private static String resolveVideoPath(String path)
+    public static void releaseAllPlayers()
+    {
+        if (!isModPresent())
+        {
+            return;
+        }
+
+        WaterMediaVideoRenderer.releaseAllPlayers();
+    }
+
+    public static void cleanup()
+    {
+        if (!isModPresent())
+        {
+            return;
+        }
+
+        WaterMediaVideoRenderer.cleanup();
+    }
+
+    public static void releaseVideo(String path)
+    {
+        if (!isModPresent())
+        {
+            return;
+        }
+
+        WaterMediaVideoRenderer.releaseVideo(path);
+    }
+
+    public static boolean isRemoteUrl(String path)
+    {
+        if (path == null)
+        {
+            return false;
+        }
+
+        String lower = path.toLowerCase();
+
+        return lower.startsWith("http://")
+            || lower.startsWith("https://")
+            || lower.startsWith("rtmp://")
+            || lower.startsWith("rtsp://")
+            || lower.startsWith("hls://");
+    }
+
+    public static File getResolvedVideoFile(String path)
     {
         if (path == null || path.isEmpty())
         {
             return null;
         }
 
-        if (path.startsWith("external:"))
-        {
-            String raw = path.substring("external:".length()).trim();
-
-            if (raw.isEmpty())
-            {
-                return null;
-            }
-
-            File file = new File(raw);
-
-            if (!file.isAbsolute())
-            {
-                file = new File(BBSMod.getGameFolder(), raw);
-            }
-
-            return file.getAbsolutePath();
-        }
-
-        try
-        {
-            Link link = Link.create(path);
-            File file = BBSMod.getProvider().getFile(link);
-
-            if (file != null && file.exists())
-            {
-                return file.getAbsolutePath();
-            }
-        }
-        catch (Throwable ignored)
-        {}
-
-        return path;
-    }
-
-    public static File getResolvedVideoFile(String path)
-    {
-        String resolved = resolveVideoPath(path);
-
-        if (resolved == null || resolved.isEmpty())
+        if (isRemoteUrl(path))
         {
             return null;
         }
 
-        File file = new File(resolved);
+        File file = VideoFormPlayback.resolveFile(path);
 
-        return file.exists() ? file : null;
+        return file != null && file.exists() ? file : null;
     }
 
-    public static void render(PoseStack stack, Batcher2D batcher, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
+    public static void renderClip(PoseStack stack, Batcher2D batcher, VideoClip video, int tick, boolean isRunning, Area area, UIContext context)
     {
-        String resolved = resolveVideoPath(path);
-
-        if (resolved == null || resolved.isEmpty())
+        if (!isModPresent())
         {
             return;
         }
 
-        PlayerWrapper wrapper = PLAYERS.get(resolved);
-        VideoPlayer player;
+        WaterMediaVideoRenderer.renderClip(stack, batcher, video, tick, isRunning, area, context);
+    }
 
-        if (wrapper == null)
+    public static void renderClips(PoseStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
+    {
+        if (!isModPresent())
         {
-            if (factoryFailed)
-            {
-                return;
-            }
-
-            if (FACTORY == null)
-            {
-                try
-                {
-                    FACTORY = new MediaPlayerFactory(new String[] {"--avcodec-hw=none"});
-                }
-                catch (Throwable t)
-                {
-                    t.printStackTrace();
-                    factoryFailed = true;
-                    return;
-                }
-            }
-
-            player = new VideoPlayer(FACTORY, Minecraft.getInstance());
-            try
-            {
-                player.start(new File(resolved).toURI());
-                player.setVolume(volume);
-                wrapper = new PlayerWrapper(player);
-                wrapper.lastVolume = volume;
-                PLAYERS.put(resolved, wrapper);
-            }
-            catch (Exception e)
-            {
-                e.printStackTrace();
-                return;
-            }
-        }
-        else
-        {
-            player = wrapper.player;
-            if (wrapper.lastVolume != volume)
-            {
-                player.setVolume(volume);
-                wrapper.lastVolume = volume;
-            }
+            return;
         }
 
-        if (wrapper.lastLoops == null || wrapper.lastLoops != loops)
+        WaterMediaVideoRenderer.renderClips(stack, batcher, clips, tick, isRunning, viewport, globalArea, context, screenWidth, screenHeight, renderGlobal);
+    }
+
+    public static void renderOverlay(PoseStack stack, Batcher2D batcher, VideoOverlay overlay, boolean isRunning, Area viewport, int screenWidth, int screenHeight)
+    {
+        if (!isModPresent())
         {
-            player.setRepeatMode(loops);
-            wrapper.lastLoops = loops;
+            return;
         }
 
-        if (wrapper.wasPlaying == null || wrapper.wasPlaying != playing)
+        WaterMediaVideoRenderer.renderOverlay(stack, batcher, overlay, isRunning, viewport, screenWidth, screenHeight);
+    }
+
+    public static void render(PoseStack stack, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
+    {
+        if (!isModPresent())
         {
-            if (playing)
-            {
-                player.play();
-            }
-            else
-            {
-                player.pause();
-            }
-            wrapper.wasPlaying = playing;
+            return;
         }
 
-        long videoTime = player.getTime();
-        long bbsTime = position * 50;
-        long systemTime = System.currentTimeMillis();
-        wrapper.lastRenderTime = systemTime;
-        long duration = player.getDuration();
+        WaterMediaVideoRenderer.render(stack, path, position, playing, volume, x, y, w, h, opacity, cropX, cropY, cropWidth, cropHeight, loops);
+    }
 
-        if (!playing)
+    public static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume)
+    {
+        if (!isModPresent())
         {
-            if (wrapper.lastVideoTime != -1 && videoTime != wrapper.lastVideoTime)
-            {
-                if ((systemTime - wrapper.lastSeekTime) > 1000)
-                {
-                    player.pause();
-                }
-            }
-            wrapper.lastVideoTime = videoTime;
+            return null;
         }
 
-        if (loops && duration > 0)
+        return wrap(WaterMediaVideoRenderer.prepareFrame(path, tickPosition, playing, loops, volume));
+    }
+
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops)
+    {
+        if (!isModPresent())
         {
-            bbsTime = bbsTime % duration;
-            if (bbsTime < 0)
-            {
-                bbsTime += duration;
-            }
+            return null;
         }
 
-        boolean shouldSeek = false;
+        return wrap(WaterMediaVideoRenderer.prepareFormFrame(path, tickPosition, loops));
+    }
 
-        if (playing)
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq)
+    {
+        if (!isModPresent())
         {
-            /* When playing, sync only if drift is large and we haven't sought recently */
-            long diff = Math.abs(videoTime - bbsTime);
-
-            if (loops && duration > 0)
-            {
-                long loopDiff = Math.abs(diff - duration);
-                diff = Math.min(diff, loopDiff);
-            }
-
-            if (diff > 1000 && (systemTime - wrapper.lastSeekTime) > 3000)
-            {
-                shouldSeek = true;
-            }
-        }
-        else
-        {
-            /* When paused, seek only if the timeline cursor moved or if we are out of sync */
-            if (wrapper.lastBbsTime != bbsTime)
-            {
-                shouldSeek = true;
-            }
-            else if (Math.abs(videoTime - bbsTime) > 1000 && (systemTime - wrapper.lastSeekTime) > 3000)
-            {
-                shouldSeek = true;
-            }
+            return null;
         }
 
-        if (shouldSeek)
+        return wrap(WaterMediaVideoRenderer.prepareFormFrame(path, tickPosition, loops, distanceSq));
+    }
+
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide)
+    {
+        if (!isModPresent())
         {
-            player.seekTo(bbsTime);
-            wrapper.lastSeekTime = systemTime;
-            wrapper.lastBbsTime = bbsTime;
-        }
-        else if (!playing)
-        {
-            /* Update tracking even if we didn't seek, to avoid seeking on same frame later */
-            wrapper.lastBbsTime = bbsTime;
+            return null;
         }
 
-        int texture = player.texture();
+        return wrap(WaterMediaVideoRenderer.prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide));
+    }
 
-        if (texture > 0 && opacity > 0F)
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide, boolean playing, boolean filmSync)
+    {
+        if (!isModPresent())
         {
-            int vw = player.width();
-            int vh = player.height();
-
-            /* Recorte por lados (izq/arr/der/abajo) y ajuste de tamaño para evitar estirar. */
-            float left = Math.max(0F, Math.min(1F, cropX / 100F));
-            float top = Math.max(0F, Math.min(1F, cropY / 100F));
-            float right = Math.max(0F, Math.min(1F, cropWidth / 100F));
-            float bottom = Math.max(0F, Math.min(1F, cropHeight / 100F));
-
-            float u0 = left;
-            float v0 = top;
-            float u1 = 1F - right;
-            float v1 = 1F - bottom;
-
-            float cropWidthPercent = u1 - u0;
-            float cropHeightPercent = v1 - v0;
-
-            if (cropWidthPercent <= 0F || cropHeightPercent <= 0F)
-            {
-                return;
-            }
-
-            int wSign = w < 0 ? -1 : 1;
-            int hSign = h < 0 ? -1 : 1;
-            int absW = Math.abs(w);
-            int absH = Math.abs(h);
-            int drawW = Math.round(absW * cropWidthPercent) * wSign;
-            int drawH = Math.round(absH * cropHeightPercent) * hSign;
-
-            if (drawW == 0 || drawH == 0)
-            {
-                return;
-            }
-
-            /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
-            int drawX = x + Math.round(absW * left) * wSign;
-            int drawY = y + Math.round(absH * top) * hSign;
-
-            batcher.texturedBox(
-                texture,
-                Colors.setA(Colors.WHITE, Math.max(0F, Math.min(1F, opacity))),
-                drawX, drawY, drawW, drawH,
-                u0 * vw, v0 * vh, u1 * vw, v1 * vh, vw, vh);
+            return null;
         }
+
+        return wrap(WaterMediaVideoRenderer.prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide, playing, filmSync));
+    }
+
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide, boolean playing, boolean filmSync, float speed, int baseVolume)
+    {
+        if (!isModPresent())
+        {
+            return null;
+        }
+
+        return wrap(WaterMediaVideoRenderer.prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide, playing, filmSync, speed, baseVolume));
+    }
+
+    public static boolean isOtherFormVideoLive(String path)
+    {
+        if (!isModPresent())
+        {
+            return false;
+        }
+
+        return WaterMediaVideoRenderer.isOtherFormVideoLive(path);
+    }
+
+    public static FrameInfo peekFormFrame(String path)
+    {
+        if (!isModPresent())
+        {
+            return null;
+        }
+
+        return wrap(WaterMediaVideoRenderer.peekFormFrame(path));
+    }
+
+    public static FrameInfo ensureFormStillFrame(String path, long tickPosition, boolean loops)
+    {
+        if (!isModPresent())
+        {
+            return null;
+        }
+
+        return wrap(WaterMediaVideoRenderer.ensureFormStillFrame(path, tickPosition, loops));
     }
 
     public static int getVideoWidth(String path)
     {
-        String resolved = resolveVideoPath(path);
-        PlayerWrapper wrapper = resolved == null ? null : PLAYERS.get(resolved);
-        return wrapper != null && wrapper.player != null ? wrapper.player.width() : 0;
+        if (!isModPresent())
+        {
+            return 0;
+        }
+
+        return WaterMediaVideoRenderer.getVideoWidth(path);
     }
 
     public static int getVideoHeight(String path)
     {
-        String resolved = resolveVideoPath(path);
-        PlayerWrapper wrapper = resolved == null ? null : PLAYERS.get(resolved);
-        return wrapper != null && wrapper.player != null ? wrapper.player.height() : 0;
+        if (!isModPresent())
+        {
+            return 0;
+        }
+
+        return WaterMediaVideoRenderer.getVideoHeight(path);
     }
 
     public static long getVideoDuration(String path)
     {
-        String resolved = resolveVideoPath(path);
-
-        if (resolved == null || resolved.isEmpty())
+        if (!isModPresent())
         {
             return 0L;
         }
 
-        PlayerWrapper wrapper = PLAYERS.get(resolved);
-
-        if (wrapper != null && wrapper.player != null)
-        {
-            return wrapper.player.getDuration();
-        }
-
-        if (factoryFailed)
-        {
-            return 0L;
-        }
-
-        if (FACTORY == null)
-        {
-            try
-            {
-                FACTORY = new MediaPlayerFactory(new String[] {"--avcodec-hw=none"});
-            }
-            catch (Throwable t)
-            {
-                t.printStackTrace();
-                factoryFailed = true;
-                return 0L;
-            }
-        }
-
-        try
-        {
-            VideoPlayer player = new VideoPlayer(FACTORY, Minecraft.getInstance());
-            player.start(new File(resolved).toURI());
-            player.pause();
-
-            wrapper = new PlayerWrapper(player);
-            wrapper.lastRenderTime = System.currentTimeMillis();
-            wrapper.wasPlaying = false;
-            PLAYERS.put(resolved, wrapper);
-
-            return player.getDuration();
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-            return 0L;
-        }
+        return WaterMediaVideoRenderer.getVideoDuration(path);
     }
 
-    public static void releaseVideo(String path)
+    private static FrameInfo wrap(WaterMediaVideoRenderer.FrameInfo frame)
     {
-        String resolved = resolveVideoPath(path);
-
-        if (resolved != null && PLAYERS.containsKey(resolved))
+        if (frame == null)
         {
-            PlayerWrapper wrapper = PLAYERS.remove(resolved);
-
-            if (wrapper != null && wrapper.player != null)
-            {
-                wrapper.player.release();
-            }
+            return null;
         }
-    }
 
-    public static void update()
-    {
-        long now = System.currentTimeMillis();
-        List<String> toRemove = new ArrayList<>();
-        
-        for (Map.Entry<String, PlayerWrapper> entry : PLAYERS.entrySet())
-        {
-            PlayerWrapper wrapper = entry.getValue();
-            long diff = now - wrapper.lastRenderTime;
-
-            if (diff > 1000)
-            {
-                if (wrapper.wasPlaying != null && wrapper.wasPlaying)
-                {
-                    wrapper.player.pause();
-                    wrapper.wasPlaying = false;
-                }
-            }
-            
-            if (diff > 5000)
-            {
-                wrapper.player.release();
-                toRemove.add(entry.getKey());
-            }
-        }
-        
-        for (String key : toRemove)
-        {
-            PLAYERS.remove(key);
-        }
-    }
-
-    public static void stopAll()
-    {
-        for (PlayerWrapper wrapper : PLAYERS.values())
-        {
-            if (wrapper.wasPlaying != null && wrapper.wasPlaying)
-            {
-                wrapper.player.pause();
-                wrapper.wasPlaying = false;
-            }
-        }
-    }
-
-    public static void cleanup()
-    {
-        for (PlayerWrapper wrapper : PLAYERS.values())
-        {
-            wrapper.player.release();
-        }
-        
-        PLAYERS.clear();
-
-        if (FACTORY != null)
-        {
-            FACTORY.release();
-            FACTORY = null;
-        }
+        return new FrameInfo(frame.textureId, frame.width, frame.height);
     }
 }

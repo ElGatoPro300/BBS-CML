@@ -224,10 +224,10 @@ public class BOBJModelVAO
             resultNormal.set(0F, 0F, 0F);
 
             boolean allowBone = true;
-            if (stencilMap != null && stencilMap.allowedBones != null && lightBone >= 0)
+            if (stencilMap != null && lightBone >= 0)
             {
                 BOBJBone bone = this.getBoneByIndex(lightBone);
-                allowBone = bone != null && stencilMap.allowedBones.contains(bone.name);
+                allowBone = bone != null && stencilMap.isBoneAllowed(bone.name);
             }
 
             if (stencilMap != null)
@@ -409,6 +409,7 @@ public class BOBJModelVAO
             if (stencilMap != null)
             {
                 BBSUniform.set(shader, "Target", stencilMap.objectIndex);
+                BBSUniform.set(shader, "IgnoreLightmap", stencilMap.increment ? 0 : 1);
             }
 
             boolean overlayPass = ModelVAORenderer.isPaintOverlayPass() || ModelVAORenderer.isColorTintOverlayPass() || ModelVAORenderer.isColorGradeOverlayPass() || ModelVAORenderer.isGlowEmissionPass();
@@ -679,6 +680,12 @@ public class BOBJModelVAO
 
         BBSRendering.bindProgram(shader);
         ModelVAORenderer.setupUniforms(stack, shader);
+
+        if (stencilMap != null)
+        {
+            BBSUniform.set(shader, "Target", stencilMap.objectIndex);
+            BBSUniform.set(shader, "IgnoreLightmap", 0);
+        }
 
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();

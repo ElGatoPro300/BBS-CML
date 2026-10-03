@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.forms.renderers.FramebufferFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -197,16 +198,41 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         IEntity previewEntity = this.target == null ? this.entity : this.target;
         int previewLight = BBSRendering.resolveEntityBlockLight(
             previewEntity, LightTexture.pack(15, 15));
+        /* F7 / world mesh on: seed world stack like ENTITY (player/block pose) and match
+         * Framebuffer look-at to the live world draw. Orbit mesh-only keeps PREVIEW. */
+        boolean worldAlignedGizmos = !this.shouldRenderFormMesh();
+        FormRenderType previewType = worldAlignedGizmos ? FormRenderType.ENTITY : FormRenderType.PREVIEW;
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, previewEntity, this.createCameraStack(), previewLight, OverlayTexture.NO_OVERLAY, context.getTransition())
+            .set(previewType, previewEntity, this.createCameraStack(), previewLight, OverlayTexture.NO_OVERLAY, context.getTransition())
             .camera(this.camera)
             .modelRenderer()
             .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
 
+        if (worldAlignedGizmos)
+        {
+            formContext.matchWorldLookAt();
+        }
+        else
+        {
+            FramebufferFormRenderer.bindPreviewCamera(this.camera);
+        }
+
+        try
+        {
+            this.renderPickablePreview(context, formContext);
+        }
+        finally
+        {
+            FramebufferFormRenderer.unbindPreviewCamera();
+        }
+    }
+
+    private void renderPickablePreview(UIContext context, FormRenderingContext formContext)
+    {
         boolean renderMesh = this.shouldRenderFormMesh();
 
-        if (previewVisible && renderMesh)
+        if (this.isPreviewVisible() && renderMesh)
         {
             FormUtilsClient.render(this.form, formContext);
 

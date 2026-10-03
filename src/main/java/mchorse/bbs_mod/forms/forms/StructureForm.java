@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.forms;
 
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
+import mchorse.bbs_mod.forms.structure.StructureCollisionData;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.misc.ValueStructureLightSettings;
@@ -41,6 +42,7 @@ public class StructureForm extends Form
     public final ValueFloat scaleX = new ValueFloat("scale_x", 1f);
     public final ValueFloat scaleY = new ValueFloat("scale_y", 1f);
     public final ValueFloat scaleZ = new ValueFloat("scale_z", 1f);
+    public final ValueBoolean solidHitbox = new ValueBoolean("solid_hitbox", false);
 
     public StructureForm()
     {
@@ -77,6 +79,19 @@ public class StructureForm extends Form
         /* Nueva pista unificada de keyframes y ocultar pista booleana suelta */
         this.emitLight.invisible();
         this.lightIntensity.invisible();
+
+        this.solidHitbox.invisible();
+        this.add(this.solidHitbox);
+
+        /* Drop stale / unreadable collision cache when the structure path or solid toggle changes. */
+        this.structureFile.postCallback((value, flag) ->
+        {
+            StructureCollisionData.invalidate(this.structureFile.get());
+        });
+        this.solidHitbox.postCallback((value, flag) ->
+        {
+            StructureCollisionData.invalidate(this.structureFile.get());
+        });
     }
 
     @Override

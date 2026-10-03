@@ -8,6 +8,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -136,6 +138,33 @@ public class FontRenderer
         }
 
         return wrap(this.renderer, string, width);
+    }
+
+    /**
+     * Word-wraps {@code string} to {@code width}, keeping at most {@code maxLines}.
+     * If more lines would be needed, the last kept line is ellipsized with
+     * {@link #limitToWidth(String, int)}.
+     */
+    public List<String> wrapToMaxLines(String string, int width, int maxLines)
+    {
+        if (string == null || string.isEmpty() || width <= 0)
+        {
+            return Collections.emptyList();
+        }
+
+        int limit = Math.max(1, maxLines);
+        List<String> lines = this.wrap(string, width);
+
+        if (lines.size() <= limit)
+        {
+            return lines;
+        }
+
+        List<String> limited = new ArrayList<>(lines.subList(0, limit));
+
+        limited.set(limit - 1, this.limitToWidth(limited.get(limit - 1), width));
+
+        return limited;
     }
 
     public String limitToWidth(String str, int width)

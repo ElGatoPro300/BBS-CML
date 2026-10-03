@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormSectionExpand;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
@@ -116,6 +117,7 @@ public final class UIFormColorLayout
      * The first Extra open in a session snaps Color grade open (no nested
      * animation) so Extra's height animation includes that content; later
      * Extra toggles keep the user's Color grade collapsed/expanded choice.
+     * Expand state is persisted via {@link UIFormSectionExpand#SHARED_EXTRA}.
      */
     public static UIFormDisclosureCollapse createExtraSection(UIElement... children)
     {
@@ -136,6 +138,6 @@ public final class UIFormColorLayout
             }
         });
 
-        return section;
+        return UIFormSectionExpand.bind(section, UIFormSectionExpand.SHARED_EXTRA);
     }
 }

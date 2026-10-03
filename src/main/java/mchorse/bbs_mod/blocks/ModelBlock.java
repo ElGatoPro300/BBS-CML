@@ -3,6 +3,7 @@ package mchorse.bbs_mod.blocks;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.core.BlockPos;
@@ -117,6 +118,12 @@ public class ModelBlock extends Block implements EntityBlock, SimpleWaterloggedB
     }
 
     @Override
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context)
+    {
+        return Shapes.block();
+    }
+
+    @Override
     public VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context)
     {
         try
@@ -125,8 +132,20 @@ public class ModelBlock extends Block implements EntityBlock, SimpleWaterloggedB
             {
                 BlockEntity be = w.getBlockEntity(pos);
 
-                if (be instanceof ModelBlockEntity model && model.getProperties().isHitbox())
+                if (be instanceof ModelBlockEntity model)
                 {
+                    if (model.getProperties().isHitbox())
+                    {
+                        /* Soft empty only when custom voxels are ready; otherwise keep a cube so
+                         * enabling solid hitbox cannot make the block fully passable. */
+                        if (ModelBlockSolidCollisions.hasSolidCollisionGeometry(model))
+                        {
+                            return Shapes.empty();
+                        }
+
+                        return Shapes.block();
+                    }
+
                     Form form = model.getProperties().getForm();
 
                     if (form != null && form.hitbox.get())
